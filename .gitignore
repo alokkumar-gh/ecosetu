@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Android Build Outputs
+mobile/android/.gradle/
+mobile/android/app/build/
+*.apk
+*.aab
+
+# Environment Keys & Secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+*service-account*.json
+*-firebase-adminsdk-*.json
+*credentials*.json
+*.pem
+*.key
+mobile/android/app/google-services.json
+!mobile/android/app/google-services.json.example
+*.keystore
+*.jks
+
+# Backend Uploads
+backend/uploads/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+.kilo/
+
+# Logs
+*.log
+
+# AI Training Artifacts
+ai/training/runs/
+ai/training/dataset/
+

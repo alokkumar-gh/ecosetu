@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log
+.env
+.env.*
+!.env.*.example
+*.log
+tests
+uploads
+.git
+.gitignore
+.vscode
+.idea

@@ -1,0 +1,158 @@
+// EcoSetu Collector Service
+// Canonical Reference: docs/10_BACKEND_ARCHITECTURE.md Section 5.3, docs/05_API_SPECIFICATION.md Section 4
+
+const prisma = require('../config/database');
+const AppError = require('../utils/AppError');
+
+class CollectorService {
+  static USER_INCLUDE_FIELDS = {
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      phone: true,
+      role: true,
+      status: true,
+      avatarUrl: true,
+    },
+  };
+
+  /**
+   * Get collector profile by user ID
+   * @param {string} userId - User UUID
+   * @returns {Promise<object>} Collector profile with user data
+   */
+  async getProfile(userId) {
+    const profile = await prisma.collectorProfile.findUnique({
+      where: { userId },
+      include: {
+        user: CollectorService.USER_INCLUDE_FIELDS,
+      },
+    });
+
+    if (!profile) {
+      throw AppError.notFound('Collector profile not found');
+    }
+
+    return profile;
+  }
+
+  /**
+   * Create or update collector profile
+   * @param {string} userId - User UUID
+   * @param {object} profileData - Profile details
+   * @returns {Promise<object>} Upserted profile
+   */
+  async upsertProfile(userId, { serviceAreaLat, serviceAreaLng, serviceRadiusKm, bio }) {
+    const data = {};
+
+    if (serviceAreaLat !== undefined) {
+      data.serviceAreaLat = serviceAreaLat !== null ? serviceAreaLat : null;
+    }
+    if (serviceAreaLng !== undefined) {
+      data.serviceAreaLng = serviceAreaLng !== null ? serviceAreaLng : null;
+    }
+    if (serviceRadiusKm !== undefined) {
+      data.serviceRadiusKm = serviceRadiusKm !== null ? serviceRadiusKm : 5.0;
+    }
+    if (bio !== undefined) {
+      data.bio = bio ? bio.trim() : null;
+    }
+
+    const profile = await prisma.collectorProfile.upsert({
+      where: { userId },
+      create: {
+        userId,
+        ...data,
+      },
+      update: data,
+      include: {
+        user: CollectorService.USER_INCLUDE_FIELDS,
+      },
+    });
+
+    return profile;
+  }
+
+  /**
+   * Toggle collector availability
+   * @param {string} userId - User UUID
+   * @param {boolean} isAvailable - Availability state
+   * @returns {Promise<object>} Updated profile
+   */
+  async toggleAvailability(userId, isAvailable) {
+    const existing = await prisma.collectorProfile.findUnique({
+      where: { userId },
+    });
+
+    if (!existing) {
+      throw AppError.notFound('Collector profile not found');
+    }
+
+    const profile = await prisma.collectorProfile.update({
+      where: { userId },
+      data: { isAvailable },
+      include: {
+        user: CollectorService.USER_INCLUDE_FIELDS,
+      },
+    });
+
+    return profile;
+  }
+
+  /**
+   * Get collector statistics
+   * Canonical Reference: docs/05_API_SPECIFICATION.md Section 4, docs/06_ROLES_AND_PERMISSIONS.md
+   * @param {string} userId - Authenticated user UUID
+   * @returns {Promise<object>} Collector stats
+   */
+  async getCollectorStats(userId) {
+    const profile = await prisma.collectorProfile.findUnique({
+      where: { userId },
+    });
+
+    if (!profile) {
+      throw AppError.notFound('Collector profile not found');
+    }
+
+    const [totalPickups, pickupWeightAgg, totalConsignments, activeRequests] = await Promise.all([
+      prisma.pickup.count({
+        where: {
+          collectorId: profile.id,
+          status: 'COMPLETED',
+        },
+      }),
+      prisma.pickup.aggregate({
+        where: {
+          collectorId: profile.id,
+          status: 'COMPLETED',
+        },
+        _sum: { totalWeightKg: true },
+      }),
+      prisma.consignment.count({
+        where: {
+          collectorId: profile.id,
+        },
+      }),
+      prisma.collectionRequest.count({
+        where: {
+          collectorId: profile.id,
+          status: { in: ['ACCEPTED', 'PICKUP_SCHEDULED'] },
+        },
+      }),
+    ]);
+
+    const totalWeightKg = pickupWeightAgg?._sum?.totalWeightKg
+      ? parseFloat(Number(pickupWeightAgg._sum.totalWeightKg).toFixed(2))
+      : 0;
+
+    return {
+      totalPickups,
+      totalWeightKg,
+      totalConsignments,
+      activeRequests,
+    };
+  }
+}
+
+module.exports = new CollectorService();

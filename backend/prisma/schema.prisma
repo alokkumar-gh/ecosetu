@@ -1,0 +1,431 @@
+// EcoSetu Prisma Schema
+// Canonical Reference: docs/04_DATABASE_SCHEMA.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum UserRole {
+  CITIZEN
+  INFORMAL_COLLECTOR
+  RECYCLER
+  ADMIN
+
+  @@map("user_role")
+}
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+
+  @@map("user_status")
+}
+
+enum EwasteCategory {
+  MOBILE_PHONE
+  LAPTOP
+  DESKTOP
+  TABLET
+  MONITOR
+  PRINTER
+  KEYBOARD_MOUSE
+  CABLE_CHARGER
+  BATTERY
+  CIRCUIT_BOARD
+  OTHER
+
+  @@map("ewaste_category")
+}
+
+enum ItemCondition {
+  WORKING
+  NOT_WORKING
+  DAMAGED
+  UNKNOWN
+
+  @@map("item_condition")
+}
+
+enum ItemStatus {
+  SUBMITTED
+  COLLECTED
+  CONSIGNED
+  RECYCLED
+
+  @@map("item_status")
+}
+
+enum RequestStatus {
+  DRAFT
+  SUBMITTED
+  ACCEPTED
+  PICKUP_SCHEDULED
+  PICKED_UP
+  CANCELLED
+  EXPIRED
+
+  @@map("request_status")
+}
+
+enum PickupStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
+
+  @@map("pickup_status")
+}
+
+enum ConsignmentStatus {
+  CREATED
+  IN_TRANSIT
+  DELIVERED
+  ACCEPTED
+  REJECTED
+
+  @@map("consignment_status")
+}
+
+enum RecyclingStatus {
+  RECEIVED
+  PROCESSING
+  COMPLETED
+
+  @@map("recycling_status")
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("verification_status")
+}
+
+// ==========================================
+// MODELS
+// ==========================================
+
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  email        String     @unique @db.VarChar(255)
+  passwordHash String     @map("password_hash") @db.VarChar(255)
+  name         String     @db.VarChar(100)
+  phone        String?    @db.VarChar(15)
+  role         UserRole
+  status       UserStatus @default(PENDING_VERIFICATION)
+  avatarUrl    String?    @map("avatar_url") @db.VarChar(500)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  collectorProfile      CollectorProfile?
+  recyclerProfile       RecyclerProfile?
+  collectionRequests    CollectionRequest[] @relation("CitizenRequests")
+  ewasteItems           EwasteItem[]        @relation("CitizenItems")
+  verifications         Verification[]      @relation("UserVerifications")
+  reviewedVerifications Verification[]      @relation("AdminReviewedVerifications")
+  notifications         Notification[]      @relation("UserNotifications")
+  deviceTokens          DeviceToken[]       @relation("UserDeviceTokens")
+  auditLogs             AuditLog[]          @relation("ActorAuditLogs")
+
+  @@index([role], map: "idx_users_role")
+  @@index([status], map: "idx_users_status")
+  @@map("users")
+}
+
+model CollectorProfile {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @unique @map("user_id") @db.Uuid
+  serviceAreaLat  Decimal? @map("service_area_lat") @db.Decimal(10, 7)
+  serviceAreaLng  Decimal? @map("service_area_lng") @db.Decimal(10, 7)
+  serviceRadiusKm Decimal? @default(5.00) @map("service_radius_km") @db.Decimal(5, 2)
+  idDocumentUrl   String?  @map("id_document_url") @db.VarChar(500)
+  bio             String?  @db.Text
+  isAvailable     Boolean  @default(true) @map("is_available")
+  totalPickups    Int      @default(0) @map("total_pickups")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collectionRequests CollectionRequest[] @relation("CollectorAssignedRequests")
+  pickups            Pickup[]            @relation("CollectorPickups")
+  consignments       Consignment[]       @relation("CollectorConsignments")
+
+  @@index([isAvailable], map: "idx_cp_available")
+  @@index([serviceAreaLat, serviceAreaLng], map: "idx_cp_location")
+  @@map("collector_profiles")
+}
+
+model RecyclerProfile {
+  id                 String   @id @default(uuid()) @db.Uuid
+  userId             String   @unique @map("user_id") @db.Uuid
+  facilityName       String   @map("facility_name") @db.VarChar(200)
+  facilityAddress    String   @map("facility_address") @db.Text
+  facilityLat        Decimal? @map("facility_lat") @db.Decimal(10, 7)
+  facilityLng        Decimal? @map("facility_lng") @db.Decimal(10, 7)
+  licenseNumber      String?  @map("license_number") @db.VarChar(100)
+  licenseDocumentUrl String?  @map("license_document_url") @db.VarChar(500)
+  acceptedCategories String[] @default([]) @map("accepted_categories")
+  totalConsignments  Int      @default(0) @map("total_consignments")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  consignments     Consignment[]     @relation("RecyclerConsignments")
+  recyclingRecords RecyclingRecord[] @relation("RecyclerRecords")
+
+  @@index([facilityLat, facilityLng], map: "idx_rp_location")
+  @@map("recycler_profiles")
+}
+
+model EwasteItem {
+  id                  String         @id @default(uuid()) @db.Uuid
+  collectionRequestId String?        @map("collection_request_id") @db.Uuid
+  citizenId           String         @map("citizen_id") @db.Uuid
+  category            EwasteCategory
+  description         String?        @db.Text
+  quantity            Int            @default(1)
+  condition           ItemCondition  @default(UNKNOWN)
+  estimatedWeightKg   Decimal?       @map("estimated_weight_kg") @db.Decimal(8, 2)
+  actualWeightKg      Decimal?       @map("actual_weight_kg") @db.Decimal(8, 2)
+  imageUrl            String?        @map("image_url") @db.VarChar(500)
+  status              ItemStatus     @default(SUBMITTED)
+  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  collectionRequest CollectionRequest? @relation("RequestItems", fields: [collectionRequestId], references: [id], onDelete: SetNull)
+  citizen           User               @relation("CitizenItems", fields: [citizenId], references: [id], onDelete: Restrict)
+  aiPredictions     AiPrediction[]     @relation("ItemAiPredictions")
+  consignmentItems  ConsignmentItem[]  @relation("ItemConsignments")
+
+  @@index([collectionRequestId], map: "idx_ei_request")
+  @@index([citizenId], map: "idx_ei_citizen")
+  @@index([category], map: "idx_ei_category")
+  @@index([status], map: "idx_ei_status")
+  @@map("ewaste_items")
+}
+
+model CollectionRequest {
+  id                 String        @id @default(uuid()) @db.Uuid
+  citizenId          String        @map("citizen_id") @db.Uuid
+  status             RequestStatus @default(DRAFT)
+  pickupAddress      String        @map("pickup_address") @db.Text
+  pickupLat          Decimal       @map("pickup_lat") @db.Decimal(10, 7)
+  pickupLng          Decimal       @map("pickup_lng") @db.Decimal(10, 7)
+  preferredDate      DateTime?     @map("preferred_date") @db.Date
+  preferredTimeStart DateTime?     @map("preferred_time_start") @db.Time
+  preferredTimeEnd   DateTime?     @map("preferred_time_end") @db.Time
+  notes              String?       @db.Text
+  collectorId        String?       @map("collector_id") @db.Uuid
+  submittedAt        DateTime?     @map("submitted_at") @db.Timestamptz(6)
+  acceptedAt         DateTime?     @map("accepted_at") @db.Timestamptz(6)
+  completedAt        DateTime?     @map("completed_at") @db.Timestamptz(6)
+  cancelledAt        DateTime?     @map("cancelled_at") @db.Timestamptz(6)
+  cancellationReason String?       @map("cancellation_reason") @db.Text
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  citizen     User              @relation("CitizenRequests", fields: [citizenId], references: [id], onDelete: Restrict)
+  collector   CollectorProfile? @relation("CollectorAssignedRequests", fields: [collectorId], references: [id], onDelete: SetNull)
+  ewasteItems EwasteItem[]      @relation("RequestItems")
+  pickup      Pickup?           @relation("RequestPickup")
+
+  @@index([citizenId], map: "idx_cr_citizen")
+  @@index([status], map: "idx_cr_status")
+  @@index([collectorId], map: "idx_cr_collector")
+  @@index([pickupLat, pickupLng], map: "idx_cr_location")
+  @@map("collection_requests")
+}
+
+model Pickup {
+  id                  String       @id @default(uuid()) @db.Uuid
+  collectionRequestId String       @unique @map("collection_request_id") @db.Uuid
+  collectorId         String       @map("collector_id") @db.Uuid
+  status              PickupStatus @default(SCHEDULED)
+  scheduledDate       DateTime?    @map("scheduled_date") @db.Date
+  startedAt           DateTime?    @map("started_at") @db.Timestamptz(6)
+  completedAt         DateTime?    @map("completed_at") @db.Timestamptz(6)
+  totalWeightKg       Decimal?     @map("total_weight_kg") @db.Decimal(8, 2)
+  pickupPhotoUrl      String?      @map("pickup_photo_url") @db.VarChar(500)
+  collectorNotes      String?      @map("collector_notes") @db.Text
+  createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  collectionRequest CollectionRequest @relation("RequestPickup", fields: [collectionRequestId], references: [id], onDelete: Restrict)
+  collector         CollectorProfile  @relation("CollectorPickups", fields: [collectorId], references: [id], onDelete: Restrict)
+
+  @@index([collectorId], map: "idx_p_collector")
+  @@index([status], map: "idx_p_status")
+  @@map("pickups")
+}
+
+model Consignment {
+  id              String            @id @default(uuid()) @db.Uuid
+  collectorId     String            @map("collector_id") @db.Uuid
+  recyclerId      String            @map("recycler_id") @db.Uuid
+  status          ConsignmentStatus @default(CREATED)
+  totalWeightKg   Decimal?          @map("total_weight_kg") @db.Decimal(8, 2)
+  totalItems      Int               @default(0) @map("total_items")
+  deliveryNotes   String?           @map("delivery_notes") @db.Text
+  deliveredAt     DateTime?         @map("delivered_at") @db.Timestamptz(6)
+  acceptedAt      DateTime?         @map("accepted_at") @db.Timestamptz(6)
+  rejectedAt      DateTime?         @map("rejected_at") @db.Timestamptz(6)
+  rejectionReason String?           @map("rejection_reason") @db.Text
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  collector        CollectorProfile  @relation("CollectorConsignments", fields: [collectorId], references: [id], onDelete: Restrict)
+  recycler         RecyclerProfile   @relation("RecyclerConsignments", fields: [recyclerId], references: [id], onDelete: Restrict)
+  consignmentItems ConsignmentItem[] @relation("ConsignmentItemsList")
+  recyclingRecord  RecyclingRecord?  @relation("ConsignmentRecyclingRecord")
+
+  @@index([collectorId], map: "idx_con_collector")
+  @@index([recyclerId], map: "idx_con_recycler")
+  @@index([status], map: "idx_con_status")
+  @@map("consignments")
+}
+
+model ConsignmentItem {
+  id            String   @id @default(uuid()) @db.Uuid
+  consignmentId String   @map("consignment_id") @db.Uuid
+  ewasteItemId  String   @map("ewaste_item_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  consignment Consignment @relation("ConsignmentItemsList", fields: [consignmentId], references: [id], onDelete: Cascade)
+  ewasteItem  EwasteItem  @relation("ItemConsignments", fields: [ewasteItemId], references: [id], onDelete: Restrict)
+
+  @@unique([consignmentId, ewasteItemId])
+  @@index([consignmentId], map: "idx_ci_consignment")
+  @@index([ewasteItemId], map: "idx_ci_item")
+  @@map("consignment_items")
+}
+
+model RecyclingRecord {
+  id                       String          @id @default(uuid()) @db.Uuid
+  consignmentId            String          @unique @map("consignment_id") @db.Uuid
+  recyclerId               String          @map("recycler_id") @db.Uuid
+  status                   RecyclingStatus @default(RECEIVED)
+  processingNotes          String?         @map("processing_notes") @db.Text
+  outputDescription        String?         @map("output_description") @db.Text
+  outputWeightKg           Decimal?        @map("output_weight_kg") @db.Decimal(8, 2)
+  completionCertificateUrl String?         @map("completion_certificate_url") @db.VarChar(500)
+  receivedAt               DateTime        @default(now()) @map("received_at") @db.Timestamptz(6)
+  processingStartedAt      DateTime?       @map("processing_started_at") @db.Timestamptz(6)
+  completedAt              DateTime?       @map("completed_at") @db.Timestamptz(6)
+  createdAt                DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  consignment Consignment     @relation("ConsignmentRecyclingRecord", fields: [consignmentId], references: [id], onDelete: Restrict)
+  recycler    RecyclerProfile @relation("RecyclerRecords", fields: [recyclerId], references: [id], onDelete: Restrict)
+
+  @@index([recyclerId], map: "idx_rr_recycler")
+  @@index([status], map: "idx_rr_status")
+  @@map("recycling_records")
+}
+
+model AiPrediction {
+  id                    String          @id @default(uuid()) @db.Uuid
+  ewasteItemId          String          @map("ewaste_item_id") @db.Uuid
+  imageUrl              String          @map("image_url") @db.VarChar(500)
+  predictedCategory     EwasteCategory  @map("predicted_category")
+  confidence            Decimal         @db.Decimal(5, 4)
+  allPredictions        Json?           @map("all_predictions")
+  modelVersion          String          @map("model_version") @db.VarChar(50)
+  wasAccepted           Boolean?        @map("was_accepted")
+  userCorrectedCategory EwasteCategory? @map("user_corrected_category")
+  inferenceTimeMs       Int?            @map("inference_time_ms")
+  createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  ewasteItem EwasteItem @relation("ItemAiPredictions", fields: [ewasteItemId], references: [id], onDelete: Cascade)
+
+  @@index([ewasteItemId], map: "idx_ap_item")
+  @@index([wasAccepted], map: "idx_ap_accepted")
+  @@map("ai_predictions")
+}
+
+model Verification {
+  id          String             @id @default(uuid()) @db.Uuid
+  userId      String             @map("user_id") @db.Uuid
+  status      VerificationStatus @default(PENDING)
+  documentUrl String?            @map("document_url") @db.VarChar(500)
+  submittedAt DateTime           @default(now()) @map("submitted_at") @db.Timestamptz(6)
+  reviewedAt  DateTime?          @map("reviewed_at") @db.Timestamptz(6)
+  reviewedBy  String?            @map("reviewed_by") @db.Uuid
+  reviewNotes String?            @map("review_notes") @db.Text
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user     User  @relation("UserVerifications", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("AdminReviewedVerifications", fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  @@index([userId], map: "idx_v_user")
+  @@index([status], map: "idx_v_status")
+  @@map("verifications")
+}
+
+model Notification {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  type          String   @db.VarChar(50)
+  title         String   @db.VarChar(200)
+  message       String   @db.Text
+  isRead        Boolean  @default(false) @map("is_read")
+  referenceType String?  @map("reference_type") @db.VarChar(50)
+  referenceId   String?  @map("reference_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "idx_n_user")
+  @@index([userId, isRead], map: "idx_n_read")
+  @@index([createdAt], map: "idx_n_created")
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  action     String   @db.VarChar(100)
+  entityType String   @map("entity_type") @db.VarChar(50)
+  entityId   String   @map("entity_id") @db.Uuid
+  details    Json?
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  actor User? @relation("ActorAuditLogs", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId], map: "idx_al_actor")
+  @@index([action], map: "idx_al_action")
+  @@index([entityType, entityId], map: "idx_al_entity")
+  @@index([createdAt], map: "idx_al_created")
+  @@map("audit_logs")
+}
+
+model DeviceToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique @db.VarChar(500)
+  platform  String   @default("android") @db.VarChar(20)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation("UserDeviceTokens", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "idx_dt_user")
+  @@index([userId, isActive], map: "idx_dt_active")
+  @@map("device_tokens")
+}
+

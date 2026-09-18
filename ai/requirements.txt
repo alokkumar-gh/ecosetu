@@ -1,0 +1,12 @@
+# Production Inference Dependencies
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+pydantic>=2.0.0
+python-multipart>=0.0.9
+httpx>=0.25.0
+pytest>=7.0.0
+
+# Future YOLOv8 Model Training & Evaluation Dependencies
+ultralytics>=8.0.0
+PyYAML>=6.0
+Pillow>=9.0.0

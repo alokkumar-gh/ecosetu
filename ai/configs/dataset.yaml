@@ -1,0 +1,27 @@
+# EcoSetu YOLOv8 Dataset Configuration
+# Canonical Reference: docs/11_AI_EWASTE_DETECTION.md Section 2, docs/12_AI_TRAINING_PLAN.md Section 4
+
+# Path to dataset root (local placeholder - prepared dataset goes here)
+path: ../datasets/processed
+
+# Dataset split subdirectories relative to 'path'
+train: train
+val: val
+test: test
+
+# Number of classes
+nc: 10
+
+# Canonical class names documented in docs/11_AI_EWASTE_DETECTION.md and docs/12_AI_TRAINING_PLAN.md
+# Note: 'OTHER' is a catch-all in application logic, not an active classification training target.
+names:
+  0: MOBILE_PHONE
+  1: LAPTOP
+  2: DESKTOP
+  3: TABLET
+  4: MONITOR
+  5: PRINTER
+  6: KEYBOARD_MOUSE
+  7: CABLE_CHARGER
+  8: BATTERY
+  9: CIRCUIT_BOARD

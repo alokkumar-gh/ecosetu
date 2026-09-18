@@ -1,0 +1,2 @@
+# Preserves models directory for future trained weights
+# Expected target artifact: ewaste_classifier_v1.0.pt

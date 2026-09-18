@@ -1,0 +1,65 @@
+rules_version = '2';
+
+// EcoSetu Firebase Storage Security Rules
+// Canonical Reference: docs/15_DEPLOYMENT_GUIDE.md Section 5, docs/13_SECURITY_PRIVACY.md Section 6
+//
+// Enforces:
+// 1. Mandatory authentication for all write and read access.
+// 2. Strict file size boundaries (5MB max for images, 10MB max for verification PDFs).
+// 3. Strict MIME-type validation (JPEG, PNG, WebP for images; PDF for documents).
+// 4. Scoped ownership namespaces so users cannot overwrite or tamper with other users' media.
+// 5. Default denial for all other paths.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Security predicate: User must be signed into Firebase Authentication
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Security predicate: Requesting user must own the path namespace
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Validation predicate: Standard image formats and max 5MB size limit
+    function isValidImage() {
+      return request.resource != null
+        && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+
+    // Validation predicate: Verification document formats and max 10MB size limit
+    function isValidVerificationDoc() {
+      return request.resource != null
+        && request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)|application/pdf');
+    }
+
+    // Default Deny: All unmatched paths are strictly closed
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // Citizen E-Waste Item Photos: /ewaste/{userId}/{itemId}/{fileName}
+    // Only the authenticated citizen owning the namespace can upload images
+    match /ewaste/{userId}/{itemId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) && isValidImage();
+    }
+
+    // Collector Pickup Confirmation Photos: /pickups/{collectorId}/{pickupId}/{fileName}
+    match /pickups/{collectorId}/{pickupId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(collectorId) && isValidImage();
+    }
+
+    // Verification Identity / Facility Documents: /verifications/{userId}/{docId}/{fileName}
+    // Private by default: only the owning user can read/write their submitted documentation
+    match /verifications/{userId}/{docId}/{fileName} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId) && isValidVerificationDoc();
+    }
+  }
+}

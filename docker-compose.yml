@@ -1,0 +1,79 @@
+# EcoSetu Production Topology Orchestration (Local Simulation / Deployment)
+# Canonical Reference: docs/15_DEPLOYMENT_GUIDE.md, docs/02_SYSTEM_ARCHITECTURE.md
+
+version: '3.8'
+
+services:
+  # 1. Authoritative Relational Database
+  db:
+    image: postgres:15-alpine
+    container_name: ecosetu-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-ecosetu_dev}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-ecosetu_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. AI E-Waste Classification Microservice
+  ai:
+    build:
+      context: ./ai
+      dockerfile: Dockerfile
+    container_name: ecosetu-ai
+    restart: unless-stopped
+    environment:
+      PORT: 8000
+      HOST: 0.0.0.0
+      MODEL_VERSION: v1.0
+      MODEL_DIR: /app/models
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # 3. Authoritative Node.js + Express REST API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ecosetu-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      ai:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-ecosetu_dev}?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210}
+      JWT_ACCESS_EXPIRY: 15m
+      JWT_REFRESH_EXPIRY: 7d
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      AI_SERVICE_URL: http://ai:8000
+      LOG_LEVEL: info
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  postgres_data:
+    driver: local

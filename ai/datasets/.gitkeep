@@ -1,0 +1,2 @@
+# Preserves datasets directory for future training/validation data
+# Expected subdirectories: raw/ and processed/

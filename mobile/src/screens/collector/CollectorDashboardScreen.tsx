@@ -1,0 +1,978 @@
+/**
+ * CollectorDashboardScreen
+ * Authenticated INFORMAL_COLLECTOR — Home / Dashboard screen.
+ *
+ * ECOSETU Business Chain: CITIZEN → LOCAL INFORMAL COLLECTOR / KABADIWALA → FORMAL RECYCLER
+ *
+ * This screen:
+ *   - Displays collector greeting, verification/status state
+ *   - Shows availability toggle (PATCH /api/v1/collectors/availability)
+ *   - Shows key metrics (GET /api/v1/collectors/stats):
+ *       totalPickups, totalWeightKg, totalConsignments, activeRequests
+ *   - Shows available citizen collection requests (GET /api/v1/collection-requests/available)
+ *       with backend-applied privacy masking (approximate location only)
+ *   - Provides Accept action for each available request (POST /api/v1/collection-requests/:id/accept)
+ *       server-authoritative, 409-conflict-aware, offline-blocked
+ *   - Shows active pickups summary (GET /api/v1/pickups)
+ *   - Handles unverified collector state (checkVerified middleware)
+ *   - Does NOT expose exact citizen address, email, phone, or coordinates
+ *   - Does NOT implement consignment, recycler discovery, or Citizen→Recycler paths
+ *
+ * Source of Truth:
+ *   docs/05_API_SPECIFICATION.md Sections 4, 7, 8
+ *   docs/06_ROLES_AND_PERMISSIONS.md
+ *   docs/07_BUSINESS_WORKFLOWS.md Section 2
+ *   docs/08_UI_UX_SPECIFICATION.md
+ *   docs/09_FRONTEND_ARCHITECTURE.md
+ *   docs/13_SECURITY_PRIVACY.md
+ */
+
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  SafeAreaView,
+  Alert,
+  ActivityIndicator,
+  RefreshControl,
+  FlatList,
+  Switch,
+  Platform,
+} from 'react-native';
+import { useAuth } from '../../hooks/useAuth';
+import { useNetwork } from '../../hooks/useNetwork';
+import { TopAppBar } from '../../components/layout/TopAppBar';
+import { MetricCard } from '../../components/common/MetricCard';
+import { Skeleton } from '../../components/common/Skeleton';
+import { EmptyState } from '../../components/common/EmptyState';
+import { OfflineBanner } from '../../components/common/OfflineBanner';
+import { StatusBadge } from '../../components/common/StatusBadge';
+import { collectorService } from '../../services/collectorService';
+import { colors } from '../../theme/colors';
+import { spacing } from '../../theme/spacing';
+import { typography } from '../../theme/typography';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+/** Canonical UserStatus from Prisma schema */
+const USER_STATUS = Object.freeze({
+  PENDING_VERIFICATION: 'PENDING_VERIFICATION',
+  ACTIVE: 'ACTIVE',
+  SUSPENDED: 'SUSPENDED',
+  DEACTIVATED: 'DEACTIVATED',
+});
+
+/** Canonical RequestStatus from Prisma schema */
+const REQUEST_STATUS = Object.freeze({
+  SUBMITTED: 'SUBMITTED',
+  ACCEPTED: 'ACCEPTED',
+  PICKUP_SCHEDULED: 'PICKUP_SCHEDULED',
+  PICKED_UP: 'PICKED_UP',
+  CANCELLED: 'CANCELLED',
+  EXPIRED: 'EXPIRED',
+});
+
+/** Canonical PickupStatus from Prisma schema */
+const PICKUP_STATUS = Object.freeze({
+  SCHEDULED: 'SCHEDULED',
+  IN_PROGRESS: 'IN_PROGRESS',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED',
+  CANCELLED: 'CANCELLED',
+});
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const fmtDate = (iso?: string | null): string => {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch { return '—'; }
+};
+
+const fmtWeight = (kg?: number | null): string => {
+  if (kg == null) return '—';
+  return `${kg.toFixed(1)} kg`;
+};
+
+const getPickupStatusColor = (status: string): string => {
+  switch (status) {
+    case PICKUP_STATUS.SCHEDULED:   return colors.warning;
+    case PICKUP_STATUS.IN_PROGRESS: return colors.secondary;
+    case PICKUP_STATUS.COMPLETED:   return colors.success;
+    case PICKUP_STATUS.FAILED:      return colors.error;
+    case PICKUP_STATUS.CANCELLED:   return colors.textSecondary;
+    default: return colors.textSecondary;
+  }
+};
+
+const getPickupStatusLabel = (status: string): string => {
+  switch (status) {
+    case PICKUP_STATUS.SCHEDULED:   return 'Scheduled';
+    case PICKUP_STATUS.IN_PROGRESS: return 'In Progress';
+    case PICKUP_STATUS.COMPLETED:   return 'Completed';
+    case PICKUP_STATUS.FAILED:      return 'Failed';
+    case PICKUP_STATUS.CANCELLED:   return 'Cancelled';
+    default: return status || '—';
+  }
+};
+
+const countItems = (ewasteItems: any[]): number =>
+  Array.isArray(ewasteItems) ? ewasteItems.reduce((sum, i) => sum + (i.quantity || 1), 0) : 0;
+
+const summarizeCategories = (ewasteItems: any[]): string => {
+  if (!Array.isArray(ewasteItems) || ewasteItems.length === 0) return '—';
+  const cats = [...new Set(ewasteItems.map((i) => fmtCategory(i.category)))];
+  return cats.slice(0, 2).join(', ') + (cats.length > 2 ? ` +${cats.length - 2}` : '');
+};
+
+const fmtCategory = (cat: string): string => {
+  if (!cat) return '—';
+  return cat.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+};
+
+const totalEstWeight = (ewasteItems: any[]): string => {
+  if (!Array.isArray(ewasteItems) || ewasteItems.length === 0) return '—';
+  const total = ewasteItems.reduce((sum, i) => {
+    const w = parseFloat(i.estimatedWeightKg);
+    return sum + (isNaN(w) ? 0 : w);
+  }, 0);
+  return total > 0 ? `~${total.toFixed(1)} kg est.` : '—';
+};
+
+// ─── Dashboard Skeleton ───────────────────────────────────────────────────────
+
+const DashboardSkeleton: React.FC = () => (
+  <View style={skeletonStyles.wrapper}>
+    {/* Header */}
+    <View style={skeletonStyles.headerCard}>
+      <Skeleton width={56} height={56} borderRadius={28} />
+      <View style={{ flex: 1, marginLeft: spacing.spaceSm }}>
+        <Skeleton height={18} width="60%" style={{ marginBottom: 6 }} />
+        <Skeleton height={14} width="40%" />
+      </View>
+    </View>
+    {/* Metrics row */}
+    <View style={skeletonStyles.metricsRow}>
+      {[0, 1, 2, 3].map((i) => (
+        <Skeleton key={i} width="22%" height={100} borderRadius={8} />
+      ))}
+    </View>
+    {/* Section header */}
+    <Skeleton height={16} width="50%" style={skeletonStyles.sectionLabel} />
+    {/* Request cards */}
+    {[0, 1].map((i) => (
+      <Skeleton key={i} height={110} style={skeletonStyles.card} borderRadius={10} />
+    ))}
+    <Skeleton height={16} width="50%" style={skeletonStyles.sectionLabel} />
+    <Skeleton height={90} style={skeletonStyles.card} borderRadius={10} />
+  </View>
+);
+
+const skeletonStyles = StyleSheet.create({
+  wrapper: { padding: spacing.spaceMd },
+  headerCard: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.spaceMd },
+  metricsRow: { flexDirection: 'row', gap: spacing.spaceXs, marginBottom: spacing.spaceMd },
+  sectionLabel: { marginBottom: spacing.spaceSm },
+  card: { marginBottom: spacing.spaceSm },
+});
+
+// ─── Request Card ─────────────────────────────────────────────────────────────
+
+interface RequestCardProps {
+  request: any;
+  isAccepting: boolean;
+  isConnected: boolean;
+  isVerified: boolean;
+  onAccept: (requestId: string) => void;
+}
+
+const RequestCard: React.FC<RequestCardProps> = ({
+  request, isAccepting, isConnected, isVerified, onAccept,
+}) => {
+  const itemCount = countItems(request.ewasteItems);
+  const categories = summarizeCategories(request.ewasteItems);
+  const estWeight = totalEstWeight(request.ewasteItems);
+  const canAccept = isConnected && isVerified && !isAccepting;
+
+  return (
+    <View
+      style={cardStyles.container}
+      accessibilityRole="none"
+      accessibilityLabel={`Collection request: ${itemCount} item${itemCount !== 1 ? 's' : ''}, ${categories}`}
+    >
+      {/* Category / item summary */}
+      <View style={cardStyles.row}>
+        <View style={cardStyles.iconCircle}>
+          <Text style={cardStyles.icon}>📦</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={cardStyles.categoryText}>{categories}</Text>
+          <Text style={cardStyles.subText}>
+            {itemCount} item{itemCount !== 1 ? 's' : ''}{estWeight !== '—' ? ` · ${estWeight}` : ''}
+          </Text>
+        </View>
+        <View style={cardStyles.statusChip}>
+          <Text style={cardStyles.statusText}>Available</Text>
+        </View>
+      </View>
+
+      <View style={cardStyles.divider} />
+
+      {/* Privacy-masked location (backend provides "Approximate Location...") */}
+      <View style={cardStyles.locationRow}>
+        <Text style={cardStyles.locationIcon} accessibilityElementsHidden>📍</Text>
+        <Text style={cardStyles.locationText} numberOfLines={2}>
+          {request.pickupAddress || 'Approximate location'}
+        </Text>
+      </View>
+
+      {/* Preferred date if provided */}
+      {Boolean(request.preferredDate) && (
+        <Text style={cardStyles.dateText}>
+          🗓 Preferred: {fmtDate(request.preferredDate)}
+        </Text>
+      )}
+
+      {/* Notes (truncated) */}
+      {Boolean(request.notes) && (
+        <Text style={cardStyles.notesText} numberOfLines={2}>
+          {request.notes}
+        </Text>
+      )}
+
+      {/* Accept button */}
+      <TouchableOpacity
+        style={[
+          cardStyles.acceptButton,
+          (!canAccept) && cardStyles.acceptButtonDisabled,
+        ]}
+        onPress={() => onAccept(request.id)}
+        disabled={!canAccept}
+        accessibilityRole="button"
+        accessibilityLabel={
+          isAccepting
+            ? 'Accepting request, please wait'
+            : !isVerified
+            ? 'Account verification required to accept requests'
+            : !isConnected
+            ? 'Internet connection required to accept request'
+            : `Accept collection request for ${categories}`
+        }
+        accessibilityState={{ disabled: !canAccept, busy: isAccepting }}
+        activeOpacity={0.75}
+      >
+        {isAccepting ? (
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        ) : (
+          <Text style={cardStyles.acceptButtonText}>✅ Accept Request</Text>
+        )}
+      </TouchableOpacity>
+
+      {/* Offline accept warning */}
+      {!isConnected && (
+        <Text style={cardStyles.offlineHint}>Internet required to accept</Text>
+      )}
+      {!isVerified && isConnected && (
+        <Text style={cardStyles.offlineHint}>Account verification required</Text>
+      )}
+    </View>
+  );
+};
+
+const cardStyles = StyleSheet.create({
+  container: {
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    padding: spacing.spaceMd,
+    marginBottom: spacing.spaceSm,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 3,
+    borderWidth: 1,
+    borderColor: colors.divider,
+  },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.spaceSm, marginBottom: spacing.spaceSm },
+  iconCircle: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: `${colors.primary}15`,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  icon: { fontSize: 18 },
+  categoryText: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
+  subText: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  statusChip: {
+    backgroundColor: `${colors.primary}18`,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
+  },
+  statusText: { fontSize: 11, fontWeight: '700', color: colors.primary },
+  divider: { height: 1, backgroundColor: colors.divider, marginVertical: spacing.spaceXs },
+  locationRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: spacing.spaceXs },
+  locationIcon: { fontSize: 13, marginTop: 1 },
+  locationText: { flex: 1, fontSize: 12, color: colors.textSecondary, lineHeight: 18 },
+  dateText: { fontSize: 12, color: colors.textSecondary, marginBottom: spacing.spaceXs },
+  notesText: { fontSize: 12, color: colors.textSecondary, fontStyle: 'italic', marginBottom: spacing.spaceXs },
+  acceptButton: {
+    marginTop: spacing.spaceSm, backgroundColor: colors.primary,
+    borderRadius: 8, minHeight: 44, alignItems: 'center', justifyContent: 'center',
+  },
+  acceptButtonDisabled: { opacity: 0.45 },
+  acceptButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  offlineHint: { fontSize: 11, color: colors.warning, textAlign: 'center', marginTop: 4 },
+});
+
+// ─── Pickup Summary Card ──────────────────────────────────────────────────────
+
+const PickupSummaryCard: React.FC<{ pickup: any }> = ({ pickup }) => {
+  const statusColor = getPickupStatusColor(pickup.status);
+  const statusLabel = getPickupStatusLabel(pickup.status);
+  const req = pickup.collectionRequest;
+  const itemCount = req ? countItems(req.ewasteItems) : 0;
+
+  return (
+    <View
+      style={pickupCardStyles.container}
+      accessibilityRole="none"
+      accessibilityLabel={`Pickup: ${statusLabel}, ${itemCount} item${itemCount !== 1 ? 's' : ''}`}
+    >
+      <View style={pickupCardStyles.row}>
+        <View style={[pickupCardStyles.statusBar, { backgroundColor: statusColor }]} accessibilityElementsHidden />
+        <View style={{ flex: 1 }}>
+          <View style={pickupCardStyles.headerRow}>
+            <Text style={pickupCardStyles.title}>
+              {itemCount} item{itemCount !== 1 ? 's' : ''}
+              {req && req.ewasteItems ? ` — ${summarizeCategories(req.ewasteItems)}` : ''}
+            </Text>
+            <View style={[pickupCardStyles.badge, { backgroundColor: `${statusColor}18` }]}>
+              <Text style={[pickupCardStyles.badgeText, { color: statusColor }]}>{statusLabel}</Text>
+            </View>
+          </View>
+          {pickup.scheduledDate && (
+            <Text style={pickupCardStyles.dateText}>
+              🗓 {fmtDate(pickup.scheduledDate)}
+            </Text>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+};
+
+const pickupCardStyles = StyleSheet.create({
+  container: {
+    backgroundColor: colors.surface, borderRadius: 10, padding: spacing.spaceSm,
+    marginBottom: spacing.spaceXs, elevation: 1,
+    borderWidth: 1, borderColor: colors.divider,
+    flexDirection: 'row', overflow: 'hidden',
+  },
+  row: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  statusBar: { width: 4, borderRadius: 2, alignSelf: 'stretch', marginRight: spacing.spaceSm },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  title: { fontSize: 13, fontWeight: '600', color: colors.textPrimary, flex: 1 },
+  badge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, marginLeft: 6 },
+  badgeText: { fontSize: 11, fontWeight: '700' },
+  dateText: { fontSize: 11, color: colors.textSecondary, marginTop: 3 },
+});
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
+
+export const CollectorDashboardScreen: React.FC = () => {
+  const { user } = useAuth();
+  const { isConnected } = useNetwork();
+
+  // ── Data state ─────────────────────────────────────────────────────────────
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [dataFromCache, setDataFromCache] = useState<boolean>(false);
+
+  const [profile, setProfile] = useState<any>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  const [stats, setStats] = useState<any>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
+
+  const [availableRequests, setAvailableRequests] = useState<any[]>([]);
+  const [requestsError, setRequestsError] = useState<string | null>(null);
+
+  const [activePickups, setActivePickups] = useState<any[]>([]);
+  const [pickupsError, setPickupsError] = useState<string | null>(null);
+
+  // ── Availability state ─────────────────────────────────────────────────────
+  const [isAvailable, setIsAvailable] = useState<boolean>(true);
+  const [isTogglingAvailability, setIsTogglingAvailability] = useState<boolean>(false);
+  const availabilityRef = useRef<boolean>(false);
+
+  // ── Accept state ───────────────────────────────────────────────────────────
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const acceptingRef = useRef<boolean>(false);
+
+  // ── Verification check ─────────────────────────────────────────────────────
+  // The backend checkVerified middleware enforces this server-side.
+  // We display a UI hint when the collector is not ACTIVE.
+  const collectorStatus = profile?.user?.status || user?.status;
+  const isVerified = collectorStatus === USER_STATUS.ACTIVE;
+
+  // ── Load all dashboard data ────────────────────────────────────────────────
+
+  const loadDashboard = useCallback(async (silent = false) => {
+    if (!silent) {
+      setProfileError(null);
+      setStatsError(null);
+      setRequestsError(null);
+      setPickupsError(null);
+    }
+
+    let anyFromCache = false;
+
+    // Run all fetches in parallel; individual errors are isolated
+    const [profileResult, statsResult, requestsResult, pickupsResult] = await Promise.allSettled([
+      collectorService.getProfile(),
+      collectorService.getStats(),
+      collectorService.getAvailableRequests({ limit: 10 }),
+      collectorService.getMyPickups({ limit: 10 }),
+    ]);
+
+    if (profileResult.status === 'fulfilled') {
+      const { profile: p, fromCache } = profileResult.value;
+      if (p) {
+        setProfile(p);
+        setIsAvailable(Boolean((p as any)?.isAvailable));
+        if (fromCache) anyFromCache = true;
+      } else {
+        setProfileError('Could not load your collector profile.');
+      }
+    } else {
+      const msg = (profileResult.reason as any)?.response?.data?.message
+        || (profileResult.reason as any)?.message
+        || 'Unable to load collector profile.';
+      setProfileError(msg);
+    }
+
+    if (statsResult.status === 'fulfilled') {
+      const { stats: s, fromCache } = statsResult.value;
+      setStats(s);
+      if (fromCache) anyFromCache = true;
+    } else {
+      setStatsError('Unable to load statistics.');
+    }
+
+    if (requestsResult.status === 'fulfilled') {
+      const { requests: r, fromCache } = requestsResult.value;
+      setAvailableRequests(Array.isArray(r) ? r : []);
+      if (fromCache) anyFromCache = true;
+    } else {
+      const err = requestsResult.reason as any;
+      // 403 from checkVerified: collector not yet verified — expected; not an error
+      if (err?.response?.status === 403) {
+        setAvailableRequests([]);
+      } else {
+        setRequestsError('Unable to load available requests.');
+      }
+    }
+
+    if (pickupsResult.status === 'fulfilled') {
+      const { pickups: p, fromCache } = pickupsResult.value;
+      // Show only active pickups on dashboard (SCHEDULED + IN_PROGRESS)
+      const active = (Array.isArray(p) ? p : []).filter(
+        (pk: any) => pk.status === PICKUP_STATUS.SCHEDULED || pk.status === PICKUP_STATUS.IN_PROGRESS,
+      );
+      setActivePickups(active);
+      if (fromCache) anyFromCache = true;
+    } else {
+      const err = pickupsResult.reason as any;
+      if (err?.response?.status === 403) {
+        setActivePickups([]);
+      } else {
+        setPickupsError('Unable to load active pickups.');
+      }
+    }
+
+    setDataFromCache(anyFromCache);
+    setIsLoading(false);
+    setIsRefreshing(false);
+  }, []);
+
+  useEffect(() => {
+    loadDashboard(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    loadDashboard(true);
+  }, [loadDashboard]);
+
+  // ── Availability toggle ────────────────────────────────────────────────────
+
+  const handleAvailabilityToggle = useCallback(async (newValue: boolean) => {
+    if (availabilityRef.current) return;
+
+    if (!isConnected) {
+      Alert.alert(
+        'Offline',
+        'Availability changes require an internet connection.',
+        [{ text: 'OK' }],
+      );
+      return;
+    }
+
+    if (!isVerified) {
+      Alert.alert(
+        'Verification Required',
+        'Your account must be verified before you can toggle availability.',
+        [{ text: 'OK' }],
+      );
+      return;
+    }
+
+    availabilityRef.current = true;
+    setIsTogglingAvailability(true);
+    // Optimistic update
+    setIsAvailable(newValue);
+
+    try {
+      const updatedProfile = await collectorService.toggleAvailability(newValue);
+      setProfile(updatedProfile);
+      setIsAvailable(Boolean((updatedProfile as any)?.isAvailable ?? newValue));
+    } catch (err: any) {
+      // Roll back on failure
+      setIsAvailable(!newValue);
+      const msg = err?.response?.data?.message
+        || err?.message
+        || 'Failed to update availability. Please try again.';
+      Alert.alert('Error', msg, [{ text: 'OK' }]);
+    } finally {
+      availabilityRef.current = false;
+      setIsTogglingAvailability(false);
+    }
+  }, [isConnected, isVerified]);
+
+  // ── Accept request ─────────────────────────────────────────────────────────
+
+  const handleAcceptRequest = useCallback(async (requestId: string) => {
+    if (acceptingRef.current) return;
+
+    if (!isConnected) {
+      Alert.alert(
+        'Offline',
+        'Accepting collection requests requires an internet connection.\nReal-time availability check is required.',
+        [{ text: 'OK' }],
+      );
+      return;
+    }
+
+    if (!isVerified) {
+      Alert.alert(
+        'Verification Required',
+        'Your account must be verified to accept collection requests.',
+        [{ text: 'OK' }],
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Accept Request',
+      'Accept this collection request? You will be responsible for picking up the e-waste.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Accept',
+          style: 'default',
+          onPress: async () => {
+            acceptingRef.current = true;
+            setAcceptingId(requestId);
+
+            try {
+              await collectorService.acceptRequest(requestId);
+              // Remove the accepted request from available list
+              setAvailableRequests((prev) => prev.filter((r) => r.id !== requestId));
+              // Refresh dashboard to get updated stats and pickup list
+              await loadDashboard(true);
+              Alert.alert(
+                '✅ Request Accepted',
+                'The citizen has been notified. A pickup has been scheduled.',
+                [{ text: 'OK' }],
+              );
+            } catch (err: any) {
+              const status = err?.response?.status;
+              const msg = err?.response?.data?.message || err?.message || 'Failed to accept request.';
+
+              if (status === 409) {
+                // Another collector accepted first — remove from list
+                setAvailableRequests((prev) => prev.filter((r) => r.id !== requestId));
+                Alert.alert(
+                  'Request No Longer Available',
+                  'This request was just accepted by another collector.',
+                  [{ text: 'OK' }],
+                );
+              } else if (status === 403) {
+                Alert.alert('Access Denied', 'You do not have permission to accept this request. Ensure your account is verified.', [{ text: 'OK' }]);
+              } else if (status === 404) {
+                setAvailableRequests((prev) => prev.filter((r) => r.id !== requestId));
+                Alert.alert('Request Not Found', 'This request may have been cancelled.', [{ text: 'OK' }]);
+              } else {
+                Alert.alert('Error', msg, [{ text: 'OK' }]);
+              }
+            } finally {
+              acceptingRef.current = false;
+              setAcceptingId(null);
+            }
+          },
+        },
+      ],
+      { cancelable: true },
+    );
+  }, [isConnected, isVerified, loadDashboard]);
+
+  // ── Loading state ──────────────────────────────────────────────────────────
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <TopAppBar title="Kabadiwala Dashboard" roleBadge="INFORMAL_COLLECTOR" />
+        <DashboardSkeleton />
+      </SafeAreaView>
+    );
+  }
+
+  // ── Account status banner ──────────────────────────────────────────────────
+
+  const renderStatusBanner = () => {
+    if (!collectorStatus) return null;
+    if (collectorStatus === USER_STATUS.ACTIVE) return null;
+    if (collectorStatus === USER_STATUS.SUSPENDED) {
+      return (
+        <View style={styles.suspendedBanner} accessibilityRole="alert">
+          <Text style={styles.suspendedText}>
+            ⚠️ Your account is suspended. You cannot accept new collection requests. Please contact support.
+          </Text>
+        </View>
+      );
+    }
+    if (collectorStatus === USER_STATUS.PENDING_VERIFICATION) {
+      return (
+        <View style={styles.pendingBanner} accessibilityRole="alert">
+          <Text style={styles.pendingText}>
+            🕐 Account pending verification. Available requests will appear once your account is approved.
+          </Text>
+        </View>
+      );
+    }
+    if (collectorStatus === USER_STATUS.DEACTIVATED) {
+      return (
+        <View style={styles.suspendedBanner} accessibilityRole="alert">
+          <Text style={styles.suspendedText}>⚠️ This account has been deactivated.</Text>
+        </View>
+      );
+    }
+    return null;
+  };
+
+  const collectorName = profile?.user?.name || user?.name || 'Collector';
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+  // ─── Main render ─────────────────────────────────────────────────────────
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <TopAppBar title="Kabadiwala Dashboard" roleBadge="INFORMAL_COLLECTOR" />
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {/* Offline banner */}
+        {!isConnected && <OfflineBanner />}
+
+        {/* Stale data notice */}
+        {dataFromCache && (
+          <View style={styles.cachedNotice}>
+            <Text style={styles.cachedText}>📴 Showing cached data (last synced while online)</Text>
+          </View>
+        )}
+
+        {/* Account status banner */}
+        {renderStatusBanner()}
+
+        {/* ── COLLECTOR HEADER ────────────────────────────────────────── */}
+        <View style={styles.headerCard}>
+          <View style={styles.avatarCircle} accessibilityElementsHidden>
+            <Text style={styles.avatarInitial}>
+              {collectorName.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.greetingText}>{greeting},</Text>
+            <Text style={styles.collectorName} accessibilityRole="header" numberOfLines={1}>
+              {collectorName}
+            </Text>
+            <Text style={styles.roleLabel}>Informal Collector · Kabadiwala</Text>
+          </View>
+
+          {/* ── AVAILABILITY TOGGLE ─────────────────────────────────── */}
+          <View style={styles.availabilitySection}>
+            <Text
+              style={[styles.availabilityLabel, { color: isAvailable ? colors.success : colors.textSecondary }]}
+              accessibilityElementsHidden
+            >
+              {isTogglingAvailability ? '…' : isAvailable ? 'Available' : 'Unavailable'}
+            </Text>
+            <Switch
+              value={isAvailable}
+              onValueChange={handleAvailabilityToggle}
+              disabled={isTogglingAvailability || !isConnected || !isVerified}
+              trackColor={{ false: colors.divider, true: `${colors.success}80` }}
+              thumbColor={isAvailable ? colors.success : colors.textSecondary}
+              accessibilityRole="switch"
+              accessibilityLabel={`Availability: ${isAvailable ? 'Available' : 'Unavailable'}`}
+              accessibilityState={{ checked: isAvailable, disabled: isTogglingAvailability || !isConnected || !isVerified, busy: isTogglingAvailability }}
+              accessibilityHint="Toggle your availability to accept new collection requests"
+            />
+          </View>
+        </View>
+
+        {/* ── METRICS ─────────────────────────────────────────────────── */}
+        <Text style={styles.sectionTitle}>Your Activity</Text>
+        {statsError ? (
+          <View style={styles.errorInline} accessibilityRole="alert">
+            <Text style={styles.errorInlineText}>{statsError}</Text>
+          </View>
+        ) : (
+          <View style={styles.metricsRow}>
+            <MetricCard
+              value={stats?.totalPickups ?? '—'}
+              label="Completed Pickups"
+              icon="✅"
+              accentColor={colors.success}
+            />
+            <MetricCard
+              value={stats ? `${stats.totalWeightKg ?? 0} kg` : '—'}
+              label="Total Collected"
+              icon="⚖️"
+              accentColor={colors.secondary}
+            />
+            <MetricCard
+              value={stats?.activeRequests ?? '—'}
+              label="Active Requests"
+              icon="📋"
+              accentColor={colors.warning}
+            />
+            <MetricCard
+              value={stats?.totalConsignments ?? '—'}
+              label="Consignments"
+              icon="🏭"
+              accentColor={colors.primary}
+            />
+          </View>
+        )}
+
+        {/* ── ACTIVE PICKUPS ───────────────────────────────────────────── */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Active Pickups</Text>
+          {activePickups.length > 0 && (
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeText}>{activePickups.length}</Text>
+            </View>
+          )}
+        </View>
+
+        {pickupsError ? (
+          <View style={styles.errorInline} accessibilityRole="alert">
+            <Text style={styles.errorInlineText}>{pickupsError}</Text>
+          </View>
+        ) : activePickups.length === 0 ? (
+          <EmptyState
+            icon="🚚"
+            title="No Active Pickups"
+            message="Your scheduled and in-progress pickups will appear here."
+          />
+        ) : (
+          activePickups.slice(0, 5).map((pickup: any) => (
+            <PickupSummaryCard key={pickup.id} pickup={pickup} />
+          ))
+        )}
+
+        {/* ── AVAILABLE COLLECTION REQUESTS ────────────────────────── */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Available Requests</Text>
+          {availableRequests.length > 0 && (
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeText}>{availableRequests.length}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Privacy note */}
+        <View style={styles.privacyNote}>
+          <Text style={styles.privacyNoteText}>
+            📍 Exact pickup address is revealed only after you accept a request.
+          </Text>
+        </View>
+
+        {requestsError ? (
+          <View style={styles.errorInline} accessibilityRole="alert">
+            <Text style={styles.errorInlineText}>{requestsError}</Text>
+            <TouchableOpacity onPress={handleRefresh} style={styles.retryLink}>
+              <Text style={styles.retryLinkText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : !isVerified && isConnected ? (
+          <EmptyState
+            icon="🔒"
+            title="Verification Required"
+            message="Your account must be approved before you can see and accept collection requests."
+          />
+        ) : availableRequests.length === 0 ? (
+          <EmptyState
+            icon="🔍"
+            title="No Requests Available"
+            message="There are no collection requests in your service area right now. Check back later or pull down to refresh."
+            actionLabel="Refresh"
+            onAction={handleRefresh}
+          />
+        ) : (
+          availableRequests.map((request: any) => (
+            <RequestCard
+              key={request.id}
+              request={request}
+              isAccepting={acceptingId === request.id}
+              isConnected={isConnected}
+              isVerified={isVerified}
+              onAccept={handleAcceptRequest}
+            />
+          ))
+        )}
+
+        {/* ── ECOSETU CHAIN FOOTER ─────────────────────────────────── */}
+        {/*
+         * Business chain: CITIZEN → INFORMAL COLLECTOR (Kabadiwala) → FORMAL RECYCLER
+         * The collector is the essential bridge between citizens and formal recyclers.
+         * No direct Citizen → Recycler path is introduced here.
+         */}
+        <View style={styles.chainFooter}>
+          <Text style={styles.chainText}>
+            ECOSETU connects Kabadiwalas with citizens to ensure responsible e-waste collection.
+          </Text>
+        </View>
+
+        <View style={{ height: spacing.spaceXl }} />
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  scrollContent: {
+    padding: spacing.spaceMd,
+    paddingBottom: spacing.spaceXl,
+  },
+
+  // ── Banners ──
+  cachedNotice: {
+    backgroundColor: '#FFF9C4', borderRadius: 6,
+    padding: spacing.spaceXs, marginBottom: spacing.spaceSm,
+  },
+  cachedText: { fontSize: 12, color: '#F57F17' },
+  suspendedBanner: {
+    backgroundColor: '#FFEBEE', borderRadius: 8,
+    padding: spacing.spaceMd, marginBottom: spacing.spaceMd,
+    borderLeftWidth: 4, borderLeftColor: colors.error,
+  },
+  suspendedText: { fontSize: 13, color: '#B71C1C', lineHeight: 19 },
+  pendingBanner: {
+    backgroundColor: '#FFF3E0', borderRadius: 8,
+    padding: spacing.spaceMd, marginBottom: spacing.spaceMd,
+    borderLeftWidth: 4, borderLeftColor: colors.warning,
+  },
+  pendingText: { fontSize: 13, color: '#BF360C', lineHeight: 19 },
+
+  // ── Header card ──
+  headerCard: {
+    backgroundColor: colors.surface, borderRadius: 12,
+    padding: spacing.spaceMd, marginBottom: spacing.spaceMd,
+    flexDirection: 'row', alignItems: 'center',
+    elevation: 1, borderWidth: 1, borderColor: colors.divider,
+  },
+  avatarCircle: {
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: colors.primary,
+    alignItems: 'center', justifyContent: 'center',
+    marginRight: spacing.spaceSm,
+  },
+  avatarInitial: { fontSize: 22, fontWeight: '700', color: '#FFFFFF' },
+  greetingText: { fontSize: 12, color: colors.textSecondary },
+  collectorName: { fontSize: 17, fontWeight: '700', color: colors.textPrimary },
+  roleLabel: { fontSize: 11, color: colors.primary, fontWeight: '600', marginTop: 2 },
+
+  // ── Availability ──
+  availabilitySection: { alignItems: 'center', gap: 2 },
+  availabilityLabel: { fontSize: 10, fontWeight: '600', textAlign: 'center' },
+
+  // ── Section ──
+  sectionHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.spaceXs,
+    marginBottom: spacing.spaceXs, marginTop: spacing.spaceSm,
+  },
+  sectionTitle: {
+    fontSize: 15, fontWeight: '700', color: colors.textPrimary,
+    marginBottom: spacing.spaceXs, marginTop: spacing.spaceSm,
+  },
+  countBadge: {
+    backgroundColor: colors.primary, borderRadius: 10,
+    paddingHorizontal: 7, paddingVertical: 2, marginBottom: spacing.spaceXs,
+  },
+  countBadgeText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
+
+  // ── Metrics ──
+  metricsRow: {
+    flexDirection: 'row', gap: spacing.spaceXs,
+    marginBottom: spacing.spaceSm,
+  },
+
+  // ── Privacy note ──
+  privacyNote: {
+    backgroundColor: `${colors.secondary}10`, borderRadius: 6,
+    padding: spacing.spaceXs, marginBottom: spacing.spaceSm,
+  },
+  privacyNoteText: { fontSize: 11, color: colors.secondary, lineHeight: 16 },
+
+  // ── Error inline ──
+  errorInline: {
+    backgroundColor: '#FFEBEE', borderRadius: 8,
+    padding: spacing.spaceMd, marginBottom: spacing.spaceSm,
+  },
+  errorInlineText: { fontSize: 13, color: colors.error },
+  retryLink: { marginTop: spacing.spaceXs },
+  retryLinkText: { fontSize: 13, color: colors.primary, fontWeight: '600', textDecorationLine: 'underline' },
+
+  // ── Chain footer ──
+  chainFooter: {
+    paddingTop: spacing.spaceMd, paddingHorizontal: spacing.spaceMd,
+  },
+  chainText: {
+    fontSize: 12, color: colors.textSecondary,
+    textAlign: 'center', fontStyle: 'italic', lineHeight: 18,
+  },
+});
+
+export default CollectorDashboardScreen;

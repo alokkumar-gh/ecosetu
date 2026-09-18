@@ -1,0 +1,3 @@
+"""
+EcoSetu AI Training Module
+"""
