@@ -6,7 +6,7 @@ const { ERROR_CODES } = require('../utils/constants');
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // 1000 requests per 15 minutes for general API
+  max: 10000, // 10,000 requests per 15 minutes for mobile apps & polling
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {

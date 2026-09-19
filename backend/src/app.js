@@ -14,6 +14,9 @@ const apiV1Router = require('./routes');
 
 const app = express();
 
+// Trust reverse proxy (Render / Cloudflare) so req.ip reflects actual client IP
+app.set('trust proxy', 1);
+
 // 1. CORS Configuration
 app.use(cors(getCorsOptions()));
 
