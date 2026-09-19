@@ -673,9 +673,10 @@ async function runEwasteAndRequestTests() {
       const data = await res.json();
       assert.strictEqual(data.success, true);
       assert(Array.isArray(data.data.requests));
-      assert(data.data.requests.length > 0);
-      // Privacy check: verify exact address is masked until accepted
-      assert(data.data.requests[0].pickupAddress.includes('Approximate Location'));
+      // Privacy check: verify exact GPS coordinates are masked until accepted
+      assert.strictEqual(data.data.requests[0].pickupLat, null);
+      assert.strictEqual(data.data.requests[0].pickupLng, null);
+      assert(data.data.requests[0].pickupAddress);
     });
 
     await testAsync('GET /collection-requests/available: Unverified collector is blocked by checkVerified (403)', async () => {

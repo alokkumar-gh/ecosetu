@@ -43,6 +43,7 @@ import {
   RECYCLING_STATUS,
   PICKUP_STATUS,
 } from '../../utils/constants';
+import { useI18n } from '../../i18n';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 
@@ -121,18 +122,24 @@ const isStageComplete = (stageId: string, data: TraceabilityData): boolean => {
         data.request?.status === 'PICKED_UP' ||
         data.pickup?.status === PICKUP_STATUS.COMPLETED ||
         data.item?.status === ITEM_STATUS.COLLECTED ||
+        data.item?.status === ITEM_STATUS.CONSIGNED ||
         data.item?.status === ITEM_STATUS.RECYCLED
       );
     case 'consignment':
       return !!(
-        data.consignment &&
-        [CONSIGNMENT_STATUS.ACCEPTED, CONSIGNMENT_STATUS.IN_TRANSIT].includes(
-          data.consignment.status,
-        )
+        (data.consignment &&
+          [
+            CONSIGNMENT_STATUS.ACCEPTED,
+            CONSIGNMENT_STATUS.DELIVERED,
+            CONSIGNMENT_STATUS.IN_TRANSIT,
+          ].includes(data.consignment.status)) ||
+        data.item?.status === ITEM_STATUS.CONSIGNED ||
+        data.item?.status === ITEM_STATUS.RECYCLED ||
+        data.recyclingRecord
       );
     case 'recycler':
       return !!(
-        data.recyclingRecord ||
+        data.recyclingRecord?.status === RECYCLING_STATUS.COMPLETED ||
         data.item?.status === ITEM_STATUS.RECYCLED
       );
     default:
@@ -143,7 +150,7 @@ const isStageComplete = (stageId: string, data: TraceabilityData): boolean => {
 const isStageInProgress = (stageId: string, data: TraceabilityData): boolean => {
   switch (stageId) {
     case 'citizen':
-      return data.item?.status === ITEM_STATUS.SUBMITTED;
+      return data.item?.status === ITEM_STATUS.SUBMITTED && !isStageComplete('collector', data);
     case 'collector':
       return !!(
         data.request?.status === 'ACCEPTED' ||
@@ -152,9 +159,18 @@ const isStageInProgress = (stageId: string, data: TraceabilityData): boolean => 
         data.pickup?.status === PICKUP_STATUS.IN_PROGRESS
       );
     case 'consignment':
-      return data.consignment?.status === CONSIGNMENT_STATUS.PENDING;
+      return !!(
+        data.consignment &&
+        (data.consignment.status === CONSIGNMENT_STATUS.CREATED ||
+          data.consignment.status === CONSIGNMENT_STATUS.IN_TRANSIT ||
+          data.consignment.status === 'PENDING')
+      );
     case 'recycler':
-      return data.recyclingRecord?.status === RECYCLING_STATUS.PROCESSING;
+      return !!(
+        data.recyclingRecord &&
+        (data.recyclingRecord.status === RECYCLING_STATUS.RECEIVED ||
+          data.recyclingRecord.status === RECYCLING_STATUS.PROCESSING)
+      );
     default:
       return false;
   }
@@ -194,6 +210,8 @@ const fmtDateTime = (iso?: string | null): string => {
 
 interface ChainNodeProps {
   stage: ChainStage;
+  actorLabel?: string;
+  stageLabel?: string;
   isComplete: boolean;
   isInProgress: boolean;
   isLast: boolean;
@@ -202,11 +220,14 @@ interface ChainNodeProps {
 
 const ChainNode: React.FC<ChainNodeProps> = ({
   stage,
+  actorLabel,
+  stageLabel,
   isComplete,
   isInProgress,
   isLast,
   children,
 }) => {
+  const { t } = useI18n();
   const nodeBg = isComplete
     ? colors.success
     : isInProgress
@@ -234,19 +255,23 @@ const ChainNode: React.FC<ChainNodeProps> = ({
       {/* Right column: content */}
       <View style={styles.chainContent}>
         <View style={styles.chainHeader}>
-          <Text style={styles.chainActorLabel}>{stage.actorLabel}</Text>
+          <Text style={styles.chainActorLabel}>{actorLabel || stage.actorLabel}</Text>
           {isComplete && (
             <View style={styles.completedBadge}>
-              <Text style={styles.completedBadgeText}>✓ Done</Text>
+              <Text style={styles.completedBadgeText}>
+                {t('citizen.traceability.done') || '✓ Done'}
+              </Text>
             </View>
           )}
           {isInProgress && !isComplete && (
             <View style={styles.inProgressBadge}>
-              <Text style={styles.inProgressBadgeText}>In Progress</Text>
+              <Text style={styles.inProgressBadgeText}>
+                {t('citizen.traceability.inProgress') || 'In Progress'}
+              </Text>
             </View>
           )}
         </View>
-        <Text style={styles.chainStageLabel}>{stage.stageLabel}</Text>
+        <Text style={styles.chainStageLabel}>{stageLabel || stage.stageLabel}</Text>
         {children && <View style={styles.chainDetails}>{children}</View>}
       </View>
     </View>
@@ -269,12 +294,40 @@ const InfoRow: React.FC<InfoRowProps> = ({ label, value }) => (
 export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) => {
   const { itemId } = route.params;
   const { isConnected } = useNetwork();
+  const { t } = useI18n();
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [traceability, setTraceability] = useState<TraceabilityData | null>(null);
   const [isCached, setIsCached] = useState<boolean>(false);
+
+  const getStageLocalized = (stageId: string, defaultActor: string, defaultStage: string) => {
+    switch (stageId) {
+      case 'citizen':
+        return {
+          actorLabel: t('citizen.traceability.actorCitizen') || defaultActor,
+          stageLabel: t('citizen.traceability.stageSubmitted') || defaultStage,
+        };
+      case 'collector':
+        return {
+          actorLabel: t('citizen.traceability.actorCollector') || defaultActor,
+          stageLabel: t('citizen.traceability.stageCollected') || defaultStage,
+        };
+      case 'consignment':
+        return {
+          actorLabel: t('citizen.traceability.actorConsignment') || defaultActor,
+          stageLabel: t('citizen.traceability.stageConsignment') || defaultStage,
+        };
+      case 'recycler':
+        return {
+          actorLabel: t('citizen.traceability.actorRecycler') || defaultActor,
+          stageLabel: t('citizen.traceability.stageRecycled') || defaultStage,
+        };
+      default:
+        return { actorLabel: defaultActor, stageLabel: defaultStage };
+    }
+  };
 
   // ── Data Fetching ────────────────────────────────────────────────────────────
 
@@ -285,7 +338,8 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
         const data = await ewasteService.getItemTraceability(itemId);
         if (!data) {
           setErrorMessage(
-            'Traceability record not found. The item may not have been submitted yet, or data is unavailable offline.',
+            t('citizen.traceability.notFoundError') ||
+              'Traceability record not found. The item may not have been submitted yet, or data is unavailable offline.'
           );
         } else {
           setTraceability(data);
@@ -295,14 +349,15 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
         const msg =
           err?.response?.data?.message ||
           err?.message ||
-          'Unable to load traceability data. Please try again.';
+          (t('citizen.traceability.loadError') ||
+            'Unable to load traceability data. Please try again.');
         setErrorMessage(msg);
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);
       }
     },
-    [itemId, isConnected],
+    [itemId, isConnected, t]
   );
 
   useEffect(() => {
@@ -330,7 +385,7 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
     return (
       <SafeAreaView style={styles.container}>
         <TopAppBar
-          title="Item Traceability"
+          title={t('citizen.traceability.title') || 'Item Traceability'}
           onBack={() => navigation.goBack()}
         />
         <ScrollView
@@ -351,20 +406,27 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
     return (
       <SafeAreaView style={styles.container}>
         <TopAppBar
-          title="Item Traceability"
+          title={t('citizen.traceability.title') || 'Item Traceability'}
           onBack={() => navigation.goBack()}
         />
         <View style={styles.errorContainer}>
           <Text style={styles.errorIcon}>⚠️</Text>
-          <Text style={styles.errorTitle}>Could Not Load</Text>
+          <Text style={styles.errorTitle}>
+            {t('citizen.traceability.couldNotLoad') || 'Could Not Load'}
+          </Text>
           <Text style={styles.errorMessage}>{errorMessage}</Text>
           <TouchableOpacity
             style={styles.retryButton}
-            onPress={() => { setIsLoading(true); loadTraceability(); }}
-            accessibilityLabel="Retry loading traceability"
+            onPress={() => {
+              setIsLoading(true);
+              loadTraceability();
+            }}
+            accessibilityLabel={t('citizen.requests.retry') || 'Retry loading traceability'}
             accessibilityRole="button"
           >
-            <Text style={styles.retryButtonText}>Retry</Text>
+            <Text style={styles.retryButtonText}>
+              {t('citizen.requests.retry') || 'Retry'}
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -376,7 +438,7 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
   return (
     <SafeAreaView style={styles.container}>
       <TopAppBar
-        title="Item Traceability"
+        title={t('citizen.traceability.title') || 'Item Traceability'}
         onBack={() => navigation.goBack()}
       />
 
@@ -398,11 +460,11 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
         {/* ── Item Summary Card ──────────────────────────────────────────── */}
         <View style={styles.card} accessibilityLabel="Item summary">
           <View style={styles.cardHeader}>
-            <View>
+            <View style={styles.cardTitleContainer}>
               <Text style={styles.cardTitle}>
                 {item?.category
                   ? item.category.replace(/_/g, ' ')
-                  : 'E-Waste Item'}
+                  : t('citizen.traceability.ewasteItem') || 'E-Waste Item'}
               </Text>
               {item?.brand && (
                 <Text style={styles.cardSubtitle}>
@@ -418,18 +480,18 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
 
           <View style={styles.metaGrid}>
             <InfoRow
-              label="Submitted"
+              label={t('citizen.traceability.submitted') || 'Submitted'}
               value={fmtDate(item?.createdAt || item?.submittedAt)}
             />
             {item?.estimatedWeightKg != null && (
               <InfoRow
-                label="Est. Weight"
+                label={t('citizen.traceability.estWeight') || 'Est. Weight'}
                 value={`${item.estimatedWeightKg} kg`}
               />
             )}
             {item?.condition && (
               <InfoRow
-                label="Condition"
+                label={t('citizen.traceability.condition') || 'Condition'}
                 value={item.condition.replace(/_/g, ' ')}
               />
             )}
@@ -439,7 +501,8 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
           {isCached && (
             <View style={styles.cachedNotice}>
               <Text style={styles.cachedNoticeText}>
-                📴 Showing cached data (last synced while online)
+                {t('citizen.traceability.cachedNotice') ||
+                  '📴 Showing cached data (last synced while online)'}
               </Text>
             </View>
           )}
@@ -447,9 +510,12 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
 
         {/* ── Chain of Custody ──────────────────────────────────────────── */}
         <View style={styles.card} accessibilityLabel="Chain of custody lifecycle">
-          <Text style={styles.sectionTitle}>Chain of Custody</Text>
+          <Text style={styles.sectionTitle}>
+            {t('citizen.traceability.chainOfCustody') || 'Chain of Custody'}
+          </Text>
           <Text style={styles.sectionSubtitle}>
-            Your item's journey through the ECOSETU collection chain
+            {t('citizen.traceability.chainSubtitle') ||
+              "Your item's journey through the ECOSETU collection chain"}
           </Text>
 
           <View style={styles.chainContainer}>
@@ -458,11 +524,14 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
               const complete = isStageComplete(stage.id, traceability);
               const inProgress = !complete && isStageInProgress(stage.id, traceability);
               const isLast = index === CHAIN_STAGES.length - 1;
+              const localized = getStageLocalized(stage.id, stage.actorLabel, stage.stageLabel);
 
               return (
                 <ChainNode
                   key={stage.id}
                   stage={stage}
+                  actorLabel={localized.actorLabel}
+                  stageLabel={localized.stageLabel}
                   isComplete={complete}
                   isInProgress={inProgress}
                   isLast={isLast}
@@ -470,39 +539,72 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
                   {/* Stage-specific detail rows */}
                   {stage.id === 'citizen' && item && (
                     <>
-                      <InfoRow label="Category" value={item.category?.replace(/_/g, ' ') || '—'} />
-                      <InfoRow label="Date" value={fmtDate(item.createdAt || item.submittedAt)} />
+                      <InfoRow
+                        label={t('citizen.traceability.category') || 'Category'}
+                        value={item.category?.replace(/_/g, ' ') || '—'}
+                      />
+                      <InfoRow
+                        label={t('citizen.traceability.date') || 'Date'}
+                        value={fmtDate(item.createdAt || item.submittedAt)}
+                      />
                     </>
                   )}
 
                   {stage.id === 'collector' && request && (
                     <>
                       {request.collector?.name && (
-                        <InfoRow label="Collector" value={request.collector.name} />
+                        <InfoRow
+                          label={t('citizen.traceability.collector') || 'Collector'}
+                          value={request.collector.name}
+                        />
                       )}
                       {pickup?.scheduledAt && (
-                        <InfoRow label="Scheduled" value={fmtDateTime(pickup.scheduledAt)} />
+                        <InfoRow
+                          label={t('citizen.traceability.scheduled') || 'Scheduled'}
+                          value={fmtDateTime(pickup.scheduledAt)}
+                        />
                       )}
                       {pickup?.completedAt && (
-                        <InfoRow label="Collected" value={fmtDateTime(pickup.completedAt)} />
+                        <InfoRow
+                          label={t('citizen.traceability.collected') || 'Collected'}
+                          value={fmtDateTime(pickup.completedAt)}
+                        />
                       )}
                       {pickup?.verifiedWeightKg != null && (
-                        <InfoRow label="Verified Weight" value={`${pickup.verifiedWeightKg} kg`} />
+                        <InfoRow
+                          label={t('citizen.traceability.verifiedWeight') || 'Verified Weight'}
+                          value={`${pickup.verifiedWeightKg} kg`}
+                        />
                       )}
                     </>
                   )}
 
                   {stage.id === 'consignment' && consignment && (
                     <>
-                      <InfoRow label="Status" value={consignment.status?.replace(/_/g, ' ') || '—'} />
+                      <InfoRow
+                        label={t('citizen.traceability.status') || 'Status'}
+                        value={consignment.status?.replace(/_/g, ' ') || '—'}
+                      />
                       {consignment.totalWeightKg != null && (
-                        <InfoRow label="Weight" value={`${consignment.totalWeightKg} kg`} />
+                        <InfoRow
+                          label={t('citizen.traceability.weight') || 'Weight'}
+                          value={`${consignment.totalWeightKg} kg`}
+                        />
                       )}
                       {consignment.createdAt && (
-                        <InfoRow label="Dispatched" value={fmtDate(consignment.createdAt)} />
+                        <InfoRow
+                          label={t('citizen.traceability.dispatched') || 'Dispatched'}
+                          value={fmtDate(consignment.createdAt)}
+                        />
                       )}
                       {consignment.acceptedAt && (
-                        <InfoRow label="Accepted by Recycler" value={fmtDate(consignment.acceptedAt)} />
+                        <InfoRow
+                          label={
+                            t('citizen.traceability.acceptedByRecycler') ||
+                            'Accepted by Recycler'
+                          }
+                          value={fmtDate(consignment.acceptedAt)}
+                        />
                       )}
                     </>
                   )}
@@ -510,29 +612,41 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
                   {stage.id === 'recycler' && recyclingRecord && (
                     <>
                       {recyclingRecord.recycler?.name && (
-                        <InfoRow label="Recycler" value={recyclingRecord.recycler.name} />
+                        <InfoRow
+                          label={t('citizen.traceability.recycler') || 'Recycler'}
+                          value={recyclingRecord.recycler.name}
+                        />
                       )}
                       <InfoRow
-                        label="Status"
+                        label={t('citizen.traceability.status') || 'Status'}
                         value={recyclingRecord.status?.replace(/_/g, ' ') || '—'}
                       />
                       {recyclingRecord.processedAt && (
                         <InfoRow
-                          label="Processed"
+                          label={t('citizen.traceability.processed') || 'Processed'}
                           value={fmtDate(recyclingRecord.processedAt)}
                         />
                       )}
                       {recyclingRecord.methodUsed && (
-                        <InfoRow label="Method" value={recyclingRecord.methodUsed} />
+                        <InfoRow
+                          label={t('citizen.traceability.method') || 'Method'}
+                          value={recyclingRecord.methodUsed}
+                        />
                       )}
                       {recyclingRecord.materialRecoveredKg != null && (
                         <InfoRow
-                          label="Materials Recovered"
+                          label={
+                            t('citizen.traceability.materialsRecovered') ||
+                            'Materials Recovered'
+                          }
                           value={`${recyclingRecord.materialRecoveredKg} kg`}
                         />
                       )}
                       {recyclingRecord.notes && (
-                        <InfoRow label="Notes" value={recyclingRecord.notes} />
+                        <InfoRow
+                          label={t('citizen.traceability.notes') || 'Notes'}
+                          value={recyclingRecord.notes}
+                        />
                       )}
                     </>
                   )}
@@ -551,22 +665,32 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
             <View style={styles.certHeader}>
               <Text style={styles.certIcon}>🏆</Text>
               <View>
-                <Text style={styles.certTitle}>Circular Economy Certificate</Text>
+                <Text style={styles.certTitle}>
+                  {t('citizen.traceability.circularCertificate') ||
+                    'Circular Economy Certificate'}
+                </Text>
                 <Text style={styles.certSubtitle}>
-                  Your e-waste was responsibly recycled
+                  {t('citizen.traceability.certSubtitle') ||
+                    'Your e-waste was responsibly recycled'}
                 </Text>
               </View>
             </View>
             <View style={styles.divider} />
             {certificate.certificateNumber && (
-              <InfoRow label="Certificate #" value={certificate.certificateNumber} />
+              <InfoRow
+                label={t('citizen.traceability.certificateNumber') || 'Certificate #'}
+                value={certificate.certificateNumber}
+              />
             )}
             {certificate.issuedAt && (
-              <InfoRow label="Issued On" value={fmtDate(certificate.issuedAt)} />
+              <InfoRow
+                label={t('citizen.traceability.issuedOn') || 'Issued On'}
+                value={fmtDate(certificate.issuedAt)}
+              />
             )}
             {certificate.co2SavedKg != null && (
               <InfoRow
-                label="CO₂ Saved"
+                label={t('citizen.traceability.co2Saved') || 'CO₂ Saved'}
                 value={`${certificate.co2SavedKg} kg`}
               />
             )}
@@ -576,8 +700,8 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
         {/* ── Non-Anonymised Audit Note ─────────────────────────────────── */}
         <View style={styles.auditNote}>
           <Text style={styles.auditNoteText}>
-            🔒 This traceability record is read-only and cannot be modified.
-            All chain-of-custody events are audit-logged by ECOSETU.
+            {t('citizen.traceability.auditNote') ||
+              '🔒 This traceability record is read-only and cannot be modified. All chain-of-custody events are audit-logged by ECOSETU.'}
           </Text>
         </View>
 
@@ -621,12 +745,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: spacing.spaceSm,
   },
+  cardTitleContainer: {
+    flex: 1,
+    marginRight: spacing.spaceSm,
+  },
   cardTitle: {
     fontSize: 17,
     fontWeight: '700',
     color: colors.textPrimary,
     textTransform: 'capitalize',
-    maxWidth: '75%',
   },
   cardSubtitle: {
     fontSize: 13,

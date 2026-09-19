@@ -4,7 +4,7 @@
  */
 
 export type AuthStackParamList = {
-  Landing: undefined;
+  Landing: { forceShow?: boolean } | undefined;
   Login: undefined;
   Register: { initialRole?: 'CITIZEN' | 'INFORMAL_COLLECTOR' | 'RECYCLER' } | undefined;
 };
@@ -33,12 +33,14 @@ export type CollectorTabParamList = {
 
 export type CollectorStackParamList = {
   CollectorTabs: undefined;
+  PickupDetail: { pickupId: string; pickup?: any };
   PickupExecution: { pickupId: string };
   RequestDetail: { requestId: string };
   Verification: undefined;
   CreateConsignment: { recyclerId?: string; recycler?: any } | undefined;
   CollectorConsignments: undefined;
   CollectorConsignmentStatus: { consignmentId: string; consignment?: any };
+  RecyclerFacilityDetail: { recyclerId: string; recycler?: any };
 };
 
 export type RecyclerTabParamList = {
@@ -61,4 +63,8 @@ export type AdminTabParamList = {
   AdminUsers: undefined;
   AdminAuditLogs: undefined;
   AdminProfile: undefined;
+  AdminGeographicAnalytics: undefined;
+  AdminReports: undefined;
+  AdminGovernance: undefined;
+  AdminSystemHealth: undefined;
 };

@@ -1,4 +1,9 @@
-import React from 'react';
+/**
+ * EmptyState — Glassmorphism Edition
+ * Props interface unchanged.
+ */
+
+import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
@@ -12,7 +17,7 @@ interface EmptyStateProps {
   onAction?: () => void;
 }
 
-export const EmptyState: React.FC<EmptyStateProps> = ({
+export const EmptyState: React.FC<EmptyStateProps> = memo(({
   icon = '♻',
   title = 'No Activity Yet',
   message,
@@ -41,35 +46,40 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       )}
     </View>
   );
-};
+});
+
+EmptyState.displayName = 'EmptyState';
 
 const styles = StyleSheet.create({
   container: {
     padding: spacing.spaceLg,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.divider,
+    backgroundColor: colors.glassFill,
+    borderRadius: spacing.radiusMd,
+    borderWidth: spacing.glassBorderWidth,
+    borderColor: colors.glassBorder,
     marginVertical: spacing.spaceMd,
   },
   iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: `${colors.primary}15`,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: colors.accentFill,
+    borderWidth: 1,
+    borderColor: colors.primaryDark,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.spaceMd,
   },
   iconText: {
-    fontSize: 32,
+    fontSize: 36,
     color: colors.primary,
   },
   title: {
     fontSize: typography.Title.fontSize,
     fontWeight: '700',
+    letterSpacing: -0.3,
     color: colors.textPrimary,
     marginBottom: spacing.spaceXs,
     textAlign: 'center',
@@ -78,7 +88,7 @@ const styles = StyleSheet.create({
     fontSize: typography.Body.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 21,
     marginBottom: spacing.spaceMd,
     maxWidth: 280,
   },
@@ -86,16 +96,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.spaceLg,
     paddingVertical: spacing.spaceSm + 4,
-    borderRadius: 8,
+    borderRadius: spacing.radiusMd,
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: spacing.cardElevation,
+    elevation: 4,
   },
   actionText: {
-    color: colors.surface,
+    color: colors.textInverse,
     fontSize: typography.Button.fontSize,
     fontWeight: '700',
+    letterSpacing: 0.3,
   },
 });
 

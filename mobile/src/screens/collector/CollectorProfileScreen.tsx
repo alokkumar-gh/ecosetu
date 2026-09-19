@@ -51,6 +51,9 @@ import { Skeleton } from '../../components/common/Skeleton';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { MetricCard } from '../../components/common/MetricCard';
+import { LanguageSelector } from '../../components/common/LanguageSelector';
+import { useI18n } from '../../i18n';
+import { voiceService, AnnouncementPriority } from '../../services/voiceService';
 import { collectorService } from '../../services/collectorService';
 import { userProfileService } from '../../services/userProfileService';
 import { colors } from '../../theme/colors';
@@ -116,6 +119,46 @@ interface Props {
 export const CollectorProfileScreen: React.FC<Props> = () => {
   const { user, logout } = useAuth();
   const { isConnected } = useNetwork();
+  const { t, language } = useI18n();
+
+  // Voice Assistance state
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState<boolean>(false);
+  const [isPlayingSample, setIsPlayingSample] = useState<boolean>(false);
+
+  useEffect(() => {
+    voiceService.isVoiceAssistanceEnabled().then((enabled) => {
+      setIsVoiceEnabled(enabled);
+    });
+    const unsub = voiceService.subscribe((enabled) => {
+      setIsVoiceEnabled(enabled);
+    });
+    return () => unsub();
+  }, []);
+
+  const handleToggleVoice = async (value: boolean) => {
+    setIsVoiceEnabled(value);
+    await voiceService.setVoiceAssistanceEnabled(value);
+    if (!value) {
+      voiceService.stop();
+    }
+  };
+
+  const handlePlaySample = async () => {
+    setIsPlayingSample(true);
+    try {
+      await voiceService.speak(
+        t('voice.sampleAnnouncement') ||
+          'Voice assistance is enabled. You will receive voice announcements for important collection updates.',
+        {
+          language,
+          priority: AnnouncementPriority.HIGH,
+          force: true,
+        }
+      );
+    } finally {
+      setIsPlayingSample(false);
+    }
+  };
 
   // Screen states
   const [profile, setProfile] = useState<any | null>(null);
@@ -410,7 +453,7 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
   return (
     <SafeAreaView style={styles.container}>
       <TopAppBar
-        title="Collector Profile"
+        title={t('collector.profile.title') || "Collector Profile"}
         subtitle="Manage your collector account & availability"
       />
 
@@ -421,7 +464,7 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
       {isConnected && fromCache && (
         <View style={styles.cacheNotice} accessibilityRole="alert">
           <Text style={styles.cacheNoticeText}>
-            ℹ Showing cached profile data. Pull down to refresh live details.
+            {t('offline.cachedNotice') || 'ℹ Showing cached profile data. Pull down to refresh live details.'}
           </Text>
         </View>
       )}
@@ -431,8 +474,8 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
         <View style={styles.warningBanner} accessibilityRole="alert">
           <Text style={styles.warningBannerText}>
             {collectorStatus === USER_STATUS.PENDING_VERIFICATION
-              ? '⏳ Account Pending Verification: Your credentials are under review by an administrator. Availability toggle and pickup actions will be enabled upon approval.'
-              : '⚠ Account Suspended: Your collector privileges are temporarily restricted.'}
+              ? (t('collector.dashboard.pendingNotice') || '⏳ Account Pending Verification: Your credentials are under review by an administrator. Availability toggle and pickup actions will be enabled upon approval.')
+              : (t('collector.dashboard.suspendedNotice') || '⚠ Account Suspended: Your collector privileges are temporarily restricted.')}
           </Text>
         </View>
       )}
@@ -447,7 +490,7 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
             accessibilityRole="button"
             accessibilityLabel="Retry loading profile"
           >
-            <Text style={styles.retryBtnText}>Retry</Text>
+            <Text style={styles.retryBtnText}>{t('common.retry') || 'Retry'}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -487,7 +530,7 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
               </Text>
               <View style={styles.badgeRow}>
                 <View style={styles.roleBadge} accessibilityRole="text">
-                  <Text style={styles.roleBadgeText}>Informal Collector</Text>
+                  <Text style={styles.roleBadgeText}>{t('roles.collector') || 'Informal Collector'}</Text>
                 </View>
                 <StatusBadge status={collectorStatus || 'ACTIVE'} />
               </View>
@@ -497,11 +540,11 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
             <View style={styles.card}>
               <View style={styles.availabilityRow}>
                 <View style={styles.availabilityInfo}>
-                  <Text style={styles.sectionTitle}>Online Availability</Text>
+                  <Text style={styles.sectionTitle}>{t('collector.profile.availability') || 'Online Availability'}</Text>
                   <Text style={styles.availabilitySub}>
                     {isAvailable
-                      ? '🟢 You are available to accept new doorstep collection requests.'
-                      : '⚪ You are offline. Citizens will not see you in active collectors.'}
+                      ? ('🟢 ' + (t('collector.profile.availableNow') || 'You are available to accept new doorstep collection requests.'))
+                      : ('⚪ ' + (t('collector.profile.unavailableNow') || 'You are offline. Citizens will not see you in active collectors.'))}
                   </Text>
                 </View>
                 <View style={styles.switchWrapper}>
@@ -531,19 +574,19 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
             {/* Operational Statistics Section */}
             <View style={styles.sectionContainer}>
               <Text style={styles.sectionHeading} accessibilityRole="header">
-                Operational Statistics
+                {t('collector.profile.operationalDetails') || 'Operational Statistics'}
               </Text>
               <View style={styles.statsGrid}>
                 <MetricCard
                   icon="📦"
                   value={stats?.totalPickups ?? profile?.totalPickups ?? 0}
-                  label="Total Pickups"
+                  label={t('collector.profile.totalPickups') || 'Total Pickups'}
                   accentColor={colors.primary}
                 />
                 <MetricCard
                   icon="⚖️"
                   value={`${stats?.totalWeightKg ?? 0} kg`}
-                  label="E-Waste Collected"
+                  label={t('collector.dashboard.totalCollected') || 'E-Waste Collected'}
                   accentColor="#2E7D32"
                 />
               </View>
@@ -551,13 +594,13 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
                 <MetricCard
                   icon="🚚"
                   value={stats?.activeRequests ?? 0}
-                  label="Active Requests"
+                  label={t('collector.dashboard.activeRequests') || 'Active Requests'}
                   accentColor="#E65100"
                 />
                 <MetricCard
                   icon="🏢"
                   value={stats?.totalConsignments ?? 0}
-                  label="Consignments"
+                  label={t('collector.dashboard.consignments') || 'Consignments'}
                   accentColor="#1565C0"
                 />
               </View>
@@ -567,7 +610,7 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
             <View style={styles.card}>
               <View style={styles.cardHeaderRow}>
                 <Text style={styles.sectionTitle} accessibilityRole="header">
-                  Personal Information
+                  {t('collector.profile.collectorInfo') || 'Personal Information'}
                 </Text>
                 {!isEditing && (
                   <TouchableOpacity
@@ -583,7 +626,7 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
                         !isConnected && styles.textDisabled,
                       ]}
                     >
-                      Edit
+                      {t('common.edit') || 'Edit'}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -598,14 +641,14 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
 
               {/* Full Name */}
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Full Name</Text>
+                <Text style={styles.fieldLabel}>{t('auth.name') || 'Full Name'}</Text>
                 {isEditing ? (
                   <>
                     <TextInput
                       style={[styles.input, Boolean(nameError) && styles.inputError]}
                       value={editName}
                       onChangeText={setEditName}
-                      placeholder="Enter full name"
+                      placeholder={t('auth.name') || 'Enter full name'}
                       maxLength={100}
                       accessibilityLabel="Full name input"
                       editable={!isSaving}
@@ -622,15 +665,15 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
               {/* Email (Read Only - Protected) */}
               <View style={styles.fieldGroup}>
                 <View style={styles.fieldLabelRow}>
-                  <Text style={styles.fieldLabel}>Email Address</Text>
-                  <Text style={styles.protectedLabel}>Protected</Text>
+                  <Text style={styles.fieldLabel}>{t('auth.email') || 'Email Address'}</Text>
+                  <Text style={styles.protectedLabel}>{t('citizen.profile.accountStatus') || 'Protected'}</Text>
                 </View>
                 <Text style={styles.fieldValueReadOnly}>{displayEmail}</Text>
               </View>
 
               {/* Phone */}
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Phone Number</Text>
+                <Text style={styles.fieldLabel}>{t('auth.phone') || 'Phone Number'}</Text>
                 {isEditing ? (
                   <>
                     <TextInput
@@ -655,12 +698,12 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
             {/* Collector Information Card */}
             <View style={styles.card}>
               <Text style={styles.sectionTitle} accessibilityRole="header">
-                Collector Details
+                {t('collector.profile.operationalDetails') || 'Collector Details'}
               </Text>
 
               {/* Bio */}
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Bio / Introduction</Text>
+                <Text style={styles.fieldLabel}>{t('collector.profile.bio') || 'Bio / Introduction'}</Text>
                 {isEditing ? (
                   <>
                     <TextInput
@@ -685,7 +728,7 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
 
               {/* Service Radius */}
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Operating Service Radius</Text>
+                <Text style={styles.fieldLabel}>{t('collector.profile.serviceRadius') || 'Operating Service Radius'}</Text>
                 {isEditing ? (
                   <>
                     <View style={styles.radiusInputRow}>
@@ -719,7 +762,7 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
                     accessibilityRole="button"
                     accessibilityLabel="Cancel editing"
                   >
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                    <Text style={styles.cancelButtonText}>{t('common.cancel') || 'Cancel'}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -733,11 +776,66 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
                     {isSaving ? (
                       <ActivityIndicator size="small" color={colors.surface} />
                     ) : (
-                      <Text style={styles.saveButtonText}>Save Changes</Text>
+                      <Text style={styles.saveButtonText}>{t('collector.profile.saveChanges') || 'Save Changes'}</Text>
                     )}
                   </TouchableOpacity>
                 </View>
               )}
+            </View>
+
+            {/* Voice Assistance Preferences Card */}
+            <View style={styles.card}>
+              <View style={styles.voiceHeaderRow}>
+                <View style={styles.voiceTitleContainer}>
+                  <Text style={styles.sectionTitle} accessibilityRole="header">
+                    🔊 {t('voice.voiceAssistance') || 'Voice Assistance'}
+                  </Text>
+                  <Text style={styles.voiceStatusSubtitle}>
+                    {isVoiceEnabled
+                      ? (t('voice.voiceEnabled') || 'Voice Enabled')
+                      : (t('voice.voiceDisabled') || 'Voice Disabled')}
+                  </Text>
+                </View>
+                <Switch
+                  value={isVoiceEnabled}
+                  onValueChange={handleToggleVoice}
+                  trackColor={{ false: colors.divider, true: colors.primaryLight }}
+                  thumbColor={isVoiceEnabled ? colors.primary : '#f4f3f4'}
+                  accessibilityRole="switch"
+                  accessibilityLabel={t('voice.voiceAssistance') || 'Voice Assistance'}
+                  accessibilityState={{ checked: isVoiceEnabled }}
+                />
+              </View>
+
+              <Text style={styles.voiceDescText}>
+                {t('voice.voiceSettingsDesc') ||
+                  'Receive spoken audio announcements for new requests, pickup status updates, and read aloud summaries.'}
+              </Text>
+
+              <TouchableOpacity
+                style={[styles.sampleButton, isPlayingSample && styles.sampleButtonActive]}
+                onPress={handlePlaySample}
+                disabled={isPlayingSample}
+                accessibilityRole="button"
+                accessibilityLabel={t('voice.playSample') || 'Play Sample'}
+                accessibilityHint="Plays a sample audio announcement"
+              >
+                {isPlayingSample ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Text style={styles.sampleButtonText}>
+                    ▶️ {t('voice.playSample') || 'Play Sample'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Language Preferences Card */}
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle} accessibilityRole="header">
+                {t('collector.profile.selectLanguage') || 'Language Preferences'}
+              </Text>
+              <LanguageSelector variant="chips" />
             </View>
 
             {/* EcoSetu Model Architecture Info */}
@@ -765,7 +863,7 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
               {isLoggingOut ? (
                 <ActivityIndicator size="small" color={colors.error} />
               ) : (
-                <Text style={styles.logoutButtonText}>Log Out</Text>
+                <Text style={styles.logoutButtonText}>{t('collector.profile.signOut') || 'Log Out'}</Text>
               )}
             </TouchableOpacity>
           </ScrollView>
@@ -1167,6 +1265,47 @@ const styles = StyleSheet.create({
   },
   btnDisabled: {
     opacity: 0.5,
+  },
+  voiceHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.spaceXs,
+  },
+  voiceTitleContainer: {
+    flex: 1,
+    marginRight: spacing.spaceSm,
+  },
+  voiceStatusSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
+    marginTop: 2,
+  },
+  voiceDescText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: spacing.spaceMd,
+  },
+  sampleButton: {
+    backgroundColor: '#E8F5E9',
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 8,
+    paddingVertical: spacing.spaceSm,
+    paddingHorizontal: spacing.spaceMd,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  sampleButtonActive: {
+    backgroundColor: '#C8E6C9',
+  },
+  sampleButtonText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
 

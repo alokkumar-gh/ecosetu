@@ -11,6 +11,11 @@
  *       Update user status via PATCH /api/v1/admin/users/:id/status
  *       Permitted transitions: ACTIVE, SUSPENDED, DEACTIVATED
  *       Pre-flight confirmation, duplicate protection, online-only validation
+ *   - Verification bridge:
+ *       Accounts in PENDING_VERIFICATION link to AdminVerifications
+ *   - Multilingual support via useI18n() (EN, HI, MR, OR)
+ *   - Strict privacy safeguards: ZERO passwords, tokens, addresses, coordinates
+ *   - Accessible touch targets >= 48px
  *
  * Source of Truth:
  *   docs/05_API_SPECIFICATION.md Section 14
@@ -41,18 +46,29 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { useNetwork } from '../../hooks/useNetwork';
 import { useAuth } from '../../hooks/useAuth';
+import { useI18n } from '../../i18n';
 import { adminService } from '../../services/adminService';
+import { ROLES as CONST_ROLES } from '../../utils/constants';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 
-const ROLES = ['ALL', 'CITIZEN', 'INFORMAL_COLLECTOR', 'RECYCLER', 'ADMIN'];
-const STATUSES = ['ALL', 'ACTIVE', 'SUSPENDED', 'DEACTIVATED', 'PENDING_VERIFICATION'];
+const ROLE_FILTERS = ['ALL', 'CITIZEN', 'INFORMAL_COLLECTOR', 'RECYCLER', 'ADMIN'];
+const STATUS_FILTERS = ['ALL', 'ACTIVE', 'SUSPENDED', 'DEACTIVATED', 'PENDING_VERIFICATION'];
+const STATUSES = STATUS_FILTERS;
 const PERMITTED_STATUS_UPDATES = ['ACTIVE', 'SUSPENDED', 'DEACTIVATED'];
 
-export const AdminUsersScreen: React.FC = () => {
+interface Props {
+  navigation?: any;
+}
+
+export const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
   const { user: currentUser } = useAuth();
   const { isConnected } = useNetwork();
+  const { t } = useI18n();
+
+  // Role Guard: Administrator access only
+  const isAdmin = currentUser?.role === CONST_ROLES.ADMIN;
 
   const [users, setUsers] = useState<any[]>([]);
   const [pagination, setPagination] = useState<any>(null);
@@ -79,6 +95,7 @@ export const AdminUsersScreen: React.FC = () => {
 
   const loadUsers = useCallback(
     async (targetPage = 1, silent = false) => {
+      if (!isAdmin) return;
       if (!silent) setError(null);
       try {
         const result = await adminService.getUsers({
@@ -100,7 +117,7 @@ export const AdminUsersScreen: React.FC = () => {
         setIsRefreshing(false);
       }
     },
-    [selectedRole, selectedStatus, searchQuery],
+    [isAdmin, selectedRole, selectedStatus, searchQuery],
   );
 
   useEffect(() => {
@@ -139,32 +156,35 @@ export const AdminUsersScreen: React.FC = () => {
 
     if (!isConnected) {
       Alert.alert(
-        'Internet Connection Required',
-        'Account status updates require real-time connection to the ECOSETU backend.',
+        t('admin.governance.accessRestricted'),
+        t('admin.users.offlineNotice'),
       );
       return;
     }
 
     if (selectedUser.id === currentUser?.id) {
       Alert.alert(
-        'Action Forbidden',
-        'Administrators cannot change their own account status.',
+        t('admin.users.selfStatusForbidden'),
+        t('admin.users.selfStatusForbiddenMessage'),
       );
       return;
     }
 
     if (newStatus === selectedUser.status) {
-      Alert.alert('No Change', `User is already in '${newStatus}' status.`);
+      Alert.alert(
+        t('common.info') || 'Info',
+        `User is already in '${newStatus}' status.`,
+      );
       return;
     }
 
     Alert.alert(
-      'Confirm Status Modification',
-      `Are you sure you want to change status of ${selectedUser.name || 'this user'} to ${newStatus}?`,
+      t('admin.users.confirmStatusTitle'),
+      t('admin.users.confirmStatusMessage', { status: newStatus }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Confirm',
+          text: t('common.confirm'),
           style: newStatus === 'SUSPENDED' ? 'destructive' : 'default',
           onPress: executeStatusChange,
         },
@@ -192,19 +212,19 @@ export const AdminUsersScreen: React.FC = () => {
       );
 
       Alert.alert(
-        'Status Updated',
-        `Account status for ${updatedUser?.name || 'user'} has been updated to ${updatedUser?.status}.`,
-        [{ text: 'OK', onPress: () => setSelectedUser(null) }],
+        t('common.success') || 'Success',
+        t('admin.users.statusUpdatedSuccess'),
+        [{ text: t('common.confirm') || 'OK', onPress: () => setSelectedUser(null) }],
       );
     } catch (err: any) {
       const status = err?.response?.status;
       const msg = err?.response?.data?.message || err?.message || 'Failed to update account status.';
 
       if (status === 409) {
-        setModalError('Status conflict: user status was modified on the server. Please refresh.');
+        setModalError(t('admin.users.statusConflictMessage'));
         loadUsers(page, true);
       } else if (status === 403) {
-        setModalError('Forbidden: administrative permissions required.');
+        setModalError(t('admin.users.forbiddenError'));
       } else {
         setModalError(msg);
       }
@@ -213,6 +233,35 @@ export const AdminUsersScreen: React.FC = () => {
       setIsSubmittingStatus(false);
     }
   };
+
+  // Bridge to verification center for pending accounts
+  const handleNavigateToVerification = () => {
+    handleCloseModal();
+    if (navigation?.navigate) {
+      navigation.navigate('AdminVerifications');
+    }
+  };
+
+  // Access-denied guard for non-administrators
+  if (!isAdmin) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <TopAppBar
+          title={t('admin.users.title')}
+          showBack={Boolean(navigation?.canGoBack && navigation.canGoBack())}
+          onBack={() => navigation?.goBack()}
+        />
+        <View style={styles.centerContainer}>
+          <EmptyState
+            title={t('admin.users.selfStatusForbidden')}
+            message={t('admin.governance.accessRestrictedMessage')}
+            actionLabel={t('common.back')}
+            onAction={() => navigation?.goBack()}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const renderUserItem = ({ item }: { item: any }) => (
     <TouchableOpacity
@@ -231,17 +280,21 @@ export const AdminUsersScreen: React.FC = () => {
       </View>
 
       <View style={styles.cardMeta}>
-        <Text style={styles.metaBadge}>Role: {item.role}</Text>
+        <Text style={styles.metaBadge}>{t('admin.users.roleLabel')}: {item.role}</Text>
         {item.phone ? <Text style={styles.metaText}>📞 {item.phone}</Text> : null}
       </View>
 
       <View style={styles.cardFooter}>
         <Text style={styles.joinedDate}>
-          Joined: {item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-IN') : '—'}
+          {t('admin.users.joinedLabel')}: {item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-IN') : '—'}
         </Text>
         <View style={styles.verifyChips}>
-          {item.isEmailVerified && <Text style={styles.verifiedTag}>✉️ Verified</Text>}
-          {item.isPhoneVerified && <Text style={styles.verifiedTag}>📱 Verified</Text>}
+          {item.isEmailVerified && (
+            <Text style={styles.verifiedTag}>{t('admin.users.verifiedEmailTag')}</Text>
+          )}
+          {item.isPhoneVerified && (
+            <Text style={styles.verifiedTag}>{t('admin.users.verifiedPhoneTag')}</Text>
+          )}
         </View>
       </View>
     </TouchableOpacity>
@@ -249,21 +302,26 @@ export const AdminUsersScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <TopAppBar title="User Management" subtitle="Platform User Governance" showBack={false} />
+      <TopAppBar
+        title={t('admin.users.title')}
+        subtitle={t('admin.users.subtitle')}
+        showBack={Boolean(navigation?.canGoBack && navigation.canGoBack())}
+        onBack={() => navigation?.goBack()}
+      />
 
-      <OfflineBanner />
+      {fromCache && <OfflineBanner />}
 
       {/* Search Input */}
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Search users by name or email..."
+          placeholder={t('admin.users.searchPlaceholder')}
           placeholderTextColor={colors.textSecondary}
           value={searchQuery}
           onChangeText={setSearchQuery}
           returnKeyType="search"
           onSubmitEditing={() => loadUsers(1, false)}
-          accessibilityLabel="Search users by name or email"
+          accessibilityLabel={t('admin.users.searchPlaceholder')}
         />
       </View>
 
@@ -274,18 +332,19 @@ export const AdminUsersScreen: React.FC = () => {
         style={styles.filterScroll}
         contentContainerStyle={styles.filterContainer}
       >
-        {ROLES.map((r) => (
+        {ROLE_FILTERS.map((r) => (
           <TouchableOpacity
             key={r}
             style={[styles.filterChip, selectedRole === r && styles.filterChipActive]}
             onPress={() => setSelectedRole(r)}
             accessibilityRole="tab"
             accessibilityState={{ selected: selectedRole === r }}
+            accessibilityLabel={`Role: ${r}`}
           >
             <Text
               style={[styles.filterChipText, selectedRole === r && styles.filterChipTextActive]}
             >
-              {r.replace('_', ' ')}
+              {r === 'ALL' ? t('admin.users.roleFilterAll') : r.replace('_', ' ')}
             </Text>
           </TouchableOpacity>
         ))}
@@ -298,18 +357,19 @@ export const AdminUsersScreen: React.FC = () => {
         style={styles.filterScroll}
         contentContainerStyle={styles.filterContainer}
       >
-        {STATUSES.map((s) => (
+        {STATUS_FILTERS.map((s) => (
           <TouchableOpacity
             key={s}
             style={[styles.filterChip, selectedStatus === s && styles.filterChipActive]}
             onPress={() => setSelectedStatus(s)}
             accessibilityRole="tab"
             accessibilityState={{ selected: selectedStatus === s }}
+            accessibilityLabel={`Status: ${s}`}
           >
             <Text
               style={[styles.filterChipText, selectedStatus === s && styles.filterChipTextActive]}
             >
-              {s.replace('_', ' ')}
+              {s === 'ALL' ? t('admin.users.statusFilterAll') : s.replace('_', ' ')}
             </Text>
           </TouchableOpacity>
         ))}
@@ -327,7 +387,7 @@ export const AdminUsersScreen: React.FC = () => {
           <EmptyState
             title="Unable to Load Users"
             message={error}
-            actionLabel="Retry"
+            actionLabel={t('common.retry')}
             onAction={() => loadUsers(1, false)}
           />
         </View>
@@ -347,9 +407,9 @@ export const AdminUsersScreen: React.FC = () => {
           }
           ListEmptyComponent={
             <EmptyState
-              title="No Users Found"
-              message="No users match the current search query or filter criteria."
-              actionLabel="Clear Filters"
+              title={t('admin.users.noUsersFound')}
+              message={t('admin.users.noUsersFoundSubtitle')}
+              actionLabel={t('admin.users.clearFilters')}
               onAction={() => {
                 setSelectedRole('ALL');
                 setSelectedStatus('ALL');
@@ -369,28 +429,33 @@ export const AdminUsersScreen: React.FC = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>User Account Details</Text>
+            <Text style={styles.modalTitle}>{t('admin.users.userDetailsTitle')}</Text>
 
             {selectedUser && (
               <ScrollView style={styles.modalScroll}>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Name:</Text>
+                  <Text style={styles.detailLabel}>{t('admin.users.nameLabel')}:</Text>
                   <Text style={styles.detailValue}>{selectedUser.name || '—'}</Text>
                 </View>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Email:</Text>
+                  <Text style={styles.detailLabel}>{t('admin.users.emailLabel')}:</Text>
                   <Text style={styles.detailValue}>{selectedUser.email}</Text>
                 </View>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Phone:</Text>
+                  <Text style={styles.detailLabel}>{t('admin.users.phoneLabel')}:</Text>
                   <Text style={styles.detailValue}>{selectedUser.phone || '—'}</Text>
                 </View>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Role:</Text>
-                  <Text style={styles.detailValue}>{selectedUser.role}</Text>
+                  <Text style={styles.detailLabel}>{t('admin.users.roleLabel')}:</Text>
+                  <View style={styles.roleValueWrap}>
+                    <Text style={styles.detailValue}>{selectedUser.role}</Text>
+                    <Text style={styles.roleImmutableNote}>
+                      {t('admin.users.roleUnchangeableNotice')}
+                    </Text>
+                  </View>
                 </View>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Current Status:</Text>
+                  <Text style={styles.detailLabel}>{t('admin.users.statusLabel')}:</Text>
                   <StatusBadge status={selectedUser.status} />
                 </View>
 
@@ -400,8 +465,29 @@ export const AdminUsersScreen: React.FC = () => {
                   </View>
                 )}
 
+                {/* Pending Verification Notice & Bridge */}
+                {selectedUser.status === 'PENDING_VERIFICATION' && (
+                  <View style={styles.pendingVerificationBox}>
+                    <Text style={styles.pendingVerificationText}>
+                      ⚠️ {t('admin.users.pendingVerificationNotice')}
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.verificationBridgeButton}
+                      onPress={handleNavigateToVerification}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('admin.users.reviewVerification')}
+                    >
+                      <Text style={styles.verificationBridgeText}>
+                        📑 {t('admin.users.reviewVerification')}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
                 {/* Status Modification Controls */}
-                <Text style={styles.statusSectionTitle}>Update Account Status</Text>
+                <Text style={styles.statusSectionTitle}>
+                  {t('admin.users.updateStatusTitle')}
+                </Text>
                 <View style={styles.statusButtonsRow}>
                   {PERMITTED_STATUS_UPDATES.map((st) => (
                     <TouchableOpacity
@@ -412,7 +498,9 @@ export const AdminUsersScreen: React.FC = () => {
                         st === 'SUSPENDED' && newStatus === st && styles.statusButtonSuspended,
                       ]}
                       onPress={() => setNewStatus(st)}
-                      disabled={isSubmittingStatus || !isConnected}
+                      disabled={isSubmittingStatus || !isConnected || selectedUser.id === currentUser?.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Select status: ${st}`}
                     >
                       <Text
                         style={[
@@ -428,19 +516,26 @@ export const AdminUsersScreen: React.FC = () => {
 
                 <TextInput
                   style={styles.reasonInput}
-                  placeholder="Optional administrative reason / notes..."
+                  placeholder={t('admin.users.reasonPlaceholder')}
                   placeholderTextColor={colors.textSecondary}
                   value={statusReason}
                   onChangeText={setStatusReason}
                   multiline
                   numberOfLines={3}
                   maxLength={500}
-                  editable={!isSubmittingStatus && isConnected}
+                  editable={!isSubmittingStatus && isConnected && selectedUser.id !== currentUser?.id}
+                  accessibilityLabel={t('admin.users.reasonPlaceholder')}
                 />
 
                 {!isConnected && (
                   <Text style={styles.offlineNotice}>
-                    ⚠️ Status changes are disabled while offline.
+                    {t('admin.users.offlineNotice')}
+                  </Text>
+                )}
+
+                {selectedUser.id === currentUser?.id && (
+                  <Text style={styles.selfNotice}>
+                    ℹ️ {t('admin.users.selfStatusForbiddenMessage')}
                   </Text>
                 )}
 
@@ -449,22 +544,27 @@ export const AdminUsersScreen: React.FC = () => {
                     style={styles.cancelButton}
                     onPress={handleCloseModal}
                     disabled={isSubmittingStatus}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('admin.users.close')}
                   >
-                    <Text style={styles.cancelButtonText}>Close</Text>
+                    <Text style={styles.cancelButtonText}>{t('admin.users.close')}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[
                       styles.saveButton,
-                      (!isConnected || isSubmittingStatus) && styles.buttonDisabled,
+                      (!isConnected || isSubmittingStatus || selectedUser.id === currentUser?.id) &&
+                        styles.buttonDisabled,
                     ]}
                     onPress={handleConfirmStatusChange}
-                    disabled={isSubmittingStatus || !isConnected}
+                    disabled={isSubmittingStatus || !isConnected || selectedUser.id === currentUser?.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('admin.users.applyStatus')}
                   >
                     {isSubmittingStatus ? (
                       <ActivityIndicator size="small" color="#FFFFFF" />
                     ) : (
-                      <Text style={styles.saveButtonText}>Apply Status</Text>
+                      <Text style={styles.saveButtonText}>{t('admin.users.applyStatus')}</Text>
                     )}
                   </TouchableOpacity>
                 </View>
@@ -488,6 +588,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.spaceXs,
   },
   searchInput: {
+    minHeight: 48,
     backgroundColor: colors.surface,
     borderRadius: 8,
     borderWidth: 1,
@@ -498,18 +599,20 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   filterScroll: {
-    maxHeight: 44,
+    maxHeight: 52,
+    marginVertical: 2,
   },
   filterContainer: {
     paddingHorizontal: spacing.spaceMd,
-    paddingVertical: 4,
+    paddingVertical: 2,
     gap: spacing.spaceXs,
   },
   filterChip: {
+    minHeight: 48,
+    justifyContent: 'center',
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.spaceSm + 4,
-    paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.divider,
   },
@@ -653,6 +756,40 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: '600',
   },
+  roleValueWrap: {
+    alignItems: 'flex-end',
+  },
+  roleImmutableNote: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  pendingVerificationBox: {
+    marginTop: spacing.spaceSm,
+    padding: spacing.spaceSm,
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#F59E0B',
+  },
+  pendingVerificationText: {
+    fontSize: 12,
+    color: '#D97706',
+    marginBottom: spacing.spaceXs,
+  },
+  verificationBridgeButton: {
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F59E0B',
+    borderRadius: 6,
+    paddingHorizontal: spacing.spaceMd,
+  },
+  verificationBridgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
   statusSectionTitle: {
     fontSize: typography.Body.fontSize,
     fontWeight: '700',
@@ -667,11 +804,13 @@ const styles = StyleSheet.create({
   },
   statusSelectButton: {
     flex: 1,
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingVertical: spacing.spaceSm,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: colors.divider,
-    alignItems: 'center',
   },
   statusSelectButtonActive: {
     backgroundColor: colors.primary,
@@ -706,6 +845,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.spaceSm,
     textAlign: 'center',
   },
+  selfNotice: {
+    fontSize: typography.Caption.fontSize,
+    color: colors.textSecondary,
+    marginBottom: spacing.spaceSm,
+    textAlign: 'center',
+  },
   errorBanner: {
     backgroundColor: '#FFEBEE',
     padding: spacing.spaceSm,
@@ -723,8 +868,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.spaceMd,
   },
   cancelButton: {
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: spacing.spaceMd,
-    paddingVertical: spacing.spaceSm,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: colors.divider,
@@ -734,12 +881,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   saveButton: {
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.spaceMd,
-    paddingVertical: spacing.spaceSm,
     borderRadius: 6,
     minWidth: 110,
-    alignItems: 'center',
   },
   buttonDisabled: {
     opacity: 0.5,

@@ -1,3 +1,10 @@
+/**
+ * RegisterScreen — Government-Grade Public Service Edition
+ * Unified with LoginScreen design tokens: clean off-white background,
+ * solid white card surfaces, deep navy primary accents, readable typography.
+ * All business logic (useAuth, validation, register payload, role constraints) is 100% preserved.
+ */
+
 import React, { useState } from 'react';
 import {
   View,
@@ -6,20 +13,18 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { AuthStackParamList } from '../../navigation/types';
 import { useAuth } from '../../hooks/useAuth';
-import { TopAppBar } from '../../components/layout/TopAppBar';
+import { useI18n } from '../../i18n';
+import { LanguageSelector } from '../../components/common/LanguageSelector';
 import { ROLES } from '../../utils/constants';
-import { colors } from '../../theme/colors';
-import { spacing } from '../../theme/spacing';
-import { typography } from '../../theme/typography';
 
 interface Props {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Register'>;
@@ -28,8 +33,15 @@ interface Props {
 
 type AllowedRole = typeof ROLES.CITIZEN | typeof ROLES.INFORMAL_COLLECTOR | typeof ROLES.RECYCLER;
 
+const ROLE_OPTIONS: { key: AllowedRole; label: string; icon: string }[] = [
+  { key: ROLES.CITIZEN, label: 'Citizen', icon: '🏠' },
+  { key: ROLES.INFORMAL_COLLECTOR, label: 'Collector', icon: '🚚' },
+  { key: ROLES.RECYCLER, label: 'Recycler', icon: '♻' },
+];
+
 export const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
   const { register } = useAuth();
+  const { t } = useI18n();
   const initialRole: AllowedRole = (route.params?.initialRole as AllowedRole) || ROLES.CITIZEN;
 
   const [role, setRole] = useState<AllowedRole>(initialRole);
@@ -38,14 +50,13 @@ export const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [phone, setPhone] = useState('');
-
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleRegister = async () => {
     setErrorMessage(null);
 
-    // Client-side validations
+    // Client-side validations (100% preserved)
     if (!name.trim() || name.trim().length < 2) {
       setErrorMessage('Full name must be at least 2 characters long.');
       return;
@@ -74,9 +85,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
       if (phone.trim()) {
         payload.phone = phone.trim();
       }
-
       await register(payload);
-      // On success, RootNavigator detects isAuthenticated and routes automatically
     } catch (err: any) {
       const msg = err?.message || 'Registration failed. Please check your details.';
       setErrorMessage(msg);
@@ -86,101 +95,95 @@ export const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <TopAppBar title="Register" showBack onBack={() => navigation.goBack()} />
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      {/* ── Top Bar: Back, Branding & Language Selector ──────────────────── */}
+      <View style={styles.topBar}>
+        <View style={styles.topBarLeft}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Text style={styles.backButtonText}>←</Text>
+          </TouchableOpacity>
+          <View style={styles.govMarkSmall}>
+            <Text style={styles.govMarkSmallText}>♻</Text>
+          </View>
+          <Text style={styles.topBarTitle}>ECOSETU</Text>
+        </View>
+        <LanguageSelector variant="compact" />
+      </View>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.container}>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Create an Account</Text>
-            <Text style={styles.cardSubtitle}>
-              Join EcoSetu to participate in formal and transparent e-waste recycling.
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* ── Header ─────────────────────────────────────── */}
+          <View style={styles.headerSection}>
+            <Text style={styles.welcomeLabel}>ECOSETU • PUBLIC SERVICE E-WASTE PORTAL</Text>
+            <Text style={styles.headline}>Create an Account</Text>
+            <Text style={styles.subtitle}>
+              Join ECOSETU to participate in formal, verified e-waste collection and circular recycling.
             </Text>
+          </View>
 
+          {/* ── Form Card ──────────────────────────────────── */}
+          <View style={styles.formCard}>
+            {/* Error Banner */}
             {errorMessage && (
               <View style={styles.errorBox} accessibilityRole="alert">
+                <Text style={styles.errorIcon}>⚠</Text>
                 <Text style={styles.errorText}>{errorMessage}</Text>
               </View>
             )}
 
-            {/* Role Selection Tabs */}
-            <Text style={styles.label}>Select Your Role *</Text>
+            {/* Role Selector */}
+            <Text style={styles.inputLabel}>SELECT YOUR ROLE *</Text>
             <View style={styles.roleSelector}>
-              <TouchableOpacity
-                style={[styles.roleOption, role === ROLES.CITIZEN && styles.roleOptionSelected]}
-                onPress={() => setRole(ROLES.CITIZEN)}
-                accessibilityRole="button"
-                accessibilityLabel="Citizen Role"
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.roleOptionText,
-                    role === ROLES.CITIZEN && styles.roleOptionTextSelected,
-                  ]}
-                >
-                  Citizen
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.roleOption,
-                  role === ROLES.INFORMAL_COLLECTOR && styles.roleOptionSelected,
-                ]}
-                onPress={() => setRole(ROLES.INFORMAL_COLLECTOR)}
-                accessibilityRole="button"
-                accessibilityLabel="Collector Role"
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.roleOptionText,
-                    role === ROLES.INFORMAL_COLLECTOR && styles.roleOptionTextSelected,
-                  ]}
-                >
-                  Collector
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.roleOption, role === ROLES.RECYCLER && styles.roleOptionSelected]}
-                onPress={() => setRole(ROLES.RECYCLER)}
-                accessibilityRole="button"
-                accessibilityLabel="Recycler Role"
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.roleOptionText,
-                    role === ROLES.RECYCLER && styles.roleOptionTextSelected,
-                  ]}
-                >
-                  Recycler
-                </Text>
-              </TouchableOpacity>
+              {ROLE_OPTIONS.map((opt) => {
+                const isSelected = role === opt.key;
+                return (
+                  <TouchableOpacity
+                    key={opt.key}
+                    style={[styles.roleOption, isSelected && styles.roleOptionSelected]}
+                    onPress={() => setRole(opt.key)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${opt.label} Role`}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.roleIcon}>{opt.icon}</Text>
+                    <Text style={[styles.roleOptionText, isSelected && styles.roleOptionTextSelected]}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             {/* Full Name */}
-            <Text style={styles.label}>Full Name *</Text>
+            <Text style={styles.inputLabel}>FULL NAME *</Text>
             <TextInput
               style={styles.input}
               placeholder="e.g. Ramesh Kumar"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor="#94A3B8"
               value={name}
               onChangeText={setName}
               accessibilityLabel="Full Name"
             />
 
-            {/* Email Address */}
-            <Text style={styles.label}>Email Address *</Text>
+            {/* Email */}
+            <Text style={styles.inputLabel}>EMAIL ADDRESS *</Text>
             <TextInput
               style={styles.input}
               placeholder="e.g. ramesh@ecosetu.org"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor="#94A3B8"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -189,12 +192,12 @@ export const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
               accessibilityLabel="Email Address"
             />
 
-            {/* Phone (Optional) */}
-            <Text style={styles.label}>Phone Number (Optional)</Text>
+            {/* Phone */}
+            <Text style={styles.inputLabel}>PHONE NUMBER (OPTIONAL)</Text>
             <TextInput
               style={styles.input}
               placeholder="e.g. +91 9876543210"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor="#94A3B8"
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"
@@ -202,11 +205,11 @@ export const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
             />
 
             {/* Password */}
-            <Text style={styles.label}>Password * (min 8 chars, letter + number)</Text>
+            <Text style={styles.inputLabel}>PASSWORD * (MIN 8 CHARACTERS, LETTER + NUMBER)</Text>
             <TextInput
               style={styles.input}
               placeholder="Create a strong password"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor="#94A3B8"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -214,11 +217,11 @@ export const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
             />
 
             {/* Confirm Password */}
-            <Text style={styles.label}>Confirm Password *</Text>
+            <Text style={styles.inputLabel}>CONFIRM PASSWORD *</Text>
             <TextInput
               style={styles.input}
               placeholder="Re-enter password"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor="#94A3B8"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry
@@ -227,17 +230,17 @@ export const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
 
             {/* Submit Button */}
             <TouchableOpacity
-              style={[styles.registerButton, isLoading && styles.buttonDisabled]}
+              style={[styles.primaryBtn, isLoading && styles.btnDisabled]}
               onPress={handleRegister}
               disabled={isLoading}
               accessibilityRole="button"
               accessibilityLabel="Create Account"
-              activeOpacity={0.8}
+              activeOpacity={0.85}
             >
               {isLoading ? (
-                <ActivityIndicator color={colors.surface} size="small" />
+                <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={styles.registerButtonText}>Create Account</Text>
+                <Text style={styles.primaryBtnText}>Create Account</Text>
               )}
             </TouchableOpacity>
 
@@ -248,6 +251,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
                 onPress={() => navigation.navigate('Login')}
                 accessibilityRole="link"
                 accessibilityLabel="Go to Log In"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <Text style={styles.linkText}>Log In</Text>
               </TouchableOpacity>
@@ -262,122 +266,207 @@ export const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#FFFFFF',
+  },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 10,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  topBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    minHeight: 44,
+    minWidth: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 4,
+  },
+  backButtonText: {
+    fontSize: 22,
+    color: '#0F2942',
+    fontWeight: 'bold',
+  },
+  govMarkSmall: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#0F2942',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 6,
+  },
+  govMarkSmallText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  topBarTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F2942',
+    letterSpacing: 0.5,
   },
   keyboardView: {
     flex: 1,
+    backgroundColor: '#F8FAFC',
   },
-  container: {
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 36,
     flexGrow: 1,
-    padding: spacing.spaceMd,
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    padding: spacing.spaceLg,
-    elevation: spacing.cardElevation,
+  headerSection: {
+    marginBottom: 14,
   },
-  cardTitle: {
-    fontSize: typography.Headline.fontSize,
+  welcomeLabel: {
+    fontSize: 11,
     fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.spaceXs,
+    color: '#15803D', // Institutional green accent
+    letterSpacing: 0.8,
+    marginBottom: 4,
   },
-  cardSubtitle: {
-    fontSize: typography.Body.fontSize,
-    lineHeight: typography.Body.lineHeight,
-    color: colors.textSecondary,
-    marginBottom: spacing.spaceLg,
+  headline: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: 0.2,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#475569',
+  },
+  formCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    padding: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
   errorBox: {
-    backgroundColor: '#FFEBEE',
-    borderLeftWidth: 4,
-    borderLeftColor: colors.error,
-    padding: spacing.spaceSm,
-    borderRadius: 4,
-    marginBottom: spacing.spaceMd,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    borderRadius: 6,
+    padding: 10,
+    marginBottom: 14,
+  },
+  errorIcon: {
+    color: '#B91C1C',
+    fontSize: 15,
+    marginRight: 8,
+    fontWeight: 'bold',
   },
   errorText: {
-    fontSize: typography.Caption.fontSize,
-    color: colors.error,
+    flex: 1,
+    fontSize: 13,
+    color: '#991B1B',
+    lineHeight: 18,
     fontWeight: '500',
   },
-  label: {
-    fontSize: typography.Caption.fontSize,
+  inputLabel: {
+    fontSize: 12,
     fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.spaceXs,
+    letterSpacing: 0.4,
+    color: '#334155',
+    marginBottom: 6,
   },
   roleSelector: {
     flexDirection: 'row',
-    gap: spacing.spaceSm,
-    marginBottom: spacing.spaceMd,
+    gap: 8,
+    marginBottom: 14,
   },
   roleOption: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 52,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: colors.divider,
-    backgroundColor: colors.surface,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.spaceXs,
+    paddingHorizontal: 4,
+    gap: 2,
   },
   roleOptionSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primaryDark,
+    backgroundColor: '#0F2942',
+    borderColor: '#0F2942',
+  },
+  roleIcon: {
+    fontSize: 18,
   },
   roleOptionText: {
-    fontSize: typography.Caption.fontSize,
+    fontSize: 11,
     fontWeight: '700',
-    color: colors.textPrimary,
+    letterSpacing: 0.2,
+    color: '#475569',
   },
   roleOptionTextSelected: {
-    color: colors.surface,
+    color: '#FFFFFF',
   },
   input: {
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: '#CBD5E1',
     borderRadius: 6,
-    paddingHorizontal: spacing.spaceMd,
-    paddingVertical: spacing.spaceSm,
+    paddingHorizontal: 14,
     minHeight: 48,
-    fontSize: typography.Body.fontSize,
-    color: colors.textPrimary,
-    marginBottom: spacing.spaceMd,
+    fontSize: 15,
+    color: '#0F172A',
+    marginBottom: 14,
   },
-  registerButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 6,
+  primaryBtn: {
     minHeight: 48,
-    alignItems: 'center',
+    backgroundColor: '#0F2942',
+    borderRadius: 6,
     justifyContent: 'center',
-    marginTop: spacing.spaceSm,
-    marginBottom: spacing.spaceLg,
-    elevation: spacing.cardElevation,
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 14,
   },
-  buttonDisabled: {
+  btnDisabled: {
     opacity: 0.6,
   },
-  registerButtonText: {
-    fontSize: typography.Button.fontSize,
+  primaryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '700',
-    color: colors.surface,
+    letterSpacing: 0.3,
   },
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 4,
   },
   footerText: {
-    fontSize: typography.Body.fontSize,
-    color: colors.textSecondary,
+    fontSize: 13,
+    color: '#475569',
   },
   linkText: {
-    fontSize: typography.Body.fontSize,
+    fontSize: 13,
     fontWeight: '700',
-    color: colors.secondary,
+    color: '#0F2942',
+    textDecorationLine: 'underline',
   },
 });
 

@@ -35,6 +35,8 @@ import {
   RefreshControl,
   TextInput,
   ScrollView,
+  Linking,
+  Alert,
 } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 import { useNetwork } from '../../hooks/useNetwork';
@@ -43,7 +45,9 @@ import { Skeleton } from '../../components/common/Skeleton';
 import { EmptyState } from '../../components/common/EmptyState';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { StatusBadge } from '../../components/common/StatusBadge';
+import { EcoSetuMap, EcoSetuPin } from '../../components/map/EcoSetuMap';
 import { recyclingService } from '../../services/recyclingService';
+import { useI18n } from '../../i18n';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -127,9 +131,11 @@ const skeletonStyles = StyleSheet.create({
 interface RecyclerCardProps {
   recycler: any;
   onSelectRecycler?: (recycler: any) => void;
+  onViewFacility?: (recycler: any) => void;
 }
 
-const RecyclerCard: React.FC<RecyclerCardProps> = React.memo(({ recycler, onSelectRecycler }) => {
+const RecyclerCard: React.FC<RecyclerCardProps> = React.memo(({ recycler, onSelectRecycler, onViewFacility }) => {
+  const { t } = useI18n();
   const facilityName = recycler.facilityName || 'Authorized Recycling Facility';
   const facilityAddress = recycler.facilityAddress || 'Address not listed';
   const categories: string[] = Array.isArray(recycler.acceptedCategories)
@@ -155,7 +161,7 @@ const RecyclerCard: React.FC<RecyclerCardProps> = React.memo(({ recycler, onSele
           <Text style={cardStyles.facilityName} numberOfLines={2}>
             {facilityName}
           </Text>
-          <Text style={cardStyles.authorizedTag}>Licensed Formal Recycler</Text>
+          <Text style={cardStyles.authorizedTag}>{t('collector.recyclers.verifiedRecycler') || 'Licensed Formal Recycler'}</Text>
         </View>
         <StatusBadge status="ACTIVE" />
       </View>
@@ -187,7 +193,7 @@ const RecyclerCard: React.FC<RecyclerCardProps> = React.memo(({ recycler, onSele
       {/* ── Accepted Categories ── */}
       {categories.length > 0 && (
         <View style={cardStyles.categoriesSection}>
-          <Text style={cardStyles.sectionLabel}>Accepted E-Waste Categories:</Text>
+          <Text style={cardStyles.sectionLabel}>{t('collector.recyclers.acceptedCategories') || 'Accepted E-Waste Categories:'}</Text>
           <View style={cardStyles.categoryChipsContainer}>
             {categories.map((cat, idx) => (
               <View key={`${cat}-${idx}`} style={cardStyles.categoryChip}>
@@ -229,18 +235,33 @@ const RecyclerCard: React.FC<RecyclerCardProps> = React.memo(({ recycler, onSele
         </View>
       )}
 
-      {/* ── Action: Consign E-Waste ── */}
-      {Boolean(onSelectRecycler) && (
-        <TouchableOpacity
-          style={cardStyles.consignButton}
-          onPress={() => onSelectRecycler!(recycler)}
-          accessibilityRole="button"
-          accessibilityLabel={`Consign collected e-waste to ${facilityName}`}
-          activeOpacity={0.8}
-        >
-          <Text style={cardStyles.consignButtonText}>Consign E-Waste →</Text>
-        </TouchableOpacity>
-      )}
+      {/* ── Actions: View Details & Consign E-Waste ── */}
+      <View style={cardStyles.actionsRow}>
+        {Boolean(onViewFacility) && (
+          <TouchableOpacity
+            style={cardStyles.viewFacilityBtn}
+            onPress={() => onViewFacility!(recycler)}
+            accessibilityRole="button"
+            accessibilityLabel={`View facility details for ${facilityName}`}
+            activeOpacity={0.8}
+          >
+            <Text style={cardStyles.viewFacilityBtnText}>
+              {t('collector.recyclers.viewDetails') || 'View Details'}
+            </Text>
+          </TouchableOpacity>
+        )}
+        {Boolean(onSelectRecycler) && (
+          <TouchableOpacity
+            style={cardStyles.consignButton}
+            onPress={() => onSelectRecycler!(recycler)}
+            accessibilityRole="button"
+            accessibilityLabel={`Consign collected e-waste to ${facilityName}`}
+            activeOpacity={0.8}
+          >
+            <Text style={cardStyles.consignButtonText}>{t('collector.recyclers.consignEwaste') || 'Consign E-Waste →'}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       {/* ── Card Footer: Safe Consignment Destination Notice ── */}
       <View style={cardStyles.cardFooter}>
@@ -390,8 +411,30 @@ const cardStyles = StyleSheet.create({
     fontSize: 12,
     color: colors.textPrimary,
   },
-  consignButton: {
+  actionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginTop: spacing.spaceSm,
+  },
+  viewFacilityBtn: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  viewFacilityBtnText: {
+    color: colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  consignButton: {
+    flex: 1,
     backgroundColor: `${colors.primary}15`,
     borderRadius: 8,
     borderWidth: 1,
@@ -399,7 +442,7 @@ const cardStyles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 44,
+    minHeight: 48,
   },
   consignButtonText: {
     color: colors.primary,
@@ -428,6 +471,7 @@ interface Props {
 export const CollectorRecyclerDirectoryScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
   const { isConnected } = useNetwork();
+  const { t } = useI18n();
 
   // ── Data states ───────────────────────────────────────────────────────────
   const [recyclers, setRecyclers] = useState<any[]>([]);
@@ -440,6 +484,10 @@ export const CollectorRecyclerDirectoryScreen: React.FC<Props> = ({ navigation }
   // ── Filter states ─────────────────────────────────────────────────────────
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // ── View Mode: List vs Map ────────────────────────────────────────────────
+  const [viewMode, setViewMode] = useState<'LIST' | 'MAP'>('LIST');
+  const [selectedFacility, setSelectedFacility] = useState<any | null>(null);
 
   const refreshingRef = useRef<boolean>(false);
 
@@ -549,6 +597,111 @@ export const CollectorRecyclerDirectoryScreen: React.FC<Props> = ({ navigation }
     });
   }, [recyclers, searchQuery]);
 
+  // ── Facility Map Pins ─────────────────────────────────────────────────────
+  const facilityPins: EcoSetuPin[] = useMemo(() => {
+    return filteredRecyclers
+      .filter((r) => {
+        const lat = r.facilityLat;
+        const lng = r.facilityLng;
+        return (
+          typeof lat === 'number' &&
+          typeof lng === 'number' &&
+          !isNaN(lat) &&
+          !isNaN(lng) &&
+          lat >= -90 &&
+          lat <= 90 &&
+          lng >= -180 &&
+          lng <= 180
+        );
+      })
+      .map((r) => ({
+        id: r.id,
+        latitude: r.facilityLat,
+        longitude: r.facilityLng,
+        title: r.facilityName || 'Authorized Recycling Facility',
+        description: [r.city, r.state].filter(Boolean).join(', ') || r.facilityAddress || 'Authorized Facility',
+        isApproximate: false,
+        data: r,
+      }));
+  }, [filteredRecyclers]);
+
+  // View Facility Detail Navigation
+  const handleViewFacility = useCallback(
+    (facility: any) => {
+      if (navigation?.navigate) {
+        navigation.navigate('RecyclerFacilityDetail', {
+          recyclerId: facility.id,
+          recycler: facility,
+        });
+      }
+    },
+    [navigation]
+  );
+
+  // External Google Maps Navigation Launcher
+  const handleNavigateToFacility = useCallback(
+    async (facility: any) => {
+      const lat = facility.facilityLat;
+      const lng = facility.facilityLng;
+      const hasValid =
+        typeof lat === 'number' &&
+        typeof lng === 'number' &&
+        !isNaN(lat) &&
+        !isNaN(lng) &&
+        lat >= -90 &&
+        lat <= 90 &&
+        lng >= -180 &&
+        lng <= 180;
+
+      if (!hasValid) {
+        Alert.alert(
+          t('collector.recyclers.navigationUnavailable') || 'Navigation Unavailable',
+          t('collector.recyclers.noFacilityLocation') || 'Facility location coordinates are not specified.'
+        );
+        return;
+      }
+
+      if (!isConnected) {
+        Alert.alert(
+          t('offline.title') || 'Offline',
+          t('collector.recyclers.navigationUnavailableDesc') || 'Facility coordinates are not available for navigation.'
+        );
+        return;
+      }
+
+      const encodedName = encodeURIComponent(facility.facilityName || 'Recycling Facility');
+      const navUrl = `google.navigation:q=${lat},${lng}`;
+      const geoUrl = `geo:${lat},${lng}?q=${lat},${lng}(${encodedName})`;
+      const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+
+      try {
+        const canOpenNav = await Linking.canOpenURL(navUrl);
+        if (canOpenNav) {
+          await Linking.openURL(navUrl);
+          return;
+        }
+      } catch {}
+
+      try {
+        const canOpenGeo = await Linking.canOpenURL(geoUrl);
+        if (canOpenGeo) {
+          await Linking.openURL(geoUrl);
+          return;
+        }
+      } catch {}
+
+      try {
+        await Linking.openURL(webUrl);
+      } catch {
+        Alert.alert(
+          t('collector.recyclers.navigationUnavailable') || 'Navigation Unavailable',
+          t('collector.recyclers.navigationUnavailableDesc') || 'Could not open external Google Maps application.'
+        );
+      }
+    },
+    [isConnected, t]
+  );
+
   // ── Unauthorized Role Guard ───────────────────────────────────────────────
   if (!isCollectorOrAdmin) {
     return (
@@ -575,7 +728,7 @@ export const CollectorRecyclerDirectoryScreen: React.FC<Props> = ({ navigation }
       {isConnected && fromCache && (
         <View style={styles.cacheNotice} accessibilityRole="alert">
           <Text style={styles.cacheNoticeText}>
-            ℹ Showing cached recycler directory. Pull down to refresh live facilities.
+            {t('offline.cachedNotice') || 'ℹ Showing cached recycler directory. Pull down to refresh live facilities.'}
           </Text>
         </View>
       )}
@@ -629,7 +782,7 @@ export const CollectorRecyclerDirectoryScreen: React.FC<Props> = ({ navigation }
         </Text>
         <TextInput
           style={styles.searchInput}
-          placeholder="Search by facility name or address..."
+          placeholder={t('collector.recyclers.searchPlaceholder') || "Search by facility name or address..."}
           placeholderTextColor={colors.textSecondary}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -653,7 +806,7 @@ export const CollectorRecyclerDirectoryScreen: React.FC<Props> = ({ navigation }
       {/* Horizontal Category Chips Filter Bar */}
       <View style={styles.categoryFilterContainer}>
         <Text style={styles.categoryFilterLabel} accessibilityRole="header">
-          Filter by Accepted Material:
+          {t('collector.recyclers.filterCategory') || 'Filter by Accepted Material:'}
         </Text>
         <ScrollView
           horizontal
@@ -687,6 +840,38 @@ export const CollectorRecyclerDirectoryScreen: React.FC<Props> = ({ navigation }
             );
           })}
         </ScrollView>
+      </View>
+
+      {/* ── Accessible View Mode Segmented Control: [ List ] [ Map ] ── */}
+      <View style={styles.viewModeToggleRow}>
+        <TouchableOpacity
+          style={[styles.viewModeBtn, viewMode === 'LIST' && styles.viewModeBtnActive]}
+          onPress={() => {
+            setViewMode('LIST');
+            setSelectedFacility(null);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={t('collector.recyclers.listView') || 'List View'}
+          accessibilityState={{ selected: viewMode === 'LIST' }}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.viewModeBtnText, viewMode === 'LIST' && styles.viewModeBtnTextActive]}>
+            📋 {t('collector.recyclers.listView') || 'List View'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.viewModeBtn, viewMode === 'MAP' && styles.viewModeBtnActive]}
+          onPress={() => setViewMode('MAP')}
+          accessibilityRole="button"
+          accessibilityLabel={t('collector.recyclers.mapView') || 'Map View'}
+          accessibilityState={{ selected: viewMode === 'MAP' }}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.viewModeBtnText, viewMode === 'MAP' && styles.viewModeBtnTextActive]}>
+            🗺 {t('collector.recyclers.mapView') || 'Map View'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Results Count Banner */}
@@ -744,10 +929,10 @@ export const CollectorRecyclerDirectoryScreen: React.FC<Props> = ({ navigation }
     return (
       <EmptyState
         icon="🏭"
-        title="No Recyclers Found"
+        title={t('collector.recyclers.noRecyclersTitle') || "No Recyclers Found"}
         message={
           selectedCategory || searchQuery
-            ? 'No authorized formal recyclers matched your selected filter or search term.'
+            ? (t('collector.recyclers.noRecyclersMessage') || 'No authorized formal recyclers matched your selected filter or search term.')
             : 'No authorized formal recyclers are currently listed in your region.'
         }
         actionLabel={selectedCategory || searchQuery ? 'Clear Filters' : 'Refresh'}
@@ -759,7 +944,7 @@ export const CollectorRecyclerDirectoryScreen: React.FC<Props> = ({ navigation }
   return (
     <SafeAreaView style={styles.container}>
       <TopAppBar
-        title="Recycler Directory"
+        title={t('collector.recyclers.title') || "Recycler Directory"}
         subtitle="Authorized formal recycling facilities"
       />
 
@@ -770,12 +955,16 @@ export const CollectorRecyclerDirectoryScreen: React.FC<Props> = ({ navigation }
           <RecyclerCardSkeleton />
           <RecyclerCardSkeleton />
         </View>
-      ) : (
+      ) : viewMode === 'LIST' ? (
         <FlatList
           data={filteredRecyclers}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <RecyclerCard recycler={item} onSelectRecycler={handleSelectRecycler} />
+            <RecyclerCard
+              recycler={item}
+              onSelectRecycler={handleSelectRecycler}
+              onViewFacility={handleViewFacility}
+            />
           )}
           ListHeaderComponent={renderHeader}
           ListEmptyComponent={renderEmpty}
@@ -789,6 +978,128 @@ export const CollectorRecyclerDirectoryScreen: React.FC<Props> = ({ navigation }
             />
           }
         />
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.mapScrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+        >
+          {renderHeader()}
+
+          {filteredRecyclers.length === 0 ? (
+            renderEmpty()
+          ) : facilityPins.length === 0 ? (
+            <View style={styles.emptyMapBox}>
+              <Text style={styles.emptyMapIcon}>📍</Text>
+              <Text style={styles.emptyMapTitle}>
+                {t('collector.recyclers.noFacilityLocation') || 'No facility coordinates available.'}
+              </Text>
+              <Text style={styles.emptyMapSubtitle}>
+                None of the {filteredRecyclers.length} facilities matching your search have location coordinates registered.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.mapWrapper}>
+              <EcoSetuMap
+                latitude={facilityPins[0]?.latitude || 0}
+                longitude={facilityPins[0]?.longitude || 0}
+                pins={facilityPins}
+                onPinPress={(pin) => setSelectedFacility(pin.data)}
+                draggable={false}
+                showApproximateCircles={false}
+                isOffline={!isConnected}
+                style={styles.map}
+              />
+
+              {/* Floating Glassmorphic Facility Info Card */}
+              {Boolean(selectedFacility) && (
+                <View style={styles.facilityPopupCard}>
+                  <View style={styles.popupHeader}>
+                    <View style={styles.popupHeaderLeft}>
+                      <Text style={styles.popupTitle} numberOfLines={1}>
+                        {selectedFacility.facilityName || 'Authorized Recycling Facility'}
+                      </Text>
+                      <Text style={styles.popupSub} numberOfLines={1}>
+                        {[selectedFacility.city, selectedFacility.district, selectedFacility.state]
+                          .filter(Boolean)
+                          .join(', ') || selectedFacility.facilityAddress}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.popupCloseBtn}
+                      onPress={() => setSelectedFacility(null)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Close facility details"
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Text style={styles.popupCloseText}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.popupBadgeRow}>
+                    <StatusBadge status="ACTIVE" />
+                  </View>
+
+                  {Boolean(selectedFacility.facilityAddress) && (
+                    <Text style={styles.popupAddressText} numberOfLines={2}>
+                      📍 {selectedFacility.facilityAddress}
+                    </Text>
+                  )}
+
+                  {/* Accepted Categories Preview */}
+                  {Array.isArray(selectedFacility.acceptedCategories) &&
+                    selectedFacility.acceptedCategories.length > 0 && (
+                      <View style={styles.popupCategoriesRow}>
+                        {selectedFacility.acceptedCategories.slice(0, 3).map((cat: string, idx: number) => (
+                          <View key={`${cat}-${idx}`} style={styles.popupCatChip}>
+                            <Text style={styles.popupCatText}>{formatCategoryName(cat)}</Text>
+                          </View>
+                        ))}
+                        {selectedFacility.acceptedCategories.length > 3 && (
+                          <Text style={styles.popupCatMore}>
+                            +{selectedFacility.acceptedCategories.length - 3}
+                          </Text>
+                        )}
+                      </View>
+                    )}
+
+                  {/* Action Buttons: View Facility & External Navigation */}
+                  <View style={styles.popupActionRow}>
+                    <TouchableOpacity
+                      style={styles.popupViewBtn}
+                      onPress={() => handleViewFacility(selectedFacility)}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('collector.recyclers.viewDetails') || 'View Facility Details'}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.popupViewBtnText}>
+                        {t('collector.recyclers.viewDetails') || 'View Facility'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.popupNavBtn}
+                      onPress={() => handleNavigateToFacility(selectedFacility)}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('collector.recyclers.navigateToFacility') || 'Navigate to Facility via Google Maps'}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.popupNavBtnText}>
+                        🧭 {t('collector.recyclers.navigateToFacility') || 'Navigate'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
+        </ScrollView>
       )}
     </SafeAreaView>
   );
@@ -964,6 +1275,194 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     fontWeight: '500',
+  },
+  viewModeToggleRow: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    padding: 4,
+    marginBottom: spacing.spaceSm,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    gap: 6,
+  },
+  viewModeBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  viewModeBtnActive: {
+    backgroundColor: colors.primary,
+  },
+  viewModeBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  viewModeBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  mapScrollContent: {
+    padding: spacing.spaceMd,
+    paddingBottom: spacing.spaceXl * 2,
+  },
+  emptyMapBox: {
+    height: 180,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.spaceMd,
+    borderWidth: 1,
+    borderColor: colors.divider,
+  },
+  emptyMapIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  emptyMapTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  emptyMapSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  mapWrapper: {
+    height: 480,
+    borderRadius: 14,
+    overflow: 'hidden',
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: colors.divider,
+  },
+  map: {
+    flex: 1,
+  },
+  facilityPopupCard: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    right: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    borderRadius: 12,
+    padding: spacing.spaceMd,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  popupHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 6,
+  },
+  popupHeaderLeft: {
+    flex: 1,
+    marginRight: 8,
+  },
+  popupTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  popupSub: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  popupCloseBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    backgroundColor: '#F0F0F0',
+  },
+  popupCloseText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  popupBadgeRow: {
+    marginBottom: 6,
+    alignSelf: 'flex-start',
+  },
+  popupAddressText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 16,
+    marginBottom: 8,
+  },
+  popupCategoriesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  popupCatChip: {
+    backgroundColor: `${colors.primary}12`,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  popupCatText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.primaryDark,
+  },
+  popupCatMore: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  popupActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  popupViewBtn: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  popupViewBtnText: {
+    color: colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  popupNavBtn: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  popupNavBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });
 

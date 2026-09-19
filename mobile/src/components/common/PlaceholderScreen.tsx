@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 import { TopAppBar } from '../layout/TopAppBar';
+import { GradientBackground } from '../glass/GradientBackground';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -26,7 +27,7 @@ export const PlaceholderScreen: React.FC<PlaceholderScreenProps> = ({
   const { logout, user } = useAuth();
 
   return (
-    <View style={styles.container}>
+    <GradientBackground>
       <TopAppBar
         title={title}
         roleBadge={role}
@@ -80,44 +81,50 @@ export const PlaceholderScreen: React.FC<PlaceholderScreenProps> = ({
           </View>
         )}
       </ScrollView>
-    </View>
+    </GradientBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   content: {
     padding: spacing.spaceMd,
+    paddingBottom: spacing.spaceXl + 20,
   },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    padding: spacing.spaceMd,
-    elevation: spacing.cardElevation,
+    backgroundColor: colors.glassSurface,
+    borderRadius: 16,
+    padding: spacing.spaceLg,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
     marginBottom: spacing.spaceMd,
+    elevation: 3,
   },
   badge: {
-    backgroundColor: colors.primaryLight,
+    backgroundColor: 'rgba(74, 222, 128, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(74, 222, 128, 0.35)',
     alignSelf: 'flex-start',
     paddingHorizontal: spacing.spaceSm,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingVertical: 3,
+    borderRadius: 8,
     marginBottom: spacing.spaceSm,
   },
   badgeText: {
     fontSize: 10,
-    fontWeight: '700',
-    color: colors.surface,
+    fontWeight: '800',
+    color: colors.primary,
     letterSpacing: 0.5,
   },
   title: {
     fontSize: typography.Headline.fontSize,
-    fontWeight: '700',
+    fontWeight: '800',
     lineHeight: typography.Headline.lineHeight,
     color: colors.textPrimary,
+    letterSpacing: -0.5,
     marginBottom: spacing.spaceXs,
   },
   description: {
@@ -127,9 +134,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.spaceMd,
   },
   apiBox: {
-    backgroundColor: colors.background,
-    borderRadius: 6,
-    padding: spacing.spaceSm,
+    backgroundColor: colors.glassSurfaceRaised,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    borderRadius: 12,
+    padding: spacing.spaceSm + 2,
     marginBottom: spacing.spaceMd,
   },
   apiTitle: {
@@ -140,9 +149,9 @@ const styles = StyleSheet.create({
   },
   apiItem: {
     fontSize: typography.Caption.fontSize,
-    color: colors.secondary,
+    color: colors.secondaryLight,
     fontFamily: 'monospace',
-    marginBottom: 2,
+    marginBottom: 3,
   },
   noticeBox: {
     borderLeftWidth: 3,
@@ -151,14 +160,16 @@ const styles = StyleSheet.create({
   },
   noticeText: {
     fontSize: typography.Caption.fontSize,
-    color: colors.textSecondary,
+    color: colors.textTertiary,
     fontStyle: 'italic',
   },
   authCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    padding: spacing.spaceMd,
-    elevation: spacing.cardElevation,
+    backgroundColor: colors.glassSurface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    padding: spacing.spaceLg,
+    elevation: 3,
     alignItems: 'center',
   },
   authInfo: {
@@ -168,12 +179,15 @@ const styles = StyleSheet.create({
   },
   bold: {
     fontWeight: '700',
+    color: colors.primary,
   },
   signOutButton: {
-    backgroundColor: colors.error,
-    paddingVertical: spacing.spaceSm,
+    backgroundColor: 'rgba(248, 113, 113, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(248, 113, 113, 0.4)',
+    paddingVertical: spacing.spaceSm + 2,
     paddingHorizontal: spacing.spaceLg,
-    borderRadius: 6,
+    borderRadius: 12,
     minHeight: 48,
     minWidth: 160,
     alignItems: 'center',
@@ -181,8 +195,8 @@ const styles = StyleSheet.create({
   },
   signOutText: {
     fontSize: typography.Button.fontSize,
-    fontWeight: '700',
-    color: colors.surface,
+    fontWeight: '800',
+    color: colors.error,
   },
 });
 

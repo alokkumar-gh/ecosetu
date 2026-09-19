@@ -43,9 +43,12 @@ import {
 } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 import { useNetwork } from '../../hooks/useNetwork';
+import { useI18n } from '../../i18n';
+import { GradientBackground } from '../../components/glass/GradientBackground';
 import { TopAppBar } from '../../components/layout/TopAppBar';
 import { Skeleton } from '../../components/common/Skeleton';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
+import { LanguageSelector } from '../../components/common/LanguageSelector';
 import { userProfileService } from '../../services/userProfileService';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
@@ -118,31 +121,31 @@ const fmtDate = (iso?: string | null): string => {
   }
 };
 
-const getStatusLabel = (status: string): { label: string; color: string } => {
+const getStatusLabel = (status: string, t?: (key: any) => string): { label: string; color: string } => {
   switch (status) {
     case USER_STATUS.ACTIVE:
-      return { label: 'Active', color: '#2E7D32' };
+      return { label: t ? (t('citizen.profile.statusActive') || 'Active') : 'Active', color: '#2E7D32' };
     case USER_STATUS.PENDING_VERIFICATION:
-      return { label: 'Pending Verification', color: '#E65100' };
+      return { label: t ? (t('citizen.profile.statusPending') || 'Pending Verification') : 'Pending Verification', color: '#E65100' };
     case USER_STATUS.SUSPENDED:
-      return { label: 'Suspended', color: '#C62828' };
+      return { label: t ? (t('citizen.profile.statusSuspended') || 'Suspended') : 'Suspended', color: '#C62828' };
     case USER_STATUS.DEACTIVATED:
-      return { label: 'Deactivated', color: '#4E4E4E' };
+      return { label: t ? (t('citizen.profile.statusDeactivated') || 'Deactivated') : 'Deactivated', color: '#4E4E4E' };
     default:
       return { label: status || '—', color: colors.textSecondary };
   }
 };
 
-const getRoleLabel = (role: string): string => {
+const getRoleLabel = (role: string, t?: (key: any) => string): string => {
   switch (role) {
     case USER_ROLES.CITIZEN:
-      return 'Citizen';
+      return t ? (t('roles.citizen') || 'Citizen') : 'Citizen';
     case USER_ROLES.INFORMAL_COLLECTOR:
-      return 'Informal Collector';
+      return t ? (t('roles.collector') || 'Informal Collector') : 'Informal Collector';
     case USER_ROLES.RECYCLER:
-      return 'Formal Recycler';
+      return t ? (t('roles.recycler') || 'Formal Recycler') : 'Formal Recycler';
     case USER_ROLES.ADMIN:
-      return 'Administrator';
+      return t ? (t('roles.admin') || 'Administrator') : 'Administrator';
     default:
       return role || '—';
   }
@@ -178,6 +181,7 @@ const ProfileSkeleton: React.FC = () => (
 export const CitizenProfileScreen: React.FC = () => {
   const { user: authUser, logout } = useAuth();
   const { isConnected } = useNetwork();
+  const { t } = useI18n();
 
   // ── Profile data state ─────────────────────────────────────────────────────
   const [profile, setProfile] = useState<any>(authUser || null);
@@ -337,15 +341,15 @@ export const CitizenProfileScreen: React.FC = () => {
 
   const handleLogoutPress = useCallback(() => {
     Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
+      t('citizen.profile.signOutConfirmTitle') || 'Sign Out',
+      t('citizen.profile.signOutConfirmMessage') || 'Are you sure you want to sign out?',
       [
         {
-          text: 'Cancel',
+          text: t('common.cancel') || 'Cancel',
           style: 'cancel',
         },
         {
-          text: 'Sign Out',
+          text: t('citizen.profile.signOut') || 'Sign Out',
           style: 'destructive',
           onPress: async () => {
             setIsLoggingOut(true);
@@ -361,16 +365,16 @@ export const CitizenProfileScreen: React.FC = () => {
       ],
       { cancelable: true },
     );
-  }, [logout]);
+  }, [logout, t]);
 
   // ── Loading state ──────────────────────────────────────────────────────────
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <TopAppBar title="My Profile" roleBadge="CITIZEN" />
+      <GradientBackground>
+        <TopAppBar title={t('citizen.profile.title') || 'My Profile'} roleBadge="CITIZEN" />
         <ProfileSkeleton />
-      </SafeAreaView>
+      </GradientBackground>
     );
   }
 
@@ -378,36 +382,36 @@ export const CitizenProfileScreen: React.FC = () => {
 
   if (loadError && !profile) {
     return (
-      <SafeAreaView style={styles.container}>
-        <TopAppBar title="My Profile" roleBadge="CITIZEN" />
+      <GradientBackground>
+        <TopAppBar title={t('citizen.profile.title') || 'My Profile'} roleBadge="CITIZEN" />
         {!isConnected && <OfflineBanner />}
         <View style={styles.errorContainer}>
           <Text style={styles.errorIcon}>⚠️</Text>
-          <Text style={styles.errorTitle}>Could Not Load Profile</Text>
+          <Text style={styles.errorTitle}>{t('citizen.traceability.couldNotLoad') || 'Could Not Load Profile'}</Text>
           <Text style={styles.errorMessage}>{loadError}</Text>
           <TouchableOpacity
             style={styles.retryButton}
             onPress={() => { setIsLoading(true); loadProfile(); }}
             accessibilityRole="button"
-            accessibilityLabel="Retry loading profile"
+            accessibilityLabel={t('citizen.traceability.retry') || 'Retry loading profile'}
           >
-            <Text style={styles.retryButtonText}>Retry</Text>
+            <Text style={styles.retryButtonText}>{t('citizen.traceability.retry') || 'Retry'}</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </GradientBackground>
     );
   }
 
   // ── Status badge ───────────────────────────────────────────────────────────
 
-  const statusMeta = getStatusLabel(profile?.status || '');
-  const roleLabel = getRoleLabel(profile?.role || '');
+  const statusMeta = getStatusLabel(profile?.status || '', t);
+  const roleLabel = getRoleLabel(profile?.role || '', t);
 
   // ── Main render ────────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={styles.container}>
-      <TopAppBar title="My Profile" roleBadge="CITIZEN" />
+    <GradientBackground>
+      <TopAppBar title={t('citizen.profile.title') || 'My Profile'} roleBadge="CITIZEN" />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -433,7 +437,7 @@ export const CitizenProfileScreen: React.FC = () => {
           {fromCache && (
             <View style={styles.cachedNotice}>
               <Text style={styles.cachedNoticeText}>
-                📴 Showing cached profile (last synced while online)
+                {t('citizen.traceability.cachedNotice') || '📴 Showing cached profile (last synced while online)'}
               </Text>
             </View>
           )}
@@ -480,40 +484,40 @@ export const CitizenProfileScreen: React.FC = () => {
             // READ MODE
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>Contact Information</Text>
+                <Text style={styles.cardTitle}>{t('citizen.profile.contactInfo') || 'Contact Information'}</Text>
                 <TouchableOpacity
                   onPress={openEdit}
                   accessibilityRole="button"
-                  accessibilityLabel="Edit contact information"
+                  accessibilityLabel={t('citizen.profile.editBtn') || 'Edit contact information'}
                   style={styles.editButton}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.editButtonText}>✏️ Edit</Text>
+                  <Text style={styles.editButtonText}>{t('citizen.profile.editBtn') || '✏️ Edit'}</Text>
                 </TouchableOpacity>
               </View>
 
               <View style={styles.fieldRow}>
-                <Text style={styles.fieldLabel}>Full Name</Text>
+                <Text style={styles.fieldLabel}>{t('citizen.profile.fullName') || 'Full Name'}</Text>
                 <Text style={styles.fieldValue}>{profile?.name || '—'}</Text>
               </View>
 
               <View style={styles.fieldDivider} />
 
               <View style={styles.fieldRow}>
-                <Text style={styles.fieldLabel}>Phone Number</Text>
-                <Text style={styles.fieldValue}>{profile?.phone || 'Not provided'}</Text>
+                <Text style={styles.fieldLabel}>{t('citizen.profile.phoneNumber') || 'Phone Number'}</Text>
+                <Text style={styles.fieldValue}>{profile?.phone || (t('citizen.profile.notProvided') || 'Not provided')}</Text>
               </View>
             </View>
           ) : (
             // EDIT MODE
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Edit Contact Information</Text>
+              <Text style={styles.cardTitle}>{t('citizen.profile.editContactInfo') || 'Edit Contact Information'}</Text>
 
               {/* Offline save warning */}
               {!isConnected && (
                 <View style={styles.offlineEditNotice}>
                   <Text style={styles.offlineEditText}>
-                    ⚠️ You are offline. Profile updates require a connection.
+                    {t('citizen.profile.offlineEditNotice') || '⚠️ You are offline. Profile updates require a connection.'}
                   </Text>
                 </View>
               )}
@@ -534,17 +538,17 @@ export const CitizenProfileScreen: React.FC = () => {
                 style={styles.inputLabel}
                 nativeID="name-label"
               >
-                Full Name <Text style={styles.required}>*</Text>
+                {t('citizen.profile.fullName') || 'Full Name'} <Text style={styles.required}>*</Text>
               </Text>
               <TextInput
                 style={[styles.input, nameError ? styles.inputError : null]}
                 value={editName}
                 onChangeText={handleNameChange}
-                placeholder="Your full name"
+                placeholder={t('citizen.profile.fullName') || 'Your full name'}
                 placeholderTextColor={colors.textSecondary}
                 autoCapitalize="words"
                 maxLength={100}
-                accessibilityLabel="Full name"
+                accessibilityLabel={t('citizen.profile.fullName') || 'Full name'}
                 accessibilityHint="Enter your full name, 2 to 100 characters"
                 accessibilityState={{ selected: false }}
                 accessibilityLabelledBy="name-label"
@@ -566,17 +570,17 @@ export const CitizenProfileScreen: React.FC = () => {
                 style={[styles.inputLabel, { marginTop: spacing.spaceMd }]}
                 nativeID="phone-label"
               >
-                Phone Number
+                {t('citizen.profile.phoneNumber') || 'Phone Number'}
               </Text>
               <TextInput
                 style={[styles.input, phoneError ? styles.inputError : null]}
                 value={editPhone}
                 onChangeText={handlePhoneChange}
-                placeholder="e.g. +91 98765 43210 (optional)"
+                placeholder={t('citizen.profile.phonePlaceholder') || 'e.g. +91 98765 43210 (optional)'}
                 placeholderTextColor={colors.textSecondary}
                 keyboardType="phone-pad"
                 maxLength={20}
-                accessibilityLabel="Phone number"
+                accessibilityLabel={t('citizen.profile.phoneNumber') || 'Phone number'}
                 accessibilityHint="Enter your phone number or leave blank"
                 accessibilityLabelledBy="phone-label"
                 editable={!isSaving}
@@ -600,11 +604,11 @@ export const CitizenProfileScreen: React.FC = () => {
                   onPress={cancelEdit}
                   disabled={isSaving}
                   accessibilityRole="button"
-                  accessibilityLabel="Cancel profile edit"
+                  accessibilityLabel={t('citizen.profile.cancelEdit') || 'Cancel profile edit'}
                   accessibilityState={{ disabled: isSaving }}
                   activeOpacity={0.75}
                 >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                  <Text style={styles.cancelButtonText}>{t('citizen.profile.cancelEdit') || 'Cancel'}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -616,7 +620,9 @@ export const CitizenProfileScreen: React.FC = () => {
                   disabled={isSaving || !isConnected}
                   accessibilityRole="button"
                   accessibilityLabel={
-                    isSaving ? 'Saving profile changes' : 'Save profile changes'
+                    isSaving
+                      ? (t('citizen.profile.saving') || 'Saving profile changes')
+                      : (t('citizen.profile.saveChanges') || 'Save profile changes')
                   }
                   accessibilityState={{ disabled: isSaving || !isConnected, busy: isSaving }}
                   activeOpacity={0.75}
@@ -624,7 +630,7 @@ export const CitizenProfileScreen: React.FC = () => {
                   {isSaving ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.saveButtonText}>Save Changes</Text>
+                    <Text style={styles.saveButtonText}>{t('citizen.profile.saveChanges') || 'Save Changes'}</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -633,22 +639,22 @@ export const CitizenProfileScreen: React.FC = () => {
 
           {/* ── ACCOUNT INFORMATION ─────────────────────────────────── */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Account Information</Text>
+            <Text style={styles.cardTitle}>{t('citizen.profile.accountInfo') || 'Account Information'}</Text>
 
             <View style={styles.fieldRow}>
-              <Text style={styles.fieldLabel}>Email Address</Text>
+              <Text style={styles.fieldLabel}>{t('citizen.profile.emailAddress') || 'Email Address'}</Text>
               <Text style={styles.fieldValue}>{profile?.email || '—'}</Text>
             </View>
             <View style={styles.fieldDivider} />
 
             <View style={styles.fieldRow}>
-              <Text style={styles.fieldLabel}>Role</Text>
+              <Text style={styles.fieldLabel}>{t('citizen.profile.role') || 'Role'}</Text>
               <Text style={styles.fieldValue}>{roleLabel}</Text>
             </View>
             <View style={styles.fieldDivider} />
 
             <View style={styles.fieldRow}>
-              <Text style={styles.fieldLabel}>Account Status</Text>
+              <Text style={styles.fieldLabel}>{t('citizen.profile.accountStatus') || 'Account Status'}</Text>
               <Text style={[styles.fieldValue, { color: statusMeta.color, fontWeight: '600' }]}>
                 {statusMeta.label}
               </Text>
@@ -656,7 +662,7 @@ export const CitizenProfileScreen: React.FC = () => {
             <View style={styles.fieldDivider} />
 
             <View style={styles.fieldRow}>
-              <Text style={styles.fieldLabel}>Member Since</Text>
+              <Text style={styles.fieldLabel}>{t('citizen.profile.memberSince') || 'Member Since'}</Text>
               <Text style={styles.fieldValue}>{fmtDate(profile?.createdAt)}</Text>
             </View>
           </View>
@@ -670,8 +676,8 @@ export const CitizenProfileScreen: React.FC = () => {
             >
               <Text style={styles.statusWarningText}>
                 {profile?.status === USER_STATUS.SUSPENDED
-                  ? '⚠️ Your account is currently suspended. Please contact support for assistance.'
-                  : '⚠️ Your account has been deactivated.'}
+                  ? (t('citizen.profile.suspendedNotice') || '⚠️ Your account is currently suspended. Please contact support for assistance.')
+                  : (t('citizen.profile.deactivatedNotice') || '⚠️ Your account has been deactivated.')}
               </Text>
             </View>
           )}
@@ -682,28 +688,34 @@ export const CitizenProfileScreen: React.FC = () => {
               accessibilityRole="alert"
             >
               <Text style={styles.pendingBannerText}>
-                🕐 Your account is pending verification. You'll receive a notification once verified.
+                {t('citizen.profile.pendingNotice') || '🕐 Your account is pending verification. You\'ll receive a notification once verified.'}
               </Text>
             </View>
           )}
 
+          {/* ── LANGUAGE PREFERENCES ─────────────────────────────────── */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{t('citizen.profile.selectLanguage') || 'Language Preferences'}</Text>
+            <LanguageSelector variant="chips" />
+          </View>
+
           {/* ── ACCOUNT ACTIONS / LOGOUT ─────────────────────────────── */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Account Actions</Text>
+            <Text style={styles.cardTitle}>{t('citizen.profile.accountInfo') || 'Account Actions'}</Text>
 
             <TouchableOpacity
               style={[styles.logoutButton, isLoggingOut && styles.logoutButtonDisabled]}
               onPress={handleLogoutPress}
               disabled={isLoggingOut}
               accessibilityRole="button"
-              accessibilityLabel={isLoggingOut ? 'Signing out' : 'Sign out of ECOSETU'}
+              accessibilityLabel={isLoggingOut ? (t('citizen.profile.signingOut') || 'Signing out') : (t('citizen.profile.signOut') || 'Sign out of ECOSETU')}
               accessibilityState={{ disabled: isLoggingOut, busy: isLoggingOut }}
               activeOpacity={0.75}
             >
               {isLoggingOut ? (
                 <ActivityIndicator size="small" color={colors.error} />
               ) : (
-                <Text style={styles.logoutButtonText}>🚪 Sign Out</Text>
+                <Text style={styles.logoutButtonText}>{t('citizen.profile.signOut') || '🚪 Sign Out'}</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -711,14 +723,14 @@ export const CitizenProfileScreen: React.FC = () => {
           {/* ── ECOSETU chain note ───────────────────────────────────── */}
           <View style={styles.chainNote}>
             <Text style={styles.chainNoteText}>
-              ECOSETU connects citizens with local informal collectors (Kabadiwalas) for responsible e-waste collection.
+              {t('citizen.profile.chainNote') || 'ECOSETU connects citizens with local informal collectors (Kabadiwalas) for responsible e-waste collection.'}
             </Text>
           </View>
 
           <View style={{ height: spacing.spaceXl }} />
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </GradientBackground>
   );
 };
 
@@ -727,7 +739,7 @@ export const CitizenProfileScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.backgroundBase,
   },
   scrollContent: {
     padding: spacing.spaceMd,
@@ -740,18 +752,21 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.spaceLg,
   },
   avatarCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.primary,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: colors.accentFill,
+    borderWidth: 2,
+    borderColor: colors.primaryDark,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.spaceSm,
+    elevation: 4,
   },
   avatarInitial: {
-    fontSize: 34,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontSize: 36,
+    fontWeight: '800',
+    color: colors.primary,
   },
   profileName: {
     fontSize: 22,
@@ -803,15 +818,13 @@ const styles = StyleSheet.create({
 
   // ── Card ──
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: 10,
+    backgroundColor: colors.glassFill,
+    borderRadius: spacing.radiusMd,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
     padding: spacing.spaceMd,
     marginBottom: spacing.spaceMd,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 3,
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',

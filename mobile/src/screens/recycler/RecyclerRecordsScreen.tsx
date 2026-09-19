@@ -12,8 +12,6 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
-  SafeAreaView,
-  StatusBar,
   ScrollView,
   ActivityIndicator,
   Modal,
@@ -27,6 +25,8 @@ import { TopAppBar } from '../../components/layout/TopAppBar';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { EmptyState } from '../../components/common/EmptyState';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
+import { GradientBackground } from '../../components/glass/GradientBackground';
+import { GlassCard } from '../../components/glass/GlassCard';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 
@@ -178,25 +178,17 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
       setCompletionError('Output weight must be a valid non-negative number (>= 0 kg).');
       return;
     }
-    if (processingNotes.trim().length > 1000) {
-      setCompletionError('Processing notes cannot exceed 1000 characters.');
-      return;
-    }
-    if (outputDescription.trim().length > 500) {
-      setCompletionError('Output description cannot exceed 500 characters.');
-      return;
-    }
 
     submittingRef.current = true;
     setIsSubmittingAction(true);
     setCompletionError(null);
 
-    try {
-      const payload: any = {};
-      if (processingNotes.trim()) payload.processingNotes = processingNotes.trim();
-      if (outputDescription.trim()) payload.outputDescription = outputDescription.trim();
-      if (weightNum !== null) payload.outputWeightKg = weightNum;
+    const payload: any = {};
+    if (processingNotes.trim()) payload.processingNotes = processingNotes.trim();
+    if (outputDescription.trim()) payload.outputDescription = outputDescription.trim();
+    if (weightNum !== null) payload.outputWeightKg = weightNum;
 
+    try {
       const updated: any = await recyclingService.completeRecycling(selectedRecord.id, payload);
       setShowCompleteModal(false);
       setSelectedRecord(null);
@@ -210,7 +202,7 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
       );
       Alert.alert(
         'Recycling Completed',
-        `Recycling record #${updated.id.slice(0, 8).toUpperCase()} is now COMPLETED. Linked e-waste items have transitioned to RECYCLED and citizen owners have been notified.`
+        `Recycling record #${updated.id.slice(0, 8).toUpperCase()} is now COMPLETED. Linked e-waste items have transitioned to RECYCLED.`
       );
     } catch (err: any) {
       if (err.status === 409 || err.code === 'CONFLICT' || err.status === 400) {
@@ -231,8 +223,7 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
   // Role Access Guard
   if (user && user.role !== 'RECYCLER' && user.role !== 'ADMIN') {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
+      <GradientBackground>
         <TopAppBar title="Recycling Records" />
         <View style={styles.accessRestrictedContainer}>
           <Text style={styles.accessRestrictedIcon}>🔒</Text>
@@ -241,7 +232,7 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
             Only authorized formal recycling facilities can inspect or process recycling records.
           </Text>
         </View>
-      </SafeAreaView>
+      </GradientBackground>
     );
   }
 
@@ -276,7 +267,6 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
 
     return (
       <TouchableOpacity
-        style={styles.card}
         activeOpacity={0.85}
         onPress={() =>
           navigation?.navigate?.('RecyclingRecordDetail', {
@@ -285,120 +275,121 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
           })
         }
       >
-        <View style={styles.cardHeader}>
-          <View style={styles.refContainer}>
-            <Text style={styles.recordRef}>#REC-{item.id.slice(0, 8).toUpperCase()}</Text>
-            {item.consignment?.id && (
-              <Text style={styles.consignmentRef}>
-                from #CSG-{item.consignment.id.slice(0, 8).toUpperCase()}
+        <GlassCard style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={styles.refContainer}>
+              <Text style={styles.recordRef}>#REC-{item.id.slice(0, 8).toUpperCase()}</Text>
+              {item.consignment?.id && (
+                <Text style={styles.consignmentRef}>
+                  from #CSG-{item.consignment.id.slice(0, 8).toUpperCase()}
+                </Text>
+              )}
+            </View>
+            <StatusBadge status={item.status} />
+          </View>
+
+          <View style={styles.cardBody}>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Received:</Text>
+              <Text style={styles.detailValue}>{receivedDate || 'N/A'}</Text>
+            </View>
+
+            {item.completedAt && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Completed:</Text>
+                <Text style={styles.detailValue}>{completedDate}</Text>
+              </View>
+            )}
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Batch Items:</Text>
+              <Text style={styles.detailValue}>
+                {itemsCount} {itemsCount === 1 ? 'item' : 'items'}
+                {uniqueCats ? ` • ${uniqueCats}` : ''}
               </Text>
+            </View>
+
+            {item.consignment?.totalWeightKg !== undefined && item.consignment?.totalWeightKg !== null && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Batch Weight:</Text>
+                <Text style={styles.detailValue}>{item.consignment.totalWeightKg} kg</Text>
+              </View>
+            )}
+
+            {item.outputWeightKg !== null && item.outputWeightKg !== undefined && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Output Yield:</Text>
+                <Text style={[styles.detailValue, styles.highlightValue]}>
+                  {item.outputWeightKg} kg
+                </Text>
+              </View>
+            )}
+
+            {item.outputDescription && (
+              <View style={styles.notesContainer}>
+                <Text style={styles.notesLabel}>Yield Description:</Text>
+                <Text style={styles.notesText} numberOfLines={2}>
+                  {item.outputDescription}
+                </Text>
+              </View>
             )}
           </View>
-          <StatusBadge status={item.status} />
-        </View>
 
-        <View style={styles.cardBody}>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Received:</Text>
-            <Text style={styles.detailValue}>{receivedDate || 'N/A'}</Text>
-          </View>
+          {/* Quick Lifecycle Action Buttons */}
+          <View style={styles.cardFooter}>
+            {item.status === 'RECEIVED' && (
+              <TouchableOpacity
+                style={[styles.actionButton, styles.startBtn, isOffline && styles.btnDisabled]}
+                disabled={isOffline}
+                onPress={() => {
+                  setSelectedRecord(item);
+                  setShowStartModal(true);
+                }}
+              >
+                <Text style={styles.actionBtnText}>Start Processing ⚙️</Text>
+              </TouchableOpacity>
+            )}
 
-          {item.completedAt && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Completed:</Text>
-              <Text style={styles.detailValue}>{completedDate}</Text>
-            </View>
-          )}
+            {item.status === 'PROCESSING' && (
+              <TouchableOpacity
+                style={[styles.actionButton, styles.completeBtn, isOffline && styles.btnDisabled]}
+                disabled={isOffline}
+                onPress={() => {
+                  setSelectedRecord(item);
+                  setCompletionError(null);
+                  setShowCompleteModal(true);
+                }}
+              >
+                <Text style={styles.actionBtnText}>Complete Recycling ✅</Text>
+              </TouchableOpacity>
+            )}
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Batch Items:</Text>
-            <Text style={styles.detailValue}>
-              {itemsCount} {itemsCount === 1 ? 'item' : 'items'}
-              {uniqueCats ? ` • ${uniqueCats}` : ''}
-            </Text>
-          </View>
+            {item.status === 'COMPLETED' && (
+              <View style={styles.completedTag}>
+                <Text style={styles.completedTagText}>✓ Formally Recycled</Text>
+              </View>
+            )}
 
-          {item.consignment?.totalWeightKg !== undefined && item.consignment?.totalWeightKg !== null && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Batch Weight:</Text>
-              <Text style={styles.detailValue}>{item.consignment.totalWeightKg} kg</Text>
-            </View>
-          )}
-
-          {item.outputWeightKg !== null && item.outputWeightKg !== undefined && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Output Yield:</Text>
-              <Text style={[styles.detailValue, styles.highlightValue]}>
-                {item.outputWeightKg} kg
-              </Text>
-            </View>
-          )}
-
-          {item.outputDescription && (
-            <View style={styles.notesContainer}>
-              <Text style={styles.notesLabel}>Yield Description:</Text>
-              <Text style={styles.notesText} numberOfLines={2}>
-                {item.outputDescription}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Quick Lifecycle Action Buttons */}
-        <View style={styles.cardFooter}>
-          {item.status === 'RECEIVED' && (
             <TouchableOpacity
-              style={[styles.actionButton, styles.startBtn, isOffline && styles.btnDisabled]}
-              disabled={isOffline}
-              onPress={() => {
-                setSelectedRecord(item);
-                setShowStartModal(true);
-              }}
+              style={styles.detailLink}
+              onPress={() =>
+                navigation?.navigate?.('RecyclingRecordDetail', {
+                  recordId: item.id,
+                  record: item,
+                })
+              }
             >
-              <Text style={styles.actionBtnText}>Start Processing ⚙️</Text>
+              <Text style={styles.detailLinkText}>View Details →</Text>
             </TouchableOpacity>
-          )}
-
-          {item.status === 'PROCESSING' && (
-            <TouchableOpacity
-              style={[styles.actionButton, styles.completeBtn, isOffline && styles.btnDisabled]}
-              disabled={isOffline}
-              onPress={() => {
-                setSelectedRecord(item);
-                setShowCompleteModal(true);
-                setCompletionError(null);
-              }}
-            >
-              <Text style={styles.actionBtnText}>Complete Recycling ✅</Text>
-            </TouchableOpacity>
-          )}
-
-          {item.status === 'COMPLETED' && (
-            <View style={styles.completedTag}>
-              <Text style={styles.completedTagText}>✓ Formally Recycled</Text>
-            </View>
-          )}
-
-          <TouchableOpacity
-            style={styles.detailLink}
-            onPress={() =>
-              navigation?.navigate?.('RecyclingRecordDetail', {
-                recordId: item.id,
-                record: item,
-              })
-            }
-          >
-            <Text style={styles.detailLinkText}>View Details →</Text>
-          </TouchableOpacity>
-        </View>
+          </View>
+        </GlassCard>
       </TouchableOpacity>
     );
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
-      <TopAppBar title="Recycling Records" />
+    <GradientBackground>
+      <TopAppBar title="Recycling Records" roleBadge="RECYCLER" />
 
       {isOffline && <OfflineBanner />}
 
@@ -413,11 +404,11 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.metricLabel}>Received</Text>
         </View>
         <View style={styles.metricCard}>
-          <Text style={[styles.metricValue, { color: '#E65100' }]}>{processingCount}</Text>
+          <Text style={[styles.metricValue, { color: '#D97706' }]}>{processingCount}</Text>
           <Text style={styles.metricLabel}>In Process</Text>
         </View>
         <View style={styles.metricCard}>
-          <Text style={[styles.metricValue, { color: '#2E7D32' }]}>{completedCount}</Text>
+          <Text style={[styles.metricValue, { color: '#059669' }]}>{completedCount}</Text>
           <Text style={styles.metricLabel}>Completed</Text>
         </View>
       </View>
@@ -470,6 +461,7 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
           keyExtractor={(item) => item.id}
           renderItem={renderRecordItem}
           contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -480,15 +472,12 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
           }
           ListEmptyComponent={
             <EmptyState
-              icon="📋"
-              title="No Recycling Records Found"
+              title="No Recycling Records"
               message={
-                selectedStatus === 'ALL'
-                  ? 'Recycling records are created automatically when you accept incoming consignments from verified informal collectors.'
-                  : `No recycling records currently in status '${selectedStatus}'.`
+                selectedStatus !== 'ALL'
+                  ? `No records found with status "${selectedStatus}".`
+                  : 'Certified recycling records are generated when incoming consignments are accepted.'
               }
-              actionLabel="Refresh Records"
-              onAction={() => loadRecords(true)}
             />
           }
         />
@@ -507,16 +496,10 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.modalSubtitle}>
               Batch #REC-{selectedRecord?.id?.slice(0, 8).toUpperCase()}
             </Text>
-
             <Text style={styles.modalBodyText}>
-              Are you sure you want to begin dismantling and processing this consignment batch?
+              Transition this consignment record into PROCESSING status? Materials will be marked
+              as under active dismantling and recovery.
             </Text>
-            <View style={styles.modalWarningBox}>
-              <Text style={styles.modalWarningText}>
-                ⚠️ This action transitions the server record to PROCESSING and records an authoritative audit entry.
-              </Text>
-            </View>
-
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalCancelBtn]}
@@ -528,7 +511,7 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
               <TouchableOpacity
                 style={[
                   styles.modalButton,
-                  styles.modalConfirmBtn,
+                  styles.modalStartConfirmBtn,
                   isSubmittingAction && styles.btnDisabled,
                 ]}
                 disabled={isSubmittingAction}
@@ -537,7 +520,7 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
                 {isSubmittingAction ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.modalConfirmText}>Confirm & Start</Text>
+                  <Text style={styles.modalConfirmText}>Start Processing</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -569,7 +552,7 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
             <TextInput
               style={styles.modalInput}
               placeholder="e.g. 2.45"
-              placeholderTextColor="#9E9E9E"
+              placeholderTextColor={colors.textSecondary}
               keyboardType="decimal-pad"
               value={outputWeightKg}
               onChangeText={setOutputWeightKg}
@@ -579,7 +562,7 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
             <TextInput
               style={styles.modalInput}
               placeholder="e.g. Copper 0.8kg, shredded plastics 1.5kg"
-              placeholderTextColor="#9E9E9E"
+              placeholderTextColor={colors.textSecondary}
               maxLength={500}
               value={outputDescription}
               onChangeText={setOutputDescription}
@@ -589,7 +572,7 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
             <TextInput
               style={[styles.modalInput, styles.textArea]}
               placeholder="e.g. Batteries dismantled, plastics pelletized"
-              placeholderTextColor="#9E9E9E"
+              placeholderTextColor={colors.textSecondary}
               multiline
               numberOfLines={3}
               maxLength={1000}
@@ -599,7 +582,7 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
 
             <View style={styles.modalWarningBox}>
               <Text style={styles.modalWarningText}>
-                ⚠️ Completing recycling will atomically mark all linked e-waste items as RECYCLED and send a formal completion notification to the citizen owners.
+                ⚠️ Completing recycling will atomically mark all linked e-waste items as RECYCLED and send a formal completion notification.
               </Text>
             </View>
 
@@ -630,22 +613,18 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </GradientBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
   metricsContainer: {
     flexDirection: 'row',
     paddingHorizontal: spacing.spaceMd,
     paddingVertical: spacing.spaceSm,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(255, 255, 255, 0.65)',
     borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
+    borderBottomColor: colors.glassBorder,
     justifyContent: 'space-between',
   },
   metricCard: {
@@ -654,39 +633,45 @@ const styles = StyleSheet.create({
   },
   metricValue: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.textPrimary,
   },
   metricLabel: {
     fontSize: 11,
     color: colors.textSecondary,
     marginTop: 2,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   filterSection: {
-    backgroundColor: colors.surface,
     paddingVertical: spacing.spaceXs,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: colors.glassBorder,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
   },
   filterBar: {
     paddingHorizontal: spacing.spaceMd,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.spaceXs,
   },
   filterChip: {
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: '#F0F0F0',
-    marginRight: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    minHeight: 34,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   filterChipActive: {
     backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   filterChipText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.textSecondary,
   },
   filterChipTextActive: {
@@ -695,26 +680,19 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: spacing.spaceMd,
+    gap: spacing.spaceSm,
+    paddingBottom: spacing.spaceXl + 30,
   },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: 10,
     padding: spacing.spaceMd,
-    marginBottom: spacing.spaceMd,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 2,
+    marginBottom: spacing.spaceSm,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: colors.glassBorder,
     paddingBottom: 8,
     marginBottom: 8,
   },
@@ -723,8 +701,9 @@ const styles = StyleSheet.create({
   },
   recordRef: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.textPrimary,
+    letterSpacing: 0.3,
   },
   consignmentRef: {
     fontSize: 12,
@@ -745,18 +724,20 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.textPrimary,
   },
   highlightValue: {
-    color: '#2E7D32',
-    fontWeight: '700',
+    color: colors.primary,
+    fontWeight: '800',
   },
   notesContainer: {
     marginTop: 6,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: 'rgba(255, 255, 255, 0.65)',
     padding: 8,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
   },
   notesLabel: {
     fontSize: 11,
@@ -767,6 +748,7 @@ const styles = StyleSheet.create({
   notesText: {
     fontSize: 12,
     color: colors.textPrimary,
+    lineHeight: 16,
   },
   cardFooter: {
     flexDirection: 'row',
@@ -775,18 +757,21 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: colors.glassBorder,
   },
   actionButton: {
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+    paddingVertical: 8,
+    borderRadius: 8,
+    minHeight: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   startBtn: {
-    backgroundColor: '#E65100',
+    backgroundColor: colors.primary,
   },
   completeBtn: {
-    backgroundColor: '#2E7D32',
+    backgroundColor: '#059669',
   },
   btnDisabled: {
     opacity: 0.5,
@@ -797,24 +782,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   completedTag: {
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
   },
   completedTagText: {
+    color: '#065F46',
     fontSize: 12,
     fontWeight: '700',
-    color: '#2E7D32',
   },
   detailLink: {
     paddingVertical: 4,
     paddingHorizontal: 6,
   },
   detailLinkText: {
-    fontSize: 12,
-    fontWeight: '600',
     color: colors.primary,
+    fontSize: 12,
+    fontWeight: '700',
   },
   loadingContainer: {
     flex: 1,
@@ -834,11 +821,11 @@ const styles = StyleSheet.create({
     padding: spacing.spaceXl,
   },
   errorIcon: {
-    fontSize: 32,
-    marginBottom: 8,
+    fontSize: 40,
+    marginBottom: spacing.spaceSm,
   },
   errorTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -851,14 +838,128 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     backgroundColor: colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
+    paddingHorizontal: spacing.spaceLg,
+    paddingVertical: 10,
+    borderRadius: 8,
   },
   retryButtonText: {
     color: '#FFFFFF',
-    fontSize: 13,
     fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 41, 66, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.spaceMd,
+  },
+  modalContent: {
+    backgroundColor: colors.glassSurface,
+    borderRadius: 18,
+    padding: spacing.spaceLg,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    letterSpacing: -0.2,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: spacing.spaceSm,
+  },
+  modalBodyText: {
+    fontSize: 13,
+    color: colors.textPrimary,
+    lineHeight: 18,
+    marginVertical: spacing.spaceSm,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.spaceSm,
+    marginTop: spacing.spaceMd,
+  },
+  modalButton: {
+    paddingHorizontal: spacing.spaceMd,
+    paddingVertical: 10,
+    borderRadius: 8,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCancelBtn: {
+    backgroundColor: 'transparent',
+  },
+  modalCancelText: {
+    color: colors.textSecondary,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  modalStartConfirmBtn: {
+    backgroundColor: colors.primary,
+  },
+  modalCompleteConfirmBtn: {
+    backgroundColor: '#059669',
+  },
+  modalConfirmText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  modalInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    padding: spacing.spaceSm,
+    fontSize: 13,
+    color: colors.textPrimary,
+  },
+  textArea: {
+    minHeight: 65,
+    textAlignVertical: 'top',
+  },
+  modalErrorBox: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    padding: 8,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  modalErrorText: {
+    color: colors.error,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  modalWarningBox: {
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    padding: spacing.spaceSm,
+    borderRadius: 8,
+    marginTop: spacing.spaceSm,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.25)',
+  },
+  modalWarningText: {
+    fontSize: 11,
+    color: '#92400E',
+    lineHeight: 15,
   },
   accessRestrictedContainer: {
     flex: 1,
@@ -881,113 +982,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    padding: spacing.spaceLg,
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: spacing.spaceLg,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  modalSubtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginBottom: spacing.spaceMd,
-    marginTop: 2,
-  },
-  modalBodyText: {
-    fontSize: 14,
-    color: colors.textPrimary,
-    lineHeight: 20,
-    marginBottom: spacing.spaceMd,
-  },
-  modalWarningBox: {
-    backgroundColor: '#FFF3E0',
-    borderLeftWidth: 4,
-    borderLeftColor: '#E65100',
-    padding: 10,
-    borderRadius: 4,
-    marginBottom: spacing.spaceMd,
-  },
-  modalWarningText: {
-    fontSize: 12,
-    color: '#BF360C',
-    lineHeight: 17,
-  },
-  modalErrorBox: {
-    backgroundColor: '#FFEBEE',
-    borderLeftWidth: 4,
-    borderLeftColor: '#C62828',
-    padding: 10,
-    borderRadius: 4,
-    marginBottom: spacing.spaceMd,
-  },
-  modalErrorText: {
-    fontSize: 12,
-    color: '#C62828',
-  },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 4,
-    marginTop: 4,
-  },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 14,
-    color: colors.textPrimary,
-    backgroundColor: '#FAFAFA',
-    marginBottom: 8,
-  },
-  textArea: {
-    height: 60,
-    textAlignVertical: 'top',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: spacing.spaceMd,
-    gap: 8,
-  },
-  modalButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalCancelBtn: {
-    backgroundColor: '#F0F0F0',
-  },
-  modalCancelText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  modalConfirmBtn: {
-    backgroundColor: '#E65100',
-  },
-  modalCompleteConfirmBtn: {
-    backgroundColor: '#2E7D32',
-  },
-  modalConfirmText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
   },
 });
 

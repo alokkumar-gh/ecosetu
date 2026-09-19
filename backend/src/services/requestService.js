@@ -215,20 +215,33 @@ class RequestService {
     const skip = (pageNum - 1) * limitNum;
     const paginated = filtered.slice(skip, skip + limitNum);
 
-    // Apply privacy masking per docs/05_API_SPECIFICATION.md Section 7:
-    // "Addresses are approximate (not exact) until accepted"
+    // Apply privacy masking per Task 33 specification:
+    // Collector receives structured doorstep address (houseNumber, street, landmark, city, district, state, pincode)
+    // but exact GPS coordinates (pickupLat, pickupLng, locationAccuracy) are strictly masked (null) before acceptance
     const sanitized = paginated.map((r) => {
-      const latNum = parseFloat(r.pickupLat);
-      const lngNum = parseFloat(r.pickupLng);
+      const formattedAddress = [
+        r.houseNumber,
+        r.street,
+        r.landmark ? `Near ${r.landmark}` : null,
+        r.city,
+        r.district,
+        r.state,
+        r.pincode,
+      ].filter(Boolean).join(', ');
+
       return {
         ...r,
-        pickupAddress: 'Approximate Location (Exact address revealed upon acceptance)',
-        pickupLat: !isNaN(latNum) ? Math.round(latNum * 100) / 100 : r.pickupLat,
-        pickupLng: !isNaN(lngNum) ? Math.round(lngNum * 100) / 100 : r.pickupLng,
-        houseNumber: null,
-        street: null,
-        landmark: null,
-        pincode: null,
+        pickupAddress: formattedAddress || r.pickupAddress || 'Address details available',
+        houseNumber: r.houseNumber || null,
+        street: r.street || null,
+        landmark: r.landmark || null,
+        city: r.city || null,
+        district: r.district || null,
+        state: r.state || null,
+        pincode: r.pincode || null,
+        addressType: r.addressType || null,
+        pickupLat: null,
+        pickupLng: null,
         locationAccuracy: null,
       };
     });
@@ -282,17 +295,29 @@ class RequestService {
       }
 
       if (!isAssigned) {
-        const latNum = parseFloat(request.pickupLat);
-        const lngNum = parseFloat(request.pickupLng);
+        const formattedAddress = [
+          request.houseNumber,
+          request.street,
+          request.landmark ? `Near ${request.landmark}` : null,
+          request.city,
+          request.district,
+          request.state,
+          request.pincode,
+        ].filter(Boolean).join(', ');
+
         return {
           ...request,
-          pickupAddress: 'Approximate Location (Exact address revealed upon acceptance)',
-          pickupLat: !isNaN(latNum) ? Math.round(latNum * 100) / 100 : request.pickupLat,
-          pickupLng: !isNaN(lngNum) ? Math.round(lngNum * 100) / 100 : request.pickupLng,
-          houseNumber: null,
-          street: null,
-          landmark: null,
-          pincode: null,
+          pickupAddress: formattedAddress || request.pickupAddress || 'Address details available',
+          houseNumber: request.houseNumber || null,
+          street: request.street || null,
+          landmark: request.landmark || null,
+          city: request.city || null,
+          district: request.district || null,
+          state: request.state || null,
+          pincode: request.pincode || null,
+          addressType: request.addressType || null,
+          pickupLat: null,
+          pickupLng: null,
           locationAccuracy: null,
         };
       }

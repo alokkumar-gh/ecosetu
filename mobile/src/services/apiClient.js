@@ -35,6 +35,20 @@ class ApiClient {
   }
 
   /**
+   * Switch client to live production Render backend
+   */
+  useProductionBackend() {
+    this.setBaseUrl(API_CONFIG.PRODUCTION_BASE_URL);
+  }
+
+  /**
+   * Switch client to local development backend
+   */
+  useLocalBackend() {
+    this.setBaseUrl(API_CONFIG.LOCAL_DEV_BASE_URL);
+  }
+
+  /**
    * Register callback for session expiration (401 with failed refresh)
    * @param {Function} listener
    * @returns {Function} unsubscribe

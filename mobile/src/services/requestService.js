@@ -92,6 +92,30 @@ class RequestService {
   }
 
   /**
+   * Submit collection request (move from DRAFT to SUBMITTED)
+   * Source of Truth: docs/05_API_SPECIFICATION.md Section 7, POST /collection-requests/:id/submit
+   * @param {string} id
+   * @returns {Promise<Object>}
+   */
+  async submitRequest(id) {
+    const response = await apiClient.post(`/collection-requests/${id}/submit`);
+    const submitted = response.data?.request || response.data;
+    try {
+      const cached = await offlineStore.getCachedRequests();
+      if (Array.isArray(cached)) {
+        const index = cached.findIndex((r) => r.id === id);
+        if (index >= 0) {
+          cached[index] = { ...cached[index], ...submitted, status: 'SUBMITTED' };
+          await offlineStore.cacheRequests(cached);
+        }
+      }
+    } catch (cacheErr) {
+      // Non-fatal cache update error
+    }
+    return submitted;
+  }
+
+  /**
    * Cancel collection request
    * Source of Truth: docs/05_API_SPECIFICATION.md Section 7, POST /collection-requests/:id/cancel
    * @param {string} id

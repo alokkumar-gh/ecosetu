@@ -1,11 +1,16 @@
-import React from 'react';
+/**
+ * OfflineBanner — Glassmorphism Edition
+ * All logic unchanged. Visual updated for dark theme.
+ */
+
+import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useNetwork } from '../../hooks/useNetwork';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 
-export const OfflineBanner: React.FC = () => {
+export const OfflineBanner: React.FC = memo(() => {
   const { isConnected, pendingActionsCount } = useNetwork();
 
   if (isConnected) {
@@ -14,28 +19,32 @@ export const OfflineBanner: React.FC = () => {
 
   return (
     <View style={styles.container} accessibilityRole="alert" accessibilityLiveRegion="polite">
-      <Text style={styles.icon}>⚠️</Text>
+      <Text style={styles.icon}>⚡</Text>
       <View style={styles.textContainer}>
-        <Text style={styles.title}>You are currently offline</Text>
+        <Text style={styles.title}>Offline Mode</Text>
         <Text style={styles.subtitle}>
-          Actions will be saved locally and synchronized automatically when online.
+          Actions saved locally — syncing when online.
           {pendingActionsCount > 0 ? ` (${pendingActionsCount} pending)` : ''}
         </Text>
       </View>
     </View>
   );
-};
+});
+
+OfflineBanner.displayName = 'OfflineBanner';
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.warning,
+    backgroundColor: colors.warningFill,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.warning + '50',
     paddingHorizontal: spacing.spaceMd,
     paddingVertical: spacing.spaceSm,
     flexDirection: 'row',
     alignItems: 'center',
   },
   icon: {
-    fontSize: 18,
+    fontSize: 16,
     marginRight: spacing.spaceSm,
   },
   textContainer: {
@@ -44,12 +53,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.Caption.fontSize,
     fontWeight: '700',
-    color: '#000000',
+    color: colors.warning,
+    letterSpacing: 0.3,
   },
   subtitle: {
     fontSize: 11,
-    color: '#212121',
+    color: colors.textSecondary,
     lineHeight: 14,
+    marginTop: 1,
   },
 });
 

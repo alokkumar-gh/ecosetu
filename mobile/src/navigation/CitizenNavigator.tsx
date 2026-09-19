@@ -11,6 +11,7 @@ import { RequestDetailScreen } from '../screens/citizen/RequestDetailScreen';
 import { ItemTraceabilityScreen } from '../screens/citizen/ItemTraceabilityScreen';
 import { CitizenNotificationsScreen } from '../screens/citizen/CitizenNotificationsScreen';
 import { CitizenProfileScreen } from '../screens/citizen/CitizenProfileScreen';
+import { useI18n } from '../i18n';
 import { colors } from '../theme/colors';
 
 const Tab = createBottomTabNavigator<CitizenTabParamList>();
@@ -23,6 +24,8 @@ const Stack = createNativeStackNavigator<CitizenStackParamList>();
 // ItemTraceabilityModal placeholder removed — replaced by ItemTraceabilityScreen
 
 const CitizenTabs: React.FC = () => {
+  const { t } = useI18n();
+
   return (
     <Tab.Navigator
       initialRouteName="CitizenHome"
@@ -31,15 +34,22 @@ const CitizenTabs: React.FC = () => {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: colors.surface,
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
           borderTopColor: colors.divider,
-          height: 60,
+          borderTopWidth: 1,
+          height: 62,
           paddingBottom: 8,
           paddingTop: 6,
+          elevation: 4,
+          shadowColor: colors.primary,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 4,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
+          fontSize: 11,
+          fontWeight: '600',
+          letterSpacing: 0.2,
         },
       }}
     >
@@ -47,7 +57,7 @@ const CitizenTabs: React.FC = () => {
         name="CitizenHome"
         component={CitizenDashboardScreen}
         options={{
-          tabBarLabel: 'Home',
+          tabBarLabel: t('navigation.home') || 'Home',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>🏠</Text>,
         }}
       />
@@ -55,7 +65,7 @@ const CitizenTabs: React.FC = () => {
         name="CitizenSubmit"
         component={SubmitItemScreen}
         options={{
-          tabBarLabel: 'Submit',
+          tabBarLabel: t('navigation.submit') || 'Submit',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>📸</Text>,
         }}
       />
@@ -63,7 +73,7 @@ const CitizenTabs: React.FC = () => {
         name="CitizenRequests"
         component={CitizenRequestsScreen}
         options={{
-          tabBarLabel: 'Requests',
+          tabBarLabel: t('navigation.requests') || 'Requests',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>📦</Text>,
         }}
       />
@@ -71,7 +81,7 @@ const CitizenTabs: React.FC = () => {
         name="CitizenNotifications"
         component={CitizenNotificationsScreen}
         options={{
-          tabBarLabel: 'Alerts',
+          tabBarLabel: t('navigation.alerts') || 'Alerts',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>🔔</Text>,
         }}
       />
@@ -79,7 +89,7 @@ const CitizenTabs: React.FC = () => {
         name="CitizenProfile"
         component={CitizenProfileScreen}
         options={{
-          tabBarLabel: 'Profile',
+          tabBarLabel: t('navigation.profile') || 'Profile',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>👤</Text>,
         }}
       />

@@ -9,30 +9,15 @@ import { colors } from '../theme/colors';
 const Tab = createBottomTabNavigator<RecyclerTabParamList>();
 const Stack = createNativeStackNavigator<RecyclerStackParamList>();
 
-const RecyclerHomeTab = () => (
-  <PlaceholderScreen
-    title="Recycler Dashboard"
-    role="RECYCLER"
-    description="Overview of incoming consignments, material recovery rates, and processing throughput."
-    apiEndpoints={['GET /api/v1/consignments', 'GET /api/v1/recycling-records']}
-    showSignOut
-  />
-);
-
 import { RecyclerIncomingScreen } from '../screens/recycler/RecyclerIncomingScreen';
 import { ConsignmentDetailScreen } from '../screens/recycler/ConsignmentDetailScreen';
 import { RecyclerRecordsScreen } from '../screens/recycler/RecyclerRecordsScreen';
 import { RecyclingRecordDetailScreen } from '../screens/recycler/RecyclingRecordDetailScreen';
+import { RecyclerDashboardScreen } from '../screens/recycler/RecyclerDashboardScreen';
+import { RecyclerProfileScreen } from '../screens/recycler/RecyclerProfileScreen';
 
-const RecyclerProfileTab = () => (
-  <PlaceholderScreen
-    title="Facility Profile"
-    role="RECYCLER"
-    description="Manage recycling facility license, accepted categories, capacity, and coordinates."
-    apiEndpoints={['GET /api/v1/recyclers/profile', 'PUT /api/v1/recyclers/profile']}
-    showSignOut
-  />
-);
+const RecyclerHomeTab = ({ navigation }: any) => <RecyclerDashboardScreen navigation={navigation} />;
+const RecyclerProfileTab = () => <RecyclerProfileScreen />;
 
 const RecyclerVerificationModal = ({ navigation }: any) => (
   <PlaceholderScreen
@@ -53,15 +38,22 @@ const RecyclerTabs: React.FC = () => {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: colors.surface,
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
           borderTopColor: colors.divider,
-          height: 60,
+          borderTopWidth: 1,
+          height: 62,
           paddingBottom: 8,
           paddingTop: 6,
+          elevation: 4,
+          shadowColor: colors.primary,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 4,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
+          fontSize: 11,
+          fontWeight: '600',
+          letterSpacing: 0.2,
         },
       }}
     >

@@ -1,3 +1,9 @@
+/**
+ * CitizenDashboardScreen — Glassmorphism Edition
+ * All data fetching, derived metrics, navigation handlers, and refresh logic
+ * are 100% unchanged.
+ */
+
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -6,7 +12,6 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
-  SafeAreaView,
 } from 'react-native';
 import { CompositeNavigationProp } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -14,11 +19,15 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CitizenTabParamList, CitizenStackParamList } from '../../navigation/types';
 import { useAuth } from '../../hooks/useAuth';
 import { useNetwork } from '../../hooks/useNetwork';
+import { useI18n } from '../../i18n';
+import { GradientBackground } from '../../components/glass/GradientBackground';
+import { GlassCard } from '../../components/glass/GlassCard';
 import { TopAppBar } from '../../components/layout/TopAppBar';
 import { MetricCard } from '../../components/common/MetricCard';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { EmptyState } from '../../components/common/EmptyState';
 import { Skeleton } from '../../components/common/Skeleton';
+import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { ewasteService } from '../../services/ewasteService';
 import { requestService } from '../../services/requestService';
 import { colors } from '../../theme/colors';
@@ -37,11 +46,11 @@ interface Props {
 export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
   const { isConnected } = useNetwork();
+  const { t } = useI18n();
 
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
   const [items, setItems] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
 
@@ -52,12 +61,10 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
         ewasteService.getItems(),
         requestService.getRequests(),
       ]);
-
       setItems(Array.isArray(fetchedItems) ? fetchedItems : []);
       setRequests(Array.isArray(fetchedRequests) ? fetchedRequests : []);
     } catch (err: any) {
       console.warn('[CitizenDashboard] Data fetch error:', err?.message || err);
-      // If offline or network error, services fall back to cache. If completely empty and failed:
       setErrorMessage(
         err?.message || 'Unable to load your e-waste activity. Please pull down to retry.'
       );
@@ -67,16 +74,14 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
     }
   }, []);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, [loadDashboardData]);
+  useEffect(() => { loadDashboardData(); }, [loadDashboardData]);
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
     loadDashboardData();
   }, [loadDashboardData]);
 
-  // Derived metrics (strictly computed from real data)
+  // Derived metrics
   const itemsSubmittedCount = items.length;
   const activeRequestsCount = requests.filter((r) =>
     ['SUBMITTED', 'ACCEPTED', 'IN_PROGRESS'].includes((r.status || '').toUpperCase())
@@ -84,98 +89,87 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const completedPickupsCount = requests.filter(
     (r) => (r.status || '').toUpperCase() === 'COMPLETED'
   ).length;
-
-  // Recent requests sorted descending (max 5)
   const recentRequests = [...requests]
     .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
     .slice(0, 5);
 
-  const handleOpenNotifications = () => {
-    navigation.navigate('CitizenNotifications');
-  };
-
-  const handleOpenSubmit = () => {
-    navigation.navigate('CitizenSubmit');
-  };
-
-  const handleOpenRequests = () => {
-    navigation.navigate('CitizenRequests');
-  };
-
-  const handleOpenRequestDetail = (requestId: string) => {
-    // Navigate to RequestDetail in parent stack
+  // Navigation handlers (unchanged)
+  const handleOpenNotifications = () => navigation.navigate('CitizenNotifications');
+  const handleOpenSubmit = () => navigation.navigate('CitizenSubmit');
+  const handleOpenRequests = () => navigation.navigate('CitizenRequests');
+  const handleOpenRequestDetail = (requestId: string) =>
     (navigation as any).navigate('RequestDetail', { requestId });
-  };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <GradientBackground>
       <TopAppBar
         title="EcoSetu"
         roleBadge="CITIZEN"
         onNotificationsPress={handleOpenNotifications}
       />
+      <OfflineBanner />
 
       <ScrollView
         contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={onRefresh}
             colors={[colors.primary]}
             tintColor={colors.primary}
+            progressBackgroundColor={colors.glassFillElevated}
           />
         }
       >
-        {/* Welcome Banner */}
+        {/* ── Greeting ─────────────────────────────────────── */}
         <View style={styles.greetingContainer}>
+          <Text style={styles.greetingLabel}>{t('citizen.dashboard.welcomeBack') || 'WELCOME BACK'}</Text>
           <Text style={styles.greetingTitle} accessibilityRole="header">
-            Hello, {user?.name || 'Citizen'}
+            {user?.name?.split(' ')[0] || t('roles.citizen') || 'Citizen'} 👋
           </Text>
           <Text style={styles.greetingSubtitle}>
-            Track your e-waste lifecycle and request doorstep pickups.
+            {t('citizen.dashboard.greetingSubtitle') || 'Track your e-waste lifecycle and request doorstep pickups.'}
           </Text>
         </View>
 
-        {/* Error State Banner */}
+        {/* ── Error ────────────────────────────────────────── */}
         {Boolean(errorMessage) && (
-          <View style={styles.errorBox} accessibilityRole="alert">
-            <Text style={styles.errorText}>{errorMessage}</Text>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={loadDashboardData}
-              accessibilityRole="button"
-              accessibilityLabel="Retry loading dashboard"
-            >
-              <Text style={styles.retryText}>Try Again</Text>
-            </TouchableOpacity>
-          </View>
+          <GlassCard variant="flat" style={styles.errorCard}>
+            <View style={styles.errorCardInner} accessibilityRole="alert">
+              <Text style={styles.errorText}>⚠ {errorMessage}</Text>
+              <TouchableOpacity
+                style={styles.retryButton}
+                onPress={loadDashboardData}
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading dashboard"
+              >
+                <Text style={styles.retryText}>{t('citizen.dashboard.retry') || 'Try Again'}</Text>
+              </TouchableOpacity>
+            </View>
+          </GlassCard>
         )}
 
-        {/* Loading State: Skeletons */}
+        {/* ── Loading Skeletons ─────────────────────────────── */}
         {isLoading ? (
-          <View style={styles.skeletonContainer}>
+          <View>
             <View style={styles.metricsRow}>
-              <Skeleton height={110} style={{ flex: 1, marginRight: 8 }} />
-              <Skeleton height={110} style={{ flex: 1, marginRight: 8 }} />
-              <Skeleton height={110} style={{ flex: 1 }} />
+              <Skeleton height={110} style={{ flex: 1, marginRight: 8, borderRadius: spacing.radiusMd }} />
+              <Skeleton height={110} style={{ flex: 1, marginRight: 8, borderRadius: spacing.radiusMd }} />
+              <Skeleton height={110} style={{ flex: 1, borderRadius: spacing.radiusMd }} />
             </View>
-            <Skeleton height={48} style={{ marginVertical: spacing.spaceMd, borderRadius: 8 }} />
-            <Skeleton height={140} style={{ borderRadius: 8, marginBottom: 12 }} />
-            <Skeleton height={140} style={{ borderRadius: 8 }} />
+            <Skeleton height={52} style={{ marginVertical: spacing.spaceMd, borderRadius: spacing.radiusMd }} />
+            <Skeleton height={120} style={{ borderRadius: spacing.radiusMd, marginBottom: 10 }} />
+            <Skeleton height={120} style={{ borderRadius: spacing.radiusMd }} />
           </View>
         ) : (
           <>
-            {/* Section: Summary Statistics */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle} accessibilityRole="header">
-                Activity Overview
-              </Text>
-            </View>
-
+            {/* ── Metrics Row ─────────────────────────────── */}
+            <Text style={styles.sectionLabel}>{t('citizen.dashboard.activityOverview') || 'ACTIVITY OVERVIEW'}</Text>
             <View style={styles.metricsRow}>
               <MetricCard
                 value={itemsSubmittedCount}
-                label="Items Submitted"
+                label={t('citizen.dashboard.itemsSubmitted') || 'Items Submitted'}
                 icon="📦"
                 accentColor={colors.primary}
                 onPress={handleOpenSubmit}
@@ -183,7 +177,7 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.metricSpacer} />
               <MetricCard
                 value={activeRequestsCount}
-                label="Active Requests"
+                label={t('citizen.dashboard.activeRequests') || 'Active Requests'}
                 icon="⏳"
                 accentColor={colors.warning}
                 onPress={handleOpenRequests}
@@ -191,67 +185,64 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.metricSpacer} />
               <MetricCard
                 value={completedPickupsCount}
-                label="Completed"
+                label={t('citizen.dashboard.completed') || 'Completed'}
                 icon="✅"
                 accentColor={colors.success}
                 onPress={handleOpenRequests}
               />
             </View>
 
-            {/* Quick Action Button */}
+            {/* ── Quick Action ────────────────────────────── */}
             <TouchableOpacity
               style={styles.primaryActionButton}
               onPress={handleOpenSubmit}
               accessibilityRole="button"
               accessibilityLabel="Submit e-waste item"
-              activeOpacity={0.8}
+              activeOpacity={0.82}
             >
               <Text style={styles.primaryActionIcon}>+</Text>
-              <Text style={styles.primaryActionText}>Submit New E-Waste Item</Text>
+              <Text style={styles.primaryActionText}>{t('citizen.dashboard.submitNewEwaste') || 'Submit New E-Waste Item'}</Text>
             </TouchableOpacity>
 
-            {/* Section: Recent Requests List */}
+            {/* ── Recent Requests ─────────────────────────── */}
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle} accessibilityRole="header">
-                Recent Requests
-              </Text>
+              <Text style={styles.sectionLabel}>{t('citizen.dashboard.recentRequests') || 'RECENT REQUESTS'}</Text>
               {requests.length > 0 && (
                 <TouchableOpacity
                   onPress={handleOpenRequests}
                   accessibilityRole="button"
                   accessibilityLabel="View all collection requests"
-                  style={styles.viewAllButton}
                 >
-                  <Text style={styles.viewAllText}>View All ({requests.length})</Text>
+                  <Text style={styles.viewAllText}>
+                    {t('citizen.dashboard.viewAll') || 'View All'} ({requests.length})
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
 
             {requests.length === 0 ? (
-              /* Documented Empty State */
               <EmptyState
                 icon="♻"
-                title="No Activity Yet"
-                message="No activity yet. Start by submitting your e-waste!"
-                actionLabel="Submit Your First Item"
+                title={t('citizen.dashboard.noActivityTitle') || 'No Activity Yet'}
+                message={t('citizen.dashboard.noActivityMessage') || 'No activity yet. Start by submitting your e-waste!'}
+                actionLabel={t('citizen.dashboard.submitFirstItem') || 'Submit Your First Item'} /* actionLabel="Submit Your First Item" */
                 onAction={handleOpenSubmit}
               />
             ) : (
-              /* Populated Recent Requests */
               <View style={styles.requestsList}>
-                {recentRequests.map((req) => {
+                {recentRequests.map((req, index) => {
                   const itemCount = req.ewasteItems?.length || req.itemIds?.length || 1;
                   const displayDate = req.preferredDate
                     ? new Date(req.preferredDate).toLocaleDateString()
-                    : 'Flexible Date';
-
+                    : (t('citizen.dashboard.flexibleDate') || 'Flexible Date');
                   return (
-                    <TouchableOpacity
+                    <GlassCard
                       key={req.id}
-                      style={styles.requestCard}
+                      variant="standard"
+                      animated
+                      animationDelay={index * 60}
                       onPress={() => handleOpenRequestDetail(req.id)}
-                      activeOpacity={0.7}
-                      accessibilityRole="button"
+                      style={styles.requestCard}
                       accessibilityLabel={`Request ${req.id.slice(0, 8)}, status ${req.status}, ${itemCount} items`}
                     >
                       <View style={styles.requestCardHeader}>
@@ -260,18 +251,16 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
                         </Text>
                         <StatusBadge status={req.status || 'SUBMITTED'} />
                       </View>
-
                       <Text style={styles.requestAddress} numberOfLines={1}>
-                        📍 {req.pickupAddress || 'Address not specified'}
+                        📍 {req.pickupAddress || (t('citizen.dashboard.addressNotSpecified') || 'Address not specified')}
                       </Text>
-
                       <View style={styles.requestFooter}>
                         <Text style={styles.requestItemCount}>
-                          📦 {itemCount} {itemCount === 1 ? 'item' : 'items'}
+                          📦 {itemCount} {itemCount === 1 ? (t('citizen.dashboard.itemCount') || 'item') : (t('citizen.dashboard.itemsCount') || 'items')}
                         </Text>
                         <Text style={styles.requestDate}>📅 {displayDate}</Text>
                       </View>
-                    </TouchableOpacity>
+                    </GlassCard>
                   );
                 })}
               </View>
@@ -279,64 +268,71 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
           </>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </GradientBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   container: {
     padding: spacing.spaceMd,
     paddingBottom: spacing.spaceXl,
   },
   greetingContainer: {
-    marginBottom: spacing.spaceMd,
+    marginBottom: spacing.spaceLg,
+    paddingTop: spacing.spaceSm,
+  },
+  greetingLabel: {
+    fontSize: typography.Label.fontSize,
+    fontWeight: '700',
+    color: colors.primary,
+    letterSpacing: 1.4,
+    marginBottom: spacing.spaceXs,
   },
   greetingTitle: {
     fontSize: typography.Headline.fontSize,
-    fontWeight: '700',
-    color: colors.primaryDark,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    color: colors.textPrimary,
     marginBottom: 4,
   },
   greetingSubtitle: {
     fontSize: typography.Body.fontSize,
     color: colors.textSecondary,
-    lineHeight: 20,
+    lineHeight: 21,
   },
-  errorBox: {
-    backgroundColor: '#FFEBEE',
-    borderRadius: 8,
-    padding: spacing.spaceMd,
-    borderWidth: 1,
-    borderColor: colors.error,
+  errorCard: {
     marginBottom: spacing.spaceMd,
+  },
+  errorCardInner: {
+    // Inner padding already handled by GlassCard
   },
   errorText: {
     color: colors.error,
     fontSize: typography.Body.fontSize,
     marginBottom: spacing.spaceSm,
+    lineHeight: 21,
   },
   retryButton: {
     alignSelf: 'flex-start',
-    backgroundColor: colors.error,
+    backgroundColor: colors.errorFill,
+    borderWidth: 1,
+    borderColor: colors.error,
     paddingHorizontal: spacing.spaceMd,
     paddingVertical: 6,
-    borderRadius: 6,
+    borderRadius: spacing.radiusSm,
   },
   retryText: {
-    color: colors.surface,
+    color: colors.error,
     fontWeight: '700',
     fontSize: typography.Caption.fontSize,
   },
-  skeletonContainer: {
-    marginTop: spacing.spaceSm,
-  },
-  sectionHeader: {
-    marginTop: spacing.spaceSm,
+  sectionLabel: {
+    fontSize: typography.Label.fontSize,
+    fontWeight: '700',
+    color: colors.primary,
+    letterSpacing: 1.2,
     marginBottom: spacing.spaceSm,
+    marginTop: spacing.spaceXs,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -345,19 +341,11 @@ const styles = StyleSheet.create({
     marginTop: spacing.spaceLg,
     marginBottom: spacing.spaceSm,
   },
-  sectionTitle: {
-    fontSize: typography.Title.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  viewAllButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
   viewAllText: {
     fontSize: typography.Caption.fontSize,
     color: colors.primary,
     fontWeight: '700',
+    letterSpacing: 0.2,
   },
   metricsRow: {
     flexDirection: 'row',
@@ -370,38 +358,33 @@ const styles = StyleSheet.create({
   primaryActionButton: {
     flexDirection: 'row',
     backgroundColor: colors.primary,
-    borderRadius: 8,
+    borderRadius: spacing.radiusMd,
     paddingVertical: spacing.spaceMd - 2,
     paddingHorizontal: spacing.spaceLg,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: spacing.cardElevation,
-    minHeight: 48,
-    marginVertical: spacing.spaceXs,
+    elevation: 4,
+    minHeight: 52,
+    marginVertical: spacing.spaceSm,
   },
   primaryActionIcon: {
     fontSize: 22,
-    color: colors.surface,
-    fontWeight: '700',
+    color: colors.textInverse,
+    fontWeight: '900',
     marginRight: spacing.spaceSm,
     lineHeight: 24,
   },
   primaryActionText: {
     fontSize: typography.Button.fontSize,
-    fontWeight: '700',
-    color: colors.surface,
+    fontWeight: '800',
+    color: colors.textInverse,
+    letterSpacing: 0.3,
   },
   requestsList: {
-    marginTop: spacing.spaceXs,
+    gap: spacing.spaceXs,
   },
   requestCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    padding: spacing.spaceMd,
-    marginBottom: spacing.spaceSm + 2,
-    elevation: spacing.cardElevation,
-    borderWidth: 1,
-    borderColor: colors.divider,
+    // Padding set by GlassCard variant="standard"
   },
   requestCardHeader: {
     flexDirection: 'row',
@@ -410,21 +393,23 @@ const styles = StyleSheet.create({
     marginBottom: spacing.spaceSm,
   },
   requestId: {
-    fontSize: typography.Subheading.fontSize,
+    fontSize: typography.BodyMedium.fontSize,
     fontWeight: '700',
+    letterSpacing: 0.5,
     color: colors.textPrimary,
   },
   requestAddress: {
     fontSize: typography.Body.fontSize,
     color: colors.textSecondary,
     marginBottom: spacing.spaceSm,
+    lineHeight: 20,
   },
   requestFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: colors.glassBorder,
     paddingTop: spacing.spaceSm,
   },
   requestItemCount: {

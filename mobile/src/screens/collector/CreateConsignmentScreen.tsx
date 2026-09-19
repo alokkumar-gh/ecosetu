@@ -47,6 +47,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { recyclingService } from '../../services/recyclingService';
+import { useI18n } from '../../i18n';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -79,6 +80,7 @@ interface Props {
 export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) => {
   const { user } = useAuth();
   const { isConnected } = useNetwork();
+  const { t } = useI18n();
 
   // Route params
   const initialRecyclerId = route?.params?.recyclerId;
@@ -384,7 +386,7 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
             accessibilityLabel="Track this consignment"
             activeOpacity={0.8}
           >
-            <Text style={styles.trackButtonText}>Track Consignment →</Text>
+            <Text style={styles.trackButtonText}>{(t('collector.consignments.title') || 'Track Consignment') + ' →'}</Text>
           </TouchableOpacity>
 
           {/* Done Action */}
@@ -395,7 +397,7 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
             accessibilityLabel="Done and return to recycler directory"
             activeOpacity={0.8}
           >
-            <Text style={styles.doneButtonText}>Done (Back to Directory)</Text>
+            <Text style={styles.doneButtonText}>{t('common.done') || 'Done (Back to Directory)'}</Text>
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
@@ -405,7 +407,7 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
   return (
     <SafeAreaView style={styles.container}>
       <TopAppBar
-        title="Create Consignment"
+        title={t('collector.consignments.createConsignment') || "Create Consignment"}
         subtitle="Bundle collected e-waste for recycler"
         onBack={() => navigation.goBack()}
       />
@@ -444,7 +446,7 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle} accessibilityRole="header">
-                1. Receiving Formal Recycler
+                {t('collector.consignments.selectRecycler') || '1. Receiving Formal Recycler'}
               </Text>
               {Boolean(selectedRecycler) && (
                 <TouchableOpacity
@@ -453,7 +455,7 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
                   accessibilityLabel="Change target recycler"
                 >
                   <Text style={styles.changeLinkText}>
-                    {isSelectingRecycler ? 'Close List' : 'Change Facility'}
+                    {isSelectingRecycler ? (t('common.close') || 'Close List') : (t('common.edit') || 'Change Facility')}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -488,7 +490,7 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
             ) : (
               <View style={styles.recyclerSelectorContainer}>
                 <Text style={styles.selectPromptText}>
-                  Choose an authorized formal recycling facility:
+                  {t('collector.consignments.selectRecycler') || 'Choose an authorized formal recycling facility:'}
                 </Text>
                 {availableRecyclers.length === 0 ? (
                   <Text style={styles.noRecyclersText}>
@@ -529,7 +531,7 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
             <View style={styles.sectionHeaderRow}>
               <View>
                 <Text style={styles.sectionTitle} accessibilityRole="header">
-                  2. Select Collected E-Waste Items
+                  {t('collector.consignments.selectItems') || '2. Select Collected E-Waste Items'}
                 </Text>
                 <Text style={styles.sectionSubtitle}>
                   {eligibleItems.length}{' '}
@@ -548,22 +550,18 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
                   }
                 >
                   <Text style={styles.selectAllText}>
-                    {selectedItemIds.size === eligibleItems.length
-                      ? 'Deselect All'
-                      : 'Select All'}
+                    {selectedItemIds.size === eligibleItems.length ? 'Deselect All' : 'Select All'}
                   </Text>
                 </TouchableOpacity>
               )}
             </View>
 
             {eligibleItems.length === 0 ? (
-              <View style={styles.noItemsCard}>
-                <Text style={styles.noItemsIcon}>📦</Text>
-                <Text style={styles.noItemsTitle}>No Collected Items Available</Text>
-                <Text style={styles.noItemsBody}>
-                  You do not have any e-waste items in COLLECTED status ready for consignment. Complete assigned pickups from citizens first to collect items.
-                </Text>
-              </View>
+              <EmptyState
+                icon="📦"
+                title="No Collected Items Available"
+                message="You need items in COLLECTED status from completed pickups before you can create a consignment."
+              />
             ) : (
               eligibleItems.map((item) => {
                 const isSelected = selectedItemIds.has(item.id);
@@ -583,8 +581,8 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
                     style={[styles.itemCard, isSelected && styles.itemCardSelected]}
                     onPress={() => toggleItemSelection(item.id)}
                     accessibilityRole="checkbox"
-                    accessibilityLabel={`${formatCategoryName(item.category)}, condition ${item.condition}, weight ${weight.toFixed(1)} kg`}
                     accessibilityState={{ checked: isSelected }}
+                    accessibilityLabel={`${formatCategoryName(item.category)}, condition ${item.condition}, weight ${weight.toFixed(1)} kg`}
                     activeOpacity={0.7}
                   >
                     <View style={styles.itemCheckboxContainer}>
@@ -631,13 +629,13 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
           {/* ── Section 3: Delivery Notes & Summary ── */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle} accessibilityRole="header">
-              3. Consignment Notes & Summary
+              {t('collector.consignments.deliveryNotes') || '3. Consignment Notes & Summary'}
             </Text>
 
             <Text style={styles.inputLabel}>Delivery / Handling Notes (Optional):</Text>
             <TextInput
               style={styles.notesInput}
-              placeholder="e.g., Aggregated smartphone and laptop batch from South Delhi pickups..."
+              placeholder={t('collector.consignments.deliveryNotes') || "e.g., Aggregated smartphone and laptop batch from South Delhi pickups..."}
               placeholderTextColor={colors.textSecondary}
               value={deliveryNotes}
               onChangeText={setDeliveryNotes}
@@ -675,7 +673,7 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
               activeOpacity={0.8}
             >
               <Text style={styles.submitButtonText}>
-                Review Consignment ({selectedItemIds.size} items) →
+                {(t('collector.consignments.submitConsignment') || 'Review Consignment')} ({selectedItemIds.size} items) →
               </Text>
             </TouchableOpacity>
 
@@ -698,7 +696,7 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
         <View style={modalStyles.overlay}>
           <View style={modalStyles.modalContainer}>
             <Text style={modalStyles.modalTitle} accessibilityRole="header">
-              Confirm Consignment
+              {t('collector.delivery.confirmDelivery') || 'Confirm Consignment'}
             </Text>
             <Text style={modalStyles.modalSubtitle}>
               Please review your consignment details before submitting:
@@ -739,7 +737,7 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
                 accessibilityRole="button"
                 accessibilityLabel="Cancel consignment confirmation"
               >
-                <Text style={modalStyles.cancelButtonText}>Go Back</Text>
+                <Text style={modalStyles.cancelButtonText}>{t('common.back') || 'Go Back'}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity

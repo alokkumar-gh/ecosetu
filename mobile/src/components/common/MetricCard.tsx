@@ -1,4 +1,9 @@
-import React from 'react';
+/**
+ * MetricCard — Glassmorphism Edition
+ * Props interface unchanged — drop-in replacement.
+ */
+
+import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
@@ -12,7 +17,7 @@ interface MetricCardProps {
   onPress?: () => void;
 }
 
-export const MetricCard: React.FC<MetricCardProps> = ({
+export const MetricCard: React.FC<MetricCardProps> = memo(({
   value,
   label,
   icon,
@@ -25,8 +30,11 @@ export const MetricCard: React.FC<MetricCardProps> = ({
       accessibilityRole="summary"
       accessibilityLabel={`${label}: ${value}`}
     >
-      <View style={[styles.iconContainer, { backgroundColor: `${accentColor}15` }]}>
-        <Text style={[styles.icon, { color: accentColor }]}>{icon}</Text>
+      <View style={[styles.iconContainer, {
+        backgroundColor: `${accentColor}22`,
+        borderColor: `${accentColor}40`,
+      }]}>
+        <Text style={styles.icon}>{icon}</Text>
       </View>
       <Text style={[styles.value, { color: accentColor }]}>{value}</Text>
       <Text style={styles.label} numberOfLines={2}>
@@ -50,7 +58,9 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   }
 
   return <View style={styles.touchable}>{content}</View>;
-};
+});
+
+MetricCard.displayName = 'MetricCard';
 
 const styles = StyleSheet.create({
   touchable: {
@@ -58,31 +68,33 @@ const styles = StyleSheet.create({
     minWidth: 95,
   },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    padding: spacing.spaceSm + 2,
+    backgroundColor: colors.glassFill,
+    borderRadius: spacing.radiusMd,
+    padding: spacing.spaceSm + 4,
     alignItems: 'center',
-    elevation: spacing.cardElevation,
-    borderWidth: 1,
-    borderColor: colors.divider,
+    elevation: 2,
+    borderWidth: spacing.glassBorderWidth,
+    borderColor: colors.glassBorder,
     minHeight: 110,
     justifyContent: 'center',
   },
   iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.spaceXs,
   },
   icon: {
-    fontSize: 18,
+    fontSize: 20,
   },
   value: {
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: '800',
     marginBottom: 2,
+    letterSpacing: -0.5,
   },
   label: {
     fontSize: typography.Caption.fontSize,

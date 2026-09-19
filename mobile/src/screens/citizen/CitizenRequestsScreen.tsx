@@ -6,7 +6,6 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
-  SafeAreaView,
   Modal,
   TextInput,
   ActivityIndicator,
@@ -23,6 +22,8 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { Skeleton } from '../../components/common/Skeleton';
 import { requestService } from '../../services/requestService';
 import { REQUEST_STATUS } from '../../utils/constants';
+import { useI18n } from '../../i18n';
+import { GradientBackground } from '../../components/glass/GradientBackground';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -81,6 +82,7 @@ const getStatusDescription = (status: string, request: any): string => {
 
 export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
   const { isConnected } = useNetwork();
+  const { t } = useI18n();
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -161,8 +163,9 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
   const handleInitiateCancel = (request: any) => {
     if (!isConnected) {
       Alert.alert(
-        'Offline',
-        'Cancelling a collection request requires an active internet connection.',
+        t('citizen.requests.cancelOfflineError') || 'Offline',
+        t('citizen.requests.cancelOfflineMessage') ||
+          'Cancelling a collection request requires an active internet connection.',
         [{ text: 'OK' }]
       );
       return;
@@ -178,7 +181,10 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
     if (!selectedRequest) return;
     const reason = cancellationReason.trim();
     if (!reason) {
-      setCancelError('Please provide a reason for cancelling this request.');
+      setCancelError(
+        t('citizen.requests.cancelReasonRequired') ||
+          'Please provide a reason for cancelling this request.'
+      );
       return;
     }
 
@@ -194,7 +200,11 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
       // Refresh requests list
       await loadRequests();
 
-      Alert.alert('Request Cancelled', 'Your collection request has been cancelled successfully.');
+      Alert.alert(
+        t('citizen.requests.cancelSuccess') || 'Request Cancelled',
+        t('citizen.requests.cancelSuccessMessage') ||
+          'Your collection request has been cancelled successfully.'
+      );
     } catch (err: any) {
       console.warn('[CitizenRequests] Cancel error:', err?.message || err);
       setCancelError(err?.message || 'Failed to cancel request. Please try again.');
@@ -204,9 +214,9 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <GradientBackground>
       <TopAppBar
-        title="Collection Requests"
+        title={t('citizen.requests.title') || 'Collection Requests'}
         roleBadge="CITIZEN"
         onNotificationsPress={handleOpenNotifications}
       />
@@ -226,19 +236,25 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.headerRow}>
           <View style={styles.headerTextGroup}>
             <Text style={styles.title} accessibilityRole="header">
-              My Requests
+              {t('citizen.requests.myRequests') || 'My Requests'}
             </Text>
             <Text style={styles.subtitle}>
-              Track doorstep collection by your local informal collector.
+              {t('citizen.requests.subtitle') ||
+                'Track doorstep collection by your local informal collector.'}
             </Text>
           </View>
           <TouchableOpacity
             style={styles.newRequestButton}
             onPress={handleOpenSubmit}
             accessibilityRole="button"
-            accessibilityLabel="Submit e-waste item to create collection request"
+            accessibilityLabel={
+              t('citizen.requests.submitItem') ||
+              'Submit e-waste item to create collection request'
+            }
           >
-            <Text style={styles.newRequestButtonText}>+ Submit Item</Text>
+            <Text style={styles.newRequestButtonText}>
+              {t('citizen.requests.submitItem') || '+ Submit Item'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -246,7 +262,8 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
         {!isConnected && (
           <View style={styles.offlineNotice} accessibilityRole="alert">
             <Text style={styles.offlineNoticeText}>
-              Offline mode: Showing locally cached requests.
+              {t('citizen.requests.offlineNotice') ||
+                'Offline mode: Showing locally cached requests.'}
             </Text>
           </View>
         )}
@@ -259,9 +276,11 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
               style={styles.retryButton}
               onPress={loadRequests}
               accessibilityRole="button"
-              accessibilityLabel="Retry loading requests"
+              accessibilityLabel={t('citizen.requests.retry') || 'Retry loading requests'}
             >
-              <Text style={styles.retryButtonText}>Retry</Text>
+              <Text style={styles.retryButtonText}>
+                {t('citizen.requests.retry') || 'Retry'}
+              </Text>
             </TouchableOpacity>
           </View>
         )}
@@ -272,11 +291,16 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
             style={[styles.filterChip, activeFilter === 'ALL' && styles.filterChipActive]}
             onPress={() => setActiveFilter('ALL')}
             accessibilityRole="tab"
-            accessibilityLabel="All requests"
+            accessibilityLabel={t('citizen.requests.all') || 'All requests'}
             accessibilityState={{ selected: activeFilter === 'ALL' }}
           >
-            <Text style={[styles.filterChipText, activeFilter === 'ALL' && styles.filterChipTextActive]}>
-              All ({requests.length})
+            <Text
+              style={[
+                styles.filterChipText,
+                activeFilter === 'ALL' && styles.filterChipTextActive,
+              ]}
+            >
+              {t('citizen.requests.all') || 'All'} ({requests.length})
             </Text>
           </TouchableOpacity>
 
@@ -284,13 +308,16 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
             style={[styles.filterChip, activeFilter === 'ACTIVE' && styles.filterChipActive]}
             onPress={() => setActiveFilter('ACTIVE')}
             accessibilityRole="tab"
-            accessibilityLabel="Active requests"
+            accessibilityLabel={t('citizen.requests.active') || 'Active requests'}
             accessibilityState={{ selected: activeFilter === 'ACTIVE' }}
           >
             <Text
-              style={[styles.filterChipText, activeFilter === 'ACTIVE' && styles.filterChipTextActive]}
+              style={[
+                styles.filterChipText,
+                activeFilter === 'ACTIVE' && styles.filterChipTextActive,
+              ]}
             >
-              Active
+              {t('citizen.requests.active') || 'Active'}
             </Text>
           </TouchableOpacity>
 
@@ -298,7 +325,7 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
             style={[styles.filterChip, activeFilter === 'PICKED_UP' && styles.filterChipActive]}
             onPress={() => setActiveFilter('PICKED_UP')}
             accessibilityRole="tab"
-            accessibilityLabel="Collected requests"
+            accessibilityLabel={t('citizen.requests.collected') || 'Collected requests'}
             accessibilityState={{ selected: activeFilter === 'PICKED_UP' }}
           >
             <Text
@@ -307,7 +334,7 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
                 activeFilter === 'PICKED_UP' && styles.filterChipTextActive,
               ]}
             >
-              Collected
+              {t('citizen.requests.collected') || 'Collected'}
             </Text>
           </TouchableOpacity>
 
@@ -315,7 +342,7 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
             style={[styles.filterChip, activeFilter === 'CANCELLED' && styles.filterChipActive]}
             onPress={() => setActiveFilter('CANCELLED')}
             accessibilityRole="tab"
-            accessibilityLabel="Cancelled requests"
+            accessibilityLabel={t('citizen.requests.cancelled') || 'Cancelled requests'}
             accessibilityState={{ selected: activeFilter === 'CANCELLED' }}
           >
             <Text
@@ -324,7 +351,7 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
                 activeFilter === 'CANCELLED' && styles.filterChipTextActive,
               ]}
             >
-              Cancelled
+              {t('citizen.requests.cancelled') || 'Cancelled'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -339,13 +366,20 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
         ) : filteredRequests.length === 0 ? (
           <EmptyState
             icon="📦"
-            title="No Collection Requests"
+            title={t('citizen.requests.noRequests') || 'No Collection Requests'}
             message={
               activeFilter === 'ALL'
-                ? 'No collection requests yet. Submit your first e-waste item to get started!'
-                : `No ${activeFilter.toLowerCase()} requests found.`
+                ? (t('citizen.requests.noRequestsDesc') ||
+                  'No collection requests yet. Submit your first e-waste item to get started!')
+                : (t('citizen.requests.noFilteredRequests', {
+                    filter: activeFilter.toLowerCase(),
+                  }) || `No ${activeFilter.toLowerCase()} requests found.`)
             }
-            actionLabel={activeFilter === 'ALL' ? 'Submit E-Waste Item' : 'View All Requests'}
+            actionLabel={
+              activeFilter === 'ALL'
+                ? (t('citizen.submit.submit') || 'Submit E-Waste Item')
+                : (t('citizen.requests.viewAll') || 'View All Requests')
+            }
             onAction={activeFilter === 'ALL' ? handleOpenSubmit : () => setActiveFilter('ALL')}
           />
         ) : (
@@ -385,9 +419,14 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
                   {/* Items & Schedule Row */}
                   <View style={styles.metaRow}>
                     <View style={styles.metaItem}>
-                      <Text style={styles.metaLabel}>Items:</Text>
+                      <Text style={styles.metaLabel}>
+                        {t('citizen.requests.itemsCount') || 'Items:'}
+                      </Text>
                       <Text style={styles.metaValue}>
-                        {itemCount} {itemCount === 1 ? 'item' : 'items'}
+                        {itemCount}{' '}
+                        {itemCount === 1
+                          ? t('citizen.requests.itemsCount') || 'item'
+                          : t('citizen.requests.itemsCountPlural') || 'items'}
                       </Text>
                     </View>
 
@@ -405,14 +444,17 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
                   {Boolean(item.collectorId) && (
                     <View style={styles.collectorNotice}>
                       <Text style={styles.collectorNoticeText}>
-                        🤝 Assigned: Local Informal Collector (Kabadiwala)
+                        {t('citizen.requests.assignedCollector') ||
+                          '🤝 Assigned: Local Informal Collector (Kabadiwala)'}
                       </Text>
                     </View>
                   )}
 
                   {/* Card Footer: Detail Link & Cancel Action */}
                   <View style={styles.cardFooter}>
-                    <Text style={styles.viewDetailText}>View Details →</Text>
+                    <Text style={styles.viewDetailText}>
+                      {t('citizen.requests.viewDetails') || 'View Details →'}
+                    </Text>
 
                     {cancellable && (
                       <TouchableOpacity
@@ -421,7 +463,9 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
                         accessibilityRole="button"
                         accessibilityLabel={`Cancel request ${refId}`}
                       >
-                        <Text style={styles.cancelActionText}>Cancel Request</Text>
+                        <Text style={styles.cancelActionText}>
+                          {t('citizen.requests.cancelRequest') || 'Cancel Request'}
+                        </Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -442,14 +486,13 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard} accessibilityViewIsModal={true}>
             <Text style={styles.modalTitle} accessibilityRole="header">
-              Cancel Collection Request
+              {t('citizen.requests.cancelModalTitle') || 'Cancel Collection Request'}
             </Text>
             <Text style={styles.modalSubtitle}>
-              Are you sure you want to cancel request{' '}
-              <Text style={{ fontWeight: '700' }}>
-                #{selectedRequest?.id?.substring(0, 8).toUpperCase()}
-              </Text>
-              ? Once cancelled, any assigned local collector will be notified.
+              {t('citizen.requests.cancelModalSubtitle', {
+                ref: `#${selectedRequest?.id?.substring(0, 8).toUpperCase()}`,
+              }) ||
+                `Are you sure you want to cancel request #${selectedRequest?.id?.substring(0, 8).toUpperCase()}? Once cancelled, any assigned local collector will be notified.`}
             </Text>
 
             {Boolean(cancelError) && (
@@ -458,10 +501,15 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             )}
 
-            <Text style={styles.inputLabel}>Reason for cancellation *</Text>
+            <Text style={styles.inputLabel}>
+              {t('citizen.requests.cancelReasonLabel') || 'Reason for cancellation *'}
+            </Text>
             <TextInput
               style={styles.reasonInput}
-              placeholder="e.g. Schedule conflict, items already handed over"
+              placeholder={
+                t('citizen.requests.cancelReasonPlaceholder') ||
+                'e.g. Schedule conflict, items already handed over'
+              }
               placeholderTextColor={colors.textSecondary}
               value={cancellationReason}
               onChangeText={setCancellationReason}
@@ -480,7 +528,9 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
                 accessibilityRole="button"
                 accessibilityLabel="Keep request and dismiss"
               >
-                <Text style={styles.modalButtonSecondaryText}>Keep Request</Text>
+                <Text style={styles.modalButtonSecondaryText}>
+                  {t('citizen.requests.keepRequest') || 'Keep Request'}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -493,21 +543,23 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
                 {isCancelling ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.modalButtonDestructiveText}>Confirm Cancel</Text>
+                  <Text style={styles.modalButtonDestructiveText}>
+                    {t('citizen.requests.confirmCancel') || 'Confirm Cancel'}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </GradientBackground>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.backgroundBase,
   },
   container: {
     padding: spacing.spaceMd,
@@ -538,38 +590,39 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.spaceMd,
     paddingVertical: spacing.spaceSm,
-    borderRadius: 8,
+    borderRadius: spacing.radiusMd,
     minHeight: 48,
     minWidth: 48,
     alignItems: 'center',
     justifyContent: 'center',
+    elevation: 4,
   },
   newRequestButtonText: {
     fontSize: typography.Button.fontSize,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.textInverse,
   },
   offlineNotice: {
-    backgroundColor: '#FFF9C4',
+    backgroundColor: colors.warningFill,
     padding: spacing.spaceSm,
-    borderRadius: 6,
+    borderRadius: spacing.radiusSm,
     marginBottom: spacing.spaceMd,
     borderWidth: 1,
-    borderColor: '#FFF176',
+    borderColor: colors.warning + '40',
   },
   offlineNoticeText: {
     fontSize: typography.Caption.fontSize,
     fontWeight: '600',
-    color: '#795548',
+    color: colors.warning,
     textAlign: 'center',
   },
   errorBox: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: colors.errorFill,
     padding: spacing.spaceMd,
-    borderRadius: 8,
+    borderRadius: spacing.radiusSm,
     marginBottom: spacing.spaceMd,
     borderWidth: 1,
-    borderColor: '#FFCDD2',
+    borderColor: colors.error + '40',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -602,16 +655,16 @@ const styles = StyleSheet.create({
   filterChip: {
     paddingHorizontal: spacing.spaceMd,
     paddingVertical: spacing.spaceSm,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
+    borderRadius: spacing.radiusPill,
+    backgroundColor: colors.glassFill,
     borderWidth: 1,
-    borderColor: colors.divider,
-    minHeight: 48,
+    borderColor: colors.glassBorder,
+    minHeight: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
   filterChipActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accentFill,
     borderColor: colors.primary,
   },
   filterChipText: {
@@ -620,7 +673,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   filterChipTextActive: {
-    color: '#FFFFFF',
+    color: colors.primary,
   },
   skeletonContainer: {
     gap: spacing.spaceMd,
@@ -632,11 +685,11 @@ const styles = StyleSheet.create({
     gap: spacing.spaceMd,
   },
   requestCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
+    backgroundColor: colors.glassFill,
+    borderRadius: spacing.radiusMd,
     padding: spacing.spaceMd,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: colors.glassBorder,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },

@@ -213,10 +213,19 @@ async function runNavigationAuthShellTests() {
 
   await test('Register Screen: Strictly forbids ADMIN role selection during registration', () => {
     const regSrc = readSrcFile('screens/auth/RegisterScreen.tsx');
-    assert(regSrc.includes('setRole(ROLES.CITIZEN)'), 'Register must support CITIZEN role selection');
-    assert(regSrc.includes('setRole(ROLES.INFORMAL_COLLECTOR)'), 'Register must support INFORMAL_COLLECTOR role selection');
-    assert(regSrc.includes('setRole(ROLES.RECYCLER)'), 'Register must support RECYCLER role selection');
-    assert(!regSrc.includes('setRole(ROLES.ADMIN)'), 'Register screen MUST NOT allow ADMIN self-registration');
+    assert(
+      regSrc.includes('ROLES.CITIZEN') && (regSrc.includes('setRole(ROLES.CITIZEN)') || (regSrc.includes('ROLE_OPTIONS') && regSrc.includes('setRole(opt.key)'))),
+      'Register must support CITIZEN role selection via role options and setter'
+    );
+    assert(
+      regSrc.includes('ROLES.INFORMAL_COLLECTOR') && (regSrc.includes('setRole(ROLES.INFORMAL_COLLECTOR)') || (regSrc.includes('ROLE_OPTIONS') && regSrc.includes('setRole(opt.key)'))),
+      'Register must support INFORMAL_COLLECTOR role selection via role options and setter'
+    );
+    assert(
+      regSrc.includes('ROLES.RECYCLER') && (regSrc.includes('setRole(ROLES.RECYCLER)') || (regSrc.includes('ROLE_OPTIONS') && regSrc.includes('setRole(opt.key)'))),
+      'Register must support RECYCLER role selection via role options and setter'
+    );
+    assert(!regSrc.includes('ROLES.ADMIN'), 'Register screen MUST NOT allow ADMIN self-registration');
     assert(!regSrc.includes('typeof ROLES.ADMIN'), 'AllowedRole union MUST NOT include ADMIN');
   });
 

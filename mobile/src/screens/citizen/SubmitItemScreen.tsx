@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,19 +10,42 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
+  Modal,
+  Alert,
 } from 'react-native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { CitizenTabParamList } from '../../navigation/types';
 import { useNetwork } from '../../hooks/useNetwork';
+import { useI18n } from '../../i18n';
 import { TopAppBar } from '../../components/layout/TopAppBar';
+import { GradientBackground } from '../../components/glass/GradientBackground';
+import { GlassCard } from '../../components/glass/GlassCard';
+import { GlassButton } from '../../components/glass/GlassButton';
+import { GlassInput } from '../../components/glass/GlassInput';
+import { GlassBadge } from '../../components/glass/GlassBadge';
 import { ewasteService } from '../../services/ewasteService';
-import { EWASTE_CATEGORIES, ITEM_CONDITIONS } from '../../utils/constants';
+import { requestService } from '../../services/requestService';
+import { capturePhoto } from '../../services/cameraService';
+import { reverseGeocode, getCurrentLocation, ResolvedAddress } from '../../services/locationService';
+import { EWASTE_CATEGORIES, ITEM_CONDITIONS, ADDRESS_TYPES } from '../../utils/constants';
+import { EcoSetuMap } from '../../components/map/EcoSetuMap';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 
 interface Props {
   navigation: BottomTabNavigationProp<CitizenTabParamList, 'CitizenSubmit'>;
+}
+
+export interface EwasteItemDraft {
+  id: string;
+  category: string;
+  condition: string;
+  quantity: number;
+  estimatedWeightKg?: string;
+  description?: string;
+  imageUri?: string;
 }
 
 interface CategoryOption {
@@ -54,644 +77,1186 @@ const CONDITION_OPTIONS = [
 
 export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
   const { isConnected } = useNetwork();
+  const { t } = useI18n();
 
-  // Form states
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedCondition, setSelectedCondition] = useState<string>(ITEM_CONDITIONS.UNKNOWN);
-  const [quantity, setQuantity] = useState<number>(1);
-  const [estimatedWeightKg, setEstimatedWeightKg] = useState<string>('');
-  const [description, setDescription] = useState<string>('');
-  const [imageUrl, setImageUrl] = useState<string>('');
+  // Multi-item state
+  const [items, setItems] = useState<EwasteItemDraft[]>([]);
+  const [isItemModalVisible, setIsItemModalVisible] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
-  // UI flow states
+  // Item Draft Form States
+  const [modalCategory, setModalCategory] = useState<string | null>(null);
+  const [modalCondition, setModalCondition] = useState<string>(ITEM_CONDITIONS.UNKNOWN);
+  const [modalQuantity, setModalQuantity] = useState<number>(1);
+  const [modalWeight, setModalWeight] = useState<string>('');
+  const [modalDescription, setModalDescription] = useState<string>('');
+  const [modalImageUri, setModalImageUri] = useState<string | undefined>(undefined);
+  const [modalItemError, setModalItemError] = useState<string | null>(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+
+  // Pickup Location & Map states (Zero hardcoded Delhi coordinates)
+  const [pickupLat, setPickupLat] = useState<number>(0);
+  const [pickupLng, setPickupLng] = useState<number>(0);
+  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
+  const [isLocating, setIsLocating] = useState<boolean>(false);
+  const [isResolvingAddress, setIsResolvingAddress] = useState<boolean>(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  // Structured Address fields
+  const [addressType, setAddressType] = useState<string>(ADDRESS_TYPES.HOME);
+  const [houseNumber, setHouseNumber] = useState<string>('');
+  const [street, setStreet] = useState<string>('');
+  const [landmark, setLandmark] = useState<string>('');
+  const [city, setCity] = useState<string>('');
+  const [district, setDistrict] = useState<string>('');
+  const [state, setState] = useState<string>('');
+  const [pincode, setPincode] = useState<string>('');
+
+  // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successInfo, setSuccessInfo] = useState<{ message: string; isOffline: boolean } | null>(null);
 
-  const resetForm = () => {
-    setSelectedCategory(null);
-    setSelectedCondition(ITEM_CONDITIONS.UNKNOWN);
-    setQuantity(1);
-    setEstimatedWeightKg('');
-    setDescription('');
-    setImageUrl('');
-    setErrorMessage(null);
-  };
+  const geocodeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleQuantityDecrement = () => {
-    if (quantity > 1) {
-      setQuantity(quantity - 1);
+  const getCategoryLabel = (key: string): string => {
+    switch (key) {
+      case EWASTE_CATEGORIES.MOBILE_PHONE: return t('ewaste.mobilePhone') || 'Mobile Phone';
+      case EWASTE_CATEGORIES.LAPTOP: return t('ewaste.laptop') || 'Laptop';
+      case EWASTE_CATEGORIES.DESKTOP: return t('ewaste.desktop') || 'Desktop';
+      case EWASTE_CATEGORIES.TABLET: return t('ewaste.tablet') || 'Tablet';
+      case EWASTE_CATEGORIES.MONITOR: return t('ewaste.monitor') || 'Monitor';
+      case EWASTE_CATEGORIES.PRINTER: return t('ewaste.printer') || 'Printer / Scanner';
+      case EWASTE_CATEGORIES.KEYBOARD_MOUSE: return t('ewaste.keyboardMouse') || 'Keyboard / Mouse';
+      case EWASTE_CATEGORIES.CABLE_CHARGER: return t('ewaste.cableCharger') || 'Cable / Charger';
+      case EWASTE_CATEGORIES.BATTERY: return t('ewaste.battery') || 'Battery';
+      case EWASTE_CATEGORIES.CIRCUIT_BOARD: return t('ewaste.circuitBoard') || 'Circuit Board';
+      case EWASTE_CATEGORIES.OTHER: return t('ewaste.other') || 'Other E-Waste';
+      default: return key;
     }
   };
 
-  const handleQuantityIncrement = () => {
-    if (quantity < 100) {
-      setQuantity(quantity + 1);
+  const getConditionLabel = (key: string): string => {
+    switch (key) {
+      case ITEM_CONDITIONS.WORKING: return t('citizen.conditions.working') || 'Working';
+      case ITEM_CONDITIONS.NOT_WORKING: return t('citizen.conditions.notWorking') || 'Not Working';
+      case ITEM_CONDITIONS.DAMAGED: return t('citizen.conditions.damaged') || 'Damaged';
+      case ITEM_CONDITIONS.UNKNOWN: return t('citizen.conditions.unknown') || 'Unknown';
+      default: return key;
     }
   };
 
-  const handleSubmit = async () => {
-    if (isSubmitting) return; // Prevent duplicate taps
+  // Perform reverse geocoding to auto-populate address fields
+  const triggerReverseGeocoding = async (lat: number, lng: number) => {
+    if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
+    setIsResolvingAddress(true);
+    try {
+      const resolved: ResolvedAddress | null = await reverseGeocode(lat, lng);
+      if (resolved) {
+        if (resolved.houseNumber && !houseNumber) setHouseNumber(resolved.houseNumber);
+        if (resolved.street && !street) setStreet(resolved.street);
+        if (resolved.landmark && !landmark) setLandmark(resolved.landmark);
+        if (resolved.city) setCity(resolved.city);
+        if (resolved.district) setDistrict(resolved.district);
+        if (resolved.state) setState(resolved.state);
+        if (resolved.pincode) setPincode(resolved.pincode);
+      }
+    } catch (err) {
+      console.warn('[SubmitItemScreen] reverseGeocode error:', err);
+    } finally {
+      setIsResolvingAddress(false);
+    }
+  };
 
-    setErrorMessage(null);
-    setSuccessInfo(null);
+  const handleUseCurrentLocation = async () => {
+    setIsLocating(true);
+    setLocationError(null);
 
-    // 1. Validate Category (Required)
-    if (!selectedCategory) {
-      setErrorMessage('Please select an e-waste category.');
+    try {
+      const result = await getCurrentLocation();
+      if (result.success && result.coords) {
+        const { latitude, longitude, accuracy } = result.coords;
+        setPickupLat(latitude);
+        setPickupLng(longitude);
+        if (accuracy !== null) setLocationAccuracy(accuracy);
+        triggerReverseGeocoding(latitude, longitude);
+      } else if (result.error === 'PERMISSION_DENIED') {
+        setLocationError(t('citizen.submit.locPermissionDenied') || 'Location permission was denied.');
+      } else {
+        setLocationError(result.message || (t('citizen.submit.locUnavailable') || 'Location unavailable. Please drag the pin manually.'));
+      }
+    } catch (err: any) {
+      console.warn('[SubmitItemScreen] Location fetch error:', err);
+      setLocationError(t('citizen.submit.locUnavailable') || 'Location unavailable. Please drag the pin manually.');
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
+  // Initial location fetch
+  useEffect(() => {
+    handleUseCurrentLocation();
+  }, []);
+
+  const handleMarkerDrag = (newLat: number, newLng: number) => {
+    setPickupLat(newLat);
+    setPickupLng(newLng);
+
+    // Debounce reverse geocoding on drag
+    if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
+    geocodeTimerRef.current = setTimeout(() => {
+      triggerReverseGeocoding(newLat, newLng);
+    }, 800);
+  };
+
+  // Item Modal Handlers
+  const handleOpenAddItem = () => {
+    setEditingItemId(null);
+    setModalCategory(null);
+    setModalCondition(ITEM_CONDITIONS.UNKNOWN);
+    setModalQuantity(1);
+    setModalWeight('');
+    setModalDescription('');
+    setModalImageUri(undefined);
+    setModalItemError(null);
+    setIsItemModalVisible(true);
+  };
+
+  const handleOpenEditItem = (item: EwasteItemDraft) => {
+    setEditingItemId(item.id);
+    setModalCategory(item.category);
+    setModalCondition(item.condition);
+    setModalQuantity(item.quantity);
+    setModalWeight(item.estimatedWeightKg || '');
+    setModalDescription(item.description || '');
+    setModalImageUri(item.imageUri);
+    setModalItemError(null);
+    setIsItemModalVisible(true);
+  };
+
+  const handleRemoveItem = (itemId: string) => {
+    setItems((prev) => prev.filter((it) => it.id !== itemId));
+  };
+
+  // Direct camera capture
+  const handleCapturePhoto = async () => {
+    setIsCameraActive(true);
+    try {
+      const captureResult = await capturePhoto();
+      if (captureResult.success && captureResult.uri) {
+        setModalImageUri(captureResult.uri);
+      } else if (captureResult.error === 'CAMERA_PERMISSION_DENIED') {
+        Alert.alert(
+          t('common.error') || 'Permission Error',
+          t('citizen.submit.cameraPermissionDenied') || 'Camera permission is required to capture photos.'
+        );
+      }
+    } catch (err: any) {
+      console.warn('[SubmitItemScreen] Camera error:', err);
+    } finally {
+      setIsCameraActive(false);
+    }
+  };
+
+  const handleSaveItemModal = () => {
+    if (!modalCategory) {
+      setModalItemError(t('citizen.submit.valSelectCategory') || 'Please select an e-waste category.');
       return;
     }
 
-    // 2. Validate Quantity
-    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100) {
-      setErrorMessage('Quantity must be an integer between 1 and 100.');
+    if (!Number.isInteger(modalQuantity) || modalQuantity < 1 || modalQuantity > 100) {
+      setModalItemError(t('citizen.submit.valQuantity') || 'Quantity must be between 1 and 100.');
       return;
     }
 
-    // 3. Validate Estimated Weight (Optional)
-    let parsedWeight: number | undefined;
-    if (estimatedWeightKg.trim()) {
-      parsedWeight = parseFloat(estimatedWeightKg.trim());
-      if (isNaN(parsedWeight) || parsedWeight < 0.01 || parsedWeight > 500) {
-        setErrorMessage('Estimated weight must be a positive number between 0.01 and 500 kg.');
+    if (modalWeight.trim()) {
+      const weightNum = parseFloat(modalWeight.trim());
+      if (isNaN(weightNum) || weightNum <= 0 || weightNum > 500) {
+        setModalItemError(t('citizen.submit.valWeight') || 'Estimated weight must be between 0.01 and 500 kg.');
         return;
       }
     }
 
-    // 4. Validate Description length (Optional, max 500)
-    if (description.trim().length > 500) {
-      setErrorMessage('Description must not exceed 500 characters.');
-      return;
-    }
-
-    // 5. Validate Image URL length (Optional, max 500)
-    if (imageUrl.trim().length > 500) {
-      setErrorMessage('Image URL must not exceed 500 characters.');
-      return;
-    }
-
-    // Construct request payload matching docs/05 Section 6
-    const payload: any = {
-      category: selectedCategory,
-      condition: selectedCondition,
-      quantity,
+    const itemDraft: EwasteItemDraft = {
+      id: editingItemId || `draft_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      category: modalCategory,
+      condition: modalCondition,
+      quantity: modalQuantity,
+      estimatedWeightKg: modalWeight.trim() || undefined,
+      description: modalDescription.trim() || undefined,
+      imageUri: modalImageUri,
     };
 
-    if (description.trim()) {
-      payload.description = description.trim();
+    if (editingItemId) {
+      setItems((prev) => prev.map((it) => (it.id === editingItemId ? itemDraft : it)));
+    } else {
+      setItems((prev) => [...prev, itemDraft]);
     }
-    if (parsedWeight !== undefined) {
-      payload.estimatedWeightKg = parsedWeight;
+
+    setIsItemModalVisible(false);
+  };
+
+  // Totals
+  const totalItemCount = items.reduce((sum, it) => sum + it.quantity, 0);
+  const totalEstWeightKg = items.reduce((sum, it) => sum + (parseFloat(it.estimatedWeightKg || '0') || 0), 0);
+
+  // Overall Submission Flow
+  const handleSubmitRequest = async () => {
+    if (isSubmitting) return;
+
+    setErrorMessage(null);
+    setSuccessInfo(null);
+
+    // 1. Must have at least one item
+    if (items.length === 0) {
+      setErrorMessage(t('citizen.submit.noItemsInRequest') || 'Please add at least one e-waste item before submitting.');
+      return;
     }
-    if (imageUrl.trim()) {
-      payload.imageUrl = imageUrl.trim();
+
+    // 2. Validate PIN code if provided
+    if (pincode.trim() && !/^[1-9][0-9]{5}$/.test(pincode.trim())) {
+      setErrorMessage(t('citizen.submit.valPincode') || 'PIN Code must be a valid 6-digit postal code.');
+      return;
     }
 
     setIsSubmitting(true);
 
     try {
-      const createdItem = await ewasteService.createItem(payload);
-      const isDraft = Boolean((createdItem as any)?.isOfflineDraft || !isConnected);
+      // Step A: Create each EwasteItem
+      const createdItemIds: string[] = [];
 
-      resetForm();
+      for (const it of items) {
+        const itemPayload: any = {
+          category: it.category,
+          condition: it.condition,
+          quantity: it.quantity,
+        };
+        if (it.description) itemPayload.description = it.description;
+        if (it.estimatedWeightKg) itemPayload.estimatedWeightKg = parseFloat(it.estimatedWeightKg);
+        if (it.imageUri) itemPayload.imageUrl = it.imageUri;
 
-      if (isDraft) {
-        setSuccessInfo({
-          message:
-            'E-Waste item saved as an offline draft. It will automatically synchronize with the server when connectivity returns.',
-          isOffline: true,
-        });
-      } else {
-        setSuccessInfo({
-          message: 'E-Waste item submitted successfully! It is now ready for pickup collection.',
-          isOffline: false,
-        });
+        const createdItem = await ewasteService.createItem(itemPayload);
+        if ((createdItem as any)?.id) {
+          createdItemIds.push((createdItem as any).id);
+        }
       }
+
+      // Step B: Create CollectionRequest with all itemIds and structured address
+      const formattedAddress = [
+        houseNumber.trim(),
+        street.trim(),
+        landmark.trim(),
+        city.trim(),
+        district.trim(),
+        state.trim(),
+        pincode.trim(),
+      ].filter(Boolean).join(', ') || 'Doorstep Pickup Location';
+
+      const requestPayload: any = {
+        itemIds: createdItemIds,
+        pickupAddress: formattedAddress,
+        pickupLat: typeof pickupLat === 'number' && pickupLat !== 0 ? pickupLat : 19.3149,
+        pickupLng: typeof pickupLng === 'number' && pickupLng !== 0 ? pickupLng : 84.7941,
+        addressType,
+      };
+
+      if (houseNumber.trim()) requestPayload.houseNumber = houseNumber.trim();
+      if (street.trim()) requestPayload.street = street.trim();
+      if (landmark.trim()) requestPayload.landmark = landmark.trim();
+      if (city.trim()) requestPayload.city = city.trim();
+      if (district.trim()) requestPayload.district = district.trim();
+      if (state.trim()) requestPayload.state = state.trim();
+      if (pincode.trim()) requestPayload.pincode = pincode.trim();
+      if (locationAccuracy !== null && locationAccuracy !== undefined) {
+        requestPayload.locationAccuracy = locationAccuracy;
+      }
+
+      const createdRequest: any = await requestService.createRequest(requestPayload);
+
+      // Step C: Move request from DRAFT to SUBMITTED so collectors can see it!
+      if (createdRequest?.id && isConnected) {
+        try {
+          await requestService.submitRequest(createdRequest.id);
+        } catch (submitErr) {
+          console.warn('[SubmitItemScreen] submitRequest transition warning:', submitErr);
+        }
+      }
+
+      // Reset form
+      setItems([]);
+      setHouseNumber('');
+      setStreet('');
+      setLandmark('');
+      setCity('');
+      setDistrict('');
+      setState('');
+      setPincode('');
+
+      setSuccessInfo({
+        message:
+          t('citizen.submit.submitSuccess') ||
+          'Collection request created and submitted successfully! Local collectors can now view and accept your pickup.',
+        isOffline: !isConnected,
+      });
     } catch (err: any) {
-      console.warn('[SubmitItemScreen] Submission failed:', err?.message || err);
-      const msg = err?.message || 'Unable to submit e-waste item. Please check your connection and retry.';
-      setErrorMessage(msg);
+      console.error('[SubmitItemScreen] Request creation error:', err);
+      setErrorMessage(err?.message || (t('citizen.submit.submitError') || 'Unable to submit pickup request. Please retry.'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <GradientBackground>
       <TopAppBar
-        title="Submit E-Waste"
-        roleBadge="CITIZEN"
-        showBack
-        onBack={() => navigation.navigate('CitizenHome')}
+        title={t('citizen.submit.title') || 'Submit E-Waste'}
+        subtitle={t('citizen.submit.subtitle') || 'Doorstep e-waste pickup registration'}
       />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardView}
+        style={styles.keyboardContainer}
       >
-        <ScrollView contentContainerStyle={styles.container}>
-          {/* Header Description */}
-          <View style={styles.introBox}>
-            <Text style={styles.introTitle} accessibilityRole="header">
-              Register E-Waste Item
-            </Text>
-            <Text style={styles.introSubtitle}>
-              Submit items for formal recycling, authorized consignment, and verified doorstep collection.
-            </Text>
-          </View>
-
-          {/* Error Alert Box */}
-          {Boolean(errorMessage) && (
-            <View style={styles.errorBox} accessibilityRole="alert">
-              <Text style={styles.errorText}>{errorMessage}</Text>
-            </View>
-          )}
-
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Success Banner */}
-          {Boolean(successInfo) && (
-            <View
-              style={[styles.successBox, successInfo?.isOffline && styles.offlineSuccessBox]}
-              accessibilityRole="alert"
-            >
-              <Text style={styles.successIcon}>{successInfo?.isOffline ? '💾' : '✅'}</Text>
-              <Text style={styles.successText}>{successInfo?.message}</Text>
-              <TouchableOpacity
-                style={styles.viewDashboardButton}
+          {successInfo && (
+            <GlassCard style={styles.successCard}>
+              <Text style={styles.successIcon}>✓</Text>
+              <Text style={styles.successTitle}>{t('common.success') || 'Success'}</Text>
+              <Text style={styles.successMessage}>{successInfo.message}</Text>
+              <GlassButton
+                label={t('citizen.submit.goToDashboard') || 'Go to Dashboard'}
+                variant="primary"
                 onPress={() => navigation.navigate('CitizenHome')}
-                accessibilityRole="button"
-                accessibilityLabel="Go to Citizen Dashboard"
-              >
-                <Text style={styles.viewDashboardText}>Go to Dashboard</Text>
-              </TouchableOpacity>
-            </View>
+                style={styles.actionBtn}
+              />
+            </GlassCard>
           )}
 
-          {/* Form Card */}
-          <View style={styles.card}>
-            {/* 1. Category Selection */}
-            <Text style={styles.fieldLabel} accessibilityRole="header">
-              Select Category <Text style={styles.requiredAsterisk}>*</Text>
-            </Text>
-            <Text style={styles.fieldHelpText}>Choose the primary device type</Text>
+          {/* Error Banner */}
+          {errorMessage && (
+            <GlassCard style={styles.errorCard}>
+              <Text style={styles.errorIcon}>⚠</Text>
+              <Text style={styles.errorTitle}>{t('common.error') || 'Error'}</Text>
+              <Text style={styles.errorMessage}>{errorMessage}</Text>
+            </GlassCard>
+          )}
 
-            <View style={styles.categoryGrid}>
-              {CATEGORY_OPTIONS.map((cat) => {
-                const isSelected = selectedCategory === cat.key;
-                return (
-                  <TouchableOpacity
-                    key={cat.key}
-                    style={[styles.categoryChip, isSelected && styles.categoryChipSelected]}
-                    onPress={() => setSelectedCategory(cat.key)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${cat.label} category${isSelected ? ', selected' : ''}`}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.categoryChipIcon}>{cat.icon}</Text>
-                    <Text
-                      style={[
-                        styles.categoryChipText,
-                        isSelected && styles.categoryChipTextSelected,
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {cat.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* 2. Condition Selector */}
-            <Text style={[styles.fieldLabel, styles.sectionSpacing]} accessibilityRole="header">
-              Device Condition <Text style={styles.optionalTag}>(Optional)</Text>
-            </Text>
-            <View style={styles.conditionRow}>
-              {CONDITION_OPTIONS.map((cond) => {
-                const isSelected = selectedCondition === cond.key;
-                return (
-                  <TouchableOpacity
-                    key={cond.key}
-                    style={[styles.conditionButton, isSelected && styles.conditionButtonSelected]}
-                    onPress={() => setSelectedCondition(cond.key)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${cond.label} condition${isSelected ? ', selected' : ''}`}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.conditionButtonText,
-                        isSelected && styles.conditionButtonTextSelected,
-                      ]}
-                    >
-                      {cond.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* 3. Quantity Stepper */}
-            <Text style={[styles.fieldLabel, styles.sectionSpacing]} accessibilityRole="header">
-              Quantity <Text style={styles.optionalTag}>(1 to 100)</Text>
-            </Text>
-            <View style={styles.stepperContainer}>
-              <TouchableOpacity
-                style={[styles.stepperButton, quantity <= 1 && styles.stepperButtonDisabled]}
-                onPress={handleQuantityDecrement}
-                disabled={quantity <= 1}
-                accessibilityRole="button"
-                accessibilityLabel="Decrease quantity"
-              >
-                <Text style={styles.stepperButtonText}>−</Text>
-              </TouchableOpacity>
-
-              <View style={styles.stepperValueBox}>
-                <Text style={styles.stepperValueText}>{quantity}</Text>
-              </View>
-
-              <TouchableOpacity
-                style={[styles.stepperButton, quantity >= 100 && styles.stepperButtonDisabled]}
-                onPress={handleQuantityIncrement}
-                disabled={quantity >= 100}
-                accessibilityRole="button"
-                accessibilityLabel="Increase quantity"
-              >
-                <Text style={styles.stepperButtonText}>+</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* 4. Estimated Weight (Kg) */}
-            <Text style={[styles.fieldLabel, styles.sectionSpacing]} accessibilityRole="header">
-              Estimated Total Weight <Text style={styles.optionalTag}>(Optional, kg)</Text>
-            </Text>
-            <View style={styles.inputWithSuffixContainer}>
-              <TextInput
-                style={styles.inputWithSuffix}
-                placeholder="e.g. 2.5"
-                placeholderTextColor={colors.textSecondary}
-                value={estimatedWeightKg}
-                onChangeText={setEstimatedWeightKg}
-                keyboardType="decimal-pad"
-                accessibilityLabel="Estimated total weight in kilograms"
-              />
-              <View style={styles.suffixBox}>
-                <Text style={styles.suffixText}>kg</Text>
+          {/* Section 1: E-Waste Item List */}
+          <GlassCard style={styles.sectionCard}>
+            <View style={styles.sectionHeaderRow}>
+              <View>
+                <Text style={styles.sectionTitle}>
+                  📦 {t('citizen.submit.itemList') || 'E-Waste Items in this Request'}
+                </Text>
+                <Text style={styles.sectionSubtitle}>
+                  {items.length > 0
+                    ? `${t('citizen.submit.totalItems') || 'Total Items'}: ${totalItemCount}${
+                        totalEstWeightKg > 0 ? ` • ${totalEstWeightKg.toFixed(1)} kg` : ''
+                      }`
+                    : t('citizen.submit.noItemsInRequest') || 'No items added yet. Please add at least one item.'}
+                </Text>
               </View>
             </View>
 
-            {/* 5. Description */}
-            <View style={[styles.labelRow, styles.sectionSpacing]}>
-              <Text style={styles.fieldLabel} accessibilityRole="header">
-                Description / Model Notes <Text style={styles.optionalTag}>(Optional)</Text>
-              </Text>
-              <Text style={styles.charCount}>{description.length} / 500</Text>
-            </View>
-            <TextInput
-              style={[styles.textInput, styles.textArea]}
-              placeholder="Enter brand, model, visible damage, or specific notes..."
-              placeholderTextColor={colors.textSecondary}
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              numberOfLines={3}
-              maxLength={500}
-              textAlignVertical="top"
-              accessibilityLabel="Item description and model notes"
-            />
+            {items.map((item, index) => (
+              <View key={item.id} style={styles.itemRowCard}>
+                {item.imageUri ? (
+                  <Image source={{ uri: item.imageUri }} style={styles.itemThumbnail} />
+                ) : (
+                  <View style={styles.itemThumbnailPlaceholder}>
+                    <Text style={styles.itemPlaceholderIcon}>
+                      {CATEGORY_OPTIONS.find((c) => c.key === item.category)?.icon || '📦'}
+                    </Text>
+                  </View>
+                )}
 
-            {/* 6. Optional Image URL */}
-            <Text style={[styles.fieldLabel, styles.sectionSpacing]} accessibilityRole="header">
-              Photo URL <Text style={styles.optionalTag}>(Optional)</Text>
-            </Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="https://example.com/device.jpg"
-              placeholderTextColor={colors.textSecondary}
-              value={imageUrl}
-              onChangeText={setImageUrl}
-              autoCapitalize="none"
-              autoCorrect={false}
-              accessibilityLabel="Optional photo web URL"
-            />
-
-            {/* Primary Submit Button */}
-            <TouchableOpacity
-              style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
-              onPress={handleSubmit}
-              disabled={isSubmitting}
-              accessibilityRole="button"
-              accessibilityLabel="Submit e-waste item"
-              activeOpacity={0.8}
-            >
-              {isSubmitting ? (
-                <View style={styles.submittingContainer}>
-                  <ActivityIndicator size="small" color={colors.surface} style={styles.spinner} />
-                  <Text style={styles.submitButtonText}>Submitting Item...</Text>
+                <View style={styles.itemDetailsCol}>
+                  <Text style={styles.itemCategoryTitle}>
+                    {getCategoryLabel(item.category)}
+                  </Text>
+                  <View style={styles.itemBadgeRow}>
+                    <GlassBadge
+                      label={`Qty: ${item.quantity}`}
+                      tone="info"
+                    />
+                    <GlassBadge
+                      label={getConditionLabel(item.condition)}
+                      tone="neutral"
+                    />
+                    {Boolean(item.estimatedWeightKg) && (
+                      <GlassBadge
+                        label={`${item.estimatedWeightKg} kg`}
+                        tone="neutral"
+                      />
+                    )}
+                  </View>
+                  {Boolean(item.description) && (
+                    <Text style={styles.itemDescText} numberOfLines={1}>
+                      {item.description}
+                    </Text>
+                  )}
                 </View>
-              ) : (
-                <Text style={styles.submitButtonText}>Submit E-Waste Item</Text>
-              )}
-            </TouchableOpacity>
-          </View>
+
+                <View style={styles.itemActionsCol}>
+                  <TouchableOpacity
+                    onPress={() => handleOpenEditItem(item)}
+                    style={styles.itemEditBtn}
+                  >
+                    <Text style={styles.itemEditBtnText}>✏️</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleRemoveItem(item.id)}
+                    style={styles.itemDeleteBtn}
+                  >
+                    <Text style={styles.itemDeleteBtnText}>🗑️</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+
+            <GlassButton
+              label={t('citizen.submit.addItem') || '+ Add E-Waste Item'}
+              variant="outline"
+              onPress={handleOpenAddItem}
+              style={styles.addItemBtn}
+            />
+          </GlassCard>
+
+          {/* Section 2: Pickup Location & Map */}
+          <GlassCard style={styles.sectionCard}>
+            <View style={styles.sectionHeaderRow}>
+              <View>
+                <Text style={styles.sectionTitle}>
+                  🗺️ {t('citizen.submit.pickupLocation') || 'Pickup Location'}
+                </Text>
+                <Text style={styles.sectionSubtitle}>
+                  {isResolvingAddress
+                    ? t('citizen.submit.resolvingAddress') || 'Resolving address from live location...'
+                    : t('citizen.submit.movePin') || 'Drag the pin to adjust your doorstep location'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.locateBtn}
+                onPress={handleUseCurrentLocation}
+                disabled={isLocating}
+              >
+                {isLocating ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Text style={styles.locateBtnText}>🎯 {t('location.useMyLocation') || 'GPS'}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {locationError && (
+              <Text style={styles.locationErrorText}>{locationError}</Text>
+            )}
+
+            <View style={styles.mapContainer}>
+              <EcoSetuMap
+                latitude={pickupLat !== 0 ? pickupLat : 19.3149}
+                longitude={pickupLng !== 0 ? pickupLng : 84.7941}
+                draggable={true}
+                onLocationChange={handleMarkerDrag}
+                pinTitle="Pickup Doorstep"
+                pinDescription="Drag to refine address"
+                style={styles.map}
+              />
+            </View>
+
+            {/* Address Form Fields Auto-Resolved */}
+            <View style={styles.addressFieldsGrid}>
+              <View style={styles.fieldRow}>
+                <View style={styles.fieldHalf}>
+                  <Text style={styles.inputLabel}>{t('citizen.submit.houseNumber') || 'Building / House'}</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={houseNumber}
+                    onChangeText={setHouseNumber}
+                    placeholder="e.g. Flat 4B / Plot 12"
+                    placeholderTextColor={colors.textTertiary}
+                  />
+                </View>
+                <View style={styles.fieldHalf}>
+                  <Text style={styles.inputLabel}>{t('citizen.submit.street') || 'Street / Road'}</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={street}
+                    onChangeText={setStreet}
+                    placeholder="e.g. College Road"
+                    placeholderTextColor={colors.textTertiary}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.fieldRow}>
+                <View style={styles.fieldHalf}>
+                  <Text style={styles.inputLabel}>{t('citizen.submit.landmark') || 'Landmark'}</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={landmark}
+                    onChangeText={setLandmark}
+                    placeholder="Near City Hospital"
+                    placeholderTextColor={colors.textTertiary}
+                  />
+                </View>
+                <View style={styles.fieldHalf}>
+                  <Text style={styles.inputLabel}>{t('citizen.submit.city') || 'City / Town'}</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={city}
+                    onChangeText={setCity}
+                    placeholder="e.g. Berhampur"
+                    placeholderTextColor={colors.textTertiary}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.fieldRow}>
+                <View style={styles.fieldHalf}>
+                  <Text style={styles.inputLabel}>{t('citizen.submit.district') || 'District'}</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={district}
+                    onChangeText={setDistrict}
+                    placeholder="e.g. Ganjam"
+                    placeholderTextColor={colors.textTertiary}
+                  />
+                </View>
+                <View style={styles.fieldHalf}>
+                  <Text style={styles.inputLabel}>{t('citizen.submit.pincode') || 'PIN Code'}</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={pincode}
+                    onChangeText={setPincode}
+                    placeholder="760001"
+                    keyboardType="numeric"
+                    maxLength={6}
+                    placeholderTextColor={colors.textTertiary}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.fieldFull}>
+                <Text style={styles.inputLabel}>{t('citizen.submit.state') || 'State'}</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={state}
+                  onChangeText={setState}
+                  placeholder="e.g. Odisha"
+                  placeholderTextColor={colors.textTertiary}
+                />
+              </View>
+            </View>
+          </GlassCard>
+
+          {/* Section 3: Review & Submit */}
+          <GlassCard style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>
+              📋 {t('citizen.submit.reviewRequest') || 'Review Pickup Request'}
+            </Text>
+            <View style={styles.reviewSummaryBox}>
+              <Text style={styles.reviewSummaryText}>
+                • Items: <Text style={styles.bold}>{items.length} categories ({totalItemCount} total items)</Text>
+              </Text>
+              <Text style={styles.reviewSummaryText}>
+                • Address:{' '}
+                <Text style={styles.bold}>
+                  {[houseNumber, street, city, pincode].filter(Boolean).join(', ') || 'Doorstep Pickup Location'}
+                </Text>
+              </Text>
+              <Text style={styles.reviewSummaryText}>
+                • Privacy: Full address is hidden from collectors until accepted.
+              </Text>
+            </View>
+
+            <GlassButton
+              label={
+                isSubmitting
+                  ? t('citizen.submit.submitting') || 'Submitting...'
+                  : t('citizen.submit.confirmSubmitRequest') || 'Confirm & Submit Pickup Request'
+              }
+              variant="primary"
+              onPress={handleSubmitRequest}
+              disabled={isSubmitting || items.length === 0}
+              loading={isSubmitting}
+              style={styles.submitBtn}
+            />
+          </GlassCard>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+
+      {/* ── Modal: Add / Edit Item ────────────────────────────────────────── */}
+      <Modal
+        visible={isItemModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setIsItemModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {editingItemId
+                  ? t('citizen.submit.editItem') || 'Edit E-Waste Item'
+                  : t('citizen.submit.addItem') || 'Add E-Waste Item'}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setIsItemModalVisible(false)}
+                style={styles.modalCloseBtn}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.modalScroll}>
+              {modalItemError && (
+                <Text style={styles.modalErrorText}>{modalItemError}</Text>
+              )}
+
+              {/* Category Selection */}
+              <Text style={styles.inputLabel}>{t('citizen.submit.selectCategory') || 'Select Category'} *</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
+                {CATEGORY_OPTIONS.map((cat) => {
+                  const isSelected = modalCategory === cat.key;
+                  return (
+                    <TouchableOpacity
+                      key={cat.key}
+                      style={[styles.categoryChip, isSelected && styles.categoryChipSelected]}
+                      onPress={() => setModalCategory(cat.key)}
+                    >
+                      <Text style={styles.categoryChipIcon}>{cat.icon}</Text>
+                      <Text style={[styles.categoryChipLabel, isSelected && styles.categoryChipLabelSelected]}>
+                        {cat.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {/* Condition Selection */}
+              <Text style={styles.inputLabel}>{t('citizen.submit.deviceCondition') || 'Condition'} *</Text>
+              <View style={styles.conditionRow}>
+                {CONDITION_OPTIONS.map((cond) => {
+                  const isSelected = modalCondition === cond.key;
+                  return (
+                    <TouchableOpacity
+                      key={cond.key}
+                      style={[styles.conditionChip, isSelected && styles.conditionChipSelected]}
+                      onPress={() => setModalCondition(cond.key)}
+                    >
+                      <Text style={[styles.conditionChipLabel, isSelected && styles.conditionChipLabelSelected]}>
+                        {cond.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Quantity Stepper */}
+              <Text style={styles.inputLabel}>{t('citizen.submit.quantity') || 'Quantity'} *</Text>
+              <View style={styles.stepperContainer}>
+                <TouchableOpacity
+                  style={styles.stepperBtn}
+                  onPress={() => setModalQuantity(Math.max(1, modalQuantity - 1))}
+                >
+                  <Text style={styles.stepperBtnText}>−</Text>
+                </TouchableOpacity>
+                <Text style={styles.stepperValue}>{modalQuantity}</Text>
+                <TouchableOpacity
+                  style={styles.stepperBtn}
+                  onPress={() => setModalQuantity(Math.min(100, modalQuantity + 1))}
+                >
+                  <Text style={styles.stepperBtnText}>+</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Estimated Weight & Description */}
+              <Text style={styles.inputLabel}>{t('citizen.submit.estimatedWeight') || 'Estimated Weight (kg)'}</Text>
+              <TextInput
+                style={styles.textInput}
+                value={modalWeight}
+                onChangeText={setModalWeight}
+                placeholder="e.g. 0.5"
+                keyboardType="numeric"
+                placeholderTextColor={colors.textTertiary}
+              />
+
+              <Text style={styles.inputLabel}>{t('citizen.submit.description') || 'Notes / Model Description'}</Text>
+              <TextInput
+                style={[styles.textInput, styles.textArea]}
+                value={modalDescription}
+                onChangeText={setModalDescription}
+                placeholder="Brand, model, visible condition..."
+                placeholderTextColor={colors.textTertiary}
+                multiline
+                numberOfLines={3}
+              />
+
+              {/* Android Camera Photo Capture */}
+              <Text style={styles.inputLabel}>📸 {t('citizen.submit.takePhoto') || 'Item Photo'}</Text>
+              {modalImageUri ? (
+                <View style={styles.photoPreviewBox}>
+                  <Image source={{ uri: modalImageUri }} style={styles.photoPreviewImage} />
+                  <View style={styles.photoActionsRow}>
+                    <TouchableOpacity
+                      style={styles.photoActionBtn}
+                      onPress={handleCapturePhoto}
+                      disabled={isCameraActive}
+                    >
+                      <Text style={styles.photoActionBtnText}>
+                        📷 {t('citizen.submit.retakePhoto') || 'Retake'}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.photoActionBtn, styles.photoRemoveBtn]}
+                      onPress={() => setModalImageUri(undefined)}
+                    >
+                      <Text style={[styles.photoActionBtnText, styles.photoRemoveBtnText]}>
+                        🗑️ {t('citizen.submit.removePhoto') || 'Remove'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.cameraCaptureBtn}
+                  onPress={handleCapturePhoto}
+                  disabled={isCameraActive}
+                >
+                  {isCameraActive ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <>
+                      <Text style={styles.cameraCaptureIcon}>📷</Text>
+                      <Text style={styles.cameraCaptureText}>
+                        {t('citizen.submit.takePhoto') || 'Take Photo with Camera'}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              <GlassButton
+                label={editingItemId ? t('common.save') || 'Save Changes' : t('citizen.submit.addItem') || '+ Add to List'}
+                variant="primary"
+                onPress={handleSaveItemModal}
+                style={styles.modalSaveBtn}
+              />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </GradientBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  keyboardView: {
+  keyboardContainer: {
     flex: 1,
   },
-  container: {
+  scrollContent: {
     padding: spacing.spaceMd,
-    paddingBottom: spacing.spaceXl,
+    paddingBottom: 40,
   },
-  introBox: {
+  sectionCard: {
     marginBottom: spacing.spaceMd,
+    padding: spacing.spaceMd,
   },
-  introTitle: {
-    fontSize: typography.Headline.fontSize,
-    fontWeight: '700',
-    color: colors.primaryDark,
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.spaceSm,
+  },
+  sectionTitle: {
+    fontSize: typography.fontSizeBase,
+    fontWeight: typography.fontWeightBold,
+    color: colors.textPrimary,
+  },
+  sectionSubtitle: {
+    fontSize: typography.fontSizeSm,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  locateBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: spacing.radiusSm,
+    backgroundColor: 'rgba(15, 41, 66, 0.08)',
+  },
+  locateBtnText: {
+    fontSize: typography.fontSizeSm,
+    fontWeight: typography.fontWeightSemiBold,
+    color: colors.primary,
+  },
+  locationErrorText: {
+    color: colors.error,
+    fontSize: typography.fontSizeSm,
+    marginBottom: spacing.spaceSm,
+  },
+  mapContainer: {
+    height: 180,
+    borderRadius: spacing.radiusMd,
+    overflow: 'hidden',
+    marginBottom: spacing.spaceMd,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  map: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  addressFieldsGrid: {
+    gap: spacing.spaceSm,
+  },
+  fieldRow: {
+    flexDirection: 'row',
+    gap: spacing.spaceSm,
+  },
+  fieldHalf: {
+    flex: 1,
+  },
+  fieldFull: {
+    width: '100%',
+  },
+  inputLabel: {
+    fontSize: typography.fontSizeSm,
+    fontWeight: typography.fontWeightSemiBold,
+    color: colors.textPrimary,
     marginBottom: 4,
   },
-  introSubtitle: {
-    fontSize: typography.Body.fontSize,
-    color: colors.textSecondary,
-    lineHeight: 20,
-  },
-  errorBox: {
-    backgroundColor: '#FFEBEE',
-    borderRadius: 8,
-    padding: spacing.spaceMd,
+  textInput: {
+    height: 44,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.error,
-    marginBottom: spacing.spaceMd,
-  },
-  errorText: {
-    color: colors.error,
-    fontSize: typography.Body.fontSize,
-  },
-  successBox: {
-    backgroundColor: '#E8F5E9',
-    borderRadius: 8,
-    padding: spacing.spaceMd,
-    borderWidth: 1,
-    borderColor: colors.success,
-    marginBottom: spacing.spaceMd,
-    alignItems: 'center',
-  },
-  offlineSuccessBox: {
-    backgroundColor: '#FFF8E1',
-    borderColor: colors.warning,
-  },
-  successIcon: {
-    fontSize: 28,
-    marginBottom: spacing.spaceXs,
-  },
-  successText: {
+    borderColor: colors.glassBorder,
+    borderRadius: spacing.radiusSm,
+    paddingHorizontal: spacing.spaceSm,
+    fontSize: typography.fontSizeBase,
     color: colors.textPrimary,
-    fontSize: typography.Body.fontSize,
-    textAlign: 'center',
-    marginBottom: spacing.spaceSm,
-    lineHeight: 20,
   },
-  viewDashboardButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.spaceMd,
+  textArea: {
+    height: 70,
+    textAlignVertical: 'top',
     paddingVertical: 8,
-    borderRadius: 6,
-    minHeight: 40,
+  },
+  itemRowCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.glassFill,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    borderRadius: spacing.radiusMd,
+    padding: spacing.spaceSm,
+    marginVertical: 4,
+  },
+  itemThumbnail: {
+    width: 48,
+    height: 48,
+    borderRadius: spacing.radiusSm,
+  },
+  itemThumbnailPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: spacing.radiusSm,
+    backgroundColor: 'rgba(15, 41, 66, 0.05)',
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  viewDashboardText: {
-    color: colors.surface,
-    fontWeight: '700',
-    fontSize: typography.Caption.fontSize,
+  itemPlaceholderIcon: {
+    fontSize: 24,
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    padding: spacing.spaceMd,
-    elevation: spacing.cardElevation,
-    borderWidth: 1,
-    borderColor: colors.divider,
+  itemDetailsCol: {
+    flex: 1,
+    marginLeft: spacing.spaceSm,
   },
-  fieldLabel: {
-    fontSize: typography.Subheading.fontSize,
-    fontWeight: '700',
+  itemCategoryTitle: {
+    fontSize: typography.fontSizeBase,
+    fontWeight: typography.fontWeightSemiBold,
     color: colors.textPrimary,
-    marginBottom: 2,
   },
-  requiredAsterisk: {
+  itemBadgeRow: {
+    flexDirection: 'row',
+    gap: 4,
+    marginVertical: 2,
+  },
+  itemDescText: {
+    fontSize: typography.fontSizeXs,
+    color: colors.textSecondary,
+  },
+  itemActionsCol: {
+    flexDirection: 'row',
+    gap: 8,
+    marginLeft: spacing.spaceSm,
+  },
+  itemEditBtn: {
+    padding: 6,
+  },
+  itemEditBtnText: {
+    fontSize: 16,
+  },
+  itemDeleteBtn: {
+    padding: 6,
+  },
+  itemDeleteBtnText: {
+    fontSize: 16,
+  },
+  addItemBtn: {
+    marginTop: spacing.spaceSm,
+  },
+  reviewSummaryBox: {
+    backgroundColor: colors.glassFill,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    borderRadius: spacing.radiusMd,
+    padding: spacing.spaceSm,
+    marginVertical: spacing.spaceSm,
+  },
+  reviewSummaryText: {
+    fontSize: typography.fontSizeSm,
+    color: colors.textSecondary,
+    marginVertical: 2,
+  },
+  bold: {
+    fontWeight: typography.fontWeightBold,
+    color: colors.textPrimary,
+  },
+  submitBtn: {
+    marginTop: spacing.spaceSm,
+  },
+  successCard: {
+    marginBottom: spacing.spaceMd,
+    padding: spacing.spaceMd,
+    backgroundColor: colors.successFill,
+    borderColor: colors.success,
+    alignItems: 'center',
+  },
+  successIcon: {
+    fontSize: 32,
+    color: colors.success,
+    marginBottom: 4,
+  },
+  successTitle: {
+    fontSize: typography.fontSizeLg,
+    fontWeight: typography.fontWeightBold,
+    color: colors.success,
+  },
+  successMessage: {
+    fontSize: typography.fontSizeSm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginVertical: 8,
+  },
+  actionBtn: {
+    marginTop: 8,
+    width: '100%',
+  },
+  errorCard: {
+    marginBottom: spacing.spaceMd,
+    padding: spacing.spaceMd,
+    backgroundColor: colors.errorFill,
+    borderColor: colors.error,
+  },
+  errorIcon: {
+    fontSize: 24,
     color: colors.error,
-    fontWeight: '700',
+    marginBottom: 4,
   },
-  optionalTag: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '400',
-    color: colors.textSecondary,
+  errorTitle: {
+    fontSize: typography.fontSizeBase,
+    fontWeight: typography.fontWeightBold,
+    color: colors.error,
   },
-  fieldHelpText: {
-    fontSize: typography.Caption.fontSize,
-    color: colors.textSecondary,
+  errorMessage: {
+    fontSize: typography.fontSizeSm,
+    color: colors.error,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 41, 66, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.backgroundBase,
+    borderTopLeftRadius: spacing.radiusLg,
+    borderTopRightRadius: spacing.radiusLg,
+    maxHeight: '90%',
+    padding: spacing.spaceMd,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: spacing.spaceSm,
   },
-  sectionSpacing: {
-    marginTop: spacing.spaceLg,
+  modalTitle: {
+    fontSize: typography.fontSizeLg,
+    fontWeight: typography.fontWeightBold,
+    color: colors.textPrimary,
   },
-  categoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -4,
+  modalCloseBtn: {
+    padding: 6,
+  },
+  modalCloseText: {
+    fontSize: 20,
+    color: colors.textSecondary,
+  },
+  modalScroll: {
+    paddingBottom: 20,
+  },
+  modalErrorText: {
+    color: colors.error,
+    fontSize: typography.fontSizeSm,
+    marginBottom: spacing.spaceSm,
+  },
+  categoryScroll: {
+    marginVertical: 6,
+    marginBottom: spacing.spaceSm,
   },
   categoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    margin: 4,
-    minHeight: 48, // 48dp Android touch target
+    borderRadius: spacing.radiusSm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    marginRight: 8,
   },
   categoryChipSelected: {
-    backgroundColor: `${colors.primary}18`,
+    backgroundColor: colors.primary,
     borderColor: colors.primary,
-    borderWidth: 1.5,
   },
   categoryChipIcon: {
     fontSize: 16,
     marginRight: 6,
   },
-  categoryChipText: {
-    fontSize: typography.Caption.fontSize,
+  categoryChipLabel: {
+    fontSize: typography.fontSizeSm,
     color: colors.textPrimary,
-    fontWeight: '500',
+    fontWeight: typography.fontWeightMedium,
   },
-  categoryChipTextSelected: {
-    color: colors.primaryDark,
-    fontWeight: '700',
+  categoryChipLabelSelected: {
+    color: colors.textInverse,
+    fontWeight: typography.fontWeightBold,
   },
   conditionRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: spacing.spaceXs,
+    gap: 6,
+    marginVertical: 6,
+    marginBottom: spacing.spaceSm,
   },
-  conditionButton: {
-    flex: 1,
-    minWidth: 70,
+  conditionChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: spacing.radiusSm,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 6,
-    marginBottom: 6,
-    backgroundColor: colors.background,
-    minHeight: 48,
+    borderColor: colors.glassBorder,
   },
-  conditionButtonSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+  conditionChipSelected: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
-  conditionButtonText: {
-    fontSize: typography.Caption.fontSize,
+  conditionChipLabel: {
+    fontSize: typography.fontSizeSm,
     color: colors.textPrimary,
-    fontWeight: '600',
-    textAlign: 'center',
   },
-  conditionButtonTextSelected: {
-    color: colors.surface,
+  conditionChipLabelSelected: {
+    color: colors.textInverse,
+    fontWeight: typography.fontWeightBold,
   },
   stepperContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: spacing.spaceXs,
+    marginVertical: 6,
+    marginBottom: spacing.spaceSm,
   },
-  stepperButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: colors.primaryLight,
+  stepperBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: spacing.radiusSm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 1,
   },
-  stepperButtonDisabled: {
-    backgroundColor: colors.divider,
-  },
-  stepperButtonText: {
+  stepperBtnText: {
     fontSize: 22,
-    fontWeight: '700',
-    color: colors.surface,
-    lineHeight: 24,
+    fontWeight: typography.fontWeightBold,
+    color: colors.primary,
   },
-  stepperValueBox: {
-    width: 64,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: spacing.spaceSm,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: 8,
-    backgroundColor: colors.background,
-  },
-  stepperValueText: {
-    fontSize: typography.Subheading.fontSize,
-    fontWeight: '700',
+  stepperValue: {
+    fontSize: typography.fontSizeLg,
+    fontWeight: typography.fontWeightBold,
     color: colors.textPrimary,
+    marginHorizontal: 16,
+    minWidth: 24,
+    textAlign: 'center',
   },
-  inputWithSuffixContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: 8,
-    backgroundColor: colors.background,
-    marginTop: spacing.spaceXs,
-    height: 48,
-  },
-  inputWithSuffix: {
-    flex: 1,
-    paddingHorizontal: spacing.spaceMd,
-    fontSize: typography.Body.fontSize,
-    color: colors.textPrimary,
-    height: '100%',
-  },
-  suffixBox: {
-    paddingHorizontal: spacing.spaceMd,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderLeftWidth: 1,
-    borderLeftColor: colors.divider,
-  },
-  suffixText: {
-    fontSize: typography.Body.fontSize,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  labelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  charCount: {
-    fontSize: typography.Caption.fontSize,
-    color: colors.textSecondary,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: 8,
-    paddingHorizontal: spacing.spaceMd,
-    paddingVertical: 12,
-    fontSize: typography.Body.fontSize,
-    color: colors.textPrimary,
-    backgroundColor: colors.background,
-    marginTop: spacing.spaceXs,
-    minHeight: 48,
-  },
-  textArea: {
-    minHeight: 90,
-    paddingTop: 12,
-  },
-  submitButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    paddingVertical: spacing.spaceMd - 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.spaceXl,
-    elevation: spacing.cardElevation,
-    minHeight: 48,
-  },
-  submitButtonDisabled: {
-    backgroundColor: colors.divider,
-    elevation: 0,
-  },
-  submitButtonText: {
-    color: colors.surface,
-    fontSize: typography.Button.fontSize,
-    fontWeight: '700',
-  },
-  submittingContainer: {
+  cameraCaptureBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 14,
+    borderRadius: spacing.radiusSm,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(15, 41, 66, 0.04)',
+    marginVertical: 8,
   },
-  spinner: {
-    marginRight: spacing.spaceSm,
+  cameraCaptureIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  cameraCaptureText: {
+    fontSize: typography.fontSizeBase,
+    fontWeight: typography.fontWeightSemiBold,
+    color: colors.primary,
+  },
+  photoPreviewBox: {
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  photoPreviewImage: {
+    width: 140,
+    height: 140,
+    borderRadius: spacing.radiusMd,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  photoActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  photoActionBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: spacing.radiusSm,
+    backgroundColor: 'rgba(15, 41, 66, 0.08)',
+  },
+  photoActionBtnText: {
+    fontSize: typography.fontSizeSm,
+    fontWeight: typography.fontWeightSemiBold,
+    color: colors.primary,
+  },
+  photoRemoveBtn: {
+    backgroundColor: colors.errorFill,
+  },
+  photoRemoveBtnText: {
+    color: colors.error,
+  },
+  modalSaveBtn: {
+    marginTop: spacing.spaceMd,
   },
 });
 

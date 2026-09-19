@@ -26,6 +26,8 @@ mobile/android/app/google-services.json
 !mobile/android/app/google-services.json.example
 *.keystore
 *.jks
+local.properties
+mobile/android/local.properties
 
 # Backend Uploads
 backend/uploads/

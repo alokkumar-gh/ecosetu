@@ -29,7 +29,13 @@ const errorHandler = (err, req, res, next) => {
     // Foreign key constraint failed
     else if (err.code === 'P2003') {
       error = AppError.badRequest('Referenced entity does not exist', ERROR_CODES.VALIDATION_ERROR);
+    }
+    // Missing table (P2021) or missing column (P2022) in database schema
+    else if (err.code === 'P2021' || err.code === 'P2022') {
+      logger.error(`[Database Schema Error] ${err.code}: ${err.message}`, { code: err.code, meta: err.meta });
+      error = AppError.internal('Database schema mismatch. Please ensure all migrations are applied.');
     } else {
+      logger.error(`[Prisma Known Error] ${err.code}: ${err.message}`, { code: err.code, meta: err.meta });
       error = AppError.badRequest('Database request error', ERROR_CODES.BAD_REQUEST);
     }
   }

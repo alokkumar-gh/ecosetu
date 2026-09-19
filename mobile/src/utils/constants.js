@@ -35,11 +35,12 @@ export const ITEM_CONDITIONS = Object.freeze({
   UNKNOWN: 'UNKNOWN',
 });
 
-// E-Waste Item Statuses
+// E-Waste Item Statuses (Canonical Prisma enum ItemStatus)
 export const ITEM_STATUS = Object.freeze({
   DRAFT: 'DRAFT',
   SUBMITTED: 'SUBMITTED',
   COLLECTED: 'COLLECTED',
+  CONSIGNED: 'CONSIGNED',
   RECYCLED: 'RECYCLED',
 });
 
@@ -63,18 +64,37 @@ export const PICKUP_STATUS = Object.freeze({
   CANCELLED: 'CANCELLED',
 });
 
-// Consignment Statuses
+// Consignment Statuses (Canonical Prisma enum ConsignmentStatus)
 export const CONSIGNMENT_STATUS = Object.freeze({
-  PENDING: 'PENDING',
+  CREATED: 'CREATED',
   IN_TRANSIT: 'IN_TRANSIT',
+  DELIVERED: 'DELIVERED',
   ACCEPTED: 'ACCEPTED',
   REJECTED: 'REJECTED',
+  PENDING: 'CREATED', // Backwards-compatible alias for legacy references
 });
 
-// Recycling Record Statuses
+// Recycling Record Statuses (Canonical Prisma enum RecyclingStatus)
 export const RECYCLING_STATUS = Object.freeze({
+  RECEIVED: 'RECEIVED',
   PROCESSING: 'PROCESSING',
   COMPLETED: 'COMPLETED',
+});
+
+// Canonical Notification Types (docs/23_NOTIFICATION_SYSTEM.md Section 2, backend constants)
+export const NOTIFICATION_TYPES = Object.freeze({
+  REQUEST_ACCEPTED: 'REQUEST_ACCEPTED',
+  PICKUP_SCHEDULED: 'PICKUP_SCHEDULED',
+  PICKUP_COMPLETED: 'PICKUP_COMPLETED',
+  REQUEST_CANCELLED: 'REQUEST_CANCELLED',
+  CONSIGNMENT_INCOMING: 'CONSIGNMENT_INCOMING',
+  CONSIGNMENT_ACCEPTED: 'CONSIGNMENT_ACCEPTED',
+  CONSIGNMENT_REJECTED: 'CONSIGNMENT_REJECTED',
+  RECYCLING_COMPLETED: 'RECYCLING_COMPLETED',
+  VERIFICATION_APPROVED: 'VERIFICATION_APPROVED',
+  VERIFICATION_REJECTED: 'VERIFICATION_REJECTED',
+  ACCOUNT_SUSPENDED: 'ACCOUNT_SUSPENDED',
+  ACCOUNT_REACTIVATED: 'ACCOUNT_REACTIVATED',
 });
 
 // Offline Queue Item Statuses
@@ -103,21 +123,50 @@ export const STORAGE_KEYS = Object.freeze({
   CACHE_ITEMS: '@ecosetu_cache_items',
   CACHE_REQUESTS: '@ecosetu_cache_requests',
   CACHE_PICKUPS: '@ecosetu_cache_pickups',
+  LANGUAGE: '@ecosetu_language',
+  VOICE_ASSISTANCE: '@ecosetu_voice_assistance',
+  CAROUSEL_COMPLETED: '@ecosetu_carousel_completed',
 });
 
-// Dynamic Base URL Resolution (supports build-time/runtime environment variables):
-// Priority: PRODUCTION_API_BASE_URL -> API_BASE_URL -> Android Emulator loopback default
-const configuredBaseUrl =
-  (typeof process !== 'undefined' && process.env && (process.env.PRODUCTION_API_BASE_URL || process.env.API_BASE_URL)) ||
-  'http://10.0.2.2:3001/api/v1';
+// Canonical Backend API URLs
+export const PRODUCTION_API_BASE_URL = 'https://ecosetu-backend.onrender.com/api/v1';
+export const LOCAL_DEV_API_BASE_URL = 'http://10.0.2.2:3001/api/v1';
+export const LOCAL_FALLBACK_API_BASE_URL = 'http://localhost:3001/api/v1';
+
+// Dynamic Base URL Resolution:
+// 1. Explicit environment variable overrides: process.env.PRODUCTION_API_BASE_URL or process.env.API_BASE_URL
+// 2. Production build resolution: if process.env.NODE_ENV === 'production' or (typeof __DEV__ !== 'undefined' && !__DEV__)
+// 3. Development default: LOCAL_DEV_API_BASE_URL (10.0.2.2:3001 for Android Emulator loopback)
+const isProductionBuild =
+  (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'production') ||
+  (typeof __DEV__ !== 'undefined' && !__DEV__);
+
+const envOverride =
+  typeof process !== 'undefined' && process.env
+    ? (process.env.PRODUCTION_API_BASE_URL || process.env.API_BASE_URL)
+    : null;
+
+const configuredBaseUrl = (
+  (envOverride ? envOverride.trim().replace(/\/+$/, '') : null) ||
+  (isProductionBuild ? PRODUCTION_API_BASE_URL : LOCAL_DEV_API_BASE_URL)
+).replace(/\/+$/, '');
 
 // Network and API Defaults
 export const API_CONFIG = Object.freeze({
   DEFAULT_BASE_URL: configuredBaseUrl,
-  FALLBACK_BASE_URL: 'http://localhost:3001/api/v1',
+  PRODUCTION_BASE_URL: PRODUCTION_API_BASE_URL,
+  LOCAL_DEV_BASE_URL: LOCAL_DEV_API_BASE_URL,
+  FALLBACK_BASE_URL: LOCAL_FALLBACK_API_BASE_URL,
   DEFAULT_TIMEOUT_MS: 15000,
   UPLOAD_TIMEOUT_MS: 30000,
   MAX_RETRIES: 3,
   INITIAL_RETRY_DELAY_MS: 1000,
   MAX_RETRY_DELAY_MS: 10000,
+});
+
+// Canonical Address Types (Prisma enum AddressType)
+export const ADDRESS_TYPES = Object.freeze({
+  HOME: 'HOME',
+  OFFICE: 'OFFICE',
+  OTHER: 'OTHER',
 });

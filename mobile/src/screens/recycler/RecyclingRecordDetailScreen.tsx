@@ -12,8 +12,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
-  StatusBar,
   ActivityIndicator,
   Modal,
   TextInput,
@@ -25,6 +23,8 @@ import { networkService } from '../../services/networkService';
 import { TopAppBar } from '../../components/layout/TopAppBar';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
+import { GradientBackground } from '../../components/glass/GradientBackground';
+import { GlassCard } from '../../components/glass/GlassCard';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 
@@ -106,8 +106,7 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
   // Role Access Guard
   if (user && user.role !== 'RECYCLER' && user.role !== 'ADMIN') {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
+      <GradientBackground>
         <TopAppBar title="Recycling Details" onBack={() => navigation?.goBack()} />
         <View style={styles.accessRestrictedContainer}>
           <Text style={styles.accessRestrictedIcon}>🔒</Text>
@@ -116,7 +115,7 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
             Only authorized formal recycling facilities can inspect or manage recycling records.
           </Text>
         </View>
-      </SafeAreaView>
+      </GradientBackground>
     );
   }
 
@@ -150,7 +149,7 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
           [{ text: 'OK', onPress: () => fetchRecord() }]
         );
       } else {
-        Alert.alert('Error', err.message || 'Failed to start processing');
+        Alert.alert('Error', err.message || 'Failed to start material processing.');
       }
     } finally {
       setIsProcessingAction(false);
@@ -164,7 +163,7 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
     if (isOffline) {
       Alert.alert(
         'Offline',
-        'Completing recycling requires an active internet connection to transition item lifecycle and notify citizens.'
+        'Completing recycling requires an active internet connection.'
       );
       return;
     }
@@ -174,30 +173,22 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
       setCompleteFormError('Output weight must be a valid non-negative number (>= 0 kg).');
       return;
     }
-    if (processingNotes.trim().length > 1000) {
-      setCompleteFormError('Processing notes cannot exceed 1000 characters.');
-      return;
-    }
-    if (outputDescription.trim().length > 500) {
-      setCompleteFormError('Output description cannot exceed 500 characters.');
-      return;
-    }
 
     submittingRef.current = true;
     setIsProcessingAction(true);
     setCompleteFormError(null);
 
-    try {
-      const payload: any = {};
-      if (processingNotes.trim()) payload.processingNotes = processingNotes.trim();
-      if (outputDescription.trim()) payload.outputDescription = outputDescription.trim();
-      if (weightNum !== null) payload.outputWeightKg = weightNum;
+    const payload: any = {};
+    if (processingNotes.trim()) payload.processingNotes = processingNotes.trim();
+    if (outputDescription.trim()) payload.outputDescription = outputDescription.trim();
+    if (weightNum !== null) payload.outputWeightKg = weightNum;
 
+    try {
       const updated = await recyclingService.completeRecycling(record.id, payload);
       setRecord((prev: any) => ({ ...prev, ...updated }));
       setShowCompleteModal(false);
       setActionSuccessMessage(
-        'Recycling completed successfully! All linked e-waste items have transitioned to RECYCLED and citizen owners have been notified.'
+        'Recycling completed! Formal certificate issued and citizen owners notified.'
       );
     } catch (err: any) {
       if (err.status === 409 || err.code === 'CONFLICT' || err.status === 400) {
@@ -215,25 +206,27 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
     }
   };
 
-  const formatDate = (d: any) => {
-    if (!d) return '—';
-    return new Date(d).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  const formatDate = (isoStr: string | null) => {
+    if (!isoStr) return 'Not recorded';
+    try {
+      return new Date(isoStr).toLocaleString('en-IN', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      });
+    } catch {
+      return isoStr;
+    }
   };
 
-  const items = record?.consignment?.consignmentItems || [];
   const status = record?.status || 'RECEIVED';
+  const items = record?.consignment?.consignmentItems || [];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
+    <GradientBackground>
       <TopAppBar
         title="Recycling Processing"
+        subtitle={record?.id ? `#REC-${record.id.slice(0, 8).toUpperCase()}` : ''}
+        showBack
         onBack={() => navigation?.goBack()}
       />
 
@@ -242,19 +235,19 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading recycling record...</Text>
+          <Text style={styles.loadingText}>Loading processing record...</Text>
         </View>
-      ) : error && !record ? (
+      ) : error || !record ? (
         <View style={styles.errorContainer}>
           <Text style={styles.errorIcon}>⚠️</Text>
           <Text style={styles.errorTitle}>Error</Text>
-          <Text style={styles.errorMessage}>{error}</Text>
+          <Text style={styles.errorMessage}>{error || 'Record not found'}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={fetchRecord}>
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {actionSuccessMessage && (
             <View style={styles.successBanner}>
               <Text style={styles.successBannerText}>✓ {actionSuccessMessage}</Text>
@@ -262,7 +255,7 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
           )}
 
           {/* Header Card */}
-          <View style={styles.card}>
+          <GlassCard style={styles.card}>
             <View style={styles.cardRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.recordIdText}>
@@ -335,10 +328,63 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
                 <Text style={styles.stepLabel}>Completed</Text>
               </View>
             </View>
-          </View>
+          </GlassCard>
+
+          {/* Action Card based on state */}
+          <GlassCard style={[styles.card, styles.actionCard]}>
+            <Text style={styles.sectionTitle}>Operational Action</Text>
+
+            {status === 'RECEIVED' && (
+              <View style={styles.actionStateBox}>
+                <Text style={styles.actionPromptText}>
+                  Batch is logged at facility. Begin inspection and material dismantling.
+                </Text>
+                <TouchableOpacity
+                  style={[styles.primaryActionBtn, isOffline && styles.btnDisabled]}
+                  disabled={isOffline}
+                  onPress={() => setShowStartModal(true)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.primaryActionBtnText}>⚙️ Start Processing Materials</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {status === 'PROCESSING' && (
+              <View style={styles.actionStateBox}>
+                <Text style={styles.actionPromptText}>
+                  Materials are in active sorting and dismantling. Complete batch to issue certificate.
+                </Text>
+                <TouchableOpacity
+                  style={[styles.completeActionBtn, isOffline && styles.btnDisabled]}
+                  disabled={isOffline}
+                  onPress={() => {
+                    setCompleteFormError(null);
+                    setShowCompleteModal(true);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.primaryActionBtnText}>✅ Complete Recycling & Certify</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {status === 'COMPLETED' && (
+              <View style={styles.completedNoticeBox}>
+                <Text style={styles.completedIcon}>🏅</Text>
+                <Text style={styles.completedTitle}>Recycling Formally Certified</Text>
+                <Text style={styles.completedSub}>
+                  Certificate ID: {record.certificateId || 'CERT-' + record.id.slice(0, 8).toUpperCase()}
+                </Text>
+                <Text style={styles.completedDate}>
+                  Completed on {formatDate(record.completedAt)}
+                </Text>
+              </View>
+            )}
+          </GlassCard>
 
           {/* Lifecycle Timestamps Card */}
-          <View style={styles.card}>
+          <GlassCard style={styles.card}>
             <Text style={styles.sectionTitle}>Lifecycle Audit Timestamps</Text>
 
             <View style={styles.infoRow}>
@@ -348,7 +394,7 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Processing Started:</Text>
-              <Text style={styles.infoValue}>{formatDate(record.processingStartedAt)}</Text>
+              <Text style={styles.infoValue}>{formatDate(record.processingStartedAt || record.startedAt)}</Text>
             </View>
 
             <View style={styles.infoRow}>
@@ -364,10 +410,10 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
                 </Text>
               </View>
             )}
-          </View>
+          </GlassCard>
 
           {/* Linked Consignment E-Waste Items Breakdown */}
-          <View style={styles.card}>
+          <GlassCard style={styles.card}>
             <Text style={styles.sectionTitle}>
               Consignment Items ({items.length})
             </Text>
@@ -402,19 +448,21 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
                 </Text>
               </View>
             )}
-          </View>
+          </GlassCard>
 
-          {/* Completed Output Yield Information (Read-only if completed) */}
-          {status === 'COMPLETED' && (
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Certified Recovery Output</Text>
+          {/* Output Yield & Verification (if processed/completed) */}
+          {(record.outputWeightKg || record.outputDescription || record.processingNotes) && (
+            <GlassCard style={styles.card}>
+              <Text style={styles.sectionTitle}>Material Yield & Recovery</Text>
 
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Output Weight Yield:</Text>
-                <Text style={[styles.infoValue, { color: '#2E7D32', fontWeight: '700' }]}>
-                  {record.outputWeightKg !== null ? `${record.outputWeightKg} kg` : 'N/A'}
-                </Text>
-              </View>
+              {record.outputWeightKg !== null && record.outputWeightKg !== undefined && (
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Output Weight Recovered:</Text>
+                  <Text style={[styles.infoValue, { color: colors.primary, fontWeight: '800' }]}>
+                    {record.outputWeightKg} kg
+                  </Text>
+                </View>
+              )}
 
               {record.outputDescription && (
                 <View style={styles.notesBlock}>
@@ -429,65 +477,14 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
                   <Text style={styles.notesBlockText}>{record.processingNotes}</Text>
                 </View>
               )}
-
-              <View style={styles.completedBadgeBox}>
-                <Text style={styles.completedBadgeText}>
-                  ✓ E-waste successfully converted into certified recovery streams.
-                </Text>
-              </View>
-            </View>
+            </GlassCard>
           )}
 
-          {/* Action Card for RECEIVED status */}
-          {status === 'RECEIVED' && (
-            <View style={[styles.card, styles.actionCard]}>
-              <Text style={styles.actionCardTitle}>Ready to Begin Processing?</Text>
-              <Text style={styles.actionCardSubtitle}>
-                Move this batch into active material dismantling, separation, and recovery.
-              </Text>
-              <TouchableOpacity
-                style={[styles.primaryActionBtn, isOffline && styles.btnDisabled]}
-                disabled={isOffline || isProcessingAction}
-                onPress={() => setShowStartModal(true)}
-              >
-                {isProcessingAction ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.primaryActionBtnText}>Start Processing ⚙️</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Action Card for PROCESSING status */}
-          {status === 'PROCESSING' && (
-            <View style={[styles.card, styles.actionCard, { borderColor: '#2E7D32' }]}>
-              <Text style={[styles.actionCardTitle, { color: '#2E7D32' }]}>
-                Materials in Active Processing
-              </Text>
-              <Text style={styles.actionCardSubtitle}>
-                Record material recovery output and mark recycling as completed to issue certified disposal credit.
-              </Text>
-              <TouchableOpacity
-                style={[styles.completeActionBtn, isOffline && styles.btnDisabled]}
-                disabled={isOffline || isProcessingAction}
-                onPress={() => {
-                  setShowCompleteModal(true);
-                  setCompleteFormError(null);
-                }}
-              >
-                {isProcessingAction ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.primaryActionBtnText}>Complete Recycling ✅</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
+          <View style={{ height: spacing.spaceXl }} />
         </ScrollView>
       )}
 
-      {/* Start Processing Modal */}
+      {/* Start Modal */}
       <Modal
         visible={showStartModal}
         transparent
@@ -496,21 +493,11 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Confirm Processing Initiation</Text>
-            <Text style={styles.modalSubtitle}>
-              Batch #REC-{record?.id?.slice(0, 8).toUpperCase()}
-            </Text>
-
+            <Text style={styles.modalTitle}>Start Material Processing</Text>
             <Text style={styles.modalBodyText}>
-              Are you sure you want to begin dismantling and processing this consignment?
+              Transition this consignment record into PROCESSING status? Materials will be marked
+              as under active dismantling and recovery.
             </Text>
-
-            <View style={styles.modalWarningBox}>
-              <Text style={styles.modalWarningText}>
-                ⚠️ This action records an immutable audit log entry (RECYCLING_STARTED) and updates the server processing timestamp.
-              </Text>
-            </View>
-
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[styles.modalBtn, styles.modalCancelBtn]}
@@ -539,7 +526,7 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
         </View>
       </Modal>
 
-      {/* Complete Recycling Modal */}
+      {/* Complete Modal */}
       <Modal
         visible={showCompleteModal}
         transparent
@@ -548,54 +535,48 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Complete Recycling Batch</Text>
+            <Text style={styles.modalTitle}>Complete Formal Recycling</Text>
             <Text style={styles.modalSubtitle}>
-              Batch #REC-{record?.id?.slice(0, 8).toUpperCase()}
+              Record recovered materials and issue verified recycling certificate.
             </Text>
 
             {completeFormError && (
-              <View style={styles.modalErrorBox}>
-                <Text style={styles.modalErrorText}>{completeFormError}</Text>
+              <View style={styles.errorBanner}>
+                <Text style={styles.errorText}>{completeFormError}</Text>
               </View>
             )}
 
-            <Text style={styles.inputLabel}>Output Weight (Kg) (Optional):</Text>
+            <Text style={styles.inputLabel}>Recovered Output Description:</Text>
             <TextInput
               style={styles.modalInput}
-              placeholder="e.g. 2.45"
-              placeholderTextColor="#9E9E9E"
-              keyboardType="decimal-pad"
-              value={outputWeightKg}
-              onChangeText={setOutputWeightKg}
-            />
-
-            <Text style={styles.inputLabel}>Recovered Materials Output (Optional):</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="e.g. Copper 0.8kg, shredded plastics 1.5kg"
-              placeholderTextColor="#9E9E9E"
-              maxLength={500}
+              placeholder="e.g. Copper wiring 1.2kg, PCB gold/silver recovery"
+              placeholderTextColor={colors.textSecondary}
               value={outputDescription}
               onChangeText={setOutputDescription}
+              maxLength={500}
+            />
+
+            <Text style={styles.inputLabel}>Recovered Output Weight (kg):</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g. 3.4"
+              placeholderTextColor={colors.textSecondary}
+              value={outputWeightKg}
+              onChangeText={setOutputWeightKg}
+              keyboardType="decimal-pad"
             />
 
             <Text style={styles.inputLabel}>Processing Notes (Optional):</Text>
             <TextInput
-              style={[styles.modalInput, styles.textArea]}
-              placeholder="e.g. Batteries dismantled, PCBs shredded, plastics pelletized"
-              placeholderTextColor="#9E9E9E"
+              style={[styles.modalInput, { minHeight: 65, textAlignVertical: 'top' }]}
+              placeholder="e.g. Compliant pyrometallurgical sorting completed"
+              placeholderTextColor={colors.textSecondary}
+              value={processingNotes}
+              onChangeText={setProcessingNotes}
               multiline
               numberOfLines={3}
               maxLength={1000}
-              value={processingNotes}
-              onChangeText={setProcessingNotes}
             />
-
-            <View style={styles.modalWarningBox}>
-              <Text style={styles.modalWarningText}>
-                ⚠️ Completing recycling will atomically mark all {items.length} e-waste items as RECYCLED, log RECYCLING_COMPLETED in the audit chain, and notify the original citizen owners.
-              </Text>
-            </View>
 
             <View style={styles.modalActions}>
               <TouchableOpacity
@@ -617,37 +598,30 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
                 {isProcessingAction ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.modalActionText}>Confirm & Complete</Text>
+                  <Text style={styles.modalActionText}>Issue Certificate</Text>
                 )}
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </GradientBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
   scrollContent: {
     padding: spacing.spaceMd,
+    gap: spacing.spaceMd,
+    paddingBottom: spacing.spaceXl + 30,
   },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: 10,
     padding: spacing.spaceMd,
-    marginBottom: spacing.spaceMd,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 2,
+    marginBottom: spacing.spaceSm,
+  },
+  actionCard: {
+    borderWidth: 1.5,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
   },
   cardRow: {
     flexDirection: 'row',
@@ -656,8 +630,9 @@ const styles = StyleSheet.create({
   },
   recordIdText: {
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.textPrimary,
+    letterSpacing: 0.3,
   },
   consignmentSubtext: {
     fontSize: 13,
@@ -671,7 +646,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.spaceMd,
     paddingTop: spacing.spaceSm,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: colors.glassBorder,
   },
   stepItem: {
     alignItems: 'center',
@@ -688,7 +663,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   stepInactive: {
-    backgroundColor: '#E0E0E0',
+    backgroundColor: 'rgba(200, 200, 200, 0.4)',
   },
   stepNumber: {
     color: '#FFFFFF',
@@ -698,7 +673,7 @@ const styles = StyleSheet.create({
   stepLabel: {
     fontSize: 11,
     color: colors.textSecondary,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   stepLine: {
     flex: 1,
@@ -710,25 +685,83 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   lineInactive: {
-    backgroundColor: '#E0E0E0',
+    backgroundColor: 'rgba(200, 200, 200, 0.4)',
   },
   sectionTitle: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.textPrimary,
     marginBottom: 4,
+    letterSpacing: -0.2,
   },
   sectionSubtitle: {
     fontSize: 12,
     color: colors.textSecondary,
-    marginBottom: 12,
+    marginBottom: 10,
+  },
+  actionStateBox: {
+    gap: spacing.spaceSm,
+    marginTop: spacing.spaceXs,
+  },
+  actionPromptText: {
+    fontSize: 13,
+    color: colors.textPrimary,
+    lineHeight: 18,
+  },
+  primaryActionBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  completeActionBtn: {
+    backgroundColor: '#059669',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  primaryActionBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  completedNoticeBox: {
+    alignItems: 'center',
+    padding: spacing.spaceSm,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+  },
+  completedIcon: {
+    fontSize: 28,
+    marginBottom: 2,
+  },
+  completedTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#065F46',
+  },
+  completedSub: {
+    fontSize: 12,
+    color: colors.textPrimary,
+    marginTop: 2,
+  },
+  completedDate: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 5,
     borderBottomWidth: 1,
-    borderBottomColor: '#F9F9F9',
+    borderBottomColor: colors.glassBorder,
   },
   infoLabel: {
     fontSize: 13,
@@ -736,7 +769,7 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.textPrimary,
   },
   emptyItemsText: {
@@ -751,7 +784,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: colors.glassBorder,
   },
   itemCategory: {
     fontSize: 13,
@@ -769,7 +802,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     marginTop: 6,
     borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
+    borderTopColor: colors.glassBorder,
   },
   totalWeightLabel: {
     fontSize: 13,
@@ -778,14 +811,16 @@ const styles = StyleSheet.create({
   },
   totalWeightValue: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.primary,
   },
   notesBlock: {
     marginTop: 8,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: 'rgba(255, 255, 255, 0.65)',
     padding: 10,
-    borderRadius: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
   },
   notesBlockLabel: {
     fontSize: 12,
@@ -797,69 +832,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textPrimary,
     lineHeight: 18,
-  },
-  completedBadgeBox: {
-    marginTop: 12,
-    backgroundColor: '#E8F5E9',
-    padding: 10,
-    borderRadius: 6,
-  },
-  completedBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#2E7D32',
-    textAlign: 'center',
-  },
-  actionCard: {
-    borderWidth: 1.5,
-    borderColor: '#E65100',
-    backgroundColor: '#FFFDE7',
-    padding: spacing.spaceMd,
-  },
-  actionCardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#E65100',
-    marginBottom: 4,
-  },
-  actionCardSubtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginBottom: 12,
-    lineHeight: 18,
-  },
-  primaryActionBtn: {
-    backgroundColor: '#E65100',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  completeActionBtn: {
-    backgroundColor: '#2E7D32',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  primaryActionBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  btnDisabled: {
-    opacity: 0.5,
-  },
-  successBanner: {
-    backgroundColor: '#E8F5E9',
-    borderLeftWidth: 4,
-    borderLeftColor: '#2E7D32',
-    padding: 10,
-    borderRadius: 4,
-    marginBottom: spacing.spaceMd,
-  },
-  successBannerText: {
-    fontSize: 13,
-    color: '#1B5E20',
-    fontWeight: '600',
   },
   loadingContainer: {
     flex: 1,
@@ -879,11 +851,11 @@ const styles = StyleSheet.create({
     padding: spacing.spaceXl,
   },
   errorIcon: {
-    fontSize: 32,
-    marginBottom: 8,
+    fontSize: 40,
+    marginBottom: spacing.spaceSm,
   },
   errorTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -896,14 +868,128 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     backgroundColor: colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
+    paddingHorizontal: spacing.spaceLg,
+    paddingVertical: 10,
+    borderRadius: 8,
   },
   retryButtonText: {
     color: '#FFFFFF',
-    fontSize: 13,
     fontWeight: '700',
+  },
+  successBanner: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    padding: spacing.spaceSm,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+    marginBottom: spacing.spaceSm,
+  },
+  successBannerText: {
+    color: colors.primaryDark,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  errorBanner: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    padding: spacing.spaceSm,
+    borderRadius: 8,
+    marginBottom: spacing.spaceSm,
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 41, 66, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.spaceMd,
+  },
+  modalContent: {
+    backgroundColor: colors.glassSurface,
+    borderRadius: 18,
+    padding: spacing.spaceLg,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    letterSpacing: -0.2,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: spacing.spaceSm,
+  },
+  modalBodyText: {
+    fontSize: 13,
+    color: colors.textPrimary,
+    lineHeight: 18,
+    marginVertical: spacing.spaceSm,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.spaceSm,
+    marginTop: spacing.spaceMd,
+  },
+  modalBtn: {
+    paddingHorizontal: spacing.spaceMd,
+    paddingVertical: 10,
+    borderRadius: 8,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCancelBtn: {
+    backgroundColor: 'transparent',
+  },
+  modalCancelText: {
+    color: colors.textSecondary,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  modalStartBtn: {
+    backgroundColor: colors.primary,
+  },
+  modalCompleteBtn: {
+    backgroundColor: '#059669',
+  },
+  modalActionText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  btnDisabled: {
+    opacity: 0.5,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  modalInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    padding: spacing.spaceSm,
+    fontSize: 13,
+    color: colors.textPrimary,
+    marginBottom: 4,
   },
   accessRestrictedContainer: {
     flex: 1,
@@ -926,113 +1012,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    padding: spacing.spaceLg,
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: spacing.spaceLg,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  modalSubtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginBottom: spacing.spaceMd,
-    marginTop: 2,
-  },
-  modalBodyText: {
-    fontSize: 14,
-    color: colors.textPrimary,
-    lineHeight: 20,
-    marginBottom: spacing.spaceMd,
-  },
-  modalWarningBox: {
-    backgroundColor: '#FFF3E0',
-    borderLeftWidth: 4,
-    borderLeftColor: '#E65100',
-    padding: 10,
-    borderRadius: 4,
-    marginBottom: spacing.spaceMd,
-  },
-  modalWarningText: {
-    fontSize: 12,
-    color: '#BF360C',
-    lineHeight: 17,
-  },
-  modalErrorBox: {
-    backgroundColor: '#FFEBEE',
-    borderLeftWidth: 4,
-    borderLeftColor: '#C62828',
-    padding: 10,
-    borderRadius: 4,
-    marginBottom: spacing.spaceMd,
-  },
-  modalErrorText: {
-    fontSize: 12,
-    color: '#C62828',
-  },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 4,
-    marginTop: 4,
-  },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 14,
-    color: colors.textPrimary,
-    backgroundColor: '#FAFAFA',
-    marginBottom: 8,
-  },
-  textArea: {
-    height: 60,
-    textAlignVertical: 'top',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: spacing.spaceMd,
-    gap: 8,
-  },
-  modalBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalCancelBtn: {
-    backgroundColor: '#F0F0F0',
-  },
-  modalCancelText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  modalStartBtn: {
-    backgroundColor: '#E65100',
-  },
-  modalCompleteBtn: {
-    backgroundColor: '#2E7D32',
-  },
-  modalActionText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
   },
 });
 

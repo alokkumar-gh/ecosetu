@@ -21,6 +21,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { TopAppBar } from '../../components/layout/TopAppBar';
 import { recyclingService } from '../../services/recyclingService';
+import { useI18n } from '../../i18n';
 
 // ── Canonical Consignment Lifecycle Statuses ──────────────────────────────
 export const CONSIGNMENT_STATUS = {
@@ -61,6 +62,7 @@ export const CollectorConsignmentStatusScreen: React.FC<Props> = ({
   route,
 }) => {
   const { user } = useAuth();
+  const { t } = useI18n();
   const [isConnected, setIsConnected] = useState<boolean>(networkService.isConnected());
 
   useEffect(() => {
@@ -293,7 +295,7 @@ export const CollectorConsignmentStatusScreen: React.FC<Props> = ({
   return (
     <SafeAreaView style={styles.container}>
       <TopAppBar
-        title="Consignment Status"
+        title={t('collector.delivery.title') || "Consignment Status"}
         subtitle={`Ref #${shortId}`}
         onBack={() => navigation?.goBack?.()}
       />
@@ -317,7 +319,7 @@ export const CollectorConsignmentStatusScreen: React.FC<Props> = ({
           {isConnected && fromCache && (
             <View style={styles.cacheNotice} accessibilityRole="alert">
               <Text style={styles.cacheNoticeText}>
-                ℹ Showing cached consignment record. Pull down to refresh live status.
+                {t('offline.cachedNotice') || 'ℹ Showing cached consignment record. Pull down to refresh live status.'}
               </Text>
             </View>
           )}
@@ -568,7 +570,7 @@ export const CollectorConsignmentStatusScreen: React.FC<Props> = ({
         <View style={modalStyles.overlay}>
           <View style={modalStyles.modalContainer}>
             <Text style={modalStyles.modalTitle} accessibilityRole="header">
-              Confirm Facility Delivery
+              {t('collector.delivery.confirmDelivery') || 'Confirm Facility Delivery'}
             </Text>
             <Text style={modalStyles.modalSubtitle}>
               Please confirm physical handover of this consignment to the recycling partner:
@@ -609,7 +611,7 @@ export const CollectorConsignmentStatusScreen: React.FC<Props> = ({
                 accessibilityRole="button"
                 accessibilityLabel="Cancel delivery confirmation"
               >
-                <Text style={modalStyles.cancelButtonText}>Cancel</Text>
+                <Text style={modalStyles.cancelButtonText}>{t('common.cancel') || 'Cancel'}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -625,7 +627,7 @@ export const CollectorConsignmentStatusScreen: React.FC<Props> = ({
                 {isDelivering ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <Text style={modalStyles.confirmButtonText}>Confirm Delivery</Text>
+                  <Text style={modalStyles.confirmButtonText}>{t('collector.delivery.confirmDelivery') || 'Confirm Delivery'}</Text>
                 )}
               </TouchableOpacity>
             </View>

@@ -17,6 +17,7 @@ import {
   ScrollView,
   SafeAreaView,
   RefreshControl,
+  TouchableOpacity,
 } from 'react-native';
 import { TopAppBar } from '../../components/layout/TopAppBar';
 import { MetricCard } from '../../components/common/MetricCard';
@@ -125,6 +126,94 @@ export const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
             />
           }
         >
+          {/* Section: Geographic Analytics Navigation Card */}
+          <TouchableOpacity
+            style={styles.geoCard}
+            onPress={() => navigation?.navigate('AdminGeographicAnalytics')}
+            accessibilityRole="button"
+            accessibilityLabel="Geographic Analytics & Regional Map"
+            accessibilityHint="Opens regional activity and verified recycler facility map"
+          >
+            <View style={styles.geoCardHeader}>
+              <View style={styles.geoIconContainer}>
+                <Text style={styles.geoIcon}>🗺️</Text>
+              </View>
+              <View style={styles.geoTextContainer}>
+                <Text style={styles.geoTitle}>Geographic Analytics & Map</Text>
+                <Text style={styles.geoSubtitle}>
+                  Regional distribution, collector coverage & verified recycler facilities
+                </Text>
+              </View>
+              <Text style={styles.geoChevron}>›</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Section: Platform Reports & Exports Navigation Card */}
+          <TouchableOpacity
+            style={[styles.geoCard, { borderColor: '#3B82F6' }]}
+            onPress={() => navigation?.navigate('AdminReports')}
+            accessibilityRole="button"
+            accessibilityLabel="Platform Reports & Data Export"
+            accessibilityHint="Opens compliance reporting and CSV/text data export"
+          >
+            <View style={styles.geoCardHeader}>
+              <View style={[styles.geoIconContainer, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
+                <Text style={styles.geoIcon}>📊</Text>
+              </View>
+              <View style={styles.geoTextContainer}>
+                <Text style={styles.geoTitle}>Platform Reports & Export</Text>
+                <Text style={styles.geoSubtitle}>
+                  Governance summaries, funnel metrics & on-device CSV exports
+                </Text>
+              </View>
+              <Text style={[styles.geoChevron, { color: '#3B82F6' }]}>›</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Section: Notification & Governance Center Navigation Card */}
+          <TouchableOpacity
+            style={[styles.geoCard, { borderColor: '#10B981' }]}
+            onPress={() => navigation?.navigate('AdminGovernance')}
+            accessibilityRole="button"
+            accessibilityLabel="Notification & Governance Center"
+            accessibilityHint="Opens platform alerts and governance audit activity"
+          >
+            <View style={styles.geoCardHeader}>
+              <View style={[styles.geoIconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                <Text style={styles.geoIcon}>🔔</Text>
+              </View>
+              <View style={styles.geoTextContainer}>
+                <Text style={styles.geoTitle}>Notification & Governance</Text>
+                <Text style={styles.geoSubtitle}>
+                  Platform alerts, canonical events & audit oversight
+                </Text>
+              </View>
+              <Text style={[styles.geoChevron, { color: '#10B981' }]}>›</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Section: Platform Health & System Diagnostics Navigation Card */}
+          <TouchableOpacity
+            style={[styles.geoCard, { borderColor: '#8B5CF6' }]}
+            onPress={() => navigation?.navigate('AdminSystemHealth')}
+            accessibilityRole="button"
+            accessibilityLabel="System Health & Diagnostics"
+            accessibilityHint="Opens platform health telemetry and component diagnostics"
+          >
+            <View style={styles.geoCardHeader}>
+              <View style={[styles.geoIconContainer, { backgroundColor: 'rgba(139, 92, 246, 0.15)' }]}>
+                <Text style={styles.geoIcon}>🩺</Text>
+              </View>
+              <View style={styles.geoTextContainer}>
+                <Text style={styles.geoTitle}>Platform Health & Diagnostics</Text>
+                <Text style={styles.geoSubtitle}>
+                  Factual operational telemetry, latency & component status
+                </Text>
+              </View>
+              <Text style={[styles.geoChevron, { color: '#8B5CF6' }]}>›</Text>
+            </View>
+          </TouchableOpacity>
+
           {/* Section: Platform Users */}
           <Text style={styles.sectionTitle}>User Ecosystem</Text>
           <View style={styles.metricsGrid}>
@@ -367,6 +456,55 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     paddingVertical: spacing.spaceMd,
+  },
+  geoCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    padding: spacing.spaceMd,
+    marginBottom: spacing.spaceMd,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  geoCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  geoIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.spaceSm,
+  },
+  geoIcon: {
+    fontSize: 22,
+  },
+  geoTextContainer: {
+    flex: 1,
+  },
+  geoTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  geoSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 16,
+  },
+  geoChevron: {
+    fontSize: 24,
+    fontWeight: '300',
+    color: colors.primary,
+    marginLeft: spacing.spaceXs,
   },
 });
 

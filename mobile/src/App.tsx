@@ -4,6 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { AuthProvider } from './context/AuthContext';
 import { NetworkProvider } from './context/NetworkContext';
+import { I18nProvider } from './i18n';
 import { RootNavigator } from './navigation/RootNavigator';
 import { OfflineBanner } from './components/common/OfflineBanner';
 import { colors } from './theme/colors';
@@ -13,13 +14,15 @@ const App: React.FC = () => {
     <SafeAreaProvider>
       <AuthProvider>
         <NetworkProvider>
-          <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor={colors.primaryDark} />
-            <OfflineBanner />
-            <NavigationContainer>
-              <RootNavigator />
-            </NavigationContainer>
-          </View>
+          <I18nProvider>
+            <View style={styles.container}>
+              <StatusBar barStyle="light-content" backgroundColor={colors.backgroundDeep} />
+              <OfflineBanner />
+              <NavigationContainer>
+                <RootNavigator />
+              </NavigationContainer>
+            </View>
+          </I18nProvider>
         </NetworkProvider>
       </AuthProvider>
     </SafeAreaProvider>
@@ -29,7 +32,7 @@ const App: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.backgroundBase,
   },
 });
 

@@ -50,10 +50,14 @@ import { Skeleton } from '../../components/common/Skeleton';
 import { EmptyState } from '../../components/common/EmptyState';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { StatusBadge } from '../../components/common/StatusBadge';
+import { GradientBackground } from '../../components/glass/GradientBackground';
+import { GlassMetricCard } from '../../components/glass/GlassMetricCard';
 import { collectorService } from '../../services/collectorService';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { useI18n } from '../../i18n';
+import { voiceService, AnnouncementPriority } from '../../services/voiceService';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -193,6 +197,7 @@ interface RequestCardProps {
 const RequestCard: React.FC<RequestCardProps> = ({
   request, isAccepting, isConnected, isVerified, onAccept,
 }) => {
+  const { t } = useI18n();
   const itemCount = countItems(request.ewasteItems);
   const categories = summarizeCategories(request.ewasteItems);
   const estWeight = totalEstWeight(request.ewasteItems);
@@ -212,11 +217,11 @@ const RequestCard: React.FC<RequestCardProps> = ({
         <View style={{ flex: 1 }}>
           <Text style={cardStyles.categoryText}>{categories}</Text>
           <Text style={cardStyles.subText}>
-            {itemCount} item{itemCount !== 1 ? 's' : ''}{estWeight !== '—' ? ` · ${estWeight}` : ''}
+            {itemCount} {itemCount === 1 ? (t('collector.browse.item') || 'item') : (t('collector.browse.items') || 'items')}{estWeight !== '—' ? ` · ${estWeight}` : ''}
           </Text>
         </View>
         <View style={cardStyles.statusChip}>
-          <Text style={cardStyles.statusText}>Available</Text>
+          <Text style={cardStyles.statusText}>{t('collector.browse.availableBadge') || 'Available'}</Text>
         </View>
       </View>
 
@@ -226,14 +231,14 @@ const RequestCard: React.FC<RequestCardProps> = ({
       <View style={cardStyles.locationRow}>
         <Text style={cardStyles.locationIcon} accessibilityElementsHidden>📍</Text>
         <Text style={cardStyles.locationText} numberOfLines={2}>
-          {request.pickupAddress || 'Approximate location'}
+          {request.pickupAddress || t('collector.browse.approximateLocation') || 'Approximate location'}
         </Text>
       </View>
 
       {/* Preferred date if provided */}
       {Boolean(request.preferredDate) && (
         <Text style={cardStyles.dateText}>
-          🗓 Preferred: {fmtDate(request.preferredDate)}
+          🗓 {t('collector.browse.preferred') || 'Preferred'}: {fmtDate(request.preferredDate)}
         </Text>
       )}
 
@@ -255,11 +260,11 @@ const RequestCard: React.FC<RequestCardProps> = ({
         accessibilityRole="button"
         accessibilityLabel={
           isAccepting
-            ? 'Accepting request, please wait'
+            ? (t('collector.dashboard.accepting') || 'Accepting request, please wait')
             : !isVerified
-            ? 'Account verification required to accept requests'
+            ? (t('collector.dashboard.verificationHint') || 'Account verification required to accept requests')
             : !isConnected
-            ? 'Internet connection required to accept request'
+            ? (t('collector.dashboard.offlineHint') || 'Internet connection required to accept request')
             : `Accept collection request for ${categories}`
         }
         accessibilityState={{ disabled: !canAccept, busy: isAccepting }}
@@ -268,16 +273,16 @@ const RequestCard: React.FC<RequestCardProps> = ({
         {isAccepting ? (
           <ActivityIndicator size="small" color="#FFFFFF" />
         ) : (
-          <Text style={cardStyles.acceptButtonText}>✅ Accept Request</Text>
+          <Text style={cardStyles.acceptButtonText}>✅ {t('collector.dashboard.acceptRequest') || 'Accept Request'}</Text>
         )}
       </TouchableOpacity>
 
       {/* Offline accept warning */}
       {!isConnected && (
-        <Text style={cardStyles.offlineHint}>Internet required to accept</Text>
+        <Text style={cardStyles.offlineHint}>{t('collector.dashboard.offlineHint') || 'Internet required to accept'}</Text>
       )}
       {!isVerified && isConnected && (
-        <Text style={cardStyles.offlineHint}>Account verification required</Text>
+        <Text style={cardStyles.offlineHint}>{t('collector.dashboard.verificationHint') || 'Account verification required'}</Text>
       )}
     </View>
   );
@@ -285,33 +290,31 @@ const RequestCard: React.FC<RequestCardProps> = ({
 
 const cardStyles = StyleSheet.create({
   container: {
-    backgroundColor: colors.surface,
-    borderRadius: 10,
+    backgroundColor: colors.glassSurface,
+    borderRadius: 14,
     padding: spacing.spaceMd,
     marginBottom: spacing.spaceSm,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 3,
+    elevation: 2,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: colors.glassBorder,
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.spaceSm, marginBottom: spacing.spaceSm },
   iconCircle: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: `${colors.primary}15`,
+    backgroundColor: 'rgba(74, 222, 128, 0.15)',
+    borderWidth: 1, borderColor: 'rgba(74, 222, 128, 0.3)',
     alignItems: 'center', justifyContent: 'center',
   },
   icon: { fontSize: 18 },
   categoryText: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
   subText: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   statusChip: {
-    backgroundColor: `${colors.primary}18`,
+    backgroundColor: 'rgba(74, 222, 128, 0.18)',
+    borderWidth: 1, borderColor: 'rgba(74, 222, 128, 0.35)',
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
   },
   statusText: { fontSize: 11, fontWeight: '700', color: colors.primary },
-  divider: { height: 1, backgroundColor: colors.divider, marginVertical: spacing.spaceXs },
+  divider: { height: 1, backgroundColor: colors.glassBorder, marginVertical: spacing.spaceXs },
   locationRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: spacing.spaceXs },
   locationIcon: { fontSize: 13, marginTop: 1 },
   locationText: { flex: 1, fontSize: 12, color: colors.textSecondary, lineHeight: 18 },
@@ -319,10 +322,10 @@ const cardStyles = StyleSheet.create({
   notesText: { fontSize: 12, color: colors.textSecondary, fontStyle: 'italic', marginBottom: spacing.spaceXs },
   acceptButton: {
     marginTop: spacing.spaceSm, backgroundColor: colors.primary,
-    borderRadius: 8, minHeight: 44, alignItems: 'center', justifyContent: 'center',
+    borderRadius: 10, minHeight: 46, alignItems: 'center', justifyContent: 'center',
   },
   acceptButtonDisabled: { opacity: 0.45 },
-  acceptButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  acceptButtonText: { color: colors.textInverse, fontSize: 14, fontWeight: '800' },
   offlineHint: { fontSize: 11, color: colors.warning, textAlign: 'center', marginTop: 4 },
 });
 
@@ -365,9 +368,9 @@ const PickupSummaryCard: React.FC<{ pickup: any }> = ({ pickup }) => {
 
 const pickupCardStyles = StyleSheet.create({
   container: {
-    backgroundColor: colors.surface, borderRadius: 10, padding: spacing.spaceSm,
-    marginBottom: spacing.spaceXs, elevation: 1,
-    borderWidth: 1, borderColor: colors.divider,
+    backgroundColor: colors.glassSurface, borderRadius: 12, padding: spacing.spaceSm,
+    marginBottom: spacing.spaceXs, elevation: 2,
+    borderWidth: 1, borderColor: colors.glassBorder,
     flexDirection: 'row', overflow: 'hidden',
   },
   row: { flexDirection: 'row', alignItems: 'center', flex: 1 },
@@ -381,9 +384,10 @@ const pickupCardStyles = StyleSheet.create({
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
-export const CollectorDashboardScreen: React.FC = () => {
+export const CollectorDashboardScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const { user } = useAuth();
   const { isConnected } = useNetwork();
+  const { t, language } = useI18n();
 
   // ── Data state ─────────────────────────────────────────────────────────────
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -401,6 +405,58 @@ export const CollectorDashboardScreen: React.FC = () => {
 
   const [activePickups, setActivePickups] = useState<any[]>([]);
   const [pickupsError, setPickupsError] = useState<string | null>(null);
+
+  // ── Voice Assistance state ────────────────────────────────────────────────
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState<boolean>(false);
+  const hasAnnouncedDashboardRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    voiceService.isVoiceAssistanceEnabled().then(setIsVoiceEnabled);
+    const unsub = voiceService.subscribe(setIsVoiceEnabled);
+    return () => unsub();
+  }, []);
+
+  // Announce concise dashboard summary once on initial data load if Voice Assistance is enabled
+  useEffect(() => {
+    if (!isLoading && !hasAnnouncedDashboardRef.current && isVoiceEnabled) {
+      hasAnnouncedDashboardRef.current = true;
+      const availCount = availableRequests.length;
+      const actCount = activePickups.length;
+      const summaryText = t('voice.dashboardSummary', {
+        available: availCount,
+        active: actCount,
+      }) || `You have ${availCount} available requests and ${actCount} active pickups.`;
+
+      voiceService.speak(summaryText, {
+        priority: AnnouncementPriority.NORMAL,
+        language,
+      });
+    }
+  }, [isLoading, isVoiceEnabled, availableRequests.length, activePickups.length, language, t]);
+
+  const handleVoiceHeaderPress = async () => {
+    if (!isVoiceEnabled) {
+      await voiceService.setVoiceAssistanceEnabled(true);
+      setIsVoiceEnabled(true);
+      await voiceService.speak(
+        t('voice.voiceEnabled') || 'Voice Enabled',
+        { priority: AnnouncementPriority.HIGH, language, force: true }
+      );
+    } else {
+      const availCount = availableRequests.length;
+      const actCount = activePickups.length;
+      const summaryText = t('voice.dashboardSummary', {
+        available: availCount,
+        active: actCount,
+      }) || `You have ${availCount} available requests and ${actCount} active pickups.`;
+
+      await voiceService.speak(summaryText, {
+        priority: AnnouncementPriority.NORMAL,
+        language,
+        force: true,
+      });
+    }
+  };
 
   // ── Availability state ─────────────────────────────────────────────────────
   const [isAvailable, setIsAvailable] = useState<boolean>(true);
@@ -514,18 +570,18 @@ export const CollectorDashboardScreen: React.FC = () => {
 
     if (!isConnected) {
       Alert.alert(
-        'Offline',
-        'Availability changes require an internet connection.',
-        [{ text: 'OK' }],
+        t('collector.dashboard.offlineAlert') || 'Offline',
+        t('collector.dashboard.offlineAvailability') || 'Availability changes require an internet connection.',
+        [{ text: t('common.done') || 'OK' }],
       );
       return;
     }
 
     if (!isVerified) {
       Alert.alert(
-        'Verification Required',
-        'Your account must be verified before you can toggle availability.',
-        [{ text: 'OK' }],
+        t('collector.browse.verificationAlert') || 'Verification Required',
+        t('collector.browse.verificationRequiredDesc') || 'Your account must be verified before you can toggle availability.',
+        [{ text: t('common.done') || 'OK' }],
       );
       return;
     }
@@ -559,64 +615,101 @@ export const CollectorDashboardScreen: React.FC = () => {
 
     if (!isConnected) {
       Alert.alert(
-        'Offline',
-        'Accepting collection requests requires an internet connection.\nReal-time availability check is required.',
-        [{ text: 'OK' }],
+        t('collector.dashboard.offlineAlert') || 'Offline',
+        t('collector.dashboard.offlineAccept') || 'Accepting collection requests requires an internet connection.\nReal-time availability check is required.',
+        [{ text: t('common.done') || 'OK' }],
       );
       return;
     }
 
     if (!isVerified) {
       Alert.alert(
-        'Verification Required',
-        'Your account must be verified to accept collection requests.',
-        [{ text: 'OK' }],
+        t('collector.browse.verificationAlert') || 'Verification Required',
+        t('collector.browse.verificationRequiredDesc') || 'Your account must be verified to accept collection requests.',
+        [{ text: t('common.done') || 'OK' }],
       );
       return;
     }
 
     Alert.alert(
-      'Accept Request',
-      'Accept this collection request? You will be responsible for picking up the e-waste.',
+      t('collector.dashboard.acceptConfirmTitle') || 'Accept Request',
+      t('collector.dashboard.acceptConfirmMessage') || 'Accept this collection request? You will be responsible for picking up the e-waste.',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel') || 'Cancel', style: 'cancel' },
         {
-          text: 'Accept',
+          text: t('collector.dashboard.acceptRequest') || 'Accept',
           style: 'default',
           onPress: async () => {
             acceptingRef.current = true;
             setAcceptingId(requestId);
 
             try {
-              await collectorService.acceptRequest(requestId);
+              const acceptResult: any = await collectorService.acceptRequest(requestId);
+              const newPickupId = acceptResult?.pickup?.id || acceptResult?.data?.pickup?.id;
+
               // Remove the accepted request from available list
               setAvailableRequests((prev) => prev.filter((r) => r.id !== requestId));
               // Refresh dashboard to get updated stats and pickup list
               await loadDashboard(true);
+              if (isVoiceEnabled) {
+                voiceService.speak(
+                  t('voice.requestAccepted') || 'Collection request accepted.',
+                  { priority: AnnouncementPriority.HIGH, language }
+                );
+              }
               Alert.alert(
-                '✅ Request Accepted',
-                'The citizen has been notified. A pickup has been scheduled.',
-                [{ text: 'OK' }],
+                t('collector.dashboard.acceptSuccessTitle') || '✅ Request Accepted',
+                t('collector.dashboard.acceptSuccessMessage') || 'The citizen has been notified. A pickup has been scheduled.',
+                [
+                  { text: t('common.done') || 'OK' },
+                  ...(newPickupId
+                    ? [
+                        {
+                          text: t('collector.pickups.pickupDetails') || 'View Details',
+                          onPress: () => {
+                            navigation?.navigate('CollectorPickups', {
+                              screen: 'CollectorPickupDetail',
+                              params: { pickupId: newPickupId },
+                            });
+                          },
+                        },
+                      ]
+                    : []),
+                ],
               );
             } catch (err: any) {
               const status = err?.response?.status;
-              const msg = err?.response?.data?.message || err?.message || 'Failed to accept request.';
+              const msg = err?.response?.data?.message || err?.message || (t('collector.dashboard.error') || 'Failed to accept request.');
 
               if (status === 409) {
                 // Another collector accepted first — remove from list
                 setAvailableRequests((prev) => prev.filter((r) => r.id !== requestId));
+                if (isVoiceEnabled) {
+                  voiceService.speak(
+                    t('collector.dashboard.conflictMessage') || 'This request was just accepted by another collector.',
+                    { priority: AnnouncementPriority.HIGH, language }
+                  );
+                }
                 Alert.alert(
-                  'Request No Longer Available',
-                  'This request was just accepted by another collector.',
-                  [{ text: 'OK' }],
+                  t('collector.dashboard.conflictTitle') || 'Request No Longer Available',
+                  t('collector.dashboard.conflictMessage') || 'This request was just accepted by another collector.',
+                  [{ text: t('common.done') || 'OK' }],
                 );
               } else if (status === 403) {
-                Alert.alert('Access Denied', 'You do not have permission to accept this request. Ensure your account is verified.', [{ text: 'OK' }]);
+                Alert.alert(
+                  t('collector.dashboard.accessDenied') || 'Access Denied',
+                  t('collector.dashboard.accessDeniedMessage') || 'You do not have permission to accept this request. Ensure your account is verified.',
+                  [{ text: t('common.done') || 'OK' }],
+                );
               } else if (status === 404) {
                 setAvailableRequests((prev) => prev.filter((r) => r.id !== requestId));
-                Alert.alert('Request Not Found', 'This request may have been cancelled.', [{ text: 'OK' }]);
+                Alert.alert(
+                  t('collector.dashboard.notFoundTitle') || 'Request Not Found',
+                  t('collector.dashboard.notFoundMessage') || 'This request may have been cancelled.',
+                  [{ text: t('common.done') || 'OK' }],
+                );
               } else {
-                Alert.alert('Error', msg, [{ text: 'OK' }]);
+                Alert.alert(t('common.error') || 'Error', msg, [{ text: t('common.done') || 'OK' }]);
               }
             } finally {
               acceptingRef.current = false;
@@ -649,7 +742,7 @@ export const CollectorDashboardScreen: React.FC = () => {
       return (
         <View style={styles.suspendedBanner} accessibilityRole="alert">
           <Text style={styles.suspendedText}>
-            ⚠️ Your account is suspended. You cannot accept new collection requests. Please contact support.
+            {t('collector.dashboard.suspendedNotice') || '⚠️ Your account is suspended. You cannot accept new collection requests. Please contact support.'}
           </Text>
         </View>
       );
@@ -658,7 +751,7 @@ export const CollectorDashboardScreen: React.FC = () => {
       return (
         <View style={styles.pendingBanner} accessibilityRole="alert">
           <Text style={styles.pendingText}>
-            🕐 Account pending verification. Available requests will appear once your account is approved.
+            {t('collector.dashboard.pendingNotice') || '🕐 Account pending verification. Available requests will appear once your account is approved.'}
           </Text>
         </View>
       );
@@ -666,21 +759,25 @@ export const CollectorDashboardScreen: React.FC = () => {
     if (collectorStatus === USER_STATUS.DEACTIVATED) {
       return (
         <View style={styles.suspendedBanner} accessibilityRole="alert">
-          <Text style={styles.suspendedText}>⚠️ This account has been deactivated.</Text>
+          <Text style={styles.suspendedText}>{t('collector.dashboard.deactivatedNotice') || '⚠️ This account has been deactivated.'}</Text>
         </View>
       );
     }
     return null;
   };
 
-  const collectorName = profile?.user?.name || user?.name || 'Collector';
+  const collectorName = profile?.user?.name || user?.name || (t('roles.collector') || 'Collector');
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const greeting = hour < 12
+    ? (t('collector.dashboard.greetingMorning') || 'Good morning')
+    : hour < 18
+    ? (t('collector.dashboard.greetingAfternoon') || 'Good afternoon')
+    : (t('collector.dashboard.greetingEvening') || 'Good evening');
 
   // ─── Main render ─────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={styles.container}>
+    <GradientBackground>
       <TopAppBar title="Kabadiwala Dashboard" roleBadge="INFORMAL_COLLECTOR" />
 
       <ScrollView
@@ -701,7 +798,7 @@ export const CollectorDashboardScreen: React.FC = () => {
         {/* Stale data notice */}
         {dataFromCache && (
           <View style={styles.cachedNotice}>
-            <Text style={styles.cachedText}>📴 Showing cached data (last synced while online)</Text>
+            <Text style={styles.cachedText}>📴 {t('offline.cachedNotice') || 'Showing cached data (last synced while online)'}</Text>
           </View>
         )}
 
@@ -710,70 +807,91 @@ export const CollectorDashboardScreen: React.FC = () => {
 
         {/* ── COLLECTOR HEADER ────────────────────────────────────────── */}
         <View style={styles.headerCard}>
-          <View style={styles.avatarCircle} accessibilityElementsHidden>
-            <Text style={styles.avatarInitial}>
-              {collectorName.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.greetingText}>{greeting},</Text>
-            <Text style={styles.collectorName} accessibilityRole="header" numberOfLines={1}>
-              {collectorName}
-            </Text>
-            <Text style={styles.roleLabel}>Informal Collector · Kabadiwala</Text>
+          <View style={styles.headerTopRow}>
+            <View style={styles.avatarCircle} accessibilityElementsHidden>
+              <Text style={styles.avatarInitial}>
+                {collectorName.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+            <View style={styles.headerInfo}>
+              <Text style={styles.greetingText}>{greeting},</Text>
+              <Text style={styles.collectorName} accessibilityRole="header" numberOfLines={1}>
+                {collectorName}
+              </Text>
+              <Text style={styles.roleLabel} numberOfLines={1}>
+                {t('collector.dashboard.roleTag') || 'Informal Collector · Kabadiwala'}
+              </Text>
+            </View>
           </View>
 
-          {/* ── AVAILABILITY TOGGLE ─────────────────────────────────── */}
-          <View style={styles.availabilitySection}>
-            <Text
-              style={[styles.availabilityLabel, { color: isAvailable ? colors.success : colors.textSecondary }]}
-              accessibilityElementsHidden
+          {/* ── CONTROLS (AVAILABILITY & VOICE) ───────────────────── */}
+          <View style={styles.headerControlsRow}>
+            {/* Voice Assistance Indicator / Read Aloud Action */}
+            <TouchableOpacity
+              style={[styles.voiceControlBtn, isVoiceEnabled && styles.voiceControlBtnActive]}
+              onPress={handleVoiceHeaderPress}
+              accessibilityRole="button"
+              accessibilityLabel={`${t('voice.voiceAssistance') || 'Voice Assistance'}: ${isVoiceEnabled ? t('voice.voiceEnabled') : t('voice.voiceDisabled')}`}
+              accessibilityHint="Tap to hear dashboard summary or enable voice assistance"
             >
-              {isTogglingAvailability ? '…' : isAvailable ? 'Available' : 'Unavailable'}
-            </Text>
-            <Switch
-              value={isAvailable}
-              onValueChange={handleAvailabilityToggle}
-              disabled={isTogglingAvailability || !isConnected || !isVerified}
-              trackColor={{ false: colors.divider, true: `${colors.success}80` }}
-              thumbColor={isAvailable ? colors.success : colors.textSecondary}
-              accessibilityRole="switch"
-              accessibilityLabel={`Availability: ${isAvailable ? 'Available' : 'Unavailable'}`}
-              accessibilityState={{ checked: isAvailable, disabled: isTogglingAvailability || !isConnected || !isVerified, busy: isTogglingAvailability }}
-              accessibilityHint="Toggle your availability to accept new collection requests"
-            />
+              <Text style={styles.voiceControlIcon}>{isVoiceEnabled ? '🔊' : '🔇'}</Text>
+              <Text style={[styles.voiceControlLabel, isVoiceEnabled && styles.voiceControlLabelActive]}>
+                {isVoiceEnabled ? (t('voice.listen') || 'Listen') : (t('voice.voiceAssistance') || 'Voice')}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Availability Toggle */}
+            <View style={styles.availabilitySection}>
+              <Text
+                style={[styles.availabilityLabel, { color: isAvailable ? colors.success : colors.textSecondary }]}
+                accessibilityElementsHidden
+              >
+                {isTogglingAvailability ? '…' : isAvailable ? (t('collector.dashboard.available') || 'Available') : (t('collector.dashboard.unavailable') || 'Unavailable')}
+              </Text>
+              <Switch
+                value={isAvailable}
+                onValueChange={handleAvailabilityToggle}
+                disabled={isTogglingAvailability || !isConnected || !isVerified}
+                trackColor={{ false: colors.divider, true: `${colors.success}80` }}
+                thumbColor={isAvailable ? colors.success : colors.textSecondary}
+                accessibilityRole="switch"
+                accessibilityLabel={`Availability: ${isAvailable ? (t('collector.dashboard.available') || 'Available') : (t('collector.dashboard.unavailable') || 'Unavailable')}`}
+                accessibilityState={{ checked: isAvailable, disabled: isTogglingAvailability || !isConnected || !isVerified, busy: isTogglingAvailability }}
+                accessibilityHint="Toggle your availability to accept new collection requests"
+              />
+            </View>
           </View>
         </View>
 
         {/* ── METRICS ─────────────────────────────────────────────────── */}
-        <Text style={styles.sectionTitle}>Your Activity</Text>
+        <Text style={styles.sectionTitle}>{t('collector.dashboard.yourActivity') || 'Your Activity'}</Text>
         {statsError ? (
           <View style={styles.errorInline} accessibilityRole="alert">
             <Text style={styles.errorInlineText}>{statsError}</Text>
           </View>
         ) : (
           <View style={styles.metricsRow}>
-            <MetricCard
+            <GlassMetricCard
               value={stats?.totalPickups ?? '—'}
-              label="Completed Pickups"
+              label={t('collector.dashboard.completedPickups') || 'Completed Pickups'}
               icon="✅"
               accentColor={colors.success}
             />
-            <MetricCard
+            <GlassMetricCard
               value={stats ? `${stats.totalWeightKg ?? 0} kg` : '—'}
-              label="Total Collected"
+              label={t('collector.dashboard.totalCollected') || 'Total Collected'}
               icon="⚖️"
               accentColor={colors.secondary}
             />
-            <MetricCard
+            <GlassMetricCard
               value={stats?.activeRequests ?? '—'}
-              label="Active Requests"
+              label={t('collector.dashboard.activeRequests') || 'Active Requests'}
               icon="📋"
               accentColor={colors.warning}
             />
-            <MetricCard
+            <GlassMetricCard
               value={stats?.totalConsignments ?? '—'}
-              label="Consignments"
+              label={t('collector.dashboard.consignments') || 'Consignments'}
               icon="🏭"
               accentColor={colors.primary}
             />
@@ -782,7 +900,7 @@ export const CollectorDashboardScreen: React.FC = () => {
 
         {/* ── ACTIVE PICKUPS ───────────────────────────────────────────── */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Active Pickups</Text>
+          <Text style={styles.sectionTitle}>{t('collector.dashboard.activePickups') || 'Active Pickups'}</Text>
           {activePickups.length > 0 && (
             <View style={styles.countBadge}>
               <Text style={styles.countBadgeText}>{activePickups.length}</Text>
@@ -797,8 +915,8 @@ export const CollectorDashboardScreen: React.FC = () => {
         ) : activePickups.length === 0 ? (
           <EmptyState
             icon="🚚"
-            title="No Active Pickups"
-            message="Your scheduled and in-progress pickups will appear here."
+            title={t('collector.dashboard.noActivePickups') || 'No Active Pickups'}
+            message={t('collector.dashboard.noActivePickupsDesc') || 'Your scheduled and in-progress pickups will appear here.'}
           />
         ) : (
           activePickups.slice(0, 5).map((pickup: any) => (
@@ -808,7 +926,7 @@ export const CollectorDashboardScreen: React.FC = () => {
 
         {/* ── AVAILABLE COLLECTION REQUESTS ────────────────────────── */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Available Requests</Text>
+          <Text style={styles.sectionTitle}>{t('collector.dashboard.availableRequests') || 'Available Requests'}</Text>
           {availableRequests.length > 0 && (
             <View style={styles.countBadge}>
               <Text style={styles.countBadgeText}>{availableRequests.length}</Text>
@@ -819,7 +937,7 @@ export const CollectorDashboardScreen: React.FC = () => {
         {/* Privacy note */}
         <View style={styles.privacyNote}>
           <Text style={styles.privacyNoteText}>
-            📍 Exact pickup address is revealed only after you accept a request.
+            {t('collector.dashboard.privacyNote') || '📍 Exact pickup address is revealed only after you accept a request.'}
           </Text>
         </View>
 
@@ -827,21 +945,21 @@ export const CollectorDashboardScreen: React.FC = () => {
           <View style={styles.errorInline} accessibilityRole="alert">
             <Text style={styles.errorInlineText}>{requestsError}</Text>
             <TouchableOpacity onPress={handleRefresh} style={styles.retryLink}>
-              <Text style={styles.retryLinkText}>Retry</Text>
+              <Text style={styles.retryLinkText}>{t('collector.dashboard.retry') || 'Retry'}</Text>
             </TouchableOpacity>
           </View>
         ) : !isVerified && isConnected ? (
           <EmptyState
             icon="🔒"
-            title="Verification Required"
-            message="Your account must be approved before you can see and accept collection requests."
+            title={t('collector.dashboard.verificationRequired') || 'Verification Required'}
+            message={t('collector.dashboard.verificationRequiredDesc') || 'Your account must be approved before you can see and accept collection requests.'}
           />
         ) : availableRequests.length === 0 ? (
           <EmptyState
             icon="🔍"
-            title="No Requests Available"
-            message="There are no collection requests in your service area right now. Check back later or pull down to refresh."
-            actionLabel="Refresh"
+            title={t('collector.dashboard.noRequestsAvailable') || 'No Requests Available'}
+            message={t('collector.dashboard.noRequestsAvailableDesc') || 'There are no collection requests in your service area right now. Check back later or pull down to refresh.'}
+            actionLabel={t('collector.dashboard.refresh') || 'Refresh'}
             onAction={handleRefresh}
           />
         ) : (
@@ -865,13 +983,13 @@ export const CollectorDashboardScreen: React.FC = () => {
          */}
         <View style={styles.chainFooter}>
           <Text style={styles.chainText}>
-            ECOSETU connects Kabadiwalas with citizens to ensure responsible e-waste collection.
+            {t('collector.dashboard.chainNote') || 'ECOSETU connects Kabadiwalas with citizens to ensure responsible e-waste collection.'}
           </Text>
         </View>
 
         <View style={{ height: spacing.spaceXl }} />
       </ScrollView>
-    </SafeAreaView>
+    </GradientBackground>
   );
 };
 
@@ -880,53 +998,103 @@ export const CollectorDashboardScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   scrollContent: {
     padding: spacing.spaceMd,
-    paddingBottom: spacing.spaceXl,
+    paddingBottom: spacing.spaceXl + 20,
   },
 
   // ── Banners ──
   cachedNotice: {
-    backgroundColor: '#FFF9C4', borderRadius: 6,
-    padding: spacing.spaceXs, marginBottom: spacing.spaceSm,
+    backgroundColor: 'rgba(252, 211, 77, 0.12)', borderRadius: 10,
+    borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.35)',
+    padding: spacing.spaceXs + 2, marginBottom: spacing.spaceSm,
   },
-  cachedText: { fontSize: 12, color: '#F57F17' },
+  cachedText: { fontSize: 12, color: colors.warning },
   suspendedBanner: {
-    backgroundColor: '#FFEBEE', borderRadius: 8,
+    backgroundColor: 'rgba(248, 113, 113, 0.12)', borderRadius: 12,
     padding: spacing.spaceMd, marginBottom: spacing.spaceMd,
     borderLeftWidth: 4, borderLeftColor: colors.error,
+    borderWidth: 1, borderColor: 'rgba(248, 113, 113, 0.35)',
   },
-  suspendedText: { fontSize: 13, color: '#B71C1C', lineHeight: 19 },
+  suspendedText: { fontSize: 13, color: colors.error, lineHeight: 19 },
   pendingBanner: {
-    backgroundColor: '#FFF3E0', borderRadius: 8,
+    backgroundColor: 'rgba(252, 211, 77, 0.12)', borderRadius: 12,
     padding: spacing.spaceMd, marginBottom: spacing.spaceMd,
     borderLeftWidth: 4, borderLeftColor: colors.warning,
+    borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.35)',
   },
-  pendingText: { fontSize: 13, color: '#BF360C', lineHeight: 19 },
+  pendingText: { fontSize: 13, color: colors.warning, lineHeight: 19 },
 
   // ── Header card ──
   headerCard: {
-    backgroundColor: colors.surface, borderRadius: 12,
+    backgroundColor: colors.glassSurface, borderRadius: 16,
     padding: spacing.spaceMd, marginBottom: spacing.spaceMd,
-    flexDirection: 'row', alignItems: 'center',
-    elevation: 1, borderWidth: 1, borderColor: colors.divider,
+    elevation: 3, borderWidth: 1, borderColor: colors.glassBorder,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.spaceSm,
   },
   avatarCircle: {
     width: 52, height: 52, borderRadius: 26,
     backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
     marginRight: spacing.spaceSm,
+    shadowColor: colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 6,
   },
-  avatarInitial: { fontSize: 22, fontWeight: '700', color: '#FFFFFF' },
-  greetingText: { fontSize: 12, color: colors.textSecondary },
-  collectorName: { fontSize: 17, fontWeight: '700', color: colors.textPrimary },
-  roleLabel: { fontSize: 11, color: colors.primary, fontWeight: '600', marginTop: 2 },
+  avatarInitial: { fontSize: 22, fontWeight: '800', color: colors.textInverse },
+  headerInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  greetingText: { fontSize: 13, color: colors.textSecondary, fontWeight: '500' },
+  collectorName: { fontSize: 18, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.3 },
+  roleLabel: { fontSize: 12, color: colors.primaryLight, fontWeight: '600', marginTop: 2 },
+
+  // ── Header Controls ──
+  headerControlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: spacing.spaceSm,
+    borderTopWidth: 1,
+    borderTopColor: colors.glassBorder,
+    gap: spacing.spaceSm,
+  },
+  voiceControlBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    minHeight: 44,
+  },
+  voiceControlBtnActive: {
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    borderColor: colors.success,
+  },
+  voiceControlIcon: {
+    fontSize: 14,
+  },
+  voiceControlLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  voiceControlLabelActive: {
+    color: colors.success,
+  },
 
   // ── Availability ──
   availabilitySection: { alignItems: 'center', gap: 2 },
-  availabilityLabel: { fontSize: 10, fontWeight: '600', textAlign: 'center' },
+  availabilityLabel: { fontSize: 10, fontWeight: '700', textAlign: 'center' },
 
   // ── Section ──
   sectionHeader: {
@@ -934,14 +1102,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing.spaceXs, marginTop: spacing.spaceSm,
   },
   sectionTitle: {
-    fontSize: 15, fontWeight: '700', color: colors.textPrimary,
-    marginBottom: spacing.spaceXs, marginTop: spacing.spaceSm,
+    fontSize: 16, fontWeight: '800', color: colors.textPrimary,
+    letterSpacing: -0.3, marginBottom: spacing.spaceXs, marginTop: spacing.spaceSm,
   },
   countBadge: {
     backgroundColor: colors.primary, borderRadius: 10,
-    paddingHorizontal: 7, paddingVertical: 2, marginBottom: spacing.spaceXs,
+    paddingHorizontal: 8, paddingVertical: 2, marginBottom: spacing.spaceXs,
   },
-  countBadgeText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
+  countBadgeText: { fontSize: 11, fontWeight: '800', color: colors.textInverse },
 
   // ── Metrics ──
   metricsRow: {
@@ -951,14 +1119,16 @@ const styles = StyleSheet.create({
 
   // ── Privacy note ──
   privacyNote: {
-    backgroundColor: `${colors.secondary}10`, borderRadius: 6,
-    padding: spacing.spaceXs, marginBottom: spacing.spaceSm,
+    backgroundColor: 'rgba(96, 165, 250, 0.12)', borderRadius: 10,
+    borderWidth: 1, borderColor: 'rgba(96, 165, 250, 0.3)',
+    padding: spacing.spaceXs + 2, marginBottom: spacing.spaceSm,
   },
-  privacyNoteText: { fontSize: 11, color: colors.secondary, lineHeight: 16 },
+  privacyNoteText: { fontSize: 11, color: colors.secondaryLight, lineHeight: 16 },
 
   // ── Error inline ──
   errorInline: {
-    backgroundColor: '#FFEBEE', borderRadius: 8,
+    backgroundColor: 'rgba(248, 113, 113, 0.12)', borderRadius: 10,
+    borderWidth: 1, borderColor: 'rgba(248, 113, 113, 0.35)',
     padding: spacing.spaceMd, marginBottom: spacing.spaceSm,
   },
   errorInlineText: { fontSize: 13, color: colors.error },
@@ -970,7 +1140,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.spaceMd, paddingHorizontal: spacing.spaceMd,
   },
   chainText: {
-    fontSize: 12, color: colors.textSecondary,
+    fontSize: 12, color: colors.textTertiary,
     textAlign: 'center', fontStyle: 'italic', lineHeight: 18,
   },
 });

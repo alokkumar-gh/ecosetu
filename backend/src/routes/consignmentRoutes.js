@@ -31,11 +31,11 @@ router.get(
   (req, res, next) => consignmentController.listConsignments(req, res, next)
 );
 
-// Mark consignment as delivered (Delivering collector only)
+// Mark consignment as delivered (Delivering collector or assigned receiving recycler)
 router.patch(
   '/:id/deliver',
   authenticate,
-  authorize(ROLES.INFORMAL_COLLECTOR),
+  authorize(ROLES.INFORMAL_COLLECTOR, ROLES.RECYCLER),
   checkVerified,
   validate(consignmentValidators.deliverConsignment),
   (req, res, next) => consignmentController.deliverConsignment(req, res, next)

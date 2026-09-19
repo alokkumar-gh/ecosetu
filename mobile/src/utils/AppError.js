@@ -108,6 +108,17 @@ export class AppError extends Error {
     });
   }
 
+  static rateLimitError(message = 'Too many requests. Please try again later.') {
+    return new AppError({
+      message,
+      code: 'RATE_LIMITED',
+      status: 429,
+      isRetryable: true,
+      isNetworkError: false,
+      isAuthError: false,
+    });
+  }
+
   static serverError(message = 'Internal server error', status = 500) {
     // 502, 503, 504 are retryable transient server errors
     const isRetryable = status === 502 || status === 503 || status === 504;
@@ -141,6 +152,9 @@ export class AppError extends Error {
     }
     if (status === 409) {
       return AppError.conflictError(message);
+    }
+    if (status === 429) {
+      return AppError.rateLimitError(message);
     }
     if (status >= 500) {
       return AppError.serverError(message, status);

@@ -244,6 +244,11 @@ class ConsignmentService {
               id: true,
               status: true,
               receivedAt: true,
+              startedAt: true,
+              completedAt: true,
+              outputWeightKg: true,
+              outputDescription: true,
+              certificateId: true,
             },
           },
         },
@@ -268,13 +273,16 @@ class ConsignmentService {
    * @param {string} consignmentId - Consignment UUID
    * @returns {Promise<object>} Updated consignment
    */
-  async deliverConsignment(collectorUserId, consignmentId) {
+  async deliverConsignment(userId, consignmentId) {
     const collectorProfile = await prisma.collectorProfile.findUnique({
-      where: { userId: collectorUserId },
+      where: { userId },
     });
+    const recyclerProfile = !collectorProfile
+      ? await prisma.recyclerProfile.findUnique({ where: { userId } })
+      : null;
 
-    if (!collectorProfile) {
-      throw AppError.forbidden('Collector profile not found');
+    if (!collectorProfile && !recyclerProfile) {
+      throw AppError.forbidden('Only the delivering collector or receiving recycler can mark delivery');
     }
 
     const consignment = await prisma.consignment.findUnique({
@@ -285,8 +293,12 @@ class ConsignmentService {
       throw AppError.notFound('Consignment not found');
     }
 
-    if (consignment.collectorId !== collectorProfile.id) {
+    if (collectorProfile && consignment.collectorId !== collectorProfile.id) {
       throw AppError.forbidden('You can only deliver your own consignments');
+    }
+
+    if (recyclerProfile && consignment.recyclerId !== recyclerProfile.id) {
+      throw AppError.forbidden('You can only mark delivery for consignments delivered to your facility');
     }
 
     // Status must be CREATED or IN_TRANSIT
@@ -318,6 +330,14 @@ class ConsignmentService {
             },
           },
         },
+        collector: {
+          include: {
+            user: {
+              select: { id: true, name: true, phone: true },
+            },
+          },
+        },
+        recyclingRecord: true,
       },
     });
 
@@ -385,6 +405,13 @@ class ConsignmentService {
             },
           },
           recycler: true,
+          collector: {
+            include: {
+              user: {
+                select: { id: true, name: true, phone: true },
+              },
+            },
+          },
         },
       });
 

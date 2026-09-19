@@ -1,8 +1,15 @@
-import React from 'react';
+/**
+ * TopAppBar — Glassmorphism Edition
+ * Props interface unchanged.
+ */
+
+import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { LanguageSelector } from '../common/LanguageSelector';
 
 export interface TopAppBarProps {
   title: string;
@@ -12,9 +19,10 @@ export interface TopAppBarProps {
   onBack?: () => void;
   unreadNotificationsCount?: number;
   onNotificationsPress?: () => void;
+  showLanguageSelector?: boolean;
 }
 
-export const TopAppBar: React.FC<TopAppBarProps> = ({
+export const TopAppBar: React.FC<TopAppBarProps> = memo(({
   title,
   subtitle,
   roleBadge,
@@ -22,9 +30,18 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
   onBack,
   unreadNotificationsCount = 0,
   onNotificationsPress,
+  showLanguageSelector = false,
 }) => {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.container} accessibilityRole="header">
+    <View
+      style={[
+        styles.container,
+        { paddingTop: insets.top, height: 58 + insets.top },
+      ]}
+      accessibilityRole="header"
+    >
       <View style={styles.leftSection}>
         {showBack && (
           <TouchableOpacity
@@ -50,9 +67,14 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
       </View>
 
       <View style={styles.rightSection}>
+        {showLanguageSelector && (
+          <LanguageSelector variant="compact" style={{ marginRight: spacing.spaceXs }} />
+        )}
         {roleBadge && (
           <View style={styles.badgeContainer}>
-            <Text style={styles.badgeText}>{roleBadge}</Text>
+            <Text style={styles.badgeText}>
+              {roleBadge === 'INFORMAL_COLLECTOR' ? 'Collector' : roleBadge === 'RECYCLER' ? 'Recycler' : roleBadge.replace(/_/g, ' ')}
+            </Text>
           </View>
         )}
         {onNotificationsPress && (
@@ -76,17 +98,21 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({
       </View>
     </View>
   );
-};
+});
+
+TopAppBar.displayName = 'TopAppBar';
 
 const styles = StyleSheet.create({
   container: {
-    height: 56,
-    backgroundColor: colors.primary,
+    height: 60,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.spaceMd,
-    elevation: spacing.appBarElevation,
+    elevation: 1,
   },
   leftSection: {
     flexDirection: 'row',
@@ -100,40 +126,43 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.Title.fontSize,
     fontWeight: '700',
-    lineHeight: typography.Title.lineHeight,
-    color: colors.surface,
+    letterSpacing: typography.Title.letterSpacing,
+    color: colors.textPrimary,
   },
   subtitle: {
     fontSize: typography.Caption.fontSize,
-    lineHeight: typography.Caption.lineHeight,
-    color: colors.primaryLight,
+    letterSpacing: 0.2,
+    color: colors.textSecondary,
+    marginTop: 1,
   },
   rightSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.spaceSm,
+    gap: spacing.spaceXs,
   },
   iconButton: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconText: {
     fontSize: 20,
-    color: colors.surface,
+    color: colors.textPrimary,
   },
   badgeContainer: {
-    backgroundColor: colors.primaryDark,
+    backgroundColor: colors.accentFill,
+    borderWidth: 1,
+    borderColor: 'rgba(5, 150, 105, 0.3)',
     paddingHorizontal: spacing.spaceSm,
-    paddingVertical: spacing.spaceXs,
-    borderRadius: 12,
+    paddingVertical: 3,
+    borderRadius: spacing.radiusPill,
   },
   badgeText: {
-    fontSize: typography.Caption.fontSize,
+    fontSize: typography.Label.fontSize,
     fontWeight: '700',
-    color: colors.surface,
-    letterSpacing: 0.5,
+    color: colors.accent,
+    letterSpacing: 0.6,
   },
   notificationBadge: {
     position: 'absolute',
@@ -150,7 +179,7 @@ const styles = StyleSheet.create({
   notificationBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: colors.surface,
+    color: colors.textPrimary,
   },
 });
 

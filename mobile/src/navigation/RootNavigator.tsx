@@ -7,6 +7,9 @@ import { CitizenNavigator } from './CitizenNavigator';
 import { CollectorNavigator } from './CollectorNavigator';
 import { RecyclerNavigator } from './RecyclerNavigator';
 import { AdminNavigator } from './AdminNavigator';
+import { PendingVerificationScreen } from '../screens/auth/PendingVerificationScreen';
+import { AccountSuspendedScreen } from '../screens/auth/AccountSuspendedScreen';
+import { AccountDeactivatedScreen } from '../screens/auth/AccountDeactivatedScreen';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -33,7 +36,23 @@ export const RootNavigator: React.FC = () => {
     return <AuthNavigator />;
   }
 
-  // 3. Authenticated State -> Documented Role-Based Routing
+  // 3. Authenticated State -> Account Status Gating
+  if (user.status === 'SUSPENDED') {
+    return <AccountSuspendedScreen />;
+  }
+
+  if (user.status === 'DEACTIVATED') {
+    return <AccountDeactivatedScreen />;
+  }
+
+  if (
+    user.status === 'PENDING_VERIFICATION' &&
+    (user.role === ROLES.INFORMAL_COLLECTOR || user.role === ROLES.RECYCLER)
+  ) {
+    return <PendingVerificationScreen role={user.role} />;
+  }
+
+  // 4. Authenticated & Verified State -> Documented Role-Based Routing
   switch (user.role) {
     case ROLES.CITIZEN:
       return <CitizenNavigator />;

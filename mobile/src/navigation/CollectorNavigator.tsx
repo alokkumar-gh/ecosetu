@@ -12,7 +12,13 @@ import { CollectorRecyclerDirectoryScreen } from '../screens/collector/Collector
 import { CreateConsignmentScreen } from '../screens/collector/CreateConsignmentScreen';
 import { CollectorConsignmentsScreen } from '../screens/collector/CollectorConsignmentsScreen';
 import { CollectorConsignmentStatusScreen } from '../screens/collector/CollectorConsignmentStatusScreen';
+import { CollectorPickupDetailScreen } from '../screens/collector/CollectorPickupDetailScreen';
+import { RecyclerFacilityDetailScreen } from '../screens/collector/RecyclerFacilityDetailScreen';
+import { CollectorVoiceProvider } from '../context/CollectorVoiceContext';
+import { CollectorVoiceButton } from '../components/voice/CollectorVoiceButton';
+import { CollectorVoiceModal } from '../components/voice/CollectorVoiceModal';
 import { colors } from '../theme/colors';
+import { useI18n } from '../i18n';
 
 const Tab = createBottomTabNavigator<CollectorTabParamList>();
 const Stack = createNativeStackNavigator<CollectorStackParamList>();
@@ -91,6 +97,8 @@ const CollectorVerificationModal = ({ navigation }: any) => (
 );
 
 const CollectorTabs: React.FC = () => {
+  const { t } = useI18n();
+
   return (
     <Tab.Navigator
       initialRouteName="CollectorHome"
@@ -99,15 +107,22 @@ const CollectorTabs: React.FC = () => {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: colors.surface,
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
           borderTopColor: colors.divider,
-          height: 60,
+          borderTopWidth: 1,
+          height: 62,
           paddingBottom: 8,
           paddingTop: 6,
+          elevation: 4,
+          shadowColor: colors.primary,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 4,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
+          fontSize: 11,
+          fontWeight: '600',
+          letterSpacing: 0.2,
         },
       }}
     >
@@ -115,7 +130,7 @@ const CollectorTabs: React.FC = () => {
         name="CollectorHome"
         component={CollectorDashboardScreen}
         options={{
-          tabBarLabel: 'Home',
+          tabBarLabel: t('navigation.home') || 'Home',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>🏠</Text>,
         }}
       />
@@ -123,7 +138,7 @@ const CollectorTabs: React.FC = () => {
         name="CollectorBrowse"
         component={CollectorBrowseScreen}
         options={{
-          tabBarLabel: 'Browse',
+          tabBarLabel: t('navigation.requests') || 'Browse',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>🔍</Text>,
         }}
       />
@@ -131,7 +146,7 @@ const CollectorTabs: React.FC = () => {
         name="CollectorPickups"
         component={CollectorPickupsScreen}
         options={{
-          tabBarLabel: 'Pickups',
+          tabBarLabel: t('navigation.pickups') || 'Pickups',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>🚚</Text>,
         }}
       />
@@ -139,7 +154,7 @@ const CollectorTabs: React.FC = () => {
         name="CollectorConsign"
         component={CollectorRecyclerDirectoryScreen}
         options={{
-          tabBarLabel: 'Recyclers',
+          tabBarLabel: t('collector.recyclers.tabLabel') || 'Recyclers',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>🏭</Text>,
         }}
       />
@@ -147,7 +162,7 @@ const CollectorTabs: React.FC = () => {
         name="CollectorProfile"
         component={CollectorProfileScreen}
         options={{
-          tabBarLabel: 'Profile',
+          tabBarLabel: t('navigation.profile') || 'Profile',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>👤</Text>,
         }}
       />
@@ -157,37 +172,49 @@ const CollectorTabs: React.FC = () => {
 
 export const CollectorNavigator: React.FC = () => {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="CollectorTabs" component={CollectorTabs} />
-      <Stack.Screen
-        name="PickupExecution"
-        component={PickupExecutionModal}
-        options={{ presentation: 'modal' }}
-      />
-      <Stack.Screen
-        name="RequestDetail"
-        component={CollectorRequestDetailModal}
-        options={{ presentation: 'modal' }}
-      />
-      <Stack.Screen
-        name="Verification"
-        component={CollectorVerificationModal}
-        options={{ presentation: 'modal' }}
-      />
-      <Stack.Screen
-        name="CreateConsignment"
-        component={CreateConsignmentScreen}
-        options={{ presentation: 'modal' }}
-      />
-      <Stack.Screen
-        name="CollectorConsignments"
-        component={CollectorConsignmentsScreen}
-      />
-      <Stack.Screen
-        name="CollectorConsignmentStatus"
-        component={CollectorConsignmentStatusScreen}
-      />
-    </Stack.Navigator>
+    <CollectorVoiceProvider>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="CollectorTabs" component={CollectorTabs} />
+        <Stack.Screen
+          name="PickupDetail"
+          component={CollectorPickupDetailScreen}
+        />
+        <Stack.Screen
+          name="PickupExecution"
+          component={CollectorPickupDetailScreen}
+          options={{ presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="RequestDetail"
+          component={CollectorRequestDetailModal}
+          options={{ presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="Verification"
+          component={CollectorVerificationModal}
+          options={{ presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="CreateConsignment"
+          component={CreateConsignmentScreen}
+          options={{ presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="CollectorConsignments"
+          component={CollectorConsignmentsScreen}
+        />
+        <Stack.Screen
+          name="CollectorConsignmentStatus"
+          component={CollectorConsignmentStatusScreen}
+        />
+        <Stack.Screen
+          name="RecyclerFacilityDetail"
+          component={RecyclerFacilityDetailScreen}
+        />
+      </Stack.Navigator>
+      <CollectorVoiceButton />
+      <CollectorVoiceModal />
+    </CollectorVoiceProvider>
   );
 };
 

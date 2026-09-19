@@ -20,6 +20,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { Skeleton } from '../../components/common/Skeleton';
 import { requestService } from '../../services/requestService';
 import { REQUEST_STATUS } from '../../utils/constants';
+import { useI18n } from '../../i18n';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -79,6 +80,7 @@ const LIFECYCLE_STEPS: StepItem[] = [
 export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const { requestId } = route.params;
   const { isConnected } = useNetwork();
+  const { t } = useI18n();
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -91,29 +93,122 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const [isCancelling, setIsCancelling] = useState<boolean>(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
 
+  const getStepLocalized = (stepId: string, fallbackLabel: string, fallbackDesc: string) => {
+    switch (stepId) {
+      case 'DRAFT':
+        return {
+          label: t('citizen.requestDetail.stepDraft') || fallbackLabel,
+          description: t('citizen.requestDetail.stepDraftDesc') || fallbackDesc,
+        };
+      case 'SUBMITTED':
+        return {
+          label: t('citizen.requestDetail.stepSubmitted') || fallbackLabel,
+          description: t('citizen.requestDetail.stepSubmittedDesc') || fallbackDesc,
+        };
+      case 'ACCEPTED':
+        return {
+          label: t('citizen.requestDetail.stepAccepted') || fallbackLabel,
+          description: t('citizen.requestDetail.stepAcceptedDesc') || fallbackDesc,
+        };
+      case 'PICKUP_SCHEDULED':
+        return {
+          label: t('citizen.requestDetail.stepScheduled') || fallbackLabel,
+          description: t('citizen.requestDetail.stepScheduledDesc') || fallbackDesc,
+        };
+      case 'PICKED_UP':
+        return {
+          label: t('citizen.requestDetail.stepPickedUp') || fallbackLabel,
+          description: t('citizen.requestDetail.stepPickedUpDesc') || fallbackDesc,
+        };
+      default:
+        return { label: fallbackLabel, description: fallbackDesc };
+    }
+  };
+
+  const getLocalizedStatusDesc = (st: string, req?: any) => {
+    const norm = (st || '').toUpperCase();
+    switch (norm) {
+      case REQUEST_STATUS.DRAFT:
+        return (
+          t('citizen.requestDetail.draftDesc') ||
+          'Your request is in draft status and has not yet been submitted for pickup.'
+        );
+      case REQUEST_STATUS.SUBMITTED:
+        return (
+          t('citizen.requestDetail.submittedDesc') ||
+          'Your request has been broadcasted to nearby informal collectors (Kabadiwalas).'
+        );
+      case REQUEST_STATUS.ACCEPTED:
+        return (
+          t('citizen.requestDetail.acceptedDesc') ||
+          'A local informal collector has accepted your request. Pickup will be scheduled.'
+        );
+      case REQUEST_STATUS.PICKUP_SCHEDULED:
+        return req?.preferredDate
+          ? t('citizen.requestDetail.scheduledForDate', {
+              date: new Date(req.preferredDate).toLocaleDateString(),
+            }) ||
+              `Doorstep pickup scheduled for ${new Date(req.preferredDate).toLocaleDateString()}.`
+          : t('citizen.requestDetail.pickupScheduledDesc') ||
+              'Doorstep pickup has been scheduled by your collector.';
+      case REQUEST_STATUS.PICKED_UP:
+        return (
+          t('citizen.requestDetail.pickedUpDesc') ||
+          'Your e-waste items have been collected and verified at your doorstep.'
+        );
+      case REQUEST_STATUS.CANCELLED:
+        return (
+          t('citizen.requestDetail.cancelledDesc') ||
+          'This collection request was cancelled.'
+        );
+      case REQUEST_STATUS.EXPIRED:
+        return (
+          t('citizen.requestDetail.expiredDesc') ||
+          'This collection request has expired. Please submit a new request.'
+        );
+      default:
+        return (
+          t('citizen.requestDetail.statusUpdated') ||
+          'Collection request status updated.'
+        );
+    }
+  };
+
   const loadRequestDetails = useCallback(async () => {
     setErrorMessage(null);
     try {
       const data = await requestService.getRequestById(requestId);
       if (!data) {
-        setErrorMessage('Collection request not found. It may have been deleted or is unavailable offline.');
+        setErrorMessage(
+          t('citizen.requestDetail.notFoundError') ||
+            'Collection request not found. It may have been deleted or is unavailable offline.'
+        );
       } else {
         setRequest(data);
       }
     } catch (err: any) {
       console.warn('[RequestDetail] Fetch error:', err?.message || err);
       if (err?.status === 403 || err?.code === 'FORBIDDEN') {
-        setErrorMessage('Access denied. You can only view your own collection requests.');
+        setErrorMessage(
+          t('citizen.requestDetail.forbiddenError') ||
+            'Access denied. You can only view your own collection requests.'
+        );
       } else if (err?.status === 404 || err?.code === 'NOT_FOUND') {
-        setErrorMessage('Collection request not found.');
+        setErrorMessage(
+          t('citizen.requestDetail.notFoundError') || 'Collection request not found.'
+        );
       } else {
-        setErrorMessage(err?.message || 'Unable to load request details. Please check your connection and retry.');
+        setErrorMessage(
+          err?.message ||
+            (t('citizen.requestDetail.loadError') ||
+              'Unable to load request details. Please check your connection and retry.')
+        );
       }
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [requestId]);
+  }, [requestId, t]);
 
   useEffect(() => {
     loadRequestDetails();
@@ -127,8 +222,9 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleOpenCancelModal = () => {
     if (!isConnected) {
       Alert.alert(
-        'Offline',
-        'Cancelling a collection request requires an active internet connection.',
+        t('citizen.requests.cancelOfflineError') || 'Offline',
+        t('citizen.requests.cancelOfflineMessage') ||
+          'Cancelling a collection request requires an active internet connection.',
         [{ text: 'OK' }]
       );
       return;
@@ -141,7 +237,10 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleConfirmCancel = async () => {
     const reason = cancellationReason.trim();
     if (!reason) {
-      setCancelError('Please provide a reason for cancelling this request.');
+      setCancelError(
+        t('citizen.requests.cancelReasonRequired') ||
+          'Please provide a reason for cancelling this request.'
+      );
       return;
     }
 
@@ -153,7 +252,11 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       setCancelModalVisible(false);
       setCancellationReason('');
       await loadRequestDetails();
-      Alert.alert('Request Cancelled', 'Your collection request has been cancelled successfully.');
+      Alert.alert(
+        t('citizen.requests.cancelSuccess') || 'Request Cancelled',
+        t('citizen.requests.cancelSuccessMessage') ||
+          'Your collection request has been cancelled successfully.'
+      );
     } catch (err: any) {
       console.warn('[RequestDetail] Cancel error:', err?.message || err);
       setCancelError(err?.message || 'Failed to cancel request. Please try again.');
@@ -192,7 +295,7 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <TopAppBar
-        title="Request Details"
+        title={t('citizen.requestDetail.title') || 'Request Details'}
         roleBadge="CITIZEN"
         onBack={() => navigation.goBack()}
       />
@@ -212,7 +315,8 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         {!isConnected && (
           <View style={styles.offlineNotice} accessibilityRole="alert">
             <Text style={styles.offlineNoticeText}>
-              Offline mode: Showing locally cached request details.
+              {t('citizen.requestDetail.offlineNotice') ||
+                'Offline mode: Showing locally cached request details.'}
             </Text>
           </View>
         )}
@@ -233,9 +337,11 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               style={styles.retryButton}
               onPress={loadRequestDetails}
               accessibilityRole="button"
-              accessibilityLabel="Retry loading request details"
+              accessibilityLabel={t('citizen.requests.retry') || 'Retry loading request details'}
             >
-              <Text style={styles.retryButtonText}>Retry</Text>
+              <Text style={styles.retryButtonText}>
+                {t('citizen.requests.retry') || 'Retry'}
+              </Text>
             </TouchableOpacity>
           </View>
         ) : request ? (
@@ -247,28 +353,38 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                 <View>
                   <Text style={styles.cardRef}>{refId}</Text>
                   <Text style={styles.cardCreatedDate}>
-                    Created on {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : 'N/A'}
+                    {t('citizen.requestDetail.createdOn', {
+                      date: request.createdAt
+                        ? new Date(request.createdAt).toLocaleDateString()
+                        : 'N/A',
+                    }) ||
+                      `Created on ${request.createdAt ? new Date(request.createdAt).toLocaleDateString() : 'N/A'}`}
                   </Text>
                 </View>
                 <StatusBadge status={status} />
               </View>
 
               <Text style={styles.statusDescription}>
-                {getStatusDescription(status, request)}
+                {getLocalizedStatusDesc(status, request) || getStatusDescription(status, request)}
               </Text>
 
               {/* Cancelled or Expired Highlight */}
               {status === REQUEST_STATUS.CANCELLED && (
                 <View style={styles.cancellationBanner} accessibilityRole="alert">
-                  <Text style={styles.cancellationBannerTitle}>⚠️ Request Cancelled</Text>
+                  <Text style={styles.cancellationBannerTitle}>
+                    {t('citizen.requestDetail.requestCancelledBanner') || '⚠️ Request Cancelled'}
+                  </Text>
                   {Boolean(request.cancellationReason) && (
                     <Text style={styles.cancellationBannerReason}>
-                      Reason: "{request.cancellationReason}"
+                      {t('citizen.requestDetail.reasonLabel') || 'Reason:'} "{request.cancellationReason}"
                     </Text>
                   )}
                   {Boolean(request.cancelledAt) && (
                     <Text style={styles.cancellationBannerDate}>
-                      Cancelled on: {new Date(request.cancelledAt).toLocaleString()}
+                      {t('citizen.requestDetail.cancelledOn', {
+                        date: new Date(request.cancelledAt).toLocaleString(),
+                      }) ||
+                        `Cancelled on: ${new Date(request.cancelledAt).toLocaleString()}`}
                     </Text>
                   )}
                 </View>
@@ -276,9 +392,12 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
               {status === REQUEST_STATUS.EXPIRED && (
                 <View style={styles.expiredBanner} accessibilityRole="alert">
-                  <Text style={styles.expiredBannerTitle}>⌛ Request Expired</Text>
+                  <Text style={styles.expiredBannerTitle}>
+                    {t('citizen.requestDetail.requestExpiredBanner') || '⌛ Request Expired'}
+                  </Text>
                   <Text style={styles.expiredBannerText}>
-                    No local informal collector accepted within the 48-hour broadcast window.
+                    {t('citizen.requestDetail.expiredBannerText') ||
+                      'No local informal collector accepted within the 48-hour broadcast window.'}
                   </Text>
                 </View>
               )}
@@ -287,16 +406,18 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             {/* Visual Lifecycle Stepper */}
             <View style={styles.card}>
               <Text style={styles.sectionTitle} accessibilityRole="header">
-                Collection Lifecycle
+                {t('citizen.requestDetail.lifecycleTitle') || 'Collection Lifecycle'}
               </Text>
               <Text style={styles.sectionSubtitle}>
-                Progress from citizen submission to doorstep pickup by your local collector.
+                {t('citizen.requestDetail.lifecycleSubtitle') ||
+                  'Progress from citizen submission to doorstep pickup by your local collector.'}
               </Text>
 
               <View style={styles.stepperContainer}>
                 {LIFECYCLE_STEPS.map((step, idx) => {
                   const stepState = getStepStatus(idx);
                   const isLast = idx === LIFECYCLE_STEPS.length - 1;
+                  const localizedStep = getStepLocalized(step.id, step.label, step.description);
 
                   return (
                     <View key={step.id} style={styles.stepRow}>
@@ -309,7 +430,7 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                             stepState === 'PENDING' && styles.stepCirclePending,
                             stepState === 'INACTIVE' && styles.stepCircleInactive,
                           ]}
-                          accessibilityLabel={`Step ${idx + 1}: ${step.label}, status ${stepState.toLowerCase()}`}
+                          accessibilityLabel={`Step ${idx + 1}: ${localizedStep.label}, status ${stepState.toLowerCase()}`}
                         >
                           {stepState === 'COMPLETED' ? (
                             <Text style={styles.stepCircleCheck}>✓</Text>
@@ -342,9 +463,9 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                             stepState === 'COMPLETED' && styles.stepLabelCompleted,
                           ]}
                         >
-                          {step.label}
+                          {localizedStep.label}
                         </Text>
-                        <Text style={styles.stepDescription}>{step.description}</Text>
+                        <Text style={styles.stepDescription}>{localizedStep.description}</Text>
                       </View>
                     </View>
                   );
@@ -355,19 +476,24 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             {/* Pickup & Collector Card */}
             <View style={styles.card}>
               <Text style={styles.sectionTitle} accessibilityRole="header">
-                Pickup & Collector Information
+                {t('citizen.requestDetail.pickupInfoTitle') || 'Pickup & Collector Information'}
               </Text>
 
               <View style={styles.detailItem}>
-                <Text style={styles.detailLabel}>📍 Doorstep Address</Text>
+                <Text style={styles.detailLabel}>
+                  📍 {t('citizen.requestDetail.doorstepAddress') || 'Doorstep Address'}
+                </Text>
                 <Text style={styles.detailValue}>
-                  {request.pickupAddress || 'Address on file'}
+                  {request.pickupAddress ||
+                    (t('citizen.requestDetail.addressOnFile') || 'Address on file')}
                 </Text>
               </View>
 
               {Boolean(request.preferredDate) && (
                 <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>📅 Preferred Date</Text>
+                  <Text style={styles.detailLabel}>
+                    📅 {t('citizen.requestDetail.preferredDate') || 'Preferred Date'}
+                  </Text>
                   <Text style={styles.detailValue}>
                     {new Date(request.preferredDate).toLocaleDateString()}
                     {Boolean(request.preferredTimeStart) && ` (${request.preferredTimeStart}`}
@@ -378,7 +504,9 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
               {Boolean(request.notes) && (
                 <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>📝 Citizen Pickup Notes</Text>
+                  <Text style={styles.detailLabel}>
+                    📝 {t('citizen.requestDetail.citizenNotes') || 'Citizen Pickup Notes'}
+                  </Text>
                   <Text style={styles.detailValue}>{request.notes}</Text>
                 </View>
               )}
@@ -387,13 +515,17 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               <View style={styles.collectorBox}>
                 <Text style={styles.collectorBoxTitle}>
                   {request.collectorId
-                    ? '🤝 Assigned: Local Informal Collector (Kabadiwala)'
-                    : '🔍 Awaiting Local Informal Collector Assignment'}
+                    ? t('citizen.requestDetail.assignedCollectorTitle') ||
+                      '🤝 Assigned: Local Informal Collector (Kabadiwala)'
+                    : t('citizen.requestDetail.awaitingCollectorTitle') ||
+                      '🔍 Awaiting Local Informal Collector Assignment'}
                 </Text>
                 <Text style={styles.collectorBoxText}>
                   {request.collectorId
-                    ? 'A verified local informal collector has claimed this request and will conduct physical doorstep collection and weighing.'
-                    : 'Your request is visible to verified informal collectors operating within your neighbourhood.'}
+                    ? t('citizen.requestDetail.assignedCollectorDesc') ||
+                      'A verified local informal collector has claimed this request and will conduct physical doorstep collection and weighing.'
+                    : t('citizen.requestDetail.awaitingCollectorDesc') ||
+                      'Your request is visible to verified informal collectors operating within your neighbourhood.'}
                 </Text>
               </View>
             </View>
@@ -402,15 +534,19 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             <View style={styles.card}>
               <View style={styles.cardHeader}>
                 <Text style={styles.sectionTitle} accessibilityRole="header">
-                  Associated E-Waste Items ({items.length})
+                  {t('citizen.requestDetail.associatedItemsTitle', { count: items.length }) ||
+                    `Associated E-Waste Items (${items.length})`}
                 </Text>
               </View>
               <Text style={styles.sectionSubtitle}>
-                Items included in this collection request and their individual traceability records.
+                {t('citizen.requestDetail.associatedItemsSubtitle') ||
+                  'Items included in this collection request and their individual traceability records.'}
               </Text>
 
               {items.length === 0 ? (
-                <Text style={styles.emptyItemsText}>No items found in this request.</Text>
+                <Text style={styles.emptyItemsText}>
+                  {t('citizen.requestDetail.noItems') || 'No items found in this request.'}
+                </Text>
               ) : (
                 items.map((item: any, i: number) => {
                   return (
@@ -421,7 +557,8 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                             {(item.category || 'OTHER').replace(/_/g, ' ')}
                           </Text>
                           <Text style={styles.itemCondition}>
-                            Condition: {item.condition || 'UNKNOWN'}
+                            {t('citizen.requestDetail.conditionLabel') || 'Condition:'}{' '}
+                            {item.condition || 'UNKNOWN'}
                           </Text>
                         </View>
                         <StatusBadge status={item.status || 'SUBMITTED'} />
@@ -429,11 +566,12 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
                       <View style={styles.itemMetaRow}>
                         <Text style={styles.itemMetaText}>
-                          Qty: <Text style={styles.itemMetaBold}>{item.quantity || 1}</Text>
+                          {t('citizen.requestDetail.quantityLabel') || 'Qty:'}{' '}
+                          <Text style={styles.itemMetaBold}>{item.quantity || 1}</Text>
                         </Text>
                         {Boolean(item.estimatedWeightKg) && (
                           <Text style={styles.itemMetaText}>
-                            Est. Weight:{' '}
+                            {t('citizen.requestDetail.estimatedWeightLabel') || 'Est. Weight:'}{' '}
                             <Text style={styles.itemMetaBold}>
                               {parseFloat(item.estimatedWeightKg).toFixed(2)} kg
                             </Text>
@@ -441,7 +579,7 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                         )}
                         {Boolean(item.actualWeightKg) && (
                           <Text style={styles.itemMetaText}>
-                            Actual Weight:{' '}
+                            {t('citizen.requestDetail.actualWeightLabel') || 'Actual Weight:'}{' '}
                             <Text style={styles.itemMetaBold}>
                               {parseFloat(item.actualWeightKg).toFixed(2)} kg
                             </Text>
@@ -463,7 +601,8 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                         accessibilityLabel={`View traceability for ${item.category}`}
                       >
                         <Text style={styles.itemTraceabilityButtonText}>
-                          View Full Item Traceability →
+                          {t('citizen.requestDetail.viewItemTraceability') ||
+                            'View Full Item Traceability →'}
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -475,17 +614,24 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             {/* Actions Section */}
             {cancellable && (
               <View style={styles.actionCard}>
-                <Text style={styles.actionCardTitle}>Need to cancel this request?</Text>
+                <Text style={styles.actionCardTitle}>
+                  {t('citizen.requestDetail.cancelSectionTitle') || 'Need to cancel this request?'}
+                </Text>
                 <Text style={styles.actionCardSubtitle}>
-                  You can cancel anytime before physical doorstep pickup is performed.
+                  {t('citizen.requestDetail.cancelSectionSubtitle') ||
+                    'You can cancel anytime before physical doorstep pickup is performed.'}
                 </Text>
                 <TouchableOpacity
                   style={styles.cancelButton}
                   onPress={handleOpenCancelModal}
                   accessibilityRole="button"
-                  accessibilityLabel="Cancel this collection request"
+                  accessibilityLabel={
+                    t('citizen.requestDetail.cancelButton') || 'Cancel this collection request'
+                  }
                 >
-                  <Text style={styles.cancelButtonText}>Cancel Collection Request</Text>
+                  <Text style={styles.cancelButtonText}>
+                    {t('citizen.requestDetail.cancelButton') || 'Cancel Collection Request'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -503,12 +649,11 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard} accessibilityViewIsModal={true}>
             <Text style={styles.modalTitle} accessibilityRole="header">
-              Cancel Collection Request
+              {t('citizen.requestDetail.cancelModalTitle') || 'Cancel Collection Request'}
             </Text>
             <Text style={styles.modalSubtitle}>
-              Are you sure you want to cancel request{' '}
-              <Text style={{ fontWeight: '700' }}>{refId}</Text>? If a local collector was assigned,
-              they will be promptly notified.
+              {t('citizen.requestDetail.cancelModalSubtitle', { ref: refId }) ||
+                `Are you sure you want to cancel request ${refId}? If a local collector was assigned, they will be promptly notified.`}
             </Text>
 
             {Boolean(cancelError) && (
@@ -517,10 +662,15 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               </View>
             )}
 
-            <Text style={styles.inputLabel}>Reason for cancellation *</Text>
+            <Text style={styles.inputLabel}>
+              {t('citizen.requests.cancelReasonLabel') || 'Reason for cancellation *'}
+            </Text>
             <TextInput
               style={styles.reasonInput}
-              placeholder="e.g. Rescheduled, item already disposed, address error"
+              placeholder={
+                t('citizen.requestDetail.cancelReasonPlaceholder') ||
+                'e.g. Rescheduled, item already disposed, address error'
+              }
               placeholderTextColor={colors.textSecondary}
               value={cancellationReason}
               onChangeText={setCancellationReason}
@@ -539,7 +689,9 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                 accessibilityRole="button"
                 accessibilityLabel="Keep request and return"
               >
-                <Text style={styles.modalButtonSecondaryText}>Keep Request</Text>
+                <Text style={styles.modalButtonSecondaryText}>
+                  {t('citizen.requestDetail.keepRequest') || 'Keep Request'}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -552,7 +704,9 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                 {isCancelling ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.modalButtonDestructiveText}>Confirm Cancel</Text>
+                  <Text style={styles.modalButtonDestructiveText}>
+                    {t('citizen.requestDetail.confirmCancel') || 'Confirm Cancel'}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>

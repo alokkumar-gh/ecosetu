@@ -23,6 +23,7 @@ import { TopAppBar } from '../../components/layout/TopAppBar';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { EmptyState } from '../../components/common/EmptyState';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
+import { useI18n } from '../../i18n';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 
@@ -42,6 +43,7 @@ interface Props {
 
 export const CollectorConsignmentsScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
+  const { t } = useI18n();
 
   const [consignments, setConsignments] = useState<any[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
@@ -293,8 +295,8 @@ export const CollectorConsignmentsScreen: React.FC<Props> = ({ navigation }) => 
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
       <TopAppBar
-        title="My Consignments"
-        subtitle="Track formal recycling batch handoffs"
+        title={t('collector.consignments.title') || "My Consignments"}
+        subtitle="Track batch handoffs"
         showBack
         onBack={() => navigation?.goBack()}
         roleBadge="INFORMAL_COLLECTOR"
@@ -305,7 +307,7 @@ export const CollectorConsignmentsScreen: React.FC<Props> = ({ navigation }) => 
       {fromCache && (
         <View style={styles.cacheNotice}>
           <Text style={styles.cacheNoticeText}>
-            Showing cached consignment records. Connect online for live updates.
+            {t('offline.cachedNotice') || 'Showing cached consignment records. Connect online for live updates.'}
           </Text>
         </View>
       )}
@@ -318,7 +320,7 @@ export const CollectorConsignmentsScreen: React.FC<Props> = ({ navigation }) => 
             onPress={() => loadConsignments()}
             activeOpacity={0.7}
           >
-            <Text style={styles.retryButtonText}>Retry</Text>
+            <Text style={styles.retryButtonText}>{t('common.retry') || 'Retry'}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -345,13 +347,13 @@ export const CollectorConsignmentsScreen: React.FC<Props> = ({ navigation }) => 
             <EmptyState
               title={
                 selectedStatus !== 'ALL'
-                  ? `No ${selectedStatus.toLowerCase()} consignments`
-                  : 'No Consignments Yet'
+                  ? (t('collector.consignments.noConsignmentsTitle') || `No ${selectedStatus.toLowerCase()} consignments`)
+                  : (t('collector.consignments.noConsignmentsTitle') || 'No Consignments Yet')
               }
               message={
                 selectedStatus !== 'ALL'
                   ? `You have no consignments with status "${selectedStatus}".`
-                  : 'Batch your collected e-waste and deliver to authorized recyclers from the Recycler Directory.'
+                  : (t('collector.consignments.noConsignmentsMessage') || 'Batch your collected e-waste and deliver to authorized recyclers from the Recycler Directory.')
               }
             />
           }

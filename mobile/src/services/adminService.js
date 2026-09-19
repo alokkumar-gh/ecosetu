@@ -19,6 +19,7 @@
 
 import { apiClient } from './apiClient.js';
 import { networkService } from './networkService.js';
+import { recyclingService } from './recyclingService.js';
 
 const AsyncStorage = require('@react-native-async-storage/async-storage').default;
 
@@ -27,6 +28,7 @@ const CACHE_KEYS = Object.freeze({
   USERS: '@ecosetu_admin_users',
   AUDIT_LOGS: '@ecosetu_admin_audit_logs',
   VERIFICATIONS: '@ecosetu_admin_verifications',
+  SYSTEM_HEALTH: '@ecosetu_admin_system_health',
 });
 
 class AdminService {
@@ -52,6 +54,25 @@ class AdminService {
       }
     }
     return this._getCachedItem(CACHE_KEYS.ANALYTICS);
+  }
+
+  /**
+   * Fetch privacy-safe geographic analytics and verified facility distribution.
+   * Aggregates platform metrics and verified recycler facility locations.
+   * Strictly avoids individual citizen household pins or raw doorstep coordinates.
+   * @returns {Promise<{ analytics: object, recyclers: Array<object>, fromCache: boolean }>}
+   */
+  async getGeographicAnalytics() {
+    const [analyticsResult, recyclersResult] = await Promise.all([
+      this.getAnalytics(),
+      recyclingService.getRecyclers(),
+    ]);
+
+    return {
+      analytics: analyticsResult.analytics || null,
+      recyclers: recyclersResult.recyclers || [],
+      fromCache: Boolean(analyticsResult.fromCache || recyclersResult.fromCache),
+    };
   }
 
   /**
@@ -294,6 +315,61 @@ class AdminService {
     } catch {
       return { verifications: [], pagination: null, fromCache: true };
     }
+  }
+
+  /**
+   * Check backend API health and response latency.
+   * Performs an on-demand single check without keep-alive polling or continuous pings.
+   * @returns {Promise<{ isHealthy: boolean, status: number, latencyMs: number, data?: object, error?: string }>}
+   */
+  async checkBackendHealth() {
+    if (!networkService.isConnected()) {
+      return { isHealthy: false, status: 0, latencyMs: 0, error: 'OFFLINE' };
+    }
+    const start = Date.now();
+    try {
+      const response = await apiClient.get('/health', { skipAuth: true, timeoutMs: 5000 });
+      const latencyMs = Date.now() - start;
+      const isHealthy = response?.status === 'ok' || response?.data?.status === 'ok';
+      return {
+        isHealthy,
+        status: 200,
+        latencyMs,
+        data: response?.data || response,
+      };
+    } catch (err) {
+      const latencyMs = Date.now() - start;
+      return {
+        isHealthy: false,
+        status: err?.status || 500,
+        latencyMs,
+        error: err?.message || 'Unreachable',
+      };
+    }
+  }
+
+  /**
+   * Retrieve cached system diagnostics snapshot.
+   * @returns {Promise<object|null>}
+   */
+  async getCachedSystemHealth() {
+    try {
+      const raw = await AsyncStorage.getItem(CACHE_KEYS.SYSTEM_HEALTH);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Store system diagnostics snapshot.
+   * @param {object} snapshot
+   * @returns {Promise<void>}
+   */
+  async saveCachedSystemHealth(snapshot) {
+    try {
+      await AsyncStorage.setItem(CACHE_KEYS.SYSTEM_HEALTH, JSON.stringify(snapshot));
+    } catch {}
   }
 }
 

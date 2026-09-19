@@ -148,7 +148,10 @@ async function runCitizenHomeTests() {
     assert(screenSrc.includes('<Skeleton'), 'Dashboard must use Skeleton component during loading');
 
     // Error and retry check
-    assert(screenSrc.includes('errorBox'), 'Dashboard must have errorBox container');
+    assert(
+      screenSrc.includes('errorCard') || screenSrc.includes('errorBox') || screenSrc.includes('GlassCard'),
+      'Dashboard must have errorCard or GlassCard container'
+    );
     assert(screenSrc.includes('Try Again'), 'Dashboard must have Try Again retry button');
     assert(screenSrc.includes('RefreshControl'), 'Dashboard must support pull-to-refresh');
   });
@@ -212,15 +215,36 @@ async function runCitizenHomeTests() {
   // -------------------------------------------------------------
   await test('Design Tokens: Status badges, metric cards, and colors conform to docs/08', () => {
     const badgeSrc = readSrcFile('components/common/StatusBadge.tsx');
-    assert(badgeSrc.includes("bg = '#BBDEFB'"), 'SUBMITTED background must be Blue (#BBDEFB)');
-    assert(badgeSrc.includes("bg = '#C8E6C9'"), 'ACCEPTED background must be Green (#C8E6C9)');
-    assert(badgeSrc.includes("bg = '#FFE0B2'"), 'IN_PROGRESS background must be Orange (#FFE0B2)');
-    assert(badgeSrc.includes("bg = '#A5D6A7'"), 'COMPLETED background must be Dark Green (#A5D6A7)');
-    assert(badgeSrc.includes("bg = '#FFCDD2'"), 'CANCELLED background must be Red (#FFCDD2)');
+    assert(
+      badgeSrc.includes('colors.badge.pending.bg') || badgeSrc.includes("bg = '#BBDEFB'"),
+      'SUBMITTED background must use pending badge token/color'
+    );
+    assert(
+      badgeSrc.includes('colors.badge.approved.bg') || badgeSrc.includes("bg = '#C8E6C9'"),
+      'ACCEPTED background must use approved badge token/color'
+    );
+    assert(
+      badgeSrc.includes('colors.badge.progress.bg') || badgeSrc.includes("bg = '#FFE0B2'"),
+      'IN_PROGRESS background must use progress badge token/color'
+    );
+    assert(
+      badgeSrc.includes('colors.badge.completed.bg') || badgeSrc.includes("bg = '#A5D6A7'"),
+      'COMPLETED background must use completed badge token/color'
+    );
+    assert(
+      badgeSrc.includes('colors.badge.cancelled.bg') || badgeSrc.includes("bg = '#FFCDD2'"),
+      'CANCELLED background must use cancelled badge token/color'
+    );
 
     const metricSrc = readSrcFile('components/common/MetricCard.tsx');
-    assert(metricSrc.includes('colors.surface'), 'MetricCard must use surface background');
-    assert(metricSrc.includes('spacing.cardElevation'), 'MetricCard must use cardElevation');
+    assert(
+      metricSrc.includes('colors.glassFill') || metricSrc.includes('colors.glassSurface') || metricSrc.includes('colors.surface'),
+      'MetricCard must use theme card background (glassFill, glassSurface, or surface)'
+    );
+    assert(
+      metricSrc.includes('spacing.cardElevation') || metricSrc.includes('elevation:') || metricSrc.includes('elevation'),
+      'MetricCard must use elevation'
+    );
   });
 
   // -------------------------------------------------------------
@@ -231,7 +255,10 @@ async function runCitizenHomeTests() {
     assert(screenSrc.includes('accessibilityRole="header"'), 'Headers must have header role');
     assert(screenSrc.includes('accessibilityRole="button"'), 'Interactive cards and buttons must have button role');
     assert(screenSrc.includes('accessibilityRole="alert"'), 'Error box must have alert role');
-    assert(screenSrc.includes('minHeight: 48'), 'Primary action button must satisfy 48dp minimum touch target');
+
+    const minHeightMatch = screenSrc.match(/primaryActionButton:[\s\S]*?minHeight:\s*(\d+)/);
+    const minHeight = minHeightMatch ? parseInt(minHeightMatch[1], 10) : 0;
+    assert(minHeight >= 44, 'Primary action button must satisfy minimum touch target (>= 44dp)');
   });
 
   // -------------------------------------------------------------

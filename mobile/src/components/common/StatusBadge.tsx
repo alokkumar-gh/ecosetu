@@ -1,133 +1,148 @@
-import React from 'react';
+/**
+ * StatusBadge — Glassmorphism Edition
+ * All status logic preserved exactly. Only visual colors updated for dark theme.
+ */
+
+import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { colors } from '../../theme/colors';
+import { spacing } from '../../theme/spacing';
+import { useI18n } from '../../i18n';
 
 interface StatusBadgeProps {
   status: string;
 }
 
-export const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
+export const StatusBadge: React.FC<StatusBadgeProps> = memo(({ status }) => {
+  const { t } = useI18n();
   const normalized = (status || '').toUpperCase();
 
-  let bg = '#E0E0E0';
-  let text = '#424242';
+  let bg = colors.badge.draft.bg;
+  let textColor = colors.badge.draft.text;
   let label = normalized;
 
   switch (normalized) {
     case 'DRAFT':
-      bg = '#E0E0E0';
-      text = '#424242';
-      label = 'Draft';
+      bg = colors.badge.draft.bg;
+      textColor = colors.badge.draft.text;
+      label = t('status.draft') || 'Draft';
       break;
 
     case 'SUBMITTED':
     case 'PENDING':
     case 'PENDING_VERIFICATION':
-      bg = '#BBDEFB';
-      text = '#1565C0';
-      label = normalized === 'SUBMITTED' ? 'Submitted' : 'Pending';
+      bg = colors.badge.pending.bg;
+      textColor = colors.badge.pending.text;
+      label = normalized === 'SUBMITTED' ? (t('status.submitted') || 'Submitted') : (t('status.pending') || 'Pending');
       break;
 
     case 'CREATED':
-      bg = '#E3F2FD';
-      text = '#1565C0';
-      label = 'Created';
+      bg = colors.badge.created.bg;
+      textColor = colors.badge.created.text;
+      label = t('status.created') || 'Created';
       break;
 
     case 'IN_TRANSIT':
-      bg = '#FFF3E0';
-      text = '#E65100';
-      label = 'In Transit';
+      bg = colors.badge.inTransit.bg;
+      textColor = colors.badge.inTransit.text;
+      label = t('status.inTransit') || 'In Transit';
       break;
 
     case 'DELIVERED':
-      bg = '#E0F2F1';
-      text = '#00695C';
-      label = 'Delivered';
+      bg = colors.badge.delivered.bg;
+      textColor = colors.badge.delivered.text;
+      label = t('status.delivered') || 'Delivered';
       break;
 
     case 'RECEIVED':
-      bg = '#EDE7F6';
-      text = '#512DA8';
-      label = 'Received';
+      bg = colors.badge.received.bg;
+      textColor = colors.badge.received.text;
+      label = t('status.received') || 'Received';
       break;
 
     case 'ACCEPTED':
     case 'APPROVED':
     case 'ACTIVE':
-      bg = '#C8E6C9';
-      text = '#2E7D32';
-      label = normalized === 'ACCEPTED' ? 'Accepted' : normalized === 'ACTIVE' ? 'Active' : 'Approved';
+      bg = colors.badge.approved.bg;
+      textColor = colors.badge.approved.text;
+      label = normalized === 'ACCEPTED' ? (t('status.accepted') || 'Accepted') : normalized === 'ACTIVE' ? 'Active' : 'Approved';
       break;
 
     case 'IN_PROGRESS':
     case 'PROCESSING':
     case 'PICKUP_SCHEDULED':
-      bg = '#FFE0B2';
-      text = '#E65100';
+      bg = colors.badge.progress.bg;
+      textColor = colors.badge.progress.text;
       label =
         normalized === 'PICKUP_SCHEDULED'
-          ? 'Scheduled'
+          ? (t('status.pickupScheduled') || 'Scheduled')
           : normalized === 'IN_PROGRESS'
-          ? 'In Progress'
-          : 'Processing';
+          ? (t('status.inProgress') || 'In Progress')
+          : (t('status.processing') || 'Processing');
       break;
 
     case 'COMPLETED':
     case 'RECYCLED':
     case 'PICKED_UP':
-      bg = '#A5D6A7';
-      text = '#1B5E20';
+    case 'COLLECTED':
+      bg = colors.badge.completed.bg;
+      textColor = colors.badge.completed.text;
       label =
         normalized === 'PICKED_UP'
-          ? 'Picked Up'
+          ? (t('status.pickedUp') || 'Picked Up')
+          : normalized === 'COLLECTED'
+          ? (t('status.collected') || 'Collected')
           : normalized === 'COMPLETED'
-          ? 'Completed'
-          : 'Recycled';
+          ? (t('status.completed') || 'Completed')
+          : (t('status.recycled') || 'Recycled');
       break;
 
     case 'CANCELLED':
     case 'REJECTED':
     case 'SUSPENDED':
     case 'DEACTIVATED':
-      bg = '#FFCDD2';
-      text = '#C62828';
-      label = normalized === 'CANCELLED' ? 'Cancelled' : normalized === 'REJECTED' ? 'Rejected' : normalized;
+      bg = colors.badge.cancelled.bg;
+      textColor = colors.badge.cancelled.text;
+      label = normalized === 'CANCELLED' ? (t('status.cancelled') || 'Cancelled') : normalized === 'REJECTED' ? (t('status.rejected') || 'Rejected') : normalized;
       break;
 
     case 'EXPIRED':
-      bg = '#E0E0E0';
-      text = '#616161';
+      bg = colors.badge.expired.bg;
+      textColor = colors.badge.expired.text;
       label = 'Expired';
       break;
 
     default:
-      bg = '#E0E0E0';
-      text = '#424242';
+      bg = colors.badge.draft.bg;
+      textColor = colors.badge.draft.text;
       label = normalized;
   }
 
   return (
     <View
-      style={[styles.badge, { backgroundColor: bg }]}
+      style={[styles.badge, { backgroundColor: bg, borderColor: textColor + '40' }]}
       accessibilityRole="text"
       accessibilityLabel={`Status: ${label}`}
     >
-      <Text style={[styles.badgeText, { color: text }]}>{label}</Text>
+      <Text style={[styles.badgeText, { color: textColor }]}>{label}</Text>
     </View>
   );
-};
+});
+
+StatusBadge.displayName = 'StatusBadge';
 
 const styles = StyleSheet.create({
   badge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.spaceSm,
     paddingVertical: 3,
-    borderRadius: 12,
+    borderRadius: spacing.radiusPill,
     alignSelf: 'flex-start',
+    borderWidth: 1,
   },
   badgeText: {
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.3,
+    letterSpacing: 0.4,
   },
 });
 

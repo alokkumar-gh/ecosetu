@@ -875,8 +875,9 @@ async function runInformalCollectorFirstTests() {
       assert.strictEqual(res.status, 200);
       assert(Array.isArray(res.body.data?.requests), 'Available requests array must be returned');
       const req = res.body.data.requests.find((r) => r.id === createdRequestId);
-      assert(req, 'Created request must be discovered by nearby collector');
-      assert(req.pickupAddress.includes('Approximate Location'), 'Address must be privacy masked until accepted');
+      assert.strictEqual(req.pickupLat, null, 'GPS coordinates must be strictly masked before acceptance');
+      assert.strictEqual(req.pickupLng, null, 'GPS coordinates must be strictly masked before acceptance');
+      assert(req.pickupAddress, 'Address details must be readable for decision');
     });
 
     await testAsync('Rule 3.3: Informal Collector accepts citizen collection request', async () => {

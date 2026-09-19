@@ -60,6 +60,8 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { PICKUP_STATUS, REQUEST_STATUS } from '../../utils/constants';
+import { useI18n } from '../../i18n';
+import { voiceService, AnnouncementPriority } from '../../services/voiceService';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -111,6 +113,15 @@ const fmtTime = (iso?: string | null): string => {
 export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
   const { isConnected } = useNetwork();
+  const { t, language } = useI18n();
+
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState<boolean>(false);
+
+  useEffect(() => {
+    voiceService.isVoiceAssistanceEnabled().then(setIsVoiceEnabled);
+    const unsub = voiceService.subscribe(setIsVoiceEnabled);
+    return () => unsub();
+  }, []);
 
   // Pickups state
   const [pickups, setPickups] = useState<any[]>([]);
@@ -233,6 +244,12 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
                 setPickups((prev) =>
                   prev.map((p) => (p.id === pickupId ? { ...p, ...updated, status: PICKUP_STATUS.IN_PROGRESS } : p)),
                 );
+                if (isVoiceEnabled) {
+                  voiceService.speak(
+                    t('voice.pickupStarted') || 'Pickup started. Heading to citizen location.',
+                    { priority: AnnouncementPriority.HIGH, language }
+                  );
+                }
                 Alert.alert(
                   'Pickup In Progress',
                   'Pickup has been started. You are now en route to the citizen doorstep.',
@@ -403,6 +420,12 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
         ),
       );
       handleCloseCompleteModal();
+      if (isVoiceEnabled) {
+        voiceService.speak(
+          t('voice.pickupCompleted') || 'Pickup completed successfully.',
+          { priority: AnnouncementPriority.HIGH, language }
+        );
+      }
       Alert.alert(
         'Pickup Completed!',
         `Successfully collected ${items.length} item(s) totaling ${calculatedTotalWeight} kg. E-waste is now in your collection inventory.`,
@@ -494,9 +517,12 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
         accessibilityState={{ selected: activeFilter === 'ALL' }}
       >
         <Text
-          style={[styles.filterChipText, activeFilter === 'ALL' && styles.filterChipTextActive]}
+          style={[
+            styles.filterChipText,
+            activeFilter === 'ALL' && styles.filterChipTextActive,
+          ]}
         >
-          All ({counts.all})
+          {t('collector.pickups.tabAll') || 'All'} ({counts.all})
         </Text>
       </TouchableOpacity>
 
@@ -513,7 +539,7 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
             activeFilter === 'SCHEDULED' && styles.filterChipTextActive,
           ]}
         >
-          Scheduled ({counts.scheduled})
+          {t('collector.pickups.tabScheduled') || 'Scheduled'} ({counts.scheduled})
         </Text>
       </TouchableOpacity>
 
@@ -530,7 +556,7 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
             activeFilter === 'IN_PROGRESS' && styles.filterChipTextActive,
           ]}
         >
-          In Progress ({counts.inProgress})
+          {t('collector.pickups.tabInProgress') || 'In Progress'} ({counts.inProgress})
         </Text>
       </TouchableOpacity>
 
@@ -580,8 +606,8 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
       return (
         <EmptyState
           icon="📅"
-          title="No Scheduled Pickups"
-          message="You have no upcoming pickups scheduled. Browse available citizen requests to accept new collection jobs."
+          title={t('collector.pickups.noPickupsTitle') || 'No Scheduled Pickups'}
+          message={t('collector.pickups.noPickupsMessage') || 'You have no upcoming pickups scheduled. Browse available citizen requests to accept new collection jobs.'}
           actionLabel="Browse Available Requests"
           onAction={() => navigation?.navigate?.('CollectorBrowse')}
         />
@@ -592,8 +618,8 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
       return (
         <EmptyState
           icon="🚚"
-          title="No Active Pickups"
-          message="You do not currently have any pickups in progress. Start a scheduled pickup when you are en route."
+          title={t('collector.dashboard.noActivePickups') || 'No Active Pickups'}
+          message={t('collector.dashboard.noActivePickupsDesc') || 'You do not currently have any pickups in progress. Start a scheduled pickup when you are en route.'}
         />
       );
     }
@@ -602,8 +628,8 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
       return (
         <EmptyState
           icon="✅"
-          title="No Completed Pickups"
-          message="You have not finalized any pickups yet. Completed e-waste collections will be recorded here for your history."
+          title={t('collector.pickups.noPickupsTitle') || 'No Completed Pickups'}
+          message={t('collector.pickups.noPickupsMessage') || 'You have not finalized any pickups yet. Completed e-waste collections will be recorded here for your history.'}
         />
       );
     }
@@ -611,8 +637,8 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
     return (
       <EmptyState
         icon="📦"
-        title="No Pickups Assigned"
-        message="You have not accepted any collection requests yet. Discover citizen collection requests in your neighborhood to get started."
+        title={t('collector.pickups.noPickupsTitle') || 'No Pickups Assigned'}
+        message={t('collector.pickups.noPickupsMessage') || 'You have not accepted any collection requests yet. Discover citizen collection requests in your neighborhood to get started.'}
         actionLabel="Browse Requests"
         onAction={() => navigation?.navigate?.('CollectorBrowse')}
       />
@@ -753,6 +779,25 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Action Controls */}
         <View style={styles.actionContainer}>
+          {/* View Map & Navigation Button */}
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.mapNavBtn]}
+            onPress={() =>
+              navigation?.navigate?.('PickupDetail', {
+                pickupId: item.id,
+                pickup: item,
+              })
+            }
+            accessibilityRole="button"
+            accessibilityLabel={`${t('collector.pickups.viewMapAndNavigation') || 'View Map & Navigation'} for pickup ${item.id ? String(item.id).slice(0, 8).toUpperCase() : ''}`}
+            accessibilityHint="Opens exact pickup map, structured address, and Google Maps navigation"
+            activeOpacity={0.8}
+          >
+            <Text style={styles.mapNavBtnText}>
+              🗺 {t('collector.pickups.viewMapAndNavigation') || 'View Map & Navigation'}
+            </Text>
+          </TouchableOpacity>
+
           {isScheduled && (
             <TouchableOpacity
               style={[
@@ -774,7 +819,7 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
               {isThisPickupActionLoading && actionType === 'START' ? (
                 <ActivityIndicator size="small" color={colors.surface} />
               ) : (
-                <Text style={styles.startBtnText}>▶ Start Pickup</Text>
+                <Text style={styles.startBtnText}>▶ {t('collector.pickups.startPickup') || 'Start Pickup'}</Text>
               )}
             </TouchableOpacity>
           )}
@@ -800,7 +845,7 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
               {isThisPickupActionLoading && actionType === 'COMPLETE' ? (
                 <ActivityIndicator size="small" color={colors.surface} />
               ) : (
-                <Text style={styles.completeBtnText}>✓ Complete Pickup</Text>
+                <Text style={styles.completeBtnText}>✓ {t('collector.pickups.completePickup') || 'Complete Pickup'}</Text>
               )}
             </TouchableOpacity>
           )}
@@ -903,7 +948,7 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
             <ScrollView showsVerticalScrollIndicator={false}>
               {/* Modal Header */}
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Complete Pickup</Text>
+                <Text style={styles.modalTitle}>{t('collector.pickups.completeModalTitle') || 'Complete Pickup'}</Text>
                 <Text style={styles.modalSubtitle}>
                   Record verified e-waste weights collected at the citizen doorstep.
                 </Text>
@@ -917,7 +962,7 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
               )}
 
               {/* Items List for Weight Recording */}
-              <Text style={styles.modalSectionTitle}>E-Waste Items Collected</Text>
+              <Text style={styles.modalSectionTitle}>{t('collector.pickups.verifiedWeights') || 'E-Waste Items Collected'}</Text>
               {(completingPickup?.collectionRequest?.ewasteItems || []).map((item: any) => (
                 <View key={item.id} style={styles.modalItemRow}>
                   <View style={styles.modalItemInfo}>
@@ -946,17 +991,17 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
 
               {/* Calculated Total Weight */}
               <View style={styles.totalWeightBox}>
-                <Text style={styles.totalWeightLabel}>Total Collected Weight:</Text>
+                <Text style={styles.totalWeightLabel}>{t('collector.delivery.totalWeight') || 'Total Collected Weight'}:</Text>
                 <Text style={styles.totalWeightValue}>{calculatedTotalWeight} kg</Text>
               </View>
 
               {/* Collector Notes */}
-              <Text style={styles.modalSectionTitle}>Collector Notes (Optional)</Text>
+              <Text style={styles.modalSectionTitle}>{t('collector.pickups.collectorNotes') || 'Collector Notes (Optional)'}</Text>
               <TextInput
                 style={styles.notesInput}
                 value={collectorNotes}
                 onChangeText={setCollectorNotes}
-                placeholder="e.g. Collected in good condition from doorstep..."
+                placeholder={t('collector.pickups.notesPlaceholder') || 'e.g. Collected in good condition from doorstep...'}
                 placeholderTextColor={colors.textSecondary}
                 multiline
                 numberOfLines={3}
@@ -974,7 +1019,7 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
                   accessibilityRole="button"
                   accessibilityLabel="Cancel pickup completion"
                 >
-                  <Text style={styles.modalCancelText}>Cancel</Text>
+                  <Text style={styles.modalCancelText}>{t('collector.pickups.cancel') || 'Cancel'}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -995,7 +1040,7 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
                   {isSubmittingCompletion ? (
                     <ActivityIndicator size="small" color={colors.surface} />
                   ) : (
-                    <Text style={styles.modalSubmitText}>Confirm Completion</Text>
+                    <Text style={styles.modalSubmitText}>{t('collector.pickups.confirmCompletion') || 'Confirm Completion'}</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -1072,22 +1117,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: spacing.spaceMd,
     paddingVertical: spacing.spaceSm,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: colors.glassBorder,
   },
   filterChip: {
-    paddingHorizontal: spacing.spaceSm + 2,
+    paddingHorizontal: spacing.spaceSm + 4,
     paddingVertical: spacing.spaceXs + 2,
     borderRadius: 16,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.glassFill,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
     marginRight: spacing.spaceXs,
-    minHeight: 48,
+    minHeight: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
   filterChipActive: {
     backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   filterChipText: {
     fontSize: typography.Caption.fontSize,
@@ -1095,7 +1143,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   filterChipTextActive: {
-    color: colors.surface,
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   skeletonContainer: {
@@ -1103,30 +1151,24 @@ const styles = StyleSheet.create({
   },
   skeletonCard: {
     marginBottom: spacing.spaceMd,
-    borderRadius: 8,
+    borderRadius: 14,
   },
   listContent: {
     padding: spacing.spaceMd,
     paddingBottom: spacing.spaceXl * 2,
   },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
+    backgroundColor: colors.glassFillElevated,
+    borderRadius: 14,
     padding: spacing.spaceMd,
     marginBottom: spacing.spaceMd,
     borderWidth: 1,
-    borderColor: colors.divider,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    borderColor: colors.glassBorder,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 3,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -1251,6 +1293,17 @@ const styles = StyleSheet.create({
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  mapNavBtn: {
+    backgroundColor: 'rgba(13, 148, 136, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(13, 148, 136, 0.35)',
+    marginBottom: spacing.spaceXs,
+  },
+  mapNavBtnText: {
+    color: colors.primary,
+    fontSize: typography.Button.fontSize,
+    fontWeight: '700',
   },
   startBtn: {
     backgroundColor: colors.primary,

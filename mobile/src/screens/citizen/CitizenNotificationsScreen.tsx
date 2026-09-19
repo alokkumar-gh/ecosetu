@@ -45,6 +45,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { Skeleton } from '../../components/common/Skeleton';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { notificationService } from '../../services/notificationService';
+import { useI18n } from '../../i18n';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 
@@ -213,7 +214,33 @@ interface NotificationCardProps {
 }
 
 const NotificationCard: React.FC<NotificationCardProps> = ({ item, onPress }) => {
-  const meta = getNotificationMeta(item.type || '');
+  const { t } = useI18n();
+  const rawMeta = getNotificationMeta(item.type || '');
+  const displayTitle = (() => {
+    switch (item.type) {
+      case NOTIFICATION_TYPES.REQUEST_ACCEPTED:
+        return t('citizen.notifications.requestAccepted') || rawMeta.displayTitle;
+      case NOTIFICATION_TYPES.PICKUP_SCHEDULED:
+        return t('citizen.notifications.pickupScheduled') || rawMeta.displayTitle;
+      case NOTIFICATION_TYPES.PICKUP_COMPLETED:
+        return t('citizen.notifications.pickupCompleted') || rawMeta.displayTitle;
+      case NOTIFICATION_TYPES.REQUEST_CANCELLED:
+        return t('citizen.notifications.requestCancelled') || rawMeta.displayTitle;
+      case NOTIFICATION_TYPES.RECYCLING_COMPLETED:
+        return t('citizen.notifications.recyclingCompleted') || rawMeta.displayTitle;
+      case NOTIFICATION_TYPES.ACCOUNT_SUSPENDED:
+        return t('citizen.notifications.accountSuspended') || rawMeta.displayTitle;
+      case NOTIFICATION_TYPES.ACCOUNT_REACTIVATED:
+        return t('citizen.notifications.accountReactivated') || rawMeta.displayTitle;
+      case NOTIFICATION_TYPES.VERIFICATION_APPROVED:
+        return t('citizen.notifications.accountVerified') || rawMeta.displayTitle;
+      case NOTIFICATION_TYPES.VERIFICATION_REJECTED:
+        return t('citizen.notifications.verificationUpdate') || rawMeta.displayTitle;
+      default:
+        return t('citizen.notifications.notification') || rawMeta.displayTitle;
+    }
+  })();
+  const meta = { ...rawMeta, displayTitle };
   const isUnread = !item.isRead;
   const timeLabel = fmtRelative(item.createdAt);
 
@@ -266,7 +293,10 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ item, onPress }) =>
 
           {/* Collector-related label — reinforces Kabadiwala-first */}
           {meta.isCollectorRelated && (
-            <Text style={styles.collectorTag}>Via local informal collector (Kabadiwala)</Text>
+            <Text style={styles.collectorTag}>
+              {t('citizen.notifications.viaCollector') ||
+                'Via local informal collector (Kabadiwala)'}
+            </Text>
           )}
         </View>
       </View>
@@ -289,6 +319,7 @@ const NotificationsSkeleton: React.FC = () => (
 export const CitizenNotificationsScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const { isConnected } = useNetwork();
+  const { t } = useI18n();
 
   const [notifications, setNotifications] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -395,8 +426,9 @@ export const CitizenNotificationsScreen: React.FC = () => {
     if (isMarkingAll) return;
     if (!isConnected) {
       Alert.alert(
-        'Offline',
-        'Please connect to the internet to mark all notifications as read.',
+        t('citizen.notifications.markAllOfflineError') || 'Offline',
+        t('citizen.notifications.markAllOfflineMessage') ||
+          'Please connect to the internet to mark all notifications as read.',
         [{ text: 'OK' }],
       );
       return;
@@ -418,7 +450,7 @@ export const CitizenNotificationsScreen: React.FC = () => {
     } finally {
       setIsMarkingAll(false);
     }
-  }, [isMarkingAll, isConnected, notifications, loadData]);
+  }, [isMarkingAll, isConnected, notifications, loadData, t]);
 
   // ── Render Helpers ────────────────────────────────────────────────────────
 
@@ -445,7 +477,8 @@ export const CitizenNotificationsScreen: React.FC = () => {
       {fromCache && (
         <View style={styles.cachedNotice}>
           <Text style={styles.cachedNoticeText}>
-            📴 Showing cached notifications (last synced while online)
+            {t('citizen.notifications.cachedNotice') ||
+              '📴 Showing cached notifications (last synced while online)'}
           </Text>
         </View>
       )}
@@ -457,7 +490,9 @@ export const CitizenNotificationsScreen: React.FC = () => {
           onPress={handleMarkAllRead}
           disabled={isMarkingAll || !isConnected}
           accessibilityRole="button"
-          accessibilityLabel="Mark all notifications as read"
+          accessibilityLabel={
+            t('citizen.notifications.markAllAsRead') || 'Mark all notifications as read'
+          }
           accessibilityState={{ disabled: isMarkingAll || !isConnected }}
         >
           {isMarkingAll ? (
@@ -469,7 +504,7 @@ export const CitizenNotificationsScreen: React.FC = () => {
                 (!isConnected || isMarkingAll) && styles.markAllTextDisabled,
               ]}
             >
-              ✓ Mark all as read
+              {t('citizen.notifications.markAllAsRead') || '✓ Mark all as read'}
             </Text>
           )}
         </TouchableOpacity>
@@ -483,7 +518,7 @@ export const CitizenNotificationsScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.container}>
         <TopAppBar
-          title="Notifications"
+          title={t('citizen.notifications.title') || 'Notifications'}
           roleBadge="CITIZEN"
         />
         <NotificationsSkeleton />
@@ -497,21 +532,25 @@ export const CitizenNotificationsScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.container}>
         <TopAppBar
-          title="Notifications"
+          title={t('citizen.notifications.title') || 'Notifications'}
           roleBadge="CITIZEN"
         />
         {!isConnected && <OfflineBanner />}
         <View style={styles.errorContainer}>
           <Text style={styles.errorIcon}>⚠️</Text>
-          <Text style={styles.errorTitle}>Could Not Load Notifications</Text>
+          <Text style={styles.errorTitle}>
+            {t('citizen.notifications.couldNotLoad') || 'Could Not Load Notifications'}
+          </Text>
           <Text style={styles.errorMessage}>{errorMessage}</Text>
           <TouchableOpacity
             style={styles.retryButton}
             onPress={() => { setIsLoading(true); loadData(); }}
             accessibilityRole="button"
-            accessibilityLabel="Retry loading notifications"
+            accessibilityLabel={t('citizen.requests.retry') || 'Retry loading notifications'}
           >
-            <Text style={styles.retryButtonText}>Retry</Text>
+            <Text style={styles.retryButtonText}>
+              {t('citizen.requests.retry') || 'Retry'}
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -523,7 +562,7 @@ export const CitizenNotificationsScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <TopAppBar
-        title="Notifications"
+        title={t('citizen.notifications.title') || 'Notifications'}
         roleBadge="CITIZEN"
         unreadNotificationsCount={unreadCount ?? 0}
       />
@@ -540,8 +579,11 @@ export const CitizenNotificationsScreen: React.FC = () => {
         ListEmptyComponent={
           <EmptyState
             icon="🔔"
-            title="No Notifications"
-            message="You have no notifications yet. When a local informal collector accepts your request or your e-waste is picked up, you'll be notified here."
+            title={t('citizen.notifications.empty') || 'No Notifications'}
+            message={
+              t('citizen.notifications.emptyDesc') ||
+              "You have no notifications yet. When a local informal collector accepts your request or your e-waste is picked up, you'll be notified here."
+            }
           />
         }
         refreshControl={

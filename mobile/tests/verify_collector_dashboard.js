@@ -632,9 +632,11 @@ assert(contains(scr.content, 'accessibilityRole'), 'O01', 'accessibilityRole pre
 assert(contains(scr.content, 'accessibilityLabel'), 'O02', 'accessibilityLabel present');
 assert(contains(scr.content, 'accessibilityState'), 'O03', 'accessibilityState present on interactive elements');
 assert(contains(scr.content, 'accessibilityHint'), 'O04', 'accessibilityHint present on controls');
+const touchTargetMatch = scr.content.match(/minHeight:\s*(\d+)/);
+const effectiveMinHeight = touchTargetMatch ? parseInt(touchTargetMatch[1], 10) : 0;
 assert(
-  contains(scr.content, 'minHeight: 44') || contains(scr.content, 'minHeight: 48'),
-  'O05', 'Minimum touch target height (44–48dp) on interactive elements',
+  effectiveMinHeight >= 44 || /minHeight:\s*(4[4-9]|[5-9]\d|\d{3,})/.test(scr.content),
+  'O05', 'Minimum touch target height (>=44dp) on interactive elements',
 );
 assert(
   contains(scr.content, 'accessibilityRole="alert"') || contains(scr.content, "accessibilityRole='alert'"),

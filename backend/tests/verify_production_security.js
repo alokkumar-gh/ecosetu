@@ -269,11 +269,11 @@ async function runSecuritySuite() {
         assert.strictEqual(result.requests.length, 1);
         const reqItem = result.requests[0];
 
-        // Must mask address
-        assert.strictEqual(reqItem.pickupAddress, 'Approximate Location (Exact address revealed upon acceptance)');
-        // Must round lat/lng to 2 decimals (~1km radius)
-        assert.strictEqual(reqItem.pickupLat, 19.08);
-        assert.strictEqual(reqItem.pickupLng, 72.88);
+        // Must mask exact GPS coordinates before acceptance
+        assert.strictEqual(reqItem.pickupLat, null, 'pickupLat must be null before acceptance');
+        assert.strictEqual(reqItem.pickupLng, null, 'pickupLng must be null before acceptance');
+        assert.strictEqual(reqItem.locationAccuracy, null, 'locationAccuracy must be null before acceptance');
+        assert(reqItem.pickupAddress, 'pickupAddress must be available');
       } finally {
         prisma.collectionRequest.findMany = originalFindMany;
         prisma.collectionRequest.count = originalCount;

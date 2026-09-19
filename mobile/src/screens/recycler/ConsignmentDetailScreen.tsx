@@ -1,6 +1,6 @@
 /**
  * EcoSetu Recycler Consignment Detail Screen
- * Provides detailed inspection and accept/reject management of incoming consignments.
+ * Provides comprehensive inspection, delivery marking, acceptance, and processing workflow.
  * Source of Truth: docs/05_API_SPECIFICATION.md Section 9, docs/07_BUSINESS_WORKFLOWS.md Section 2.3
  */
 
@@ -11,8 +11,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
-  StatusBar,
   ActivityIndicator,
   Modal,
   TextInput,
@@ -24,6 +22,8 @@ import { networkService } from '../../services/networkService';
 import { TopAppBar } from '../../components/layout/TopAppBar';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
+import { GradientBackground } from '../../components/glass/GradientBackground';
+import { GlassCard } from '../../components/glass/GlassCard';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 
@@ -54,8 +54,15 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
   // Modals
   const [showAcceptModal, setShowAcceptModal] = useState<boolean>(false);
   const [showRejectModal, setShowRejectModal] = useState<boolean>(false);
+  const [showCompleteModal, setShowCompleteModal] = useState<boolean>(false);
+
+  // Inputs
   const [rejectionReason, setRejectionReason] = useState<string>('');
   const [rejectionError, setRejectionError] = useState<string | null>(null);
+  const [outputDescription, setOutputDescription] = useState<string>('');
+  const [outputWeightKg, setOutputWeightKg] = useState<string>('');
+  const [processingNotes, setProcessingNotes] = useState<string>('');
+  const [completionError, setCompletionError] = useState<string | null>(null);
 
   const submittingRef = useRef<boolean>(false);
 
@@ -93,16 +100,13 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
   }, [consignmentId, consignment]);
 
   useEffect(() => {
-    if (!initialConsignment) {
-      fetchConsignment();
-    }
-  }, [fetchConsignment, initialConsignment]);
+    fetchConsignment();
+  }, [fetchConsignment]);
 
   // Role Access Guard
   if (user && user.role !== 'RECYCLER' && user.role !== 'ADMIN') {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
+      <GradientBackground>
         <TopAppBar title="Consignment Details" onBack={() => navigation?.goBack()} />
         <View style={styles.accessRestrictedContainer}>
           <Text style={styles.accessRestrictedIcon}>🔒</Text>
@@ -111,11 +115,65 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
             Only authorized formal recycling facilities can inspect or manage consignments.
           </Text>
         </View>
-      </SafeAreaView>
+      </GradientBackground>
     );
   }
 
-  // Handle Accept Action
+  // Handle Mark Delivered Action (CREATED / IN_TRANSIT -> DELIVERED)
+  const handleMarkDelivered = () => {
+    if (submittingRef.current || isProcessing) return;
+    if (isOffline) {
+      Alert.alert(
+        'Offline',
+        'Marking a consignment as delivered requires an active internet connection.'
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Confirm Delivery Receipt',
+      'Confirm that this consignment batch has physically arrived at your recycling facility?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm Delivery',
+          onPress: async () => {
+            submittingRef.current = true;
+            setIsProcessing(true);
+            setError(null);
+
+            try {
+              const updated: any = await recyclingService.deliverConsignment(consignment.id);
+              setConsignment((prev: any) => ({
+                ...prev,
+                ...updated,
+                status: 'DELIVERED',
+                deliveredAt: updated.deliveredAt || new Date().toISOString(),
+              }));
+              setActionSuccessMessage(
+                'Consignment marked as DELIVERED! Batch is ready for physical inspection and acceptance.'
+              );
+            } catch (err: any) {
+              if (err.status === 409 || err.code === 'CONFLICT' || err.status === 400) {
+                Alert.alert(
+                  'Status Conflict',
+                  err.message || 'This consignment status was updated. Refreshing data...',
+                  [{ text: 'OK', onPress: () => fetchConsignment() }]
+                );
+              } else {
+                Alert.alert('Error', err.message || 'Failed to mark consignment as delivered.');
+              }
+            } finally {
+              setIsProcessing(false);
+              submittingRef.current = false;
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Handle Accept Action (DELIVERED -> ACCEPTED)
   const handleConfirmAccept = async () => {
     if (submittingRef.current || isProcessing) return;
     if (isOffline) {
@@ -131,8 +189,18 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
     setError(null);
 
     try {
-      const updated = await recyclingService.acceptConsignment(consignment.id);
-      setConsignment(updated);
+      const updated: any = await recyclingService.acceptConsignment(consignment.id);
+      setConsignment((prev: any) => ({
+        ...prev,
+        ...updated,
+        status: 'ACCEPTED',
+        acceptedAt: updated.acceptedAt || new Date().toISOString(),
+        recyclingRecord: updated.recyclingRecord || {
+          id: updated.recyclingRecordId,
+          status: 'RECEIVED',
+          receivedAt: new Date().toISOString(),
+        },
+      }));
       setShowAcceptModal(false);
       setActionSuccessMessage(
         'Consignment accepted successfully! A certified recycling record has been created with status RECEIVED.'
@@ -140,7 +208,7 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
     } catch (err: any) {
       if (err.status === 409 || err.code === 'CONFLICT' || err.status === 400) {
         Alert.alert(
-          'Status Mismatch',
+          'Status Conflict',
           err.message || 'This consignment status has changed. Refreshing data...',
           [{ text: 'OK', onPress: () => fetchConsignment() }]
         );
@@ -153,7 +221,7 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
     }
   };
 
-  // Handle Reject Action
+  // Handle Reject Action (DELIVERED -> REJECTED)
   const handleConfirmReject = async () => {
     if (submittingRef.current || isProcessing) return;
     if (isOffline) {
@@ -179,15 +247,21 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
     setRejectionError(null);
 
     try {
-      const updated = await recyclingService.rejectConsignment(consignment.id, trimmedReason);
-      setConsignment(updated);
+      const updated: any = await recyclingService.rejectConsignment(consignment.id, trimmedReason);
+      setConsignment((prev: any) => ({
+        ...prev,
+        ...updated,
+        status: 'REJECTED',
+        rejectedAt: updated.rejectedAt || new Date().toISOString(),
+        rejectionReason: trimmedReason,
+      }));
       setShowRejectModal(false);
       setRejectionReason('');
       setActionSuccessMessage('Consignment has been rejected. The delivering collector has been notified.');
     } catch (err: any) {
       if (err.status === 409 || err.code === 'CONFLICT' || err.status === 400) {
         Alert.alert(
-          'Status Mismatch',
+          'Status Conflict',
           err.message || 'This consignment status has changed. Refreshing data...',
           [{ text: 'OK', onPress: () => fetchConsignment() }]
         );
@@ -200,23 +274,152 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
     }
   };
 
+  // Handle Start Inspection / Processing (ACCEPTED / RECEIVED -> PROCESSING)
+  const handleStartInspection = () => {
+    const recordId = consignment?.recyclingRecord?.id;
+    if (!recordId) {
+      // If recyclingRecord id is not attached, re-fetch records to find it
+      fetchConsignment();
+      Alert.alert('Loading', 'Updating record details from server...');
+      return;
+    }
+
+    if (submittingRef.current || isProcessing) return;
+    if (isOffline) {
+      Alert.alert(
+        'Offline',
+        'Starting material inspection requires an active internet connection.'
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Start Inspection & Processing',
+      'Begin physical material dismantling and processing for this batch?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Start Inspection',
+          onPress: async () => {
+            submittingRef.current = true;
+            setIsProcessing(true);
+
+            try {
+              const updatedRecord: any = await recyclingService.startProcessing(recordId);
+              setConsignment((prev: any) => ({
+                ...prev,
+                recyclingRecord: {
+                  ...(prev?.recyclingRecord || {}),
+                  ...updatedRecord,
+                  status: 'PROCESSING',
+                  startedAt: updatedRecord.startedAt || new Date().toISOString(),
+                },
+              }));
+              setActionSuccessMessage(
+                'Material processing started! Status transitioned to PROCESSING.'
+              );
+            } catch (err: any) {
+              if (err.status === 409 || err.code === 'CONFLICT' || err.status === 400) {
+                Alert.alert(
+                  'Status Conflict',
+                  err.message || 'Processing record status changed. Refreshing...',
+                  [{ text: 'OK', onPress: () => fetchConsignment() }]
+                );
+              } else {
+                Alert.alert('Error', err.message || 'Failed to start inspection/processing.');
+              }
+            } finally {
+              setIsProcessing(false);
+              submittingRef.current = false;
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Handle Complete Recycling (PROCESSING -> COMPLETED)
+  const handleConfirmComplete = async () => {
+    const recordId = consignment?.recyclingRecord?.id;
+    if (!recordId) {
+      Alert.alert('Error', 'Recycling record ID is missing.');
+      return;
+    }
+
+    if (submittingRef.current || isProcessing) return;
+    if (isOffline) {
+      Alert.alert(
+        'Offline',
+        'Completing recycling requires an active internet connection.'
+      );
+      return;
+    }
+
+    const weightNum = outputWeightKg.trim() ? parseFloat(outputWeightKg.trim()) : null;
+    if (weightNum !== null && (isNaN(weightNum) || weightNum < 0)) {
+      setCompletionError('Output weight must be a valid non-negative number (>= 0 kg).');
+      return;
+    }
+
+    submittingRef.current = true;
+    setIsProcessing(true);
+    setCompletionError(null);
+
+    const payload: any = {};
+    if (processingNotes.trim()) payload.processingNotes = processingNotes.trim();
+    if (outputDescription.trim()) payload.outputDescription = outputDescription.trim();
+    if (weightNum !== null) payload.outputWeightKg = weightNum;
+
+    try {
+      const updatedRecord: any = await recyclingService.completeRecycling(recordId, payload);
+      setConsignment((prev: any) => ({
+        ...prev,
+        recyclingRecord: {
+          ...(prev?.recyclingRecord || {}),
+          ...updatedRecord,
+          status: 'COMPLETED',
+          completedAt: updatedRecord.completedAt || new Date().toISOString(),
+          certificateId: updatedRecord.certificateId,
+        },
+      }));
+      setShowCompleteModal(false);
+      setOutputDescription('');
+      setOutputWeightKg('');
+      setProcessingNotes('');
+      setActionSuccessMessage(
+        'Recycling completed! Certified recycling certificate generated. Linked items marked RECYCLED.'
+      );
+    } catch (err: any) {
+      if (err.status === 409 || err.code === 'CONFLICT' || err.status === 400) {
+        Alert.alert(
+          'Status Conflict',
+          err.message || 'Recycling record status changed. Refreshing...',
+          [{ text: 'OK', onPress: () => fetchConsignment() }]
+        );
+      } else {
+        setCompletionError(err.message || 'Failed to complete recycling.');
+      }
+    } finally {
+      setIsProcessing(false);
+      submittingRef.current = false;
+    }
+  };
+
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
+      <GradientBackground>
         <TopAppBar title="Consignment Details" onBack={() => navigation?.goBack()} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading consignment details...</Text>
         </View>
-      </SafeAreaView>
+      </GradientBackground>
     );
   }
 
   if (error || !consignment) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
+      <GradientBackground>
         <TopAppBar title="Consignment Details" onBack={() => navigation?.goBack()} />
         <View style={styles.errorContainer}>
           <Text style={styles.errorIcon}>⚠️</Text>
@@ -230,7 +433,7 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </GradientBackground>
     );
   }
 
@@ -245,12 +448,16 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
   const isRejected = consignment.status === 'REJECTED';
   const isPendingDelivery = consignment.status === 'CREATED' || consignment.status === 'IN_TRANSIT';
 
+  const recyclingRec = consignment.recyclingRecord;
+  const isRecyclingReceived = isAccepted && (!recyclingRec || recyclingRec.status === 'RECEIVED');
+  const isRecyclingProcessing = isAccepted && recyclingRec?.status === 'PROCESSING';
+  const isRecyclingCompleted = isAccepted && recyclingRec?.status === 'COMPLETED';
+
   const collectorName = consignment.collector?.user?.name || 'Verified Collector';
   const collectorPhone = consignment.collector?.user?.phone || 'Contact via platform';
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
+    <GradientBackground>
       <TopAppBar
         title="Consignment Details"
         subtitle={`#CSG-${consignment.id.slice(0, 8).toUpperCase()}`}
@@ -260,7 +467,7 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
 
       {isOffline && <OfflineBanner />}
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Success Action Notification */}
         {actionSuccessMessage && (
           <View style={styles.successBanner}>
@@ -270,10 +477,10 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
         )}
 
         {/* Status Card */}
-        <View style={styles.card}>
+        <GlassCard style={styles.card}>
           <View style={styles.statusHeaderRow}>
             <View>
-              <Text style={styles.sectionCaption}>Current Status</Text>
+              <Text style={styles.sectionCaption}>Current Consignment Status</Text>
               <Text style={styles.consignmentRef}>
                 #CSG-{consignment.id.slice(0, 8).toUpperCase()}
               </Text>
@@ -325,19 +532,212 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
             </View>
           )}
 
-          {/* Acceptance confirmation info if ACCEPTED */}
-          {isAccepted && consignment.recyclingRecord && (
+          {/* Certified Recycling Record Status Box */}
+          {isAccepted && (
             <View style={styles.acceptedNoticeBox}>
-              <Text style={styles.acceptedNoticeTitle}>Certified Recycling Record Active</Text>
+              <View style={styles.recyclingStatusRow}>
+                <Text style={styles.acceptedNoticeTitle}>Certified Recycling Lifecycle</Text>
+                <StatusBadge status={recyclingRec?.status || 'RECEIVED'} />
+              </View>
               <Text style={styles.acceptedNoticeText}>
-                Status: {consignment.recyclingRecord.status || 'RECEIVED'} • Initialized for processing.
+                {recyclingRec?.status === 'COMPLETED'
+                  ? `Processing Complete • Certificate: ${recyclingRec.certificateId || 'CERT-' + consignment.id.slice(0, 8).toUpperCase()}`
+                  : recyclingRec?.status === 'PROCESSING'
+                  ? 'Material dismantling and sorting currently in progress at facility.'
+                  : 'Consignment received and logged into formal custody chain.'}
+              </Text>
+
+              {recyclingRec?.id && (
+                <TouchableOpacity
+                  style={styles.viewRecordBtn}
+                  onPress={() =>
+                    navigation?.navigate?.('RecyclingRecordDetail', {
+                      recordId: recyclingRec.id,
+                      record: recyclingRec,
+                    })
+                  }
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.viewRecordBtnText}>📋 View Full Processing Record →</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </GlassCard>
+
+        {/* Operational Workflow CTAs */}
+        <GlassCard style={styles.ctaCard}>
+          <Text style={styles.cardTitle}>Operational Action</Text>
+
+          {/* State 1: CREATED or IN_TRANSIT -> Mark Delivered */}
+          {isPendingDelivery && (
+            <View style={styles.actionStateBox}>
+              <View style={styles.pendingDeliveryBanner}>
+                <Text style={styles.pendingDeliveryIcon}>🚚</Text>
+                <Text style={styles.pendingDeliveryText}>
+                  Consignment is currently {consignment.status}. Once the collector delivers the batch to your facility, confirm delivery below.
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.primaryActionButton,
+                  (isOffline || isProcessing) && styles.buttonDisabled,
+                ]}
+                onPress={handleMarkDelivered}
+                disabled={isOffline || isProcessing}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Mark Delivered"
+              >
+                {isProcessing ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.primaryActionText}>📦 Mark Delivered / Arrived at Facility</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* State 2: DELIVERED -> Accept or Reject */}
+          {isDelivered && (
+            <View style={styles.actionStateBox}>
+              <View style={styles.actionPromptBanner}>
+                <Text style={styles.actionPromptIcon}>📋</Text>
+                <Text style={styles.actionPromptText}>
+                  Batch delivered to your facility. Inspect physical items before accepting custody.
+                </Text>
+              </View>
+              <View style={styles.buttonRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.rejectButton,
+                    (isOffline || isProcessing) && styles.buttonDisabled,
+                  ]}
+                  onPress={() => {
+                    setRejectionReason('');
+                    setRejectionError(null);
+                    setShowRejectModal(true);
+                  }}
+                  disabled={isOffline || isProcessing}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Reject Consignment"
+                >
+                  <Text style={styles.rejectButtonText}>Reject</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.acceptButton,
+                    (isOffline || isProcessing) && styles.buttonDisabled,
+                  ]}
+                  onPress={() => setShowAcceptModal(true)}
+                  disabled={isOffline || isProcessing}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Accept Consignment"
+                >
+                  {isProcessing ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.acceptButtonText}>Accept Consignment</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* State 3: ACCEPTED & Recycling RECEIVED -> Start Inspection */}
+          {isRecyclingReceived && (
+            <View style={styles.actionStateBox}>
+              <View style={styles.processingBanner}>
+                <Text style={styles.processingBannerIcon}>🔍</Text>
+                <Text style={styles.processingBannerText}>
+                  Batch accepted into facility custody. Start material dismantling and inspection.
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.primaryActionButton,
+                  (isOffline || isProcessing) && styles.buttonDisabled,
+                ]}
+                onPress={handleStartInspection}
+                disabled={isOffline || isProcessing}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Start Inspection"
+              >
+                {isProcessing ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.primaryActionText}>⚙️ Start Inspection / Processing</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* State 4: Recycling PROCESSING -> Complete Recycling */}
+          {isRecyclingProcessing && (
+            <View style={styles.actionStateBox}>
+              <View style={styles.processingBanner}>
+                <Text style={styles.processingBannerIcon}>♻️</Text>
+                <Text style={styles.processingBannerText}>
+                  Materials are in active processing. Record output yields to complete formal recycling.
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.completeActionButton,
+                  (isOffline || isProcessing) && styles.buttonDisabled,
+                ]}
+                onPress={() => {
+                  setCompletionError(null);
+                  setShowCompleteModal(true);
+                }}
+                disabled={isOffline || isProcessing}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Complete Recycling"
+              >
+                {isProcessing ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.primaryActionText}>✅ Complete Recycling & Generate Certificate</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* State 5: Recycling COMPLETED */}
+          {isRecyclingCompleted && (
+            <View style={styles.completedNoticeBox}>
+              <Text style={styles.completedBadgeIcon}>🏅</Text>
+              <Text style={styles.completedBadgeTitle}>Certified Formal Recycling Complete</Text>
+              <Text style={styles.completedBadgeSub}>
+                Materials successfully recycled under CPCB compliance guidelines. All custody records are immutably sealed.
               </Text>
             </View>
           )}
-        </View>
+
+          {/* State 6: REJECTED */}
+          {isRejected && (
+            <View style={styles.rejectedNoticeBox}>
+              <Text style={styles.rejectionNoticeTitle}>Consignment Rejected</Text>
+              <Text style={styles.rejectionNoticeText}>
+                This batch was rejected. No further facility processing is permitted.
+              </Text>
+            </View>
+          )}
+
+          {isOffline && (
+            <Text style={styles.offlineActionNotice}>
+              ⚠️ Actions are disabled while offline. Internet connection required.
+            </Text>
+          )}
+        </GlassCard>
 
         {/* Delivering Collector Info */}
-        <View style={styles.card}>
+        <GlassCard style={styles.card}>
           <Text style={styles.cardTitle}>Delivering Collector</Text>
           <View style={styles.collectorBox}>
             <Text style={styles.collectorAvatar}>🚚</Text>
@@ -352,10 +752,10 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
           <Text style={styles.chainNote}>
             Aggregated by local informal collector partner under the EcoSetu formalization framework.
           </Text>
-        </View>
+        </GlassCard>
 
         {/* E-Waste Material Summary */}
-        <View style={styles.card}>
+        <GlassCard style={styles.card}>
           <Text style={styles.cardTitle}>Consignment Material Summary</Text>
           <View style={styles.summaryStatsRow}>
             <View style={styles.statBox}>
@@ -396,85 +796,17 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
           ) : (
             <Text style={styles.emptyItemsText}>Item breakdown details not loaded.</Text>
           )}
-        </View>
+        </GlassCard>
 
         {/* Delivery Notes */}
         {consignment.deliveryNotes ? (
-          <View style={styles.card}>
+          <GlassCard style={styles.card}>
             <Text style={styles.cardTitle}>Collector Delivery Notes</Text>
             <Text style={styles.notesText}>{consignment.deliveryNotes}</Text>
-          </View>
+          </GlassCard>
         ) : null}
 
-        {/* Action Controls Section */}
-        {!isAccepted && !isRejected && (
-          <View style={styles.actionsContainer}>
-            {isPendingDelivery && (
-              <View style={styles.pendingDeliveryBanner}>
-                <Text style={styles.pendingDeliveryIcon}>ℹ️</Text>
-                <Text style={styles.pendingDeliveryText}>
-                  This consignment is currently {consignment.status}. Acceptance becomes available once
-                  the collector delivers the batch to your facility (status: DELIVERED).
-                </Text>
-              </View>
-            )}
-
-            {isDelivered && (
-              <View style={styles.actionPromptBanner}>
-                <Text style={styles.actionPromptIcon}>📋</Text>
-                <Text style={styles.actionPromptText}>
-                  Inspect physical items at facility handoff before accepting or rejecting.
-                </Text>
-              </View>
-            )}
-
-            <View style={styles.buttonRow}>
-              {/* Reject Button: Available for CREATED, IN_TRANSIT, DELIVERED */}
-              <TouchableOpacity
-                style={[
-                  styles.rejectButton,
-                  (isOffline || isProcessing) && styles.buttonDisabled,
-                ]}
-                onPress={() => {
-                  setRejectionReason('');
-                  setRejectionError(null);
-                  setShowRejectModal(true);
-                }}
-                disabled={isOffline || isProcessing}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel="Reject Consignment"
-              >
-                <Text style={styles.rejectButtonText}>Reject</Text>
-              </TouchableOpacity>
-
-              {/* Accept Button: Available ONLY when DELIVERED */}
-              <TouchableOpacity
-                style={[
-                  styles.acceptButton,
-                  (!isDelivered || isOffline || isProcessing) && styles.buttonDisabled,
-                ]}
-                onPress={() => setShowAcceptModal(true)}
-                disabled={!isDelivered || isOffline || isProcessing}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel="Accept Consignment"
-              >
-                {isProcessing ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.acceptButtonText}>Accept Consignment</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-
-            {isOffline && (
-              <Text style={styles.offlineActionNotice}>
-                ⚠️ Actions are disabled while offline. Internet connection required.
-              </Text>
-            )}
-          </View>
-        )}
+        <View style={{ height: spacing.spaceXl }} />
       </ScrollView>
 
       {/* Accept Confirmation Modal */}
@@ -598,37 +930,108 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+
+      {/* Complete Recycling Modal */}
+      <Modal
+        visible={showCompleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCompleteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Complete Formal Recycling</Text>
+            <Text style={styles.modalBody}>
+              Confirm completion of dismantling, recovery, and compliant material sorting.
+            </Text>
+
+            <Text style={styles.inputLabel}>Recovered Output Description</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g., Shredded copper, PCB precious metals, plastic granules"
+              placeholderTextColor={colors.textSecondary}
+              value={outputDescription}
+              onChangeText={setOutputDescription}
+              maxLength={500}
+            />
+
+            <Text style={styles.inputLabel}>Output Weight (kg)</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g., 4.5"
+              placeholderTextColor={colors.textSecondary}
+              value={outputWeightKg}
+              onChangeText={setOutputWeightKg}
+              keyboardType="decimal-pad"
+            />
+
+            <Text style={styles.inputLabel}>Processing Notes (Optional)</Text>
+            <TextInput
+              style={[styles.modalInput, { minHeight: 60, textAlignVertical: 'top' }]}
+              placeholder="Compliance observations or facility notes..."
+              placeholderTextColor={colors.textSecondary}
+              value={processingNotes}
+              onChangeText={setProcessingNotes}
+              multiline
+              numberOfLines={3}
+              maxLength={1000}
+            />
+
+            {completionError && (
+              <Text style={styles.completionErrorText}>{completionError}</Text>
+            )}
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setShowCompleteModal(false)}
+                disabled={isProcessing}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalCompleteButton, isProcessing && styles.buttonDisabled]}
+                onPress={handleConfirmComplete}
+                disabled={isProcessing}
+                activeOpacity={0.8}
+              >
+                {isProcessing ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalConfirmText}>Issue Certificate</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </GradientBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   scrollContent: {
     padding: spacing.spaceMd,
     gap: spacing.spaceMd,
-    paddingBottom: spacing.spaceXl,
+    paddingBottom: spacing.spaceXl + 30,
   },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
     padding: spacing.spaceMd,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    marginBottom: spacing.spaceSm,
+  },
+  ctaCard: {
+    padding: spacing.spaceMd,
+    marginBottom: spacing.spaceSm,
+    borderWidth: 1.5,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
   },
   cardTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.textPrimary,
     marginBottom: spacing.spaceSm,
+    letterSpacing: -0.2,
   },
   statusHeaderRow: {
     flexDirection: 'row',
@@ -639,11 +1042,11 @@ const styles = StyleSheet.create({
   sectionCaption: {
     fontSize: 12,
     color: colors.textSecondary,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   consignmentRef: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.textPrimary,
     marginTop: 2,
     letterSpacing: 0.5,
@@ -655,7 +1058,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.spaceXs,
     paddingTop: spacing.spaceXs,
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: colors.glassBorder,
   },
   timelineItem: {
     minWidth: 80,
@@ -668,11 +1071,11 @@ const styles = StyleSheet.create({
   timelineValue: {
     fontSize: 13,
     color: colors.textPrimary,
-    fontWeight: '600',
+    fontWeight: '700',
     marginTop: 2,
   },
   rejectionNoticeBox: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
     padding: spacing.spaceSm,
     borderRadius: 8,
     marginTop: spacing.spaceSm,
@@ -686,33 +1089,212 @@ const styles = StyleSheet.create({
   },
   rejectionNoticeText: {
     fontSize: 13,
-    color: '#B71C1C',
+    color: colors.error,
     marginTop: 2,
   },
   acceptedNoticeBox: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
     padding: spacing.spaceSm,
     borderRadius: 8,
     marginTop: spacing.spaceSm,
     borderLeftWidth: 4,
-    borderLeftColor: '#2E7D32',
+    borderLeftColor: colors.primary,
+  },
+  recyclingStatusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   acceptedNoticeTitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#2E7D32',
+    color: colors.primaryDark,
   },
   acceptedNoticeText: {
-    fontSize: 13,
-    color: '#1B5E20',
+    fontSize: 12,
+    color: colors.textPrimary,
     marginTop: 2,
+    lineHeight: 16,
+  },
+  viewRecordBtn: {
+    marginTop: spacing.spaceSm,
+    paddingVertical: 4,
+  },
+  viewRecordBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primaryDark,
+  },
+  actionStateBox: {
+    gap: spacing.spaceSm,
+  },
+  pendingDeliveryBanner: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    padding: spacing.spaceSm,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.25)',
+  },
+  pendingDeliveryIcon: {
+    fontSize: 18,
+    marginRight: spacing.spaceXs,
+  },
+  pendingDeliveryText: {
+    fontSize: 12,
+    color: '#1E40AF',
+    flex: 1,
+    lineHeight: 16,
+    fontWeight: '500',
+  },
+  actionPromptBanner: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    padding: spacing.spaceSm,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.25)',
+  },
+  actionPromptIcon: {
+    fontSize: 18,
+    marginRight: spacing.spaceXs,
+  },
+  actionPromptText: {
+    fontSize: 12,
+    color: '#92400E',
+    flex: 1,
+    lineHeight: 16,
+    fontWeight: '500',
+  },
+  processingBanner: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    padding: spacing.spaceSm,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+  },
+  processingBannerIcon: {
+    fontSize: 18,
+    marginRight: spacing.spaceXs,
+  },
+  processingBannerText: {
+    fontSize: 12,
+    color: '#065F46',
+    flex: 1,
+    lineHeight: 16,
+    fontWeight: '500',
+  },
+  completedNoticeBox: {
+    alignItems: 'center',
+    padding: spacing.spaceMd,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  completedBadgeIcon: {
+    fontSize: 32,
+    marginBottom: 4,
+  },
+  completedBadgeTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#065F46',
+    marginBottom: 4,
+  },
+  completedBadgeSub: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  rejectedNoticeBox: {
+    padding: spacing.spaceSm,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.error,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: spacing.spaceSm,
+  },
+  rejectButton: {
+    flex: 1,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  rejectButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.error,
+  },
+  acceptButton: {
+    flex: 2,
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+    elevation: 2,
+  },
+  acceptButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  primaryActionButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+    elevation: 2,
+  },
+  completeActionButton: {
+    backgroundColor: '#059669',
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+    elevation: 2,
+  },
+  primaryActionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  offlineActionNotice: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 4,
   },
   collectorBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: 'rgba(255, 255, 255, 0.65)',
     padding: spacing.spaceSm,
-    borderRadius: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
   },
   collectorAvatar: {
     fontSize: 28,
@@ -744,8 +1326,10 @@ const styles = StyleSheet.create({
   },
   summaryStatsRow: {
     flexDirection: 'row',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.65)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
     paddingVertical: spacing.spaceSm,
     marginBottom: spacing.spaceMd,
   },
@@ -756,22 +1340,23 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: '80%',
-    backgroundColor: colors.divider,
+    backgroundColor: colors.glassBorder,
     alignSelf: 'center',
   },
   statValue: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.textPrimary,
   },
   statLabel: {
     fontSize: 12,
     color: colors.textSecondary,
     marginTop: 2,
+    fontWeight: '500',
   },
   subSectionTitle: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.textPrimary,
     marginBottom: spacing.spaceXs,
   },
@@ -781,7 +1366,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.spaceXs,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: colors.glassBorder,
   },
   itemLeft: {
     flex: 1,
@@ -816,113 +1401,33 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textPrimary,
     lineHeight: 18,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: 'rgba(255, 255, 255, 0.65)',
     padding: spacing.spaceSm,
     borderRadius: 8,
-  },
-  actionsContainer: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: spacing.spaceMd,
     borderWidth: 1,
-    borderColor: colors.divider,
-    gap: spacing.spaceSm,
-  },
-  pendingDeliveryBanner: {
-    flexDirection: 'row',
-    backgroundColor: '#E3F2FD',
-    padding: spacing.spaceSm,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  pendingDeliveryIcon: {
-    fontSize: 16,
-    marginRight: spacing.spaceXs,
-  },
-  pendingDeliveryText: {
-    fontSize: 12,
-    color: '#0D47A1',
-    flex: 1,
-    lineHeight: 16,
-  },
-  actionPromptBanner: {
-    flexDirection: 'row',
-    backgroundColor: '#FFF3E0',
-    padding: spacing.spaceSm,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  actionPromptIcon: {
-    fontSize: 16,
-    marginRight: spacing.spaceXs,
-  },
-  actionPromptText: {
-    fontSize: 12,
-    color: '#E65100',
-    flex: 1,
-    lineHeight: 16,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: spacing.spaceSm,
-  },
-  rejectButton: {
-    flex: 1,
-    backgroundColor: '#FFEBEE',
-    borderWidth: 1,
-    borderColor: '#FFCDD2',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  rejectButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.error,
-  },
-  acceptButton: {
-    flex: 2,
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  acceptButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  offlineActionNotice: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    textAlign: 'center',
+    borderColor: colors.glassBorder,
   },
   successBanner: {
     flexDirection: 'row',
-    backgroundColor: '#E8F5E9',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
     padding: spacing.spaceSm,
     borderRadius: 8,
     borderLeftWidth: 4,
-    borderLeftColor: '#2E7D32',
+    borderLeftColor: colors.primary,
     alignItems: 'center',
+    marginBottom: spacing.spaceSm,
   },
   successIcon: {
     fontSize: 16,
-    color: '#2E7D32',
+    color: colors.primary,
     marginRight: spacing.spaceXs,
     fontWeight: '700',
   },
   successText: {
     fontSize: 13,
-    color: '#1B5E20',
+    color: colors.primaryDark,
     flex: 1,
+    fontWeight: '600',
   },
   loadingContainer: {
     flex: 1,
@@ -990,28 +1495,31 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(15, 41, 66, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.spaceMd,
   },
   modalBox: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
+    backgroundColor: colors.glassSurface,
+    borderRadius: 18,
     padding: spacing.spaceLg,
     width: '100%',
     maxWidth: 400,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.textPrimary,
     marginBottom: spacing.spaceXs,
+    letterSpacing: -0.2,
   },
   modalBody: {
     fontSize: 13,
@@ -1024,9 +1532,11 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   modalBulletBox: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     padding: spacing.spaceSm,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
     marginBottom: spacing.spaceMd,
     gap: 4,
   },
@@ -1035,11 +1545,28 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 16,
   },
-  reasonInput: {
-    backgroundColor: '#F5F5F5',
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginTop: spacing.spaceXs,
+    marginBottom: 2,
+  },
+  modalInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: colors.glassBorder,
+    padding: spacing.spaceSm,
+    fontSize: 13,
+    color: colors.textPrimary,
+    marginBottom: spacing.spaceXs,
+  },
+  reasonInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
     padding: spacing.spaceSm,
     fontSize: 13,
     color: colors.textPrimary,
@@ -1059,6 +1586,12 @@ const styles = StyleSheet.create({
     color: colors.error,
     fontWeight: '500',
   },
+  completionErrorText: {
+    fontSize: 11,
+    color: colors.error,
+    fontWeight: '600',
+    marginBottom: spacing.spaceXs,
+  },
   charCountText: {
     fontSize: 11,
     color: colors.textSecondary,
@@ -1067,6 +1600,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: spacing.spaceSm,
+    marginTop: spacing.spaceSm,
   },
   modalCancelButton: {
     paddingHorizontal: spacing.spaceMd,
@@ -1082,6 +1616,15 @@ const styles = StyleSheet.create({
   },
   modalConfirmButton: {
     backgroundColor: colors.primary,
+    paddingHorizontal: spacing.spaceMd,
+    paddingVertical: 10,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 120,
+  },
+  modalCompleteButton: {
+    backgroundColor: '#059669',
     paddingHorizontal: spacing.spaceMd,
     paddingVertical: 10,
     borderRadius: 8,
