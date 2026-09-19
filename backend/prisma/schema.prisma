@@ -114,6 +114,14 @@ enum VerificationStatus {
   @@map("verification_status")
 }
 
+enum AddressType {
+  HOME
+  OFFICE
+  OTHER
+
+  @@map("address_type")
+}
+
 // ==========================================
 // MODELS
 // ==========================================
@@ -151,6 +159,10 @@ model CollectorProfile {
   serviceAreaLat  Decimal? @map("service_area_lat") @db.Decimal(10, 7)
   serviceAreaLng  Decimal? @map("service_area_lng") @db.Decimal(10, 7)
   serviceRadiusKm Decimal? @default(5.00) @map("service_radius_km") @db.Decimal(5, 2)
+  serviceArea     String?  @map("service_area") @db.VarChar(255)
+  city            String?  @db.VarChar(100)
+  state           String?  @db.VarChar(100)
+  pincode         String?  @db.VarChar(10)
   idDocumentUrl   String?  @map("id_document_url") @db.VarChar(500)
   bio             String?  @db.Text
   isAvailable     Boolean  @default(true) @map("is_available")
@@ -175,6 +187,10 @@ model RecyclerProfile {
   facilityAddress    String   @map("facility_address") @db.Text
   facilityLat        Decimal? @map("facility_lat") @db.Decimal(10, 7)
   facilityLng        Decimal? @map("facility_lng") @db.Decimal(10, 7)
+  city               String?  @db.VarChar(100)
+  district           String?  @db.VarChar(100)
+  state              String?  @db.VarChar(100)
+  pincode            String?  @db.VarChar(10)
   licenseNumber      String?  @map("license_number") @db.VarChar(100)
   licenseDocumentUrl String?  @map("license_document_url") @db.VarChar(500)
   acceptedCategories String[] @default([]) @map("accepted_categories")
@@ -224,6 +240,15 @@ model CollectionRequest {
   pickupAddress      String        @map("pickup_address") @db.Text
   pickupLat          Decimal       @map("pickup_lat") @db.Decimal(10, 7)
   pickupLng          Decimal       @map("pickup_lng") @db.Decimal(10, 7)
+  houseNumber        String?       @map("house_number") @db.VarChar(100)
+  street             String?       @db.VarChar(255)
+  landmark           String?       @db.VarChar(255)
+  city               String?       @db.VarChar(100)
+  district           String?       @db.VarChar(100)
+  state              String?       @db.VarChar(100)
+  pincode            String?       @db.VarChar(10)
+  locationAccuracy   Decimal?      @map("location_accuracy") @db.Decimal(6, 2)
+  addressType        AddressType?  @default(HOME) @map("address_type")
   preferredDate      DateTime?     @map("preferred_date") @db.Date
   preferredTimeStart DateTime?     @map("preferred_time_start") @db.Time
   preferredTimeEnd   DateTime?     @map("preferred_time_end") @db.Time

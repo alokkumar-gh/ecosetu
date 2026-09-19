@@ -108,6 +108,12 @@ const ERROR_CODES = Object.freeze({
   SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
 });
 
+const ADDRESS_TYPES = Object.freeze({
+  HOME: 'HOME',
+  OFFICE: 'OFFICE',
+  OTHER: 'OTHER',
+});
+
 module.exports = {
   ROLES,
   USER_STATUS,
@@ -121,4 +127,5 @@ module.exports = {
   VERIFICATION_STATUS,
   NOTIFICATION_TYPES,
   ERROR_CODES,
+  ADDRESS_TYPES,
 };

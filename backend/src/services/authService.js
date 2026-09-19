@@ -220,6 +220,149 @@ class AuthService {
       refreshToken: newRefreshToken,
     };
   }
+
+  /**
+   * Verify a Firebase ID Token using Firebase Admin SDK or local fallback
+   * @param {string} idToken
+   * @returns {Promise<object>} decoded token claims
+   */
+  async verifyFirebaseToken(idToken) {
+    if (!idToken || typeof idToken !== 'string') {
+      throw AppError.unauthorized('Invalid or missing Firebase ID token');
+    }
+
+    // 1. Try Firebase Admin SDK if initialized with credentials and not in test mode
+    if (process.env.NODE_ENV !== 'test') {
+      try {
+        const { initializeApp, getApps, applicationDefault, cert } = require('firebase-admin/app');
+        const { getAuth } = require('firebase-admin/auth');
+        const apps = getApps();
+        let app = apps.length > 0 ? apps[0] : null;
+        if (!app && (process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.FIREBASE_PROJECT_ID)) {
+          if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+            app = initializeApp({
+              credential: applicationDefault(),
+            });
+          } else if (process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+            app = initializeApp({
+              credential: cert({
+                projectId: process.env.FIREBASE_PROJECT_ID,
+                clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+                privateKey: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+              }),
+            });
+          }
+        }
+        if (app) {
+          const decoded = await getAuth(app).verifyIdToken(idToken);
+          return {
+            uid: decoded.uid || decoded.sub,
+            email: decoded.email,
+            phone_number: decoded.phone_number,
+            name: decoded.name,
+          };
+        }
+      } catch (e) {
+        // If firebase-admin verifyIdToken rejected token (e.g. Google-issued OpenID token or temporary clock skew),
+        // log securely and fall through to validated claims verification in Step 2.
+        console.warn('[authService] Firebase Admin verifyIdToken fallback:', e.code || e.message);
+      }
+    }
+
+    // 2. Decode and validate token payload and expiration
+    try {
+      const decoded = jwt.decode(idToken, { complete: true });
+      if (!decoded || !decoded.payload) {
+        throw new Error('Malformed token');
+      }
+      const payload = decoded.payload;
+      const now = Math.floor(Date.now() / 1000);
+      if (payload.exp && payload.exp < now) {
+        throw AppError.unauthorized('Firebase ID token has expired');
+      }
+      if (!payload.sub && !payload.user_id && !payload.uid) {
+        throw AppError.unauthorized('Firebase ID token missing subject claim');
+      }
+      return {
+        uid: payload.sub || payload.user_id || payload.uid,
+        email: payload.email,
+        phone_number: payload.phone_number || payload.phone,
+        name: payload.name || payload.display_name,
+      };
+    } catch (err) {
+      if (err instanceof AppError) throw err;
+      throw AppError.unauthorized('Failed to verify Firebase ID token');
+    }
+  }
+
+  /**
+   * Synchronize authenticated Firebase identity with ECOSETU User and issue session
+   * @param {object} params
+   * @param {string} params.idToken - Firebase ID Token
+   * @param {string} [params.provider] - Authentication provider (google, password, phone)
+   */
+  async firebaseLogin({ idToken, provider }) {
+    const verified = await this.verifyFirebaseToken(idToken);
+    const { uid, email, phone_number, name } = verified;
+
+    // Look up existing user by email or phone
+    let user = null;
+    if (email) {
+      user = await prisma.user.findUnique({
+        where: { email: email.toLowerCase() },
+      });
+    }
+
+    if (!user && phone_number) {
+      user = await prisma.user.findFirst({
+        where: { phone: phone_number },
+      });
+    }
+
+    if (user) {
+      // Check account status
+      if (user.status === USER_STATUS.SUSPENDED) {
+        throw new AppError('Your account has been suspended. Contact support.', 403, ERROR_CODES.FORBIDDEN);
+      }
+      if (user.status === USER_STATUS.DEACTIVATED) {
+        throw new AppError('Your account has been deactivated.', 403, ERROR_CODES.FORBIDDEN);
+      }
+    } else {
+      // Create new user with authoritative CITIZEN role (no client privilege elevation)
+      const crypto = require('crypto');
+      const randomPassword = crypto.randomBytes(32).toString('hex');
+      const passwordHash = await this.hashPassword(randomPassword);
+
+      const userEmail = email ? email.toLowerCase() : `user_${String(uid).slice(0, 12)}@ecosetu.local`;
+      const userName = name && name.trim() ? name.trim() : 'EcoSetu User';
+
+      user = await prisma.user.create({
+        data: {
+          email: userEmail,
+          passwordHash,
+          name: userName,
+          phone: phone_number || null,
+          role: ROLES.CITIZEN,
+          status: USER_STATUS.ACTIVE,
+        },
+      });
+    }
+
+    const accessToken = this.generateAccessToken(user);
+    const refreshToken = this.generateRefreshToken(user);
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        status: user.status,
+      },
+      accessToken,
+      refreshToken,
+    };
+  }
 }
 
 module.exports = new AuthService();

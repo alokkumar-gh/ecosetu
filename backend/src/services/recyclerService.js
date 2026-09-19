@@ -44,7 +44,7 @@ class RecyclerService {
    * @param {object} profileData - Recycler profile details
    * @returns {Promise<object>} Upserted profile
    */
-  async upsertProfile(userId, { facilityName, facilityAddress, facilityLat, facilityLng, licenseNumber, acceptedCategories }) {
+  async upsertProfile(userId, { facilityName, facilityAddress, facilityLat, facilityLng, city, district, state, pincode, licenseNumber, acceptedCategories }) {
     const data = {
       facilityName: facilityName.trim(),
       facilityAddress: facilityAddress.trim(),
@@ -56,6 +56,18 @@ class RecyclerService {
     }
     if (facilityLng !== undefined) {
       data.facilityLng = facilityLng !== null ? facilityLng : null;
+    }
+    if (city !== undefined) {
+      data.city = city ? city.trim() : null;
+    }
+    if (district !== undefined) {
+      data.district = district ? district.trim() : null;
+    }
+    if (state !== undefined) {
+      data.state = state ? state.trim() : null;
+    }
+    if (pincode !== undefined) {
+      data.pincode = pincode ? pincode.trim() : null;
     }
     if (licenseNumber !== undefined) {
       data.licenseNumber = licenseNumber ? licenseNumber.trim() : null;
@@ -104,6 +116,10 @@ class RecyclerService {
         facilityAddress: true,
         facilityLat: true,
         facilityLng: true,
+        city: true,
+        district: true,
+        state: true,
+        pincode: true,
         acceptedCategories: true,
         totalConsignments: true,
         user: {

@@ -4,7 +4,7 @@
 const prisma = require('../config/database');
 const AppError = require('../utils/AppError');
 const notificationService = require('./notificationService');
-const { calculateDistanceKm } = require('../utils/locationHelper');
+const { calculateDistanceKm, formatAddress } = require('../utils/locationHelper');
 const { ROLES, REQUEST_STATUS, ITEM_STATUS, PICKUP_STATUS, NOTIFICATION_TYPES } = require('../utils/constants');
 
 class RequestService {
@@ -14,7 +14,28 @@ class RequestService {
    * @param {object} requestData - Request payload
    * @returns {Promise<object>} Created collection request with linked items
    */
-  async createRequest(citizenId, { itemIds, pickupAddress, pickupLat, pickupLng, preferredDate, preferredTimeStart, preferredTimeEnd, notes }) {
+  async createRequest(
+    citizenId,
+    {
+      itemIds,
+      pickupAddress,
+      pickupLat,
+      pickupLng,
+      preferredDate,
+      preferredTimeStart,
+      preferredTimeEnd,
+      notes,
+      houseNumber,
+      street,
+      landmark,
+      city,
+      district,
+      state,
+      pincode,
+      locationAccuracy,
+      addressType,
+    }
+  ) {
     if (!Array.isArray(itemIds) || itemIds.length === 0) {
       throw AppError.validation('At least one e-waste item is required to create a collection request');
     }
@@ -41,14 +62,38 @@ class RequestService {
       }
     }
 
+    const resolvedAddress =
+      formatAddress({
+        houseNumber,
+        street,
+        landmark,
+        city,
+        district,
+        state,
+        pincode,
+        pickupAddress,
+      }) || (pickupAddress ? pickupAddress.trim() : '');
+
     // 3. Create collection request in DRAFT status
     const request = await prisma.collectionRequest.create({
       data: {
         citizenId,
         status: REQUEST_STATUS.DRAFT,
-        pickupAddress: pickupAddress.trim(),
+        pickupAddress: resolvedAddress,
         pickupLat: parseFloat(pickupLat),
         pickupLng: parseFloat(pickupLng),
+        houseNumber: houseNumber ? houseNumber.trim() : null,
+        street: street ? street.trim() : null,
+        landmark: landmark ? landmark.trim() : null,
+        city: city ? city.trim() : null,
+        district: district ? district.trim() : null,
+        state: state ? state.trim() : null,
+        pincode: pincode ? pincode.trim() : null,
+        locationAccuracy:
+          locationAccuracy !== undefined && locationAccuracy !== null
+            ? parseFloat(locationAccuracy)
+            : null,
+        addressType: addressType || 'HOME',
         preferredDate: preferredDate ? new Date(preferredDate) : null,
         preferredTimeStart: preferredTimeStart ? new Date(`1970-01-01T${preferredTimeStart}:00Z`) : null,
         preferredTimeEnd: preferredTimeEnd ? new Date(`1970-01-01T${preferredTimeEnd}:00Z`) : null,
@@ -180,6 +225,11 @@ class RequestService {
         pickupAddress: 'Approximate Location (Exact address revealed upon acceptance)',
         pickupLat: !isNaN(latNum) ? Math.round(latNum * 100) / 100 : r.pickupLat,
         pickupLng: !isNaN(lngNum) ? Math.round(lngNum * 100) / 100 : r.pickupLng,
+        houseNumber: null,
+        street: null,
+        landmark: null,
+        pincode: null,
+        locationAccuracy: null,
       };
     });
 
@@ -239,6 +289,11 @@ class RequestService {
           pickupAddress: 'Approximate Location (Exact address revealed upon acceptance)',
           pickupLat: !isNaN(latNum) ? Math.round(latNum * 100) / 100 : request.pickupLat,
           pickupLng: !isNaN(lngNum) ? Math.round(lngNum * 100) / 100 : request.pickupLng,
+          houseNumber: null,
+          street: null,
+          landmark: null,
+          pincode: null,
+          locationAccuracy: null,
         };
       }
     }

@@ -2,9 +2,10 @@
 // Canonical Reference: docs/05_API_SPECIFICATION.md Section 7, docs/10_BACKEND_ARCHITECTURE.md
 
 const { body, query, param } = require('express-validator');
-const { REQUEST_STATUS } = require('../utils/constants');
+const { REQUEST_STATUS, ADDRESS_TYPES } = require('../utils/constants');
 
 const VALID_STATUSES = Object.values(REQUEST_STATUS);
+const VALID_ADDRESS_TYPES = Object.values(ADDRESS_TYPES);
 
 const PROTECTED_REQUEST_FIELDS = [
   'id',
@@ -44,11 +45,16 @@ const createRequest = [
     }),
 
   body('pickupAddress')
-    .trim()
-    .notEmpty()
-    .withMessage('pickupAddress is required')
-    .isLength({ max: 500 })
-    .withMessage('pickupAddress must not exceed 500 characters'),
+    .custom((value, { req }) => {
+      const hasStructured = Boolean(req.body.street || req.body.city || req.body.houseNumber);
+      if ((!value || typeof value !== 'string' || !value.trim()) && !hasStructured) {
+        throw new Error('pickupAddress is required');
+      }
+      if (value && typeof value === 'string' && value.length > 500) {
+        throw new Error('pickupAddress must not exceed 500 characters');
+      }
+      return true;
+    }),
 
   body('pickupLat')
     .exists({ checkNull: true })
@@ -61,6 +67,58 @@ const createRequest = [
     .withMessage('pickupLng is required')
     .isFloat({ min: -180, max: 180 })
     .withMessage('pickupLng must be a valid longitude between -180 and 180'),
+
+  body('houseNumber')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('houseNumber must not exceed 100 characters'),
+
+  body('street')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 255 })
+    .withMessage('street must not exceed 255 characters'),
+
+  body('landmark')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 255 })
+    .withMessage('landmark must not exceed 255 characters'),
+
+  body('city')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('city must not exceed 100 characters'),
+
+  body('district')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('district must not exceed 100 characters'),
+
+  body('state')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('state must not exceed 100 characters'),
+
+  body('pincode')
+    .optional({ nullable: true })
+    .trim()
+    .matches(/^[1-9][0-9]{5}$/)
+    .withMessage('pincode must be a valid 6-digit Indian postal PIN code'),
+
+  body('locationAccuracy')
+    .optional({ nullable: true })
+    .isFloat({ min: 0 })
+    .withMessage('locationAccuracy must be a positive number'),
+
+  body('addressType')
+    .optional({ nullable: true })
+    .isIn(VALID_ADDRESS_TYPES)
+    .withMessage(`addressType must be one of: ${VALID_ADDRESS_TYPES.join(', ')}`),
 
   body('preferredDate')
     .optional({ nullable: true })

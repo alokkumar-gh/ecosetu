@@ -43,7 +43,7 @@ class CollectorService {
    * @param {object} profileData - Profile details
    * @returns {Promise<object>} Upserted profile
    */
-  async upsertProfile(userId, { serviceAreaLat, serviceAreaLng, serviceRadiusKm, bio }) {
+  async upsertProfile(userId, { serviceAreaLat, serviceAreaLng, serviceRadiusKm, serviceArea, city, state, pincode, bio }) {
     const data = {};
 
     if (serviceAreaLat !== undefined) {
@@ -54,6 +54,18 @@ class CollectorService {
     }
     if (serviceRadiusKm !== undefined) {
       data.serviceRadiusKm = serviceRadiusKm !== null ? serviceRadiusKm : 5.0;
+    }
+    if (serviceArea !== undefined) {
+      data.serviceArea = serviceArea ? serviceArea.trim() : null;
+    }
+    if (city !== undefined) {
+      data.city = city ? city.trim() : null;
+    }
+    if (state !== undefined) {
+      data.state = state ? state.trim() : null;
+    }
+    if (pincode !== undefined) {
+      data.pincode = pincode ? pincode.trim() : null;
     }
     if (bio !== undefined) {
       data.bio = bio ? bio.trim() : null;

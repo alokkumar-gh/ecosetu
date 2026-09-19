@@ -37,6 +37,30 @@ const upsertProfile = [
     .isFloat({ min: 1, max: 50 })
     .withMessage('serviceRadiusKm must be between 1 and 50 kilometers'),
 
+  body('serviceArea')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 255 })
+    .withMessage('serviceArea must not exceed 255 characters'),
+
+  body('city')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('city must not exceed 100 characters'),
+
+  body('state')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('state must not exceed 100 characters'),
+
+  body('pincode')
+    .optional({ nullable: true })
+    .trim()
+    .matches(/^[1-9][0-9]{5}$/)
+    .withMessage('pincode must be a valid 6-digit Indian postal PIN code'),
+
   body('bio')
     .optional({ nullable: true })
     .trim()

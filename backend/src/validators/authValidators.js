@@ -57,7 +57,23 @@ const loginValidator = [
     .withMessage('Password is required'),
 ];
 
+const firebaseLoginValidator = [
+  body('idToken')
+    .trim()
+    .notEmpty()
+    .withMessage('Firebase ID token is required')
+    .isString()
+    .withMessage('Firebase ID token must be a string'),
+  body('provider')
+    .optional()
+    .trim()
+    .isString()
+    .withMessage('Provider must be a string'),
+];
+
 module.exports = {
   registerValidator,
   loginValidator,
+  firebaseLoginValidator,
 };
+

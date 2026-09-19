@@ -61,6 +61,27 @@ class AuthController {
     }
   }
 
+  async firebaseLogin(req, res, next) {
+    try {
+      const { idToken, provider } = req.body;
+      const result = await authService.firebaseLogin({ idToken, provider });
+
+      setRefreshTokenCookie(res, result.refreshToken);
+
+      return sendSuccess(
+        res,
+        {
+          user: result.user,
+          accessToken: result.accessToken,
+          refreshToken: result.refreshToken,
+        },
+        200
+      );
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async refresh(req, res, next) {
     try {
       // Support refresh token from cookie or request body (for mobile apps)

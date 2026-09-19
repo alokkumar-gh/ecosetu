@@ -47,6 +47,30 @@ const upsertProfile = [
     .isFloat({ min: -180, max: 180 })
     .withMessage('facilityLng must be a valid longitude between -180 and 180'),
 
+  body('city')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('city must not exceed 100 characters'),
+
+  body('district')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('district must not exceed 100 characters'),
+
+  body('state')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('state must not exceed 100 characters'),
+
+  body('pincode')
+    .optional({ nullable: true })
+    .trim()
+    .matches(/^[1-9][0-9]{5}$/)
+    .withMessage('pincode must be a valid 6-digit Indian postal PIN code'),
+
   body('licenseNumber')
     .optional({ nullable: true })
     .trim()

@@ -3,7 +3,7 @@
 
 const express = require('express');
 const authController = require('../controllers/authController');
-const { registerValidator, loginValidator } = require('../validators/authValidators');
+const { registerValidator, loginValidator, firebaseLoginValidator } = require('../validators/authValidators');
 const validate = require('../middleware/validate');
 const authenticate = require('../middleware/authenticate');
 const { authLimiter } = require('../config/rateLimit');
@@ -17,6 +17,10 @@ router.post('/register', authLimiter, validate(registerValidator), (req, res, ne
 
 router.post('/login', authLimiter, validate(loginValidator), (req, res, next) =>
   authController.login(req, res, next)
+);
+
+router.post('/firebase-login', authLimiter, validate(firebaseLoginValidator), (req, res, next) =>
+  authController.firebaseLogin(req, res, next)
 );
 
 router.post('/refresh', (req, res, next) =>

@@ -34,16 +34,18 @@ class FcmService {
     }
 
     try {
-      // Dynamically load firebase-admin if present in environment
-      const admin = require('firebase-admin');
-      if (admin.apps.length === 0) {
+      const { initializeApp, getApps, applicationDefault, cert } = require('firebase-admin/app');
+      const { getMessaging } = require('firebase-admin/messaging');
+      const apps = getApps();
+      let app = apps.length > 0 ? apps[0] : null;
+      if (!app) {
         if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-          admin.initializeApp({
-            credential: admin.credential.applicationDefault(),
+          app = initializeApp({
+            credential: applicationDefault(),
           });
         } else {
-          admin.initializeApp({
-            credential: admin.credential.cert({
+          app = initializeApp({
+            credential: cert({
               projectId: process.env.FIREBASE_PROJECT_ID,
               clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
               privateKey: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
@@ -51,7 +53,8 @@ class FcmService {
           });
         }
       }
-      this._admin = admin;
+      this._messaging = getMessaging(app);
+      this._admin = { messaging: () => this._messaging };
       this._initialized = true;
       logger.info('FCM: Firebase Admin SDK initialized successfully for push delivery.');
       return true;
