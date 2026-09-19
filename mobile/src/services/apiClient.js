@@ -157,6 +157,36 @@ class ApiClient {
   }
 
   /**
+   * Attempt candidate fallback base URLs if primary endpoint returns 404 or network fails
+   * @private
+   */
+  async _tryFallbackBases(endpoint, options) {
+    const candidateBases = [
+      API_CONFIG.FALLBACK_BASE_URL,
+      API_CONFIG.LAN_DEV_BASE_URL,
+      API_CONFIG.LOCAL_DEV_BASE_URL,
+    ].filter((base) => Boolean(base) && base !== this._baseUrl);
+
+    for (const base of candidateBases) {
+      try {
+        const fallbackUrl = `${base}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+        const res = await this.request(fallbackUrl, {
+          ...options,
+          _fallbackAttempted: true,
+        });
+        if (res) {
+          console.log(`[ApiClient] Successfully connected via fallback: ${base}`);
+          this.setBaseUrl(base);
+          return res;
+        }
+      } catch (err) {
+        // Continue to next candidate
+      }
+    }
+    return null;
+  }
+
+  /**
    * Core request method
    * @param {string} endpoint - API endpoint (e.g. '/ewaste-items' or full URL)
    * @param {Object} [options]
@@ -166,6 +196,7 @@ class ApiClient {
    * @param {number} [options.timeoutMs]
    * @param {boolean} [options.skipAuth=false]
    * @param {boolean} [options._isRetry=false]
+   * @param {boolean} [options._fallbackAttempted=false]
    * @returns {Promise<any>}
    */
   async request(endpoint, options = {}) {
@@ -176,6 +207,7 @@ class ApiClient {
       timeoutMs = API_CONFIG.DEFAULT_TIMEOUT_MS,
       skipAuth = false,
       _isRetry = false,
+      _fallbackAttempted = false,
     } = options;
 
     const fullUrl = endpoint.startsWith('http') ? endpoint : `${this._baseUrl}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
@@ -217,7 +249,17 @@ class ApiClient {
       }
     }
 
-    const response = await this._fetchWithTimeout(fullUrl, fetchOptions, timeoutMs);
+    let response;
+    try {
+      response = await this._fetchWithTimeout(fullUrl, fetchOptions, timeoutMs);
+    } catch (error) {
+      // If network fails on relative path and fallback not attempted, try fallback bases
+      if (!endpoint.startsWith('http') && !_fallbackAttempted) {
+        const fallbackRes = await this._tryFallbackBases(endpoint, options);
+        if (fallbackRes) return fallbackRes;
+      }
+      throw error;
+    }
 
     // Parse response
     let responseData = null;
@@ -231,6 +273,12 @@ class ApiClient {
       } catch {
         responseData = { text };
       }
+    }
+
+    // If 404 on undeployed endpoint on current baseUrl, try fallback candidates
+    if (response.status === 404 && !endpoint.startsWith('http') && !_fallbackAttempted) {
+      const fallbackRes = await this._tryFallbackBases(endpoint, options);
+      if (fallbackRes) return fallbackRes;
     }
 
     // Handle 401 Unauthorized (Token Expiration)

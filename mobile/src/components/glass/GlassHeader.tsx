@@ -69,9 +69,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.spaceMd,
     paddingVertical: spacing.spaceSm,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: 'rgba(7, 30, 34, 0.88)',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(226, 232, 240, 0.80)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.12)',
     minHeight: 56,
   },
   leftCol: {
@@ -86,11 +86,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: spacing.spaceXs,
     borderRadius: 22,
-    backgroundColor: 'rgba(15, 41, 66, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   backIcon: {
     fontSize: 20,
-    color: colors.textPrimary,
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   titleWrapper: {

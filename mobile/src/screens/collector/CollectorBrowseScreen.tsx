@@ -979,32 +979,6 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
 
       {activeView === 'MAP' ? (
         <View style={styles.mapViewContainer}>
-          {/* Floating Controls Bar */}
-          <View style={styles.mapHeaderRow} pointerEvents="box-none">
-            <View style={styles.privacyBadge}>
-              <Text style={styles.privacyBadgeText}>
-                🛡️ {t('collector.browse.privacyProtected') || 'Approximate Areas · Privacy Protected'}
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.myLocationBtn}
-              onPress={handleUseMyLocation}
-              disabled={isLocating}
-              accessibilityRole="button"
-              accessibilityLabel={t('collector.browse.useMyLocation') || 'Use My Location'}
-              activeOpacity={0.8}
-            >
-              {isLocating ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Text style={styles.myLocationBtnText}>
-                  🎯 {t('collector.browse.useMyLocation') || 'Use My Location'}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-
           {/* Map Offline Notice */}
           {!isConnected && (
             <View style={styles.mapOfflineNotice}>
@@ -1014,21 +988,30 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
             </View>
           )}
 
-          {/* EcoSetuMap */}
+          {/* EcoSetuMap with Unified Glass HUD */}
           <EcoSetuMap
             latitude={
               collectorLocation?.latitude ||
-              (mapPins.length > 0 ? mapPins[0].latitude : 0)
+              (mapPins.length > 0 ? mapPins[0].latitude : 19.3149)
             }
             longitude={
               collectorLocation?.longitude ||
-              (mapPins.length > 0 ? mapPins[0].longitude : 0)
+              (mapPins.length > 0 ? mapPins[0].longitude : 84.7941)
             }
             pins={mapPins}
             onPinPress={(pin) => setSelectedMapRequest(pin.data)}
             showApproximateCircles={true}
             circleRadius={700}
             draggable={false}
+            showMapTypeControl={true}
+            showZoomControls={true}
+            showMyLocationButton={true}
+            showRecenterButton={true}
+            controlsTopOffset={14}
+            showCoordinatesPill={false}
+            onLocationChange={(lat, lng) => {
+              setCollectorLocation({ latitude: lat, longitude: lng });
+            }}
             isOffline={!isConnected && mapPins.length === 0}
             permissionDenied={locationPermissionDenied}
             onRequestPermission={handleUseMyLocation}
@@ -1138,6 +1121,57 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
                       ✅ {t('collector.browse.acceptRequest') || 'Accept Request'}
                     </Text>
                   )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* Summary / Guidance Card when no pin is selected */}
+          {!selectedMapRequest && (
+            <View
+              style={styles.mapSummaryCard}
+              accessibilityRole="summary"
+              accessibilityLabel="Available requests summary"
+            >
+              <View style={styles.mapSummaryHeader}>
+                <View style={styles.radarBadgeRow}>
+                  <Text style={styles.mapSummaryTitle}>
+                    📡 {mapPins.length} {t('collector.browse.nearbyRequests') || 'Neighborhood Pickup Zones'}
+                  </Text>
+                  <View style={styles.radarLivePill}>
+                    <Text style={styles.radarLiveText}>RADAR ACTIVE</Text>
+                  </View>
+                </View>
+                <Text style={styles.mapSummarySub}>
+                  {mapPins.length > 0
+                    ? 'Each green zone is a ~1.1 km approximate area where citizens have requested doorstep pickup. Tap a zone to inspect items & accept.'
+                    : 'Searching for open collection requests nearby. Tap Locate Me or pull list to scan for new pickups.'}
+                </Text>
+              </View>
+
+              <View style={styles.mapSummaryActionsRow}>
+                {mapPins.length > 0 && (
+                  <TouchableOpacity
+                    style={styles.inspectFirstBtn}
+                    onPress={() => setSelectedMapRequest(mapPins[0].data)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('collector.browse.viewRequest') || 'Inspect Nearest Request'}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.inspectFirstBtnText}>
+                      🔍 {t('collector.browse.viewRequest') || 'Inspect Nearest'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={styles.switchToListBtn}
+                  onPress={() => setActiveView('LIST')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Switch to List View"
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.switchToListBtnText}>📋 List View</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1353,19 +1387,107 @@ const styles = StyleSheet.create({
   // ── Selected Pin Bottom Card ──
   selectedCard: {
     position: 'absolute',
-    bottom: 12,
+    bottom: 14,
     left: 12,
-    right: 12,
+    right: 82,
     zIndex: 10,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(6, 21, 27, 0.95)',
     borderRadius: 14,
     padding: spacing.spaceMd,
     borderWidth: 1,
-    borderColor: colors.glassBorderStrong,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
     elevation: 6,
     shadowColor: '#000',
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.25,
     shadowRadius: 8,
+  },
+  mapSummaryCard: {
+    position: 'absolute',
+    bottom: 14,
+    left: 12,
+    right: 82,
+    zIndex: 10,
+    backgroundColor: 'rgba(6, 21, 27, 0.92)',
+    borderRadius: 14,
+    padding: spacing.spaceSm,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  mapSummaryHeader: {
+    marginBottom: 6,
+  },
+  mapSummaryTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#34D399',
+  },
+  mapSummarySub: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.70)',
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  radarBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  radarLivePill: {
+    backgroundColor: 'rgba(16, 185, 129, 0.25)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#10B981',
+  },
+  radarLiveText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#34D399',
+    letterSpacing: 0.5,
+  },
+  mapSummaryActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  inspectFirstBtn: {
+    backgroundColor: 'rgba(16, 185, 129, 0.20)',
+    borderWidth: 1,
+    borderColor: '#10B981',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 38,
+  },
+  inspectFirstBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#34D399',
+  },
+  switchToListBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 38,
+  },
+  switchToListBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.85)',
   },
   selectedCardHeader: {
     flexDirection: 'row',

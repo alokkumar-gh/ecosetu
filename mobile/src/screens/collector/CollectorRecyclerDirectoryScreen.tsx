@@ -52,6 +52,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { ROLES, EWASTE_CATEGORIES } from '../../utils/constants';
+import { EcoSetuBackground, EcoGlassSearch } from '../../components/eco';
 
 const USER_STATUS = Object.freeze({
   PENDING_VERIFICATION: 'PENDING_VERIFICATION',
@@ -275,17 +276,17 @@ const RecyclerCard: React.FC<RecyclerCardProps> = React.memo(({ recycler, onSele
 
 const cardStyles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
     borderRadius: 12,
     padding: spacing.spaceMd,
     marginBottom: spacing.spaceSm,
     borderWidth: 1,
-    borderColor: colors.divider,
-    elevation: 1,
+    borderColor: 'rgba(45, 212, 191, 0.22)',
+    elevation: 2,
     shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 3,
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
   },
   headerRow: {
     flexDirection: 'row',
@@ -346,7 +347,9 @@ const cardStyles = StyleSheet.create({
   statBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: 'rgba(6, 21, 27, 0.75)',
+    borderWidth: 1,
+    borderColor: 'rgba(45, 212, 191, 0.22)',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 6,
@@ -359,7 +362,7 @@ const cardStyles = StyleSheet.create({
   statText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: '#E2E8F0',
   },
   categoriesSection: {
     marginBottom: spacing.spaceSm,
@@ -391,12 +394,12 @@ const cardStyles = StyleSheet.create({
     color: colors.primaryDark,
   },
   contactSection: {
-    backgroundColor: '#FAFAFA',
+    backgroundColor: 'rgba(6, 21, 27, 0.75)',
     padding: spacing.spaceSm,
     borderRadius: 8,
     marginBottom: spacing.spaceSm,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(45, 212, 191, 0.20)',
   },
   contactRow: {
     flexDirection: 'row',
@@ -409,7 +412,7 @@ const cardStyles = StyleSheet.create({
   },
   contactText: {
     fontSize: 12,
-    color: colors.textPrimary,
+    color: '#F1F5F9',
   },
   actionsRow: {
     flexDirection: 'row',
@@ -419,17 +422,17 @@ const cardStyles = StyleSheet.create({
   },
   viewFacilityBtn: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
   },
   viewFacilityBtnText: {
-    color: colors.textPrimary,
+    color: '#F1F5F9',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -705,16 +708,18 @@ export const CollectorRecyclerDirectoryScreen: React.FC<Props> = ({ navigation }
   // ── Unauthorized Role Guard ───────────────────────────────────────────────
   if (!isCollectorOrAdmin) {
     return (
-      <SafeAreaView style={styles.container}>
-        <TopAppBar title="Recycler Directory" />
-        <View style={styles.contentPadding}>
-          <EmptyState
-            icon="🔒"
-            title="Access Restricted"
-            message="The Formal Recycler Directory is only accessible to verified informal collectors and administrators."
-          />
-        </View>
-      </SafeAreaView>
+      <EcoSetuBackground>
+        <SafeAreaView style={styles.container}>
+          <TopAppBar title="Recycler Directory" />
+          <View style={styles.contentPadding}>
+            <EmptyState
+              icon="🔒"
+              title="Access Restricted"
+              message="The Formal Recycler Directory is only accessible to verified informal collectors and administrators."
+            />
+          </View>
+        </SafeAreaView>
+      </EcoSetuBackground>
     );
   }
 
@@ -775,33 +780,14 @@ export const CollectorRecyclerDirectoryScreen: React.FC<Props> = ({ navigation }
         </View>
       </TouchableOpacity>
 
-      {/* Search Input Bar */}
-      <View style={styles.searchBar}>
-        <Text style={styles.searchIcon} accessibilityElementsHidden>
-          🔍
-        </Text>
-        <TextInput
-          style={styles.searchInput}
-          placeholder={t('collector.recyclers.searchPlaceholder') || "Search by facility name or address..."}
-          placeholderTextColor={colors.textSecondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          accessibilityLabel="Search recyclers by facility name or address"
-          returnKeyType="search"
-          clearButtonMode="while-editing"
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity
-            style={styles.clearButton}
-            onPress={() => setSearchQuery('')}
-            accessibilityRole="button"
-            accessibilityLabel="Clear search query"
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={styles.clearButtonText}>✕</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      {/* Search Input Bar with EcoGlassSearch */}
+      <EcoGlassSearch
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        onClear={() => setSearchQuery('')}
+        placeholder={t('collector.recyclers.searchPlaceholder') || "Search by facility name or address..."}
+        containerStyle={{ marginBottom: spacing.spaceSm }}
+      />
 
       {/* Horizontal Category Chips Filter Bar */}
       <View style={styles.categoryFilterContainer}>
@@ -942,11 +928,12 @@ export const CollectorRecyclerDirectoryScreen: React.FC<Props> = ({ navigation }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <TopAppBar
-        title={t('collector.recyclers.title') || "Recycler Directory"}
-        subtitle="Authorized formal recycling facilities"
-      />
+    <EcoSetuBackground>
+      <SafeAreaView style={styles.container}>
+        <TopAppBar
+          title={t('collector.recyclers.title') || "Recycler Directory"}
+          subtitle="Authorized formal recycling facilities"
+        />
 
       {isLoading ? (
         <View style={styles.contentPadding}>
@@ -1102,13 +1089,14 @@ export const CollectorRecyclerDirectoryScreen: React.FC<Props> = ({ navigation }
         </ScrollView>
       )}
     </SafeAreaView>
+  </EcoSetuBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   contentPadding: {
     padding: spacing.spaceMd,
@@ -1121,59 +1109,59 @@ const styles = StyleSheet.create({
     marginBottom: spacing.spaceMd,
   },
   cacheNotice: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
     padding: spacing.spaceSm,
     borderRadius: 8,
     marginBottom: spacing.spaceSm,
     borderWidth: 1,
-    borderColor: '#C8E6C9',
+    borderColor: 'rgba(16, 185, 129, 0.30)',
   },
   cacheNoticeText: {
     fontSize: 12,
-    color: '#2E7D32',
+    color: '#34D399',
     textAlign: 'center',
     fontWeight: '500',
   },
   warningBanner: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
     padding: spacing.spaceSm,
     borderRadius: 8,
     marginBottom: spacing.spaceSm,
     borderWidth: 1,
-    borderColor: '#FFE0B2',
+    borderColor: 'rgba(245, 158, 11, 0.30)',
   },
   warningBannerText: {
     fontSize: 12,
-    color: '#E65100',
+    color: '#FBBF24',
     lineHeight: 18,
     fontWeight: '500',
   },
   educationCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
     padding: spacing.spaceMd,
     borderRadius: 10,
     marginBottom: spacing.spaceSm,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(45, 212, 191, 0.22)',
   },
   educationTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.primaryDark,
+    color: '#2DD4BF',
     marginBottom: 4,
   },
   educationBody: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: '#94A3B8',
     lineHeight: 18,
   },
   trackConsignmentsCard: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
     borderRadius: 10,
     padding: spacing.spaceMd,
     marginBottom: spacing.spaceSm,
     borderWidth: 1,
-    borderColor: '#C8E6C9',
+    borderColor: 'rgba(16, 185, 129, 0.30)',
   },
   trackConsignmentsInner: {
     flexDirection: 'row',
@@ -1185,51 +1173,19 @@ const styles = StyleSheet.create({
   trackConsignmentsTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.primaryDark,
+    color: '#10B981',
     marginBottom: 2,
   },
   trackConsignmentsSubtitle: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: '#94A3B8',
     lineHeight: 16,
   },
   trackConsignmentsArrow: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.primaryDark,
+    color: '#10B981',
     marginLeft: spacing.spaceSm,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    paddingHorizontal: spacing.spaceSm,
-    height: 48,
-    marginBottom: spacing.spaceSm,
-  },
-  searchIcon: {
-    fontSize: 16,
-    marginRight: spacing.spaceXs,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.textPrimary,
-    height: '100%',
-  },
-  clearButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  clearButtonText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    fontWeight: '700',
   },
   categoryFilterContainer: {
     marginBottom: spacing.spaceSm,
@@ -1248,9 +1204,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(6, 21, 27, 0.75)',
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(45, 212, 191, 0.20)',
     minHeight: 36,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1278,12 +1234,12 @@ const styles = StyleSheet.create({
   },
   viewModeToggleRow: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(6, 21, 27, 0.75)',
     borderRadius: 10,
     padding: 4,
     marginBottom: spacing.spaceSm,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(45, 212, 191, 0.20)',
     gap: 6,
   },
   viewModeBtn: {
@@ -1312,13 +1268,13 @@ const styles = StyleSheet.create({
   },
   emptyMapBox: {
     height: 180,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.spaceMd,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(45, 212, 191, 0.22)',
   },
   emptyMapIcon: {
     fontSize: 32,
@@ -1327,7 +1283,7 @@ const styles = StyleSheet.create({
   emptyMapTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#F8FAFC',
     marginBottom: 4,
     textAlign: 'center',
   },
@@ -1343,7 +1299,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(45, 212, 191, 0.22)',
   },
   map: {
     flex: 1,
@@ -1353,13 +1309,13 @@ const styles = StyleSheet.create({
     bottom: 12,
     left: 12,
     right: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    backgroundColor: 'rgba(6, 21, 27, 0.95)',
     borderRadius: 12,
     padding: spacing.spaceMd,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(45, 212, 191, 0.35)',
     shadowColor: '#000',
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.35,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 8,
     elevation: 5,
@@ -1377,7 +1333,7 @@ const styles = StyleSheet.create({
   popupTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#F8FAFC',
   },
   popupSub: {
     fontSize: 12,
@@ -1390,7 +1346,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 18,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   popupCloseText: {
     fontSize: 14,
@@ -1436,17 +1392,17 @@ const styles = StyleSheet.create({
   },
   popupViewBtn: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
   },
   popupViewBtnText: {
-    color: colors.textPrimary,
+    color: '#F1F5F9',
     fontSize: 13,
     fontWeight: '600',
   },

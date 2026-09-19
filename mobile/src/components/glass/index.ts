@@ -69,4 +69,16 @@ export { default as GlassChipDefault } from './GlassChip';
 export { GlassTabBar } from './GlassTabBar';
 export { default as GlassTabBarDefault } from './GlassTabBar';
 
+export { EcoSetuBackground } from './EcoSetuBackground';
+export { default as EcoSetuBackgroundDefault } from './EcoSetuBackground';
+
+export { GlassHeroCard } from './GlassHeroCard';
+export { default as GlassHeroCardDefault } from './GlassHeroCard';
+
+export { GlassAvatar } from './GlassAvatar';
+export { default as GlassAvatarDefault } from './GlassAvatar';
+
+export { GlassBottomNavigation } from './GlassBottomNavigation';
+export { default as GlassBottomNavigationDefault } from './GlassBottomNavigation';
+
 export { LanguageSelector } from './LanguageSelector';

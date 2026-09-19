@@ -132,6 +132,7 @@ export const STORAGE_KEYS = Object.freeze({
 export const PRODUCTION_API_BASE_URL = 'https://ecosetu-backend.onrender.com/api/v1';
 export const LOCAL_DEV_API_BASE_URL = 'http://10.0.2.2:3001/api/v1';
 export const LOCAL_FALLBACK_API_BASE_URL = 'http://localhost:3001/api/v1';
+export const LAN_DEV_API_BASE_URL = 'http://10.242.155.183:3001/api/v1';
 
 // Dynamic Base URL Resolution:
 // 1. Explicit environment variable overrides: process.env.PRODUCTION_API_BASE_URL or process.env.API_BASE_URL
@@ -157,6 +158,7 @@ export const API_CONFIG = Object.freeze({
   PRODUCTION_BASE_URL: PRODUCTION_API_BASE_URL,
   LOCAL_DEV_BASE_URL: LOCAL_DEV_API_BASE_URL,
   FALLBACK_BASE_URL: LOCAL_FALLBACK_API_BASE_URL,
+  LAN_DEV_BASE_URL: LAN_DEV_API_BASE_URL,
   DEFAULT_TIMEOUT_MS: 15000,
   UPLOAD_TIMEOUT_MS: 30000,
   MAX_RETRIES: 3,

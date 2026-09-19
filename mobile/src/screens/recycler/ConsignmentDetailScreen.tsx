@@ -208,7 +208,7 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
     } catch (err: any) {
       if (err.status === 409 || err.code === 'CONFLICT' || err.status === 400) {
         Alert.alert(
-          'Status Conflict',
+          'Status Mismatch',
           err.message || 'This consignment status has changed. Refreshing data...',
           [{ text: 'OK', onPress: () => fetchConsignment() }]
         );
@@ -261,7 +261,7 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
     } catch (err: any) {
       if (err.status === 409 || err.code === 'CONFLICT' || err.status === 400) {
         Alert.alert(
-          'Status Conflict',
+          'Status Mismatch',
           err.message || 'This consignment status has changed. Refreshing data...',
           [{ text: 'OK', onPress: () => fetchConsignment() }]
         );

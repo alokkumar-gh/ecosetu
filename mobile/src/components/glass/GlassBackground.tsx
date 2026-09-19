@@ -1,12 +1,14 @@
 /**
  * GlassBackground
  * Ambient canvas background for all EcoSetu glass screens.
- * Features subtle off-white multi-tone ambient lighting and soft radial glow layers.
+ * Renders the user-selected high-end environmental wallpaper with an integrated dark scrim.
  */
 
 import React, { memo } from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import { View, StyleSheet, ViewStyle, ImageBackground, StatusBar } from 'react-native';
 import { colors } from '../../theme/colors';
+
+const BG_IMAGE = require('../../assets/images/ecosetu_bg.png');
 
 interface GlassBackgroundProps {
   children?: React.ReactNode;
@@ -21,9 +23,17 @@ export const GlassBackground: React.FC<GlassBackgroundProps> = memo(({
 }) => {
   return (
     <View style={[styles.container, style]} testID={testID}>
-      <View style={styles.topOrb} pointerEvents="none" />
-      <View style={styles.bottomOrb} pointerEvents="none" />
-      {children}
+      <StatusBar barStyle="light-content" backgroundColor="#02080D" translucent={false} />
+      <ImageBackground
+        source={BG_IMAGE}
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        <View style={styles.scrimOverlay} pointerEvents="none" />
+        <View style={styles.topOrb} pointerEvents="none" />
+        <View style={styles.bottomOrb} pointerEvents="none" />
+        {children}
+      </ImageBackground>
     </View>
   );
 });
@@ -33,27 +43,36 @@ GlassBackground.displayName = 'GlassBackground';
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.backgroundBase,
+    backgroundColor: '#02080D',
     position: 'relative',
     overflow: 'hidden',
   },
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  scrimOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(2, 8, 13, 0.68)',
+  },
   topOrb: {
     position: 'absolute',
-    top: -80,
+    top: -100,
     right: -60,
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: 'rgba(37, 99, 235, 0.04)',
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(16, 185, 129, 0.10)',
   },
   bottomOrb: {
     position: 'absolute',
-    bottom: -60,
+    bottom: -80,
     left: -60,
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    backgroundColor: 'rgba(5, 150, 105, 0.04)',
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(6, 182, 212, 0.08)',
   },
 });
 

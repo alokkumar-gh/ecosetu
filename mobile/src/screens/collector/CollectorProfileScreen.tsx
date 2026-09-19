@@ -52,6 +52,12 @@ import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { MetricCard } from '../../components/common/MetricCard';
 import { LanguageSelector } from '../../components/common/LanguageSelector';
+import {
+  EcoSetuBackground,
+  EcoGlassInput,
+  EcoGlassTextArea,
+  EcoGlassNumberInput,
+} from '../../components/eco';
 import { useI18n } from '../../i18n';
 import { voiceService, AnnouncementPriority } from '../../services/voiceService';
 import { collectorService } from '../../services/collectorService';
@@ -451,7 +457,8 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
     profile?.serviceRadiusKm != null ? `${profile.serviceRadiusKm} km coverage radius` : '5 km radius';
 
   return (
-    <SafeAreaView style={styles.container}>
+    <EcoSetuBackground>
+      <SafeAreaView style={styles.container}>
       <TopAppBar
         title={t('collector.profile.title') || "Collector Profile"}
         subtitle="Manage your collector account & availability"
@@ -641,24 +648,21 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
 
               {/* Full Name */}
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>{t('auth.name') || 'Full Name'}</Text>
                 {isEditing ? (
-                  <>
-                    <TextInput
-                      style={[styles.input, Boolean(nameError) && styles.inputError]}
-                      value={editName}
-                      onChangeText={setEditName}
-                      placeholder={t('auth.name') || 'Enter full name'}
-                      maxLength={100}
-                      accessibilityLabel="Full name input"
-                      editable={!isSaving}
-                    />
-                    {Boolean(nameError) && (
-                      <Text style={styles.fieldErrorText}>{nameError}</Text>
-                    )}
-                  </>
+                  <EcoGlassInput
+                    label={t('auth.name') || 'Full Name'}
+                    value={editName}
+                    onChangeText={setEditName}
+                    placeholder={t('auth.name') || 'Enter full name'}
+                    maxLength={100}
+                    error={nameError}
+                    editable={!isSaving}
+                  />
                 ) : (
-                  <Text style={styles.fieldValue}>{displayName}</Text>
+                  <>
+                    <Text style={styles.fieldLabel}>{t('auth.name') || 'Full Name'}</Text>
+                    <Text style={styles.fieldValue}>{displayName}</Text>
+                  </>
                 )}
               </View>
 
@@ -673,24 +677,21 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
 
               {/* Phone */}
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>{t('auth.phone') || 'Phone Number'}</Text>
                 {isEditing ? (
-                  <>
-                    <TextInput
-                      style={[styles.input, Boolean(phoneError) && styles.inputError]}
-                      value={editPhone}
-                      onChangeText={setEditPhone}
-                      placeholder="+91 98765 43210"
-                      keyboardType="phone-pad"
-                      accessibilityLabel="Phone number input"
-                      editable={!isSaving}
-                    />
-                    {Boolean(phoneError) && (
-                      <Text style={styles.fieldErrorText}>{phoneError}</Text>
-                    )}
-                  </>
+                  <EcoGlassInput
+                    label={t('auth.phone') || 'Phone Number'}
+                    value={editPhone}
+                    onChangeText={setEditPhone}
+                    placeholder="+91 98765 43210"
+                    keyboardType="phone-pad"
+                    error={phoneError}
+                    editable={!isSaving}
+                  />
                 ) : (
-                  <Text style={styles.fieldValue}>{displayPhone}</Text>
+                  <>
+                    <Text style={styles.fieldLabel}>{t('auth.phone') || 'Phone Number'}</Text>
+                    <Text style={styles.fieldValue}>{displayPhone}</Text>
+                  </>
                 )}
               </View>
             </View>
@@ -703,52 +704,41 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
 
               {/* Bio */}
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>{t('collector.profile.bio') || 'Bio / Introduction'}</Text>
                 {isEditing ? (
-                  <>
-                    <TextInput
-                      style={[styles.bioInput, Boolean(bioError) && styles.inputError]}
-                      value={editBio}
-                      onChangeText={setEditBio}
-                      placeholder="Share a short bio with citizens..."
-                      multiline
-                      numberOfLines={3}
-                      maxLength={500}
-                      accessibilityLabel="Collector bio input"
-                      editable={!isSaving}
-                    />
-                    {Boolean(bioError) && (
-                      <Text style={styles.fieldErrorText}>{bioError}</Text>
-                    )}
-                  </>
+                  <EcoGlassTextArea
+                    label={t('collector.profile.bio') || 'Bio / Introduction'}
+                    value={editBio}
+                    onChangeText={setEditBio}
+                    placeholder="Share a short bio with citizens..."
+                    maxLength={500}
+                    error={bioError}
+                    editable={!isSaving}
+                  />
                 ) : (
-                  <Text style={styles.fieldValue}>{displayBio}</Text>
+                  <>
+                    <Text style={styles.fieldLabel}>{t('collector.profile.bio') || 'Bio / Introduction'}</Text>
+                    <Text style={styles.fieldValue}>{displayBio}</Text>
+                  </>
                 )}
               </View>
 
               {/* Service Radius */}
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>{t('collector.profile.serviceRadius') || 'Operating Service Radius'}</Text>
                 {isEditing ? (
-                  <>
-                    <View style={styles.radiusInputRow}>
-                      <TextInput
-                        style={[styles.radiusInput, Boolean(radiusError) && styles.inputError]}
-                        value={editRadius}
-                        onChangeText={setEditRadius}
-                        placeholder="5"
-                        keyboardType="decimal-pad"
-                        accessibilityLabel="Service radius in kilometers"
-                        editable={!isSaving}
-                      />
-                      <Text style={styles.radiusUnit}>km</Text>
-                    </View>
-                    {Boolean(radiusError) && (
-                      <Text style={styles.fieldErrorText}>{radiusError}</Text>
-                    )}
-                  </>
+                  <EcoGlassNumberInput
+                    label={t('collector.profile.serviceRadius') || 'Operating Service Radius'}
+                    value={editRadius}
+                    onChangeText={setEditRadius}
+                    placeholder="5"
+                    unit="km"
+                    error={radiusError}
+                    editable={!isSaving}
+                  />
                 ) : (
-                  <Text style={styles.fieldValue}>{displayRadius}</Text>
+                  <>
+                    <Text style={styles.fieldLabel}>{t('collector.profile.serviceRadius') || 'Operating Service Radius'}</Text>
+                    <Text style={styles.fieldValue}>{displayRadius}</Text>
+                  </>
                 )}
               </View>
 
@@ -869,7 +859,8 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
           </ScrollView>
         </KeyboardAvoidingView>
       )}
-    </SafeAreaView>
+      </SafeAreaView>
+    </EcoSetuBackground>
   );
 };
 
@@ -878,7 +869,7 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   keyboardContainer: {
     flex: 1,
@@ -888,59 +879,63 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.spaceXl * 2,
   },
   cacheNotice: {
-    backgroundColor: '#FFF9C4',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
     paddingHorizontal: spacing.spaceMd,
     paddingVertical: spacing.spaceSm,
     borderBottomWidth: 1,
-    borderBottomColor: '#FFF59D',
+    borderBottomColor: 'rgba(245, 158, 11, 0.25)',
   },
   cacheNoticeText: {
     fontSize: typography.Caption.fontSize,
-    color: '#F57F17',
+    color: '#FBBF24',
     textAlign: 'center',
     fontWeight: '500',
   },
   warningBanner: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
     paddingHorizontal: spacing.spaceMd,
     paddingVertical: spacing.spaceSm,
     borderBottomWidth: 1,
-    borderBottomColor: '#FFE0B2',
+    borderBottomColor: 'rgba(245, 158, 11, 0.25)',
   },
   warningBannerText: {
     fontSize: typography.Caption.fontSize,
-    color: '#E65100',
+    color: '#FBBF24',
     fontWeight: '600',
     lineHeight: 18,
   },
   errorBanner: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
     padding: spacing.spaceMd,
     marginHorizontal: spacing.spaceMd,
     marginTop: spacing.spaceSm,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   errorBannerText: {
     fontSize: typography.Body.fontSize,
-    color: colors.error,
+    color: '#F87171',
     flex: 1,
     marginRight: spacing.spaceSm,
   },
   retryBtn: {
-    backgroundColor: colors.error,
+    backgroundColor: 'rgba(239, 68, 68, 0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.5)',
     paddingHorizontal: spacing.spaceMd,
     paddingVertical: spacing.spaceXs,
-    borderRadius: 4,
+    borderRadius: 6,
     minHeight: 48,
     justifyContent: 'center',
   },
   retryBtnText: {
-    color: colors.surface,
+    color: '#F87171',
+    fontSize: 12,
     fontWeight: '700',
-    fontSize: typography.Caption.fontSize,
   },
   skeletonContainer: {
     padding: spacing.spaceMd,
@@ -950,18 +945,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   headerCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: spacing.spaceLg,
+    backgroundColor: 'rgba(6, 21, 27, 0.78)',
+    borderRadius: 16,
+    padding: spacing.spaceMd,
     alignItems: 'center',
     marginBottom: spacing.spaceMd,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(45, 212, 191, 0.22)',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
+        shadowOpacity: 0.15,
         shadowRadius: 4,
       },
       android: {
@@ -973,17 +968,17 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: `${colors.primary}18`,
+    backgroundColor: 'rgba(16, 185, 129, 0.18)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.spaceSm,
     borderWidth: 2,
-    borderColor: colors.primary,
+    borderColor: '#10B981',
   },
   avatarText: {
     fontSize: 28,
     fontWeight: '800',
-    color: colors.primary,
+    color: '#34D399',
   },
   headerName: {
     fontSize: typography.Title.fontSize,
@@ -997,7 +992,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   roleBadge: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: 'rgba(6, 182, 212, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(6, 182, 212, 0.35)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
@@ -1006,20 +1003,20 @@ const styles = StyleSheet.create({
   roleBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#1565C0',
+    color: '#22D3EE',
   },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
+    backgroundColor: 'rgba(6, 21, 27, 0.78)',
+    borderRadius: 14,
     padding: spacing.spaceMd,
     marginBottom: spacing.spaceMd,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(45, 212, 191, 0.22)',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
+        shadowOpacity: 0.1,
         shadowRadius: 3,
       },
       android: {
@@ -1061,7 +1058,7 @@ const styles = StyleSheet.create({
   },
   availabilityInfo: {
     flex: 1,
-    marginRight: spacing.spaceMd,
+    marginRight: spacing.spaceSm,
   },
   availabilitySub: {
     fontSize: typography.Caption.fontSize,
@@ -1070,10 +1067,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   switchWrapper: {
-    minHeight: 48,
-    minWidth: 48,
-    justifyContent: 'center',
+    minWidth: 50,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   sectionContainer: {
     marginBottom: spacing.spaceMd,
@@ -1099,19 +1095,20 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   fieldLabel: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: colors.textSecondary,
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
     marginBottom: 4,
   },
   protectedLabel: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#757575',
-    backgroundColor: '#EEEEEE',
+    color: '#94A3B8',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     paddingHorizontal: 6,
-    paddingVertical: 1,
+    paddingVertical: 2,
     borderRadius: 4,
   },
   fieldValue: {
@@ -1121,27 +1118,34 @@ const styles = StyleSheet.create({
   },
   fieldValueReadOnly: {
     fontSize: typography.Body.fontSize,
-    color: '#616161',
+    color: '#CBD5E1',
+    backgroundColor: 'rgba(6, 21, 27, 0.65)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 10,
+    paddingHorizontal: spacing.spaceMd,
+    paddingVertical: 12,
+    marginTop: 4,
   },
   input: {
     borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: 6,
+    borderColor: 'rgba(45, 212, 191, 0.22)',
+    borderRadius: 10,
     paddingHorizontal: spacing.spaceSm,
     paddingVertical: spacing.spaceXs,
     fontSize: typography.Body.fontSize,
     color: colors.textPrimary,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
     minHeight: 48,
   },
   bioInput: {
     borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: 6,
+    borderColor: 'rgba(45, 212, 191, 0.22)',
+    borderRadius: 10,
     padding: spacing.spaceSm,
     fontSize: typography.Body.fontSize,
     color: colors.textPrimary,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
     minHeight: 70,
     textAlignVertical: 'top',
   },
@@ -1151,13 +1155,13 @@ const styles = StyleSheet.create({
   },
   radiusInput: {
     borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: 6,
+    borderColor: 'rgba(45, 212, 191, 0.22)',
+    borderRadius: 10,
     paddingHorizontal: spacing.spaceSm,
     paddingVertical: spacing.spaceXs,
     fontSize: typography.Body.fontSize,
     color: colors.textPrimary,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
     width: 80,
     minHeight: 48,
     textAlign: 'center',
@@ -1224,42 +1228,42 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   chainNoteCard: {
-    backgroundColor: '#E8F5E9',
-    borderRadius: 8,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderRadius: 12,
     padding: spacing.spaceMd,
     marginBottom: spacing.spaceLg,
     borderWidth: 1,
-    borderColor: '#C8E6C9',
+    borderColor: 'rgba(16, 185, 129, 0.35)',
   },
   chainNoteTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#2E7D32',
+    color: '#34D399',
     marginBottom: 4,
   },
   chainNoteText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#1B5E20',
+    color: '#A7F3D0',
     marginBottom: 4,
   },
   chainNoteSub: {
     fontSize: 11,
-    color: '#388E3C',
+    color: colors.textSecondary,
     lineHeight: 16,
   },
   logoutButton: {
     borderWidth: 1,
-    borderColor: colors.error,
-    borderRadius: 8,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    borderRadius: 10,
     paddingVertical: spacing.spaceMd,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
-    backgroundColor: '#FFEBEE',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
   },
   logoutButtonText: {
-    color: colors.error,
+    color: '#F87171',
     fontSize: typography.Button.fontSize,
     fontWeight: '700',
   },

@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthStackParamList } from '../../navigation/types';
-import { LoginCarousel } from '../../components/auth/LoginCarousel';
+import { EcoCarousel } from '../../components/auth/carousel';
+import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { STORAGE_KEYS } from '../../utils/constants';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Landing'>;
@@ -53,40 +54,40 @@ export const LandingScreen: React.FC<Props> = ({ navigation, route }) => {
 
   if (checkingStatus) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loadingContainer} accessibilityRole="progressbar" accessibilityLabel="Loading ECOSETU">
-          <ActivityIndicator size="large" color="#0F2942" />
-        </View>
-      </SafeAreaView>
+      <EcoSetuBackground>
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.loadingContainer} accessibilityRole="progressbar" accessibilityLabel="Loading ECOSETU">
+            <ActivityIndicator size="large" color="#10B981" />
+          </View>
+        </SafeAreaView>
+      </EcoSetuBackground>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <LoginCarousel
-          onComplete={handleFinishCarousel}
-          onSkip={handleFinishCarousel}
-        />
-      </View>
-    </SafeAreaView>
+    <View style={styles.container}>
+      <EcoCarousel
+        onComplete={handleFinishCarousel}
+        onSkip={handleFinishCarousel}
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
   },
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'transparent',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'transparent',
   },
 });
 

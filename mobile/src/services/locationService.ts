@@ -278,3 +278,92 @@ export async function reverseGeocode(
 
   return null;
 }
+
+export interface SearchLocationResult {
+  latitude: number;
+  longitude: number;
+  title: string;
+  formattedAddress: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+}
+
+const searchCache = new Map<string, SearchLocationResult[]>();
+
+/**
+ * Searches for addresses or landmarks matching a text query.
+ * Uses 100% free native Android Geocoder or free rate-limited Nominatim fallback.
+ * Zero paid Google Places API requirement.
+ */
+export async function searchLocations(query: string): Promise<SearchLocationResult[]> {
+  const clean = query.trim().toLowerCase();
+  if (clean.length < 2) return [];
+
+  if (searchCache.has(clean)) {
+    return searchCache.get(clean)!;
+  }
+
+  // 1. Try Native Android Geocoder
+  const { EcoSetuLocation } = NativeModules;
+  if (EcoSetuLocation && typeof EcoSetuLocation.searchLocations === 'function') {
+    try {
+      const results = await EcoSetuLocation.searchLocations(query);
+      if (Array.isArray(results) && results.length > 0) {
+        const formatted: SearchLocationResult[] = results.map((r: any) => ({
+          latitude: Number(r.latitude),
+          longitude: Number(r.longitude),
+          title: r.title || query,
+          formattedAddress: r.formattedAddress || r.title || query,
+          city: r.city || '',
+          state: r.state || '',
+          pincode: r.pincode || '',
+        }));
+        searchCache.set(clean, formatted);
+        return formatted;
+      }
+    } catch (nativeErr) {
+      console.warn('[locationService] Native searchLocations warning:', nativeErr);
+    }
+  }
+
+  // 2. Fallback: Free OpenStreetMap Nominatim Search (1s rate limit)
+  try {
+    const now = Date.now();
+    const elapsed = now - lastNominatimRequestTime;
+    if (elapsed < 1000) {
+      await new Promise((r) => setTimeout(r, 1000 - elapsed));
+    }
+    lastNominatimRequestTime = Date.now();
+
+    const encoded = encodeURIComponent(query);
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=5&countrycodes=in`,
+      {
+        headers: {
+          'User-Agent': 'EcoSetu-Ewaste-Management/1.0 (contact@ecosetu.in)',
+          Accept: 'application/json',
+        },
+      }
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        const results: SearchLocationResult[] = data.map((item: any) => ({
+          latitude: parseFloat(item.lat),
+          longitude: parseFloat(item.lon),
+          title: item.name || item.display_name?.split(',')[0] || query,
+          formattedAddress: item.display_name || '',
+        }));
+        searchCache.set(clean, results);
+        return results;
+      }
+    }
+  } catch (err) {
+    console.warn('[locationService] Nominatim search failed:', err);
+  }
+
+  return [];
+}
+

@@ -49,6 +49,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useI18n } from '../../i18n';
 import { adminService } from '../../services/adminService';
 import { ROLES as CONST_ROLES } from '../../utils/constants';
+import { EcoSetuBackground, EcoGlassSearch } from '../../components/eco';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -60,9 +61,10 @@ const PERMITTED_STATUS_UPDATES = ['ACTIVE', 'SUSPENDED', 'DEACTIVATED'];
 
 interface Props {
   navigation?: any;
+  route?: any;
 }
 
-export const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
+export const AdminUsersScreen: React.FC<Props> = ({ navigation, route }) => {
   const { user: currentUser } = useAuth();
   const { isConnected } = useNetwork();
   const { t } = useI18n();
@@ -79,9 +81,14 @@ export const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
   const [error, setError] = useState<string | null>(null);
 
   // Filters
-  const [selectedRole, setSelectedRole] = useState<string>('ALL');
-  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [selectedRole, setSelectedRole] = useState<string>(route?.params?.filterRole || 'ALL');
+  const [selectedStatus, setSelectedStatus] = useState<string>(route?.params?.filterStatus || 'ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  useEffect(() => {
+    if (route?.params?.filterRole) setSelectedRole(route.params.filterRole);
+    if (route?.params?.filterStatus) setSelectedStatus(route.params.filterStatus);
+  }, [route?.params]);
 
   // Selected User Modal & Status Modification
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
@@ -245,21 +252,23 @@ export const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
   // Access-denied guard for non-administrators
   if (!isAdmin) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <TopAppBar
-          title={t('admin.users.title')}
-          showBack={Boolean(navigation?.canGoBack && navigation.canGoBack())}
-          onBack={() => navigation?.goBack()}
-        />
-        <View style={styles.centerContainer}>
-          <EmptyState
-            title={t('admin.users.selfStatusForbidden')}
-            message={t('admin.governance.accessRestrictedMessage')}
-            actionLabel={t('common.back')}
-            onAction={() => navigation?.goBack()}
+      <EcoSetuBackground>
+        <SafeAreaView style={styles.safeArea}>
+          <TopAppBar
+            title={t('admin.users.title')}
+            showBack={Boolean(navigation?.canGoBack && navigation.canGoBack())}
+            onBack={() => navigation?.goBack()}
           />
-        </View>
-      </SafeAreaView>
+          <View style={styles.centerContainer}>
+            <EmptyState
+              title={t('admin.users.selfStatusForbidden')}
+              message={t('admin.governance.accessRestrictedMessage')}
+              actionLabel={t('common.back')}
+              onAction={() => navigation?.goBack()}
+            />
+          </View>
+        </SafeAreaView>
+      </EcoSetuBackground>
     );
   }
 
@@ -301,29 +310,29 @@ export const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <TopAppBar
-        title={t('admin.users.title')}
-        subtitle={t('admin.users.subtitle')}
-        showBack={Boolean(navigation?.canGoBack && navigation.canGoBack())}
-        onBack={() => navigation?.goBack()}
-      />
-
-      {fromCache && <OfflineBanner />}
-
-      {/* Search Input */}
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder={t('admin.users.searchPlaceholder')}
-          placeholderTextColor={colors.textSecondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          returnKeyType="search"
-          onSubmitEditing={() => loadUsers(1, false)}
-          accessibilityLabel={t('admin.users.searchPlaceholder')}
+    <EcoSetuBackground>
+      <SafeAreaView style={styles.safeArea}>
+        <TopAppBar
+          title={t('admin.users.title')}
+          subtitle={t('admin.users.subtitle')}
+          showBack={Boolean(navigation?.canGoBack && navigation.canGoBack())}
+          onBack={() => navigation?.goBack()}
         />
-      </View>
+
+        {fromCache && <OfflineBanner />}
+
+        {/* Search Input using EcoGlassSearch */}
+        <View style={styles.searchContainer}>
+          <EcoGlassSearch
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onClear={() => {
+              setSearchQuery('');
+              loadUsers(1, false);
+            }}
+            placeholder={t('admin.users.searchPlaceholder') || 'Search users by name or email...'}
+          />
+        </View>
 
       {/* Role Filter Tabs */}
       <ScrollView
@@ -574,29 +583,19 @@ export const AdminUsersScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       </Modal>
     </SafeAreaView>
+  </EcoSetuBackground>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   searchContainer: {
     paddingHorizontal: spacing.spaceMd,
     paddingTop: spacing.spaceSm,
     paddingBottom: spacing.spaceXs,
-  },
-  searchInput: {
-    minHeight: 48,
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    paddingHorizontal: spacing.spaceMd,
-    paddingVertical: spacing.spaceSm,
-    fontSize: typography.Body.fontSize,
-    color: colors.textPrimary,
   },
   filterScroll: {
     maxHeight: 52,
@@ -608,13 +607,13 @@ const styles = StyleSheet.create({
     gap: spacing.spaceXs,
   },
   filterChip: {
-    minHeight: 48,
+    minHeight: 44,
     justifyContent: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(6, 21, 27, 0.75)',
     paddingHorizontal: spacing.spaceSm + 4,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(45, 212, 191, 0.20)',
   },
   filterChipActive: {
     backgroundColor: colors.primary,
@@ -644,12 +643,12 @@ const styles = StyleSheet.create({
     gap: spacing.spaceSm,
   },
   userCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
+    borderRadius: 10,
     padding: spacing.spaceMd,
     borderWidth: 1,
-    borderColor: colors.divider,
-    elevation: 1,
+    borderColor: 'rgba(45, 212, 191, 0.22)',
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -664,7 +663,7 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: typography.Body.fontSize,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#F8FAFC',
   },
   userEmail: {
     fontSize: typography.Caption.fontSize,
@@ -709,8 +708,8 @@ const styles = StyleSheet.create({
   },
   verifiedTag: {
     fontSize: 10,
-    color: '#2E7D32',
-    backgroundColor: '#E8F5E9',
+    color: '#34D399',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -718,20 +717,22 @@ const styles = StyleSheet.create({
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(2, 8, 13, 0.85)',
     justifyContent: 'center',
     padding: spacing.spaceMd,
   },
   modalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: spacing.spaceMd,
+    backgroundColor: '#071A21',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(45, 212, 191, 0.35)',
+    padding: spacing.spaceLg,
     maxHeight: '85%',
   },
   modalTitle: {
     fontSize: typography.Subheading.fontSize,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#FFFFFF',
     marginBottom: spacing.spaceMd,
     textAlign: 'center',
   },
@@ -748,12 +749,12 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: typography.Body.fontSize,
-    color: colors.textSecondary,
+    color: '#94A3B8',
     fontWeight: '500',
   },
   detailValue: {
     fontSize: typography.Body.fontSize,
-    color: colors.textPrimary,
+    color: '#F8FAFC',
     fontWeight: '600',
   },
   roleValueWrap: {
@@ -830,11 +831,12 @@ const styles = StyleSheet.create({
   },
   reasonInput: {
     borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: 6,
+    borderColor: 'rgba(45, 212, 191, 0.30)',
+    borderRadius: 8,
     padding: spacing.spaceSm,
     fontSize: typography.Body.fontSize,
-    color: colors.textPrimary,
+    color: '#FFFFFF',
+    backgroundColor: 'rgba(6, 21, 27, 0.90)',
     minHeight: 60,
     textAlignVertical: 'top',
     marginBottom: spacing.spaceSm,

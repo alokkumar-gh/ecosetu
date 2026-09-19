@@ -290,43 +290,53 @@ const RequestCard: React.FC<RequestCardProps> = ({
 
 const cardStyles = StyleSheet.create({
   container: {
-    backgroundColor: colors.glassSurface,
-    borderRadius: 14,
+    backgroundColor: 'rgba(16, 44, 48, 0.72)',
+    borderRadius: 20,
     padding: spacing.spaceMd,
     marginBottom: spacing.spaceSm,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
+    elevation: 4,
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.spaceSm, marginBottom: spacing.spaceSm },
   iconCircle: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: 'rgba(74, 222, 128, 0.15)',
-    borderWidth: 1, borderColor: 'rgba(74, 222, 128, 0.3)',
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1, borderColor: '#34D399',
     alignItems: 'center', justifyContent: 'center',
   },
-  icon: { fontSize: 18 },
-  categoryText: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
-  subText: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  icon: { fontSize: 20 },
+  categoryText: { fontSize: 15, fontWeight: '800', color: '#FFFFFF' },
+  subText: { fontSize: 12, color: 'rgba(255, 255, 255, 0.65)', marginTop: 2 },
   statusChip: {
-    backgroundColor: 'rgba(74, 222, 128, 0.18)',
-    borderWidth: 1, borderColor: 'rgba(74, 222, 128, 0.35)',
-    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
+    backgroundColor: 'rgba(16, 185, 129, 0.20)',
+    borderWidth: 1, borderColor: '#34D399',
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12,
   },
-  statusText: { fontSize: 11, fontWeight: '700', color: colors.primary },
-  divider: { height: 1, backgroundColor: colors.glassBorder, marginVertical: spacing.spaceXs },
+  statusText: { fontSize: 11, fontWeight: '800', color: '#34D399' },
+  divider: { height: 1, backgroundColor: 'rgba(255, 255, 255, 0.10)', marginVertical: spacing.spaceXs },
   locationRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: spacing.spaceXs },
   locationIcon: { fontSize: 13, marginTop: 1 },
-  locationText: { flex: 1, fontSize: 12, color: colors.textSecondary, lineHeight: 18 },
-  dateText: { fontSize: 12, color: colors.textSecondary, marginBottom: spacing.spaceXs },
-  notesText: { fontSize: 12, color: colors.textSecondary, fontStyle: 'italic', marginBottom: spacing.spaceXs },
+  locationText: { flex: 1, fontSize: 12, color: 'rgba(255, 255, 255, 0.70)', lineHeight: 18 },
+  dateText: { fontSize: 12, color: 'rgba(255, 255, 255, 0.65)', marginBottom: spacing.spaceXs },
+  notesText: { fontSize: 12, color: 'rgba(255, 255, 255, 0.60)', fontStyle: 'italic', marginBottom: spacing.spaceXs },
   acceptButton: {
-    marginTop: spacing.spaceSm, backgroundColor: colors.primary,
-    borderRadius: 10, minHeight: 46, alignItems: 'center', justifyContent: 'center',
+    marginTop: spacing.spaceSm, backgroundColor: '#10B981',
+    borderRadius: 14, minHeight: 48, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1.2, borderColor: '#34D399',
+    elevation: 4,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
   },
   acceptButtonDisabled: { opacity: 0.45 },
-  acceptButtonText: { color: colors.textInverse, fontSize: 14, fontWeight: '800' },
-  offlineHint: { fontSize: 11, color: colors.warning, textAlign: 'center', marginTop: 4 },
+  acceptButtonText: { color: '#051417', fontSize: 15, fontWeight: '800' },
+  offlineHint: { fontSize: 11, color: '#FBBF24', textAlign: 'center', marginTop: 4 },
 });
 
 // ─── Pickup Summary Card ──────────────────────────────────────────────────────
@@ -368,18 +378,18 @@ const PickupSummaryCard: React.FC<{ pickup: any }> = ({ pickup }) => {
 
 const pickupCardStyles = StyleSheet.create({
   container: {
-    backgroundColor: colors.glassSurface, borderRadius: 12, padding: spacing.spaceSm,
+    backgroundColor: 'rgba(7, 30, 34, 0.72)', borderRadius: 16, padding: spacing.spaceSm + 2,
     marginBottom: spacing.spaceXs, elevation: 2,
-    borderWidth: 1, borderColor: colors.glassBorder,
+    borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.12)',
     flexDirection: 'row', overflow: 'hidden',
   },
   row: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   statusBar: { width: 4, borderRadius: 2, alignSelf: 'stretch', marginRight: spacing.spaceSm },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontSize: 13, fontWeight: '600', color: colors.textPrimary, flex: 1 },
-  badge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, marginLeft: 6 },
-  badgeText: { fontSize: 11, fontWeight: '700' },
-  dateText: { fontSize: 11, color: colors.textSecondary, marginTop: 3 },
+  title: { fontSize: 13, fontWeight: '700', color: '#FFFFFF', flex: 1 },
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, marginLeft: 6 },
+  badgeText: { fontSize: 11, fontWeight: '800' },
+  dateText: { fontSize: 11, color: 'rgba(255, 255, 255, 0.60)', marginTop: 3 },
 });
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
@@ -814,7 +824,7 @@ export const CollectorDashboardScreen: React.FC<{ navigation?: any }> = ({ navig
               </Text>
             </View>
             <View style={styles.headerInfo}>
-              <Text style={styles.greetingText}>{greeting},</Text>
+              <Text style={styles.greetingText}>{greeting.replace(/,+$/, '')},</Text>
               <Text style={styles.collectorName} accessibilityRole="header" numberOfLines={1}>
                 {collectorName}
               </Text>
@@ -870,31 +880,35 @@ export const CollectorDashboardScreen: React.FC<{ navigation?: any }> = ({ navig
             <Text style={styles.errorInlineText}>{statsError}</Text>
           </View>
         ) : (
-          <View style={styles.metricsRow}>
-            <GlassMetricCard
-              value={stats?.totalPickups ?? '—'}
-              label={t('collector.dashboard.completedPickups') || 'Completed Pickups'}
-              icon="✅"
-              accentColor={colors.success}
-            />
-            <GlassMetricCard
-              value={stats ? `${stats.totalWeightKg ?? 0} kg` : '—'}
-              label={t('collector.dashboard.totalCollected') || 'Total Collected'}
-              icon="⚖️"
-              accentColor={colors.secondary}
-            />
-            <GlassMetricCard
-              value={stats?.activeRequests ?? '—'}
-              label={t('collector.dashboard.activeRequests') || 'Active Requests'}
-              icon="📋"
-              accentColor={colors.warning}
-            />
-            <GlassMetricCard
-              value={stats?.totalConsignments ?? '—'}
-              label={t('collector.dashboard.consignments') || 'Consignments'}
-              icon="🏭"
-              accentColor={colors.primary}
-            />
+          <View style={styles.metricsGrid}>
+            <View style={styles.metricsGridRow}>
+              <GlassMetricCard
+                value={stats?.totalPickups ?? '—'}
+                label={t('collector.dashboard.completedPickups') || 'Completed Pickups'}
+                icon="✅"
+                accentColor={colors.success}
+              />
+              <GlassMetricCard
+                value={stats ? `${stats.totalWeightKg ?? 0} kg` : '—'}
+                label={t('collector.dashboard.totalCollected') || 'Total Collected'}
+                icon="⚖️"
+                accentColor={colors.secondary}
+              />
+            </View>
+            <View style={styles.metricsGridRow}>
+              <GlassMetricCard
+                value={stats?.activeRequests ?? '—'}
+                label={t('collector.dashboard.activeRequests') || 'Active Requests'}
+                icon="📋"
+                accentColor={colors.warning}
+              />
+              <GlassMetricCard
+                value={stats?.totalConsignments ?? '—'}
+                label={t('collector.dashboard.consignments') || 'Consignments'}
+                icon="🏭"
+                accentColor={colors.primary}
+              />
+            </View>
           </View>
         )}
 
@@ -1029,9 +1043,10 @@ const styles = StyleSheet.create({
 
   // ── Header card ──
   headerCard: {
-    backgroundColor: colors.glassSurface, borderRadius: 16,
+    backgroundColor: 'rgba(16, 44, 48, 0.75)', borderRadius: 22,
     padding: spacing.spaceMd, marginBottom: spacing.spaceMd,
-    elevation: 3, borderWidth: 1, borderColor: colors.glassBorder,
+    elevation: 4, borderWidth: 1.2, borderColor: 'rgba(255, 255, 255, 0.16)',
+    shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 12,
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -1040,19 +1055,20 @@ const styles = StyleSheet.create({
   },
   avatarCircle: {
     width: 52, height: 52, borderRadius: 26,
-    backgroundColor: colors.primary,
+    backgroundColor: 'rgba(16, 185, 129, 0.20)',
+    borderWidth: 1.5, borderColor: '#34D399',
     alignItems: 'center', justifyContent: 'center',
     marginRight: spacing.spaceSm,
-    shadowColor: colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 6,
+    shadowColor: '#10B981', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 6,
   },
-  avatarInitial: { fontSize: 22, fontWeight: '800', color: colors.textInverse },
+  avatarInitial: { fontSize: 22, fontWeight: '800', color: '#34D399' },
   headerInfo: {
     flex: 1,
     justifyContent: 'center',
   },
-  greetingText: { fontSize: 13, color: colors.textSecondary, fontWeight: '500' },
-  collectorName: { fontSize: 18, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.3 },
-  roleLabel: { fontSize: 12, color: colors.primaryLight, fontWeight: '600', marginTop: 2 },
+  greetingText: { fontSize: 13, color: 'rgba(255, 255, 255, 0.65)', fontWeight: '500' },
+  collectorName: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 },
+  roleLabel: { fontSize: 12, color: '#34D399', fontWeight: '600', marginTop: 2 },
 
   // ── Header Controls ──
   headerControlsRow: {
@@ -1061,7 +1077,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: spacing.spaceSm,
     borderTopWidth: 1,
-    borderTopColor: colors.glassBorder,
+    borderTopColor: 'rgba(255, 255, 255, 0.12)',
     gap: spacing.spaceSm,
   },
   voiceControlBtn: {
@@ -1086,10 +1102,10 @@ const styles = StyleSheet.create({
   voiceControlLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.65)',
   },
   voiceControlLabelActive: {
-    color: colors.success,
+    color: '#34D399',
   },
 
   // ── Availability ──
@@ -1102,18 +1118,27 @@ const styles = StyleSheet.create({
     marginBottom: spacing.spaceXs, marginTop: spacing.spaceSm,
   },
   sectionTitle: {
-    fontSize: 16, fontWeight: '800', color: colors.textPrimary,
+    fontSize: 17, fontWeight: '800', color: '#FFFFFF',
     letterSpacing: -0.3, marginBottom: spacing.spaceXs, marginTop: spacing.spaceSm,
   },
   countBadge: {
-    backgroundColor: colors.primary, borderRadius: 10,
+    backgroundColor: '#10B981', borderRadius: 10,
     paddingHorizontal: 8, paddingVertical: 2, marginBottom: spacing.spaceXs,
   },
-  countBadgeText: { fontSize: 11, fontWeight: '800', color: colors.textInverse },
+  countBadgeText: { fontSize: 11, fontWeight: '800', color: '#051417' },
 
   // ── Metrics ──
+  metricsGrid: {
+    gap: spacing.spaceSm,
+    marginBottom: spacing.spaceSm,
+  },
+  metricsGridRow: {
+    flexDirection: 'row',
+    gap: spacing.spaceSm,
+  },
   metricsRow: {
-    flexDirection: 'row', gap: spacing.spaceXs,
+    flexDirection: 'row',
+    gap: spacing.spaceXs,
     marginBottom: spacing.spaceSm,
   },
 

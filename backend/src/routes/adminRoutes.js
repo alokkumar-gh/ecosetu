@@ -34,6 +34,7 @@ router.get(
   '/analytics',
   authenticate,
   authorize(ROLES.ADMIN),
+  validate(adminValidators.getAnalytics),
   (req, res, next) => adminController.getAnalytics(req, res, next)
 );
 
@@ -64,4 +65,47 @@ router.patch(
   (req, res, next) => adminController.updateVerification(req, res, next)
 );
 
+// Send custom administrative notification to specified audience (Admin only)
+router.post(
+  '/notifications/send',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  validate(adminValidators.sendCustomNotification),
+  (req, res, next) => adminController.sendNotification(req, res, next)
+);
+
+// Preview audience recipients count before sending (Admin only)
+router.get(
+  '/notifications/recipients-preview',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  validate(adminValidators.previewRecipients),
+  (req, res, next) => adminController.previewNotificationRecipients(req, res, next)
+);
+
+// List administrative broadcast campaign history (Admin only)
+router.get(
+  '/notifications/history',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  (req, res, next) => adminController.getNotificationHistory(req, res, next)
+);
+
+// Get notification analytics (Admin only)
+router.get(
+  '/notifications/analytics',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  (req, res, next) => adminController.getNotificationAnalytics(req, res, next)
+);
+
+// Search users for individual notification targeting (Admin only)
+router.get(
+  '/notifications/users/search',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  (req, res, next) => adminController.searchNotificationUsers(req, res, next)
+);
+
 module.exports = router;
+

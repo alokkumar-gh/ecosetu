@@ -87,23 +87,23 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: '#FFFFFF',
     marginBottom: 6,
     letterSpacing: 0.2,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    borderRadius: spacing.radiusSm,
+    backgroundColor: 'rgba(16, 44, 48, 0.65)',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.glassBorderStrong,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
     minHeight: 48,
     paddingHorizontal: spacing.spaceMd,
   },
   inputWrapperFocused: {
-    borderColor: colors.primary,
-    backgroundColor: '#FFFFFF',
+    borderColor: '#10B981',
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
     borderWidth: 1.5,
   },
   inputWrapperError: {
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: colors.textPrimary,
+    color: '#FFFFFF',
     paddingVertical: 10,
     minHeight: 48,
   },

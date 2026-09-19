@@ -20,6 +20,8 @@ function normalizeTranscript(text) {
   return text
     .toLowerCase()
     .replace(/[\.\,\?\!\;\:\"\'\-\_\/\\।]/g, ' ')
+    .replace(/\bpick\s+up\b/g, 'pickup')
+    .replace(/\bcompleted\b/g, 'complete')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -164,10 +166,10 @@ const INTENT_RULES = [
     requiresConfirmation: true,
     targetEntity: 'REQUEST',
     patterns: {
-      en: ['accept request', 'accept this request', 'accept selected request', 'accept the request'],
-      hi: ['अनुरोध स्वीकार करो', 'यह अनुरोध स्वीकार करो', 'अनुरोध स्वीकार करें', 'स्वीकार करो'],
-      mr: ['विनंती स्वीकारा', 'ही विनंती स्वीकारा'],
-      or: ['ଅନୁରୋଧ ଗ୍ରହଣ କର', 'ଏହି ଅନୁରୋଧ ଗ୍ରହଣ କର'],
+      en: ['accept request', 'accept this request', 'accept selected request', 'accept the request', 'accept'],
+      hi: ['अनुरोध स्वीकार करो', 'यह अनुरोध स्वीकार करो', 'अनुरोध स्वीकार करें', 'स्वीकार करो', 'रिक्वेस्ट एक्सेप्ट करो', 'एक्सेप्ट करो'],
+      mr: ['विनंती स्वीकारा', 'ही विनंती स्वीकारा', 'स्वीकारा'],
+      or: ['ଅନୁରୋଧ ଗ୍ରହଣ କର', 'ଏହି ଅନୁରୋଧ ଗ୍ରହଣ କର', 'ଗ୍ରହଣ କର'],
     },
   },
   {
@@ -176,10 +178,10 @@ const INTENT_RULES = [
     requiresConfirmation: true,
     targetEntity: 'PICKUP',
     patterns: {
-      en: ['start pickup', 'start this pickup', 'start selected pickup', 'begin pickup'],
-      hi: ['पिकअप शुरू करो', 'पिकअप प्रारंभ करो', 'यह पिकअप शुरू करो', 'शुरू करो'],
-      mr: ['पिकअप सुरू करा', 'हा पिकअप सुरू करा'],
-      or: ['ପିକଅପ ଆରମ୍ଭ କର', 'ଏହି ପିକଅପ ଆରମ୍ଭ କର'],
+      en: ['start pickup', 'start this pickup', 'start selected pickup', 'begin pickup', 'start this pick up'],
+      hi: ['पिकअप शुरू करो', 'पिकअप प्रारंभ करो', 'यह पिकअप शुरू करो', 'शुरू करो', 'pickup shuru karo', 'पिकअप स्टार्ट करो'],
+      mr: ['पिकअप सुरू करा', 'हा पिकअप सुरू करा', 'सुरू करा'],
+      or: ['ପିକଅପ ଆରମ୍ଭ କର', 'ଏହି ପିକଅପ ଆରମ୍ଭ କର', 'ଆରମ୍ଭ କର'],
     },
   },
   {
@@ -188,10 +190,35 @@ const INTENT_RULES = [
     requiresConfirmation: true,
     targetEntity: 'PICKUP',
     patterns: {
-      en: ['complete pickup', 'complete this pickup', 'finish pickup', 'complete selected pickup'],
-      hi: ['पिकअप पूरा करो', 'पिकअप समाप्त करो', 'यह पिकअप पूरा करो', 'पूरा करो'],
-      mr: ['पिकअप पूर्ण करा', 'हा पिकअप पूर्ण करा'],
-      or: ['ପିକଅପ ସମ୍ପୂର୍ଣ୍ଣ କର', 'ଏହି ପିକଅପ ସମ୍ପୂର୍ଣ୍ଣ କର'],
+      en: [
+        'complete pickup',
+        'complete this pickup',
+        'finish pickup',
+        'complete selected pickup',
+        'mark this pickup completed',
+        'mark this pickup complete',
+        'finish this pickup now',
+        'finish this pickup',
+        'complete pickup now',
+        'mark pickup completed',
+        'mark pickup complete',
+        'mark this pick up completed',
+        'mark this pick up complete',
+        'done pickup',
+      ],
+      hi: [
+        'पिकअप पूरा करो',
+        'पिकअप समाप्त करो',
+        'यह पिकअप पूरा करो',
+        'पूरा करो',
+        'pickup complete karo',
+        'ye pickup complete karo',
+        'pickup khatam karo',
+        'पिकअप खत्म करो',
+        'पिकअप कम्पलीट करो',
+      ],
+      mr: ['पिकअप पूर्ण करा', 'हा पिकअप पूर्ण करा', 'पूर्ण करा', 'पिकअप संपवा'],
+      or: ['ପିକଅପ ସମ୍ପୂର୍ଣ୍ଣ କର', 'ଏହି ପିକଅପ ସମ୍ପୂର୍ଣ୍ଣ କର', 'ସମ୍ପୂର୍ଣ୍ଣ କର', 'ପିକଅପ ଶେଷ କର'],
     },
   },
   {
@@ -272,8 +299,10 @@ function parseIntent(transcript, activeLanguage = 'en') {
   // 1. Exact Pattern Match
   for (const rule of INTENT_RULES) {
     const activePatterns = rule.patterns[langKey] || [];
-    const fallbackPatterns = rule.patterns.en;
-    const allPatterns = [...activePatterns, ...fallbackPatterns];
+    const otherPatterns = Object.entries(rule.patterns)
+      .filter(([k]) => k !== langKey)
+      .flatMap(([_, list]) => list);
+    const allPatterns = [...activePatterns, ...otherPatterns];
 
     for (const pattern of allPatterns) {
       const normPattern = normalizeTranscript(pattern);
@@ -297,8 +326,10 @@ function parseIntent(transcript, activeLanguage = 'en') {
 
   for (const rule of INTENT_RULES) {
     const activePatterns = rule.patterns[langKey] || [];
-    const fallbackPatterns = rule.patterns.en;
-    const allPatterns = [...activePatterns, ...fallbackPatterns];
+    const otherPatterns = Object.entries(rule.patterns)
+      .filter(([k]) => k !== langKey)
+      .flatMap(([_, list]) => list);
+    const allPatterns = [...activePatterns, ...otherPatterns];
 
     for (const pattern of allPatterns) {
       const normPattern = normalizeTranscript(pattern);

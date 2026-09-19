@@ -48,6 +48,7 @@ import { notificationService } from '../../services/notificationService';
 import { useI18n } from '../../i18n';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { EcoSetuBackground } from '../../components/eco';
 
 type Nav = NativeStackNavigationProp<CitizenStackParamList>;
 
@@ -134,6 +135,8 @@ const getNotificationMeta = (type: string): NotificationMeta => {
       return { icon: '🏅', displayTitle: 'Account Verified' };
     case NOTIFICATION_TYPES.VERIFICATION_REJECTED:
       return { icon: '📋', displayTitle: 'Verification Update' };
+    case 'ADMIN_MESSAGE':
+      return { icon: '📢', displayTitle: 'Official Announcement' };
     default:
       return { icon: '🔔', displayTitle: 'Notification' };
   }
@@ -259,7 +262,14 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ item, onPress }) =>
       <View style={styles.cardContent}>
         {/* Icon */}
         <View
-          style={[styles.iconCircle, { backgroundColor: isUnread ? '#E8F5E9' : '#F5F5F5' }]}
+          style={[
+            styles.iconCircle,
+            {
+              backgroundColor: isUnread ? 'rgba(16, 185, 129, 0.20)' : 'rgba(255, 255, 255, 0.08)',
+              borderWidth: 1,
+              borderColor: isUnread ? '#34D399' : 'rgba(255, 255, 255, 0.15)',
+            },
+          ]}
           accessibilityElementsHidden
         >
           <Text style={styles.iconText}>{meta.icon}</Text>
@@ -560,44 +570,46 @@ export const CitizenNotificationsScreen: React.FC = () => {
   // ── Main Render ───────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={styles.container}>
-      <TopAppBar
-        title={t('citizen.notifications.title') || 'Notifications'}
-        roleBadge="CITIZEN"
-        unreadNotificationsCount={unreadCount ?? 0}
-      />
+    <EcoSetuBackground>
+      <SafeAreaView style={styles.container}>
+        <TopAppBar
+          title={t('citizen.notifications.title') || 'Notifications'}
+          roleBadge="CITIZEN"
+          unreadNotificationsCount={unreadCount ?? 0}
+        />
 
-      <FlatList
-        data={notifications}
-        keyExtractor={keyExtractor}
-        renderItem={renderItem}
-        contentContainerStyle={[
-          styles.listContent,
-          notifications.length === 0 && styles.listContentEmpty,
-        ]}
-        ListHeaderComponent={ListHeader}
-        ListEmptyComponent={
-          <EmptyState
-            icon="🔔"
-            title={t('citizen.notifications.empty') || 'No Notifications'}
-            message={
-              t('citizen.notifications.emptyDesc') ||
-              "You have no notifications yet. When a local informal collector accepts your request or your e-waste is picked up, you'll be notified here."
-            }
-          />
-        }
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
-        showsVerticalScrollIndicator={false}
-        removeClippedSubviews
-      />
-    </SafeAreaView>
+        <FlatList
+          data={notifications}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          contentContainerStyle={[
+            styles.listContent,
+            notifications.length === 0 && styles.listContentEmpty,
+          ]}
+          ListHeaderComponent={ListHeader}
+          ListEmptyComponent={
+            <EmptyState
+              icon="🔔"
+              title={t('citizen.notifications.empty') || 'No Notifications'}
+              message={
+                t('citizen.notifications.emptyDesc') ||
+                "You have no notifications yet. When a local informal collector accepts your request or your e-waste is picked up, you'll be notified here."
+              }
+            />
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+          removeClippedSubviews
+        />
+      </SafeAreaView>
+    </EcoSetuBackground>
   );
 };
 
@@ -606,7 +618,7 @@ export const CitizenNotificationsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   listContent: {
     padding: spacing.spaceMd,
@@ -618,25 +630,25 @@ const styles = StyleSheet.create({
 
   // ── Notification Card ──
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: 10,
+    backgroundColor: 'rgba(6, 21, 27, 0.75)',
+    borderRadius: 14,
     marginBottom: spacing.spaceSm,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 3,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     flexDirection: 'row',
     overflow: 'hidden',
     minHeight: 80,
   },
   cardUnread: {
-    backgroundColor: '#F1F8E9',
-    elevation: 2,
+    backgroundColor: 'rgba(10, 36, 44, 0.90)',
+    borderColor: 'rgba(16, 185, 129, 0.50)',
+    borderWidth: 1.2,
+    elevation: 4,
   },
   unreadBar: {
     width: 4,
-    backgroundColor: colors.primary,
+    backgroundColor: '#10B981',
   },
   cardContent: {
     flex: 1,
@@ -646,9 +658,9 @@ const styles = StyleSheet.create({
     gap: spacing.spaceSm,
   },
   iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -669,12 +681,12 @@ const styles = StyleSheet.create({
   notifTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.75)',
     flex: 1,
   },
   notifTitleUnread: {
-    fontWeight: '700',
-    color: colors.textPrimary,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   cardMeta: {
     flexDirection: 'row',
@@ -686,7 +698,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.primary,
+    backgroundColor: '#10B981',
   },
   srOnly: {
     // Screen-reader only text
@@ -698,18 +710,18 @@ const styles = StyleSheet.create({
   },
   timeLabel: {
     fontSize: 11,
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.55)',
     flexShrink: 0,
   },
   notifMessage: {
     fontSize: 13,
-    color: colors.textPrimary,
+    color: 'rgba(255, 255, 255, 0.88)',
     lineHeight: 19,
     marginBottom: 4,
   },
   collectorTag: {
     fontSize: 11,
-    color: colors.primary,
+    color: '#34D399',
     fontStyle: 'italic',
     marginTop: 2,
   },
@@ -726,23 +738,25 @@ const styles = StyleSheet.create({
   },
   markAllText: {
     fontSize: 13,
-    color: colors.primary,
+    color: '#34D399',
     fontWeight: '600',
   },
   markAllTextDisabled: {
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.40)',
   },
 
   // ── Cached Notice ──
   cachedNotice: {
-    backgroundColor: '#FFF9C4',
-    borderRadius: 6,
+    backgroundColor: 'rgba(252, 211, 77, 0.12)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(252, 211, 77, 0.35)',
     padding: spacing.spaceXs,
     marginBottom: spacing.spaceSm,
   },
   cachedNoticeText: {
     fontSize: 12,
-    color: '#F57F17',
+    color: '#FBBF24',
   },
 
   // ── Skeleton ──

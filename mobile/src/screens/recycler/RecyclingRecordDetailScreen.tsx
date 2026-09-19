@@ -345,7 +345,7 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
                   onPress={() => setShowStartModal(true)}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.primaryActionBtnText}>⚙️ Start Processing Materials</Text>
+                  <Text style={styles.primaryActionBtnText}>Start Processing ⚙️</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -364,7 +364,7 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
                   }}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.primaryActionBtnText}>✅ Complete Recycling & Certify</Text>
+                  <Text style={styles.primaryActionBtnText}>Complete Recycling ✅</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -550,7 +550,7 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
             <TextInput
               style={styles.modalInput}
               placeholder="e.g. Copper wiring 1.2kg, PCB gold/silver recovery"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor="rgba(255, 255, 255, 0.40)"
               value={outputDescription}
               onChangeText={setOutputDescription}
               maxLength={500}
@@ -560,7 +560,7 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
             <TextInput
               style={styles.modalInput}
               placeholder="e.g. 3.4"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor="rgba(255, 255, 255, 0.40)"
               value={outputWeightKg}
               onChangeText={setOutputWeightKg}
               keyboardType="decimal-pad"
@@ -570,7 +570,7 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
             <TextInput
               style={[styles.modalInput, { minHeight: 65, textAlignVertical: 'top' }]}
               placeholder="e.g. Compliant pyrometallurgical sorting completed"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor="rgba(255, 255, 255, 0.40)"
               value={processingNotes}
               onChangeText={setProcessingNotes}
               multiline
@@ -902,19 +902,19 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 41, 66, 0.65)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.spaceMd,
   },
   modalContent: {
-    backgroundColor: colors.glassSurface,
+    backgroundColor: 'rgba(10, 36, 44, 0.95)',
     borderRadius: 18,
     padding: spacing.spaceLg,
     width: '100%',
     maxWidth: 400,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
@@ -924,17 +924,17 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: colors.textPrimary,
+    color: '#FFFFFF',
     letterSpacing: -0.2,
   },
   modalSubtitle: {
     fontSize: 13,
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.65)',
     marginBottom: spacing.spaceSm,
   },
   modalBodyText: {
     fontSize: 13,
-    color: colors.textPrimary,
+    color: 'rgba(255, 255, 255, 0.88)',
     lineHeight: 18,
     marginVertical: spacing.spaceSm,
   },
@@ -956,7 +956,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   modalCancelText: {
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.65)',
     fontWeight: '600',
     fontSize: 13,
   },
@@ -977,18 +977,18 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: 'rgba(255, 255, 255, 0.85)',
     marginTop: 8,
     marginBottom: 4,
   },
   modalInput: {
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
     padding: spacing.spaceSm,
     fontSize: 13,
-    color: colors.textPrimary,
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   accessRestrictedContainer: {

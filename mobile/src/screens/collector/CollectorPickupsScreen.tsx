@@ -47,6 +47,7 @@ import {
   Modal,
   TextInput,
   ScrollView,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 import { useNetwork } from '../../hooks/useNetwork';
@@ -62,6 +63,8 @@ import { typography } from '../../theme/typography';
 import { PICKUP_STATUS, REQUEST_STATUS } from '../../utils/constants';
 import { useI18n } from '../../i18n';
 import { voiceService, AnnouncementPriority } from '../../services/voiceService';
+import { useCollectorVoice } from '../../context/CollectorVoiceContext';
+import { EcoSetuBackground } from '../../components/eco';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -76,6 +79,7 @@ type FilterTab = 'ALL' | 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED';
 
 interface Props {
   navigation?: any;
+  route?: any;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -110,10 +114,11 @@ const fmtTime = (iso?: string | null): string => {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
+export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) => {
   const { user } = useAuth();
   const { isConnected } = useNetwork();
   const { t, language } = useI18n();
+  const { registerActions } = useCollectorVoice();
 
   const [isVoiceEnabled, setIsVoiceEnabled] = useState<boolean>(false);
 
@@ -460,6 +465,34 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
     handleCloseCompleteModal,
     loadPickups,
   ]);
+
+  // Connect voice actions and route params
+  useEffect(() => {
+    const unregister = registerActions({
+      onStartPickup: async (id) => {
+        handleStartPickup(id);
+      },
+      onCompletePickup: async (id) => {
+        const p = pickups.find((it) => it.id === id);
+        if (p) {
+          handleOpenCompleteModal(p);
+        } else if (pickups.length > 0) {
+          handleOpenCompleteModal(pickups[0]);
+        }
+      },
+    });
+    return () => unregister();
+  }, [registerActions, handleStartPickup, handleOpenCompleteModal, pickups]);
+
+  useEffect(() => {
+    const targetId = route?.params?.completePickupId;
+    if (targetId && pickups.length > 0) {
+      const p = pickups.find((it) => it.id === targetId);
+      if (p) {
+        handleOpenCompleteModal(p);
+      }
+    }
+  }, [route, pickups, handleOpenCompleteModal]);
 
   // ── Filtered Pickups ───────────────────────────────────────────────────────
 
@@ -857,11 +890,12 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={styles.container}>
-      <TopAppBar
-        title="Assigned Pickups"
-        subtitle="Manage active and scheduled collections"
-      />
+    <EcoSetuBackground>
+      <SafeAreaView style={styles.container}>
+        <TopAppBar
+          title="Assigned Pickups"
+          subtitle="Manage active and scheduled collections"
+        />
 
       {/* Offline Banner */}
       <OfflineBanner />
@@ -940,12 +974,16 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
         onRequestClose={handleCloseCompleteModal}
       >
         <View style={styles.modalOverlay}>
-          <View
-            style={styles.modalContainer}
-            accessibilityRole="none"
-            accessibilityLabel="Complete Pickup Modal"
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.keyboardAvoidContainer}
           >
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <View
+              style={styles.modalContainer}
+              accessibilityRole="none"
+              accessibilityLabel="Complete Pickup Modal"
+            >
+              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               {/* Modal Header */}
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>{t('collector.pickups.completeModalTitle') || 'Complete Pickup'}</Text>
@@ -1046,9 +1084,11 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </ScrollView>
           </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </SafeAreaView>
+  </EcoSetuBackground>
   );
 };
 
@@ -1057,46 +1097,48 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   cacheNotice: {
-    backgroundColor: '#FFF9C4',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
     paddingHorizontal: spacing.spaceMd,
     paddingVertical: spacing.spaceSm,
     borderBottomWidth: 1,
-    borderBottomColor: '#FFF59D',
+    borderBottomColor: 'rgba(245, 158, 11, 0.30)',
   },
   cacheNoticeText: {
     fontSize: typography.Caption.fontSize,
-    color: '#F57F17',
+    color: '#FBBF24',
     textAlign: 'center',
     fontWeight: '500',
   },
   warningBanner: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
     paddingHorizontal: spacing.spaceMd,
     paddingVertical: spacing.spaceSm,
     borderBottomWidth: 1,
-    borderBottomColor: '#FFE0B2',
+    borderBottomColor: 'rgba(245, 158, 11, 0.30)',
   },
   warningBannerText: {
     fontSize: typography.Caption.fontSize,
-    color: '#E65100',
+    color: '#FBBF24',
     fontWeight: '600',
   },
   errorBanner: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
     padding: spacing.spaceMd,
     marginHorizontal: spacing.spaceMd,
     marginTop: spacing.spaceSm,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   errorBannerText: {
     fontSize: typography.Body.fontSize,
-    color: colors.error,
+    color: '#FCA5A5',
     flex: 1,
     marginRight: spacing.spaceSm,
   },
@@ -1117,17 +1159,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: spacing.spaceMd,
     paddingVertical: spacing.spaceSm,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: 'rgba(6, 21, 27, 0.75)',
     borderBottomWidth: 1,
-    borderBottomColor: colors.glassBorder,
+    borderBottomColor: 'rgba(45, 212, 191, 0.20)',
   },
   filterChip: {
     paddingHorizontal: spacing.spaceSm + 4,
     paddingVertical: spacing.spaceXs + 2,
     borderRadius: 16,
-    backgroundColor: colors.glassFill,
+    backgroundColor: 'rgba(6, 21, 27, 0.75)',
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: 'rgba(45, 212, 191, 0.20)',
     marginRight: spacing.spaceXs,
     minHeight: 44,
     justifyContent: 'center',
@@ -1215,8 +1257,10 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   itemsSection: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 6,
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
+    borderWidth: 1,
+    borderColor: 'rgba(45, 212, 191, 0.25)',
+    borderRadius: 8,
     padding: spacing.spaceSm,
     marginVertical: spacing.spaceSm,
   },
@@ -1229,7 +1273,7 @@ const styles = StyleSheet.create({
   itemRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 3,
+    marginBottom: 4,
   },
   itemBullet: {
     fontSize: 12,
@@ -1242,47 +1286,53 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   completedMetaBox: {
-    backgroundColor: '#E8F5E9',
-    borderRadius: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
+    borderRadius: 8,
     padding: spacing.spaceSm,
     marginVertical: spacing.spaceSm,
   },
   completedMetaText: {
     fontSize: typography.Body.fontSize,
-    color: '#2E7D32',
+    color: '#34D399',
     fontWeight: '700',
   },
   completedMetaSub: {
     fontSize: 11,
-    color: '#388E3C',
+    color: '#A7F3D0',
     marginTop: 2,
   },
   completedNotes: {
     fontSize: 11,
-    color: '#1B5E20',
+    color: colors.textSecondary,
     marginTop: 4,
     fontStyle: 'italic',
   },
   inProgressMetaBox: {
-    backgroundColor: '#FFF3E0',
-    borderRadius: 6,
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+    borderRadius: 8,
     padding: spacing.spaceSm,
     marginVertical: spacing.spaceSm,
   },
   inProgressMetaText: {
     fontSize: 12,
-    color: '#E65100',
+    color: '#FBBF24',
     fontWeight: '600',
   },
   cancelledMetaBox: {
-    backgroundColor: '#FFEBEE',
-    borderRadius: 6,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+    borderRadius: 8,
     padding: spacing.spaceSm,
     marginVertical: spacing.spaceSm,
   },
   cancelledMetaText: {
     fontSize: 12,
-    color: colors.error,
+    color: '#F87171',
     fontWeight: '600',
   },
   actionContainer: {
@@ -1324,46 +1374,62 @@ const styles = StyleSheet.create({
   btnDisabled: {
     opacity: 0.5,
   },
+  keyboardAvoidContainer: {
+    width: '100%',
+    justifyContent: 'flex-end',
+  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(2, 8, 13, 0.85)',
     justifyContent: 'flex-end',
   },
   modalContainer: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    backgroundColor: '#071A21',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: 'rgba(45, 212, 191, 0.35)',
     padding: spacing.spaceLg,
-    maxHeight: '85%',
+    maxHeight: '90%',
+    elevation: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
   },
   modalHeader: {
     marginBottom: spacing.spaceMd,
   },
   modalTitle: {
-    fontSize: typography.Title.fontSize,
+    fontSize: 20,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#FFFFFF',
   },
   modalSubtitle: {
-    fontSize: typography.Caption.fontSize,
-    color: colors.textSecondary,
+    fontSize: 13,
+    color: '#94A3B8',
     marginTop: 4,
+    lineHeight: 18,
   },
   modalErrorBox: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.40)',
     padding: spacing.spaceSm,
-    borderRadius: 6,
+    borderRadius: 8,
     marginBottom: spacing.spaceSm,
   },
   modalErrorText: {
-    color: colors.error,
+    color: '#FCA5A5',
     fontSize: 12,
     fontWeight: '600',
   },
   modalSectionTitle: {
-    fontSize: typography.Subheading.fontSize,
+    fontSize: 15,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#E2E8F0',
     marginBottom: spacing.spaceSm,
     marginTop: spacing.spaceSm,
   },
@@ -1373,7 +1439,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.spaceSm,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: 'rgba(255, 255, 255, 0.10)',
   },
   modalItemInfo: {
     flex: 1,
@@ -1381,11 +1447,11 @@ const styles = StyleSheet.create({
   modalItemCategory: {
     fontSize: typography.Body.fontSize,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: '#FFFFFF',
   },
   modalItemSub: {
-    fontSize: 11,
-    color: colors.textSecondary,
+    fontSize: 12,
+    color: '#94A3B8',
     marginTop: 2,
   },
   modalWeightInputContainer: {
@@ -1394,88 +1460,94 @@ const styles = StyleSheet.create({
   },
   weightInput: {
     borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: 6,
+    borderColor: 'rgba(45, 212, 191, 0.35)',
+    borderRadius: 8,
     paddingHorizontal: spacing.spaceSm,
     paddingVertical: spacing.spaceXs,
-    width: 70,
-    fontSize: typography.Body.fontSize,
-    color: colors.textPrimary,
+    width: 80,
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '700',
     textAlign: 'center',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: 'rgba(6, 21, 27, 0.90)',
     minHeight: 48,
   },
   weightUnit: {
     fontSize: typography.Body.fontSize,
-    color: colors.textSecondary,
+    color: '#10B981',
     marginLeft: 6,
-    fontWeight: '500',
+    fontWeight: '700',
   },
   totalWeightBox: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
+    backgroundColor: 'rgba(16, 185, 129, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
     padding: spacing.spaceMd,
-    borderRadius: 8,
+    borderRadius: 10,
     marginVertical: spacing.spaceMd,
   },
   totalWeightLabel: {
     fontSize: typography.Body.fontSize,
     fontWeight: '700',
-    color: '#2E7D32',
+    color: '#A7F3D0',
   },
   totalWeightValue: {
-    fontSize: typography.Title.fontSize,
+    fontSize: 20,
     fontWeight: '800',
-    color: '#1B5E20',
+    color: '#34D399',
   },
   notesInput: {
     borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: 8,
+    borderColor: 'rgba(45, 212, 191, 0.25)',
+    borderRadius: 10,
     padding: spacing.spaceSm,
     fontSize: typography.Body.fontSize,
-    color: colors.textPrimary,
+    color: '#FFFFFF',
     minHeight: 70,
     textAlignVertical: 'top',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: 'rgba(6, 21, 27, 0.90)',
     marginBottom: spacing.spaceLg,
   },
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: spacing.spaceMd,
   },
   modalCancelBtn: {
     flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     paddingVertical: spacing.spaceMd,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.spaceSm,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(255, 255, 255, 0.20)',
     minHeight: 48,
   },
   modalCancelText: {
-    color: colors.textSecondary,
+    color: '#CBD5E1',
     fontSize: typography.Button.fontSize,
     fontWeight: '600',
   },
   modalSubmitBtn: {
     flex: 2,
-    backgroundColor: '#2E7D32',
+    backgroundColor: '#10B981',
+    borderWidth: 1,
+    borderColor: '#34D399',
     paddingVertical: spacing.spaceMd,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
+    borderRadius: 10,
     minHeight: 48,
   },
   modalSubmitText: {
-    color: colors.surface,
+    color: '#03120E',
     fontSize: typography.Button.fontSize,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 });
 

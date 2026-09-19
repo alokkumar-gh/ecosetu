@@ -52,6 +52,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { ROLES } from '../../utils/constants';
+import { EcoSetuBackground, EcoGlassTextArea } from '../../components/eco';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -295,18 +296,20 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
   // ── Role Guard ─────────────────────────────────────────────────────────────
   if (!isCollector) {
     return (
-      <SafeAreaView style={styles.container}>
-        <TopAppBar title="Create Consignment" onBack={() => navigation.goBack()} />
-        <View style={styles.contentPadding}>
-          <EmptyState
-            icon="🔒"
-            title="Access Restricted"
-            message="Only authenticated informal collectors can create e-waste consignments."
-            actionLabel="Go Back"
-            onAction={() => navigation.goBack()}
-          />
-        </View>
-      </SafeAreaView>
+      <EcoSetuBackground>
+        <SafeAreaView style={styles.container}>
+          <TopAppBar title="Create Consignment" onBack={() => navigation.goBack()} />
+          <View style={styles.contentPadding}>
+            <EmptyState
+              icon="🔒"
+              title="Access Restricted"
+              message="Only authenticated informal collectors can create e-waste consignments."
+              actionLabel="Go Back"
+              onAction={() => navigation.goBack()}
+            />
+          </View>
+        </SafeAreaView>
+      </EcoSetuBackground>
     );
   }
 
@@ -322,90 +325,93 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
       'Authorized Recycling Facility';
 
     return (
-      <SafeAreaView style={styles.container}>
-        <TopAppBar title="Consignment Created" onBack={() => navigation.goBack()} />
-        <ScrollView contentContainerStyle={styles.successContainer}>
-          <View style={styles.successIconCircle} accessibilityElementsHidden>
-            <Text style={styles.successCheckIcon}>✓</Text>
-          </View>
-          <Text style={styles.successTitle} accessibilityRole="header">
-            Consignment Created Successfully!
-          </Text>
-          <Text style={styles.successSubtitle}>
-            Your collected e-waste has been bundled and assigned to the formal recycler.
-          </Text>
-
-          {/* Receipt Details Card */}
-          <View style={styles.receiptCard}>
-            <View style={styles.receiptHeader}>
-              <Text style={styles.receiptRefText}>Ref #{csgId.slice(0, 8).toUpperCase()}</Text>
-              <StatusBadge status={csgStatus} />
+      <EcoSetuBackground>
+        <SafeAreaView style={styles.container}>
+          <TopAppBar title="Consignment Created" onBack={() => navigation.goBack()} />
+          <ScrollView contentContainerStyle={styles.successContainer}>
+            <View style={styles.successIconCircle} accessibilityElementsHidden>
+              <Text style={styles.successCheckIcon}>✓</Text>
             </View>
-            <View style={styles.receiptDivider} />
-
-            <View style={styles.receiptRow}>
-              <Text style={styles.receiptLabel}>Receiving Facility:</Text>
-              <Text style={styles.receiptValue}>{targetFacility}</Text>
-            </View>
-
-            <View style={styles.receiptRow}>
-              <Text style={styles.receiptLabel}>Items Consigned:</Text>
-              <Text style={styles.receiptValue}>{totalCount} items</Text>
-            </View>
-
-            <View style={styles.receiptRow}>
-              <Text style={styles.receiptLabel}>Batch Weight:</Text>
-              <Text style={styles.receiptValue}>{totalWeight.toFixed(1)} kg</Text>
-            </View>
-
-            {Boolean(createdConsignment.deliveryNotes) && (
-              <View style={styles.receiptRow}>
-                <Text style={styles.receiptLabel}>Notes:</Text>
-                <Text style={styles.receiptValue}>{createdConsignment.deliveryNotes}</Text>
-              </View>
-            )}
-          </View>
-
-          {/* Recycler Notification Notice */}
-          <View style={styles.notificationNotice} accessibilityRole="alert">
-            <Text style={styles.notificationNoticeText}>
-              📬 The receiving formal recycler has been automatically notified of this incoming delivery. Deliver the batch to their facility to complete handover.
+            <Text style={styles.successTitle} accessibilityRole="header">
+              Consignment Created Successfully!
             </Text>
-          </View>
+            <Text style={styles.successSubtitle}>
+              Your collected e-waste has been bundled and assigned to the formal recycler.
+            </Text>
 
-          {/* Actions */}
-          <TouchableOpacity
-            style={styles.trackButton}
-            onPress={() => {
-              navigation.replace('CollectorConsignmentStatus', {
-                consignmentId: csgId,
-                consignment: createdConsignment,
-              });
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Track this consignment"
-            activeOpacity={0.8}
-          >
-            <Text style={styles.trackButtonText}>{(t('collector.consignments.title') || 'Track Consignment') + ' →'}</Text>
-          </TouchableOpacity>
+            {/* Receipt Details Card */}
+            <View style={styles.receiptCard}>
+              <View style={styles.receiptHeader}>
+                <Text style={styles.receiptRefText}>Ref #{csgId.slice(0, 8).toUpperCase()}</Text>
+                <StatusBadge status={csgStatus} />
+              </View>
+              <View style={styles.receiptDivider} />
 
-          {/* Done Action */}
-          <TouchableOpacity
-            style={styles.doneButton}
-            onPress={() => navigation.goBack()}
-            accessibilityRole="button"
-            accessibilityLabel="Done and return to recycler directory"
-            activeOpacity={0.8}
-          >
-            <Text style={styles.doneButtonText}>{t('common.done') || 'Done (Back to Directory)'}</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </SafeAreaView>
+              <View style={styles.receiptRow}>
+                <Text style={styles.receiptLabel}>Receiving Facility:</Text>
+                <Text style={styles.receiptValue}>{targetFacility}</Text>
+              </View>
+
+              <View style={styles.receiptRow}>
+                <Text style={styles.receiptLabel}>Items Consigned:</Text>
+                <Text style={styles.receiptValue}>{totalCount} items</Text>
+              </View>
+
+              <View style={styles.receiptRow}>
+                <Text style={styles.receiptLabel}>Batch Weight:</Text>
+                <Text style={styles.receiptValue}>{totalWeight.toFixed(1)} kg</Text>
+              </View>
+
+              {Boolean(createdConsignment.deliveryNotes) && (
+                <View style={styles.receiptRow}>
+                  <Text style={styles.receiptLabel}>Notes:</Text>
+                  <Text style={styles.receiptValue}>{createdConsignment.deliveryNotes}</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Recycler Notification Notice */}
+            <View style={styles.notificationNotice} accessibilityRole="alert">
+              <Text style={styles.notificationNoticeText}>
+                📬 The receiving formal recycler has been automatically notified of this incoming delivery. Deliver the batch to their facility to complete handover.
+              </Text>
+            </View>
+
+            {/* Actions */}
+            <TouchableOpacity
+              style={styles.trackButton}
+              onPress={() => {
+                navigation.replace('CollectorConsignmentStatus', {
+                  consignmentId: csgId,
+                  consignment: createdConsignment,
+                });
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Track this consignment"
+              activeOpacity={0.8}
+            >
+              <Text style={styles.trackButtonText}>{(t('collector.consignments.title') || 'Track Consignment') + ' →'}</Text>
+            </TouchableOpacity>
+
+            {/* Done Action */}
+            <TouchableOpacity
+              style={styles.doneButton}
+              onPress={() => navigation.goBack()}
+              accessibilityRole="button"
+              accessibilityLabel="Done and return to recycler directory"
+              activeOpacity={0.8}
+            >
+              <Text style={styles.doneButtonText}>{t('common.done') || 'Done (Back to Directory)'}</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </SafeAreaView>
+      </EcoSetuBackground>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <EcoSetuBackground>
+      <SafeAreaView style={styles.container}>
       <TopAppBar
         title={t('collector.consignments.createConsignment') || "Create Consignment"}
         subtitle="Bundle collected e-waste for recycler"
@@ -632,19 +638,15 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
               {t('collector.consignments.deliveryNotes') || '3. Consignment Notes & Summary'}
             </Text>
 
-            <Text style={styles.inputLabel}>Delivery / Handling Notes (Optional):</Text>
-            <TextInput
-              style={styles.notesInput}
-              placeholder={t('collector.consignments.deliveryNotes') || "e.g., Aggregated smartphone and laptop batch from South Delhi pickups..."}
-              placeholderTextColor={colors.textSecondary}
+            <EcoGlassTextArea
+              label={t('collector.consignments.deliveryNotes') || 'Delivery / Handling Notes (Optional)'}
+              placeholder="e.g., Aggregated smartphone and laptop batch from South Delhi pickups..."
               value={deliveryNotes}
               onChangeText={setDeliveryNotes}
               maxLength={500}
-              multiline
-              numberOfLines={3}
+              showCharCount
               accessibilityLabel="Delivery notes for formal recycler"
             />
-            <Text style={styles.charCountText}>{deliveryNotes.length}/500 chars</Text>
 
             <View style={styles.summaryBox}>
               <View style={styles.summaryRow}>
@@ -758,13 +760,14 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
         </View>
       </Modal>
     </SafeAreaView>
+  </EcoSetuBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   contentPadding: {
     padding: spacing.spaceMd,
@@ -785,7 +788,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#F8FAFC',
   },
   sectionSubtitle: {
     fontSize: 12,
@@ -798,11 +801,11 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   recyclerCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
     borderRadius: 10,
     padding: spacing.spaceMd,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(45, 212, 191, 0.22)',
   },
   recyclerHeader: {
     flexDirection: 'row',
@@ -814,7 +817,7 @@ const styles = StyleSheet.create({
   recyclerName: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#F8FAFC',
   },
   recyclerAddress: {
     fontSize: 12,
@@ -825,7 +828,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.spaceSm,
     paddingTop: spacing.spaceSm,
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: 'rgba(45, 212, 191, 0.20)',
   },
   acceptedCatsLabel: {
     fontSize: 11,
@@ -835,20 +838,20 @@ const styles = StyleSheet.create({
   },
   acceptedCatsList: {
     fontSize: 12,
-    color: colors.textPrimary,
+    color: '#E2E8F0',
     marginTop: 2,
   },
   recyclerSelectorContainer: {
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
     borderRadius: 10,
     padding: spacing.spaceMd,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(45, 212, 191, 0.22)',
   },
   selectPromptText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: '#F8FAFC',
     marginBottom: spacing.spaceSm,
   },
   noRecyclersText: {
@@ -859,18 +862,18 @@ const styles = StyleSheet.create({
     padding: spacing.spaceSm,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(45, 212, 191, 0.20)',
     marginBottom: spacing.spaceXs,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: 'rgba(6, 21, 27, 0.75)',
   },
   recyclerOptionSelected: {
-    borderColor: colors.primary,
-    backgroundColor: `${colors.primary}12`,
+    borderColor: '#10B981',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
   },
   recyclerOptionName: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#F8FAFC',
   },
   recyclerOptionAddress: {
     fontSize: 11,
@@ -892,11 +895,11 @@ const styles = StyleSheet.create({
     color: colors.primaryDark,
   },
   noItemsCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
     padding: spacing.spaceLg,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(45, 212, 191, 0.22)',
     alignItems: 'center',
   },
   noItemsIcon: {
@@ -906,7 +909,7 @@ const styles = StyleSheet.create({
   noItemsTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#F8FAFC',
     marginBottom: 4,
   },
   noItemsBody: {
@@ -918,17 +921,17 @@ const styles = StyleSheet.create({
   itemCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
     borderRadius: 10,
     padding: spacing.spaceMd,
     marginBottom: spacing.spaceSm,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(45, 212, 191, 0.22)',
     minHeight: 56,
   },
   itemCardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: `${colors.primary}08`,
+    borderColor: '#10B981',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
   },
   itemCheckboxContainer: {
     marginRight: spacing.spaceSm,
@@ -957,7 +960,7 @@ const styles = StyleSheet.create({
   itemCategoryTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#F8FAFC',
   },
   itemMetaText: {
     fontSize: 12,
@@ -975,36 +978,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 3,
   },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 6,
-  },
-  notesInput: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    padding: spacing.spaceSm,
-    fontSize: 13,
-    color: colors.textPrimary,
-    minHeight: 70,
-    textAlignVertical: 'top',
-  },
-  charCountText: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    textAlign: 'right',
-    marginTop: 4,
-  },
   summaryBox: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
     padding: spacing.spaceMd,
     borderRadius: 8,
     marginTop: spacing.spaceSm,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(45, 212, 191, 0.22)',
   },
   summaryRow: {
     flexDirection: 'row',
@@ -1013,12 +993,12 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 13,
-    color: colors.textSecondary,
+    color: '#94A3B8',
   },
   summaryValue: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#F8FAFC',
   },
   actionContainer: {
     marginTop: spacing.spaceMd,
@@ -1033,7 +1013,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   submitButtonDisabled: {
-    backgroundColor: '#BDBDBD',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   submitButtonText: {
     color: '#FFFFFF',
@@ -1047,17 +1027,17 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   warningBanner: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
     padding: spacing.spaceSm,
     borderRadius: 8,
     margin: spacing.spaceMd,
     marginBottom: 0,
     borderWidth: 1,
-    borderColor: '#FFE0B2',
+    borderColor: 'rgba(245, 158, 11, 0.30)',
   },
   warningBannerText: {
     fontSize: 12,
-    color: '#E65100',
+    color: '#FBBF24',
     lineHeight: 18,
   },
   // Success receipt styles
@@ -1069,7 +1049,9 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: 'rgba(16, 185, 129, 0.20)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(16, 185, 129, 0.40)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.spaceMd,
@@ -1082,7 +1064,7 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#F8FAFC',
     textAlign: 'center',
     marginBottom: 6,
   },
@@ -1095,11 +1077,11 @@ const styles = StyleSheet.create({
   },
   receiptCard: {
     width: '100%',
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
     borderRadius: 12,
     padding: spacing.spaceMd,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(45, 212, 191, 0.22)',
     marginBottom: spacing.spaceMd,
   },
   receiptHeader: {
@@ -1110,11 +1092,11 @@ const styles = StyleSheet.create({
   receiptRefText: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.primaryDark,
+    color: '#2DD4BF',
   },
   receiptDivider: {
     height: 1,
-    backgroundColor: colors.divider,
+    backgroundColor: 'rgba(45, 212, 191, 0.20)',
     marginVertical: spacing.spaceSm,
   },
   receiptRow: {
@@ -1124,27 +1106,27 @@ const styles = StyleSheet.create({
   },
   receiptLabel: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: '#94A3B8',
   },
   receiptValue: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: '#F8FAFC',
     flexShrink: 1,
     textAlign: 'right',
   },
   notificationNotice: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: 'rgba(6, 182, 212, 0.12)',
     padding: spacing.spaceMd,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#BBDEFB',
+    borderColor: 'rgba(6, 182, 212, 0.30)',
     marginBottom: spacing.spaceLg,
     width: '100%',
   },
   notificationNoticeText: {
     fontSize: 12,
-    color: '#0D47A1',
+    color: '#67E8F9',
     lineHeight: 18,
   },
   trackButton: {
@@ -1163,16 +1145,16 @@ const styles = StyleSheet.create({
   },
   doneButton: {
     width: '100%',
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
     minHeight: 48,
   },
   doneButtonText: {
-    color: colors.textPrimary,
+    color: '#F1F5F9',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1181,72 +1163,82 @@ const styles = StyleSheet.create({
 const modalStyles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(2, 8, 13, 0.85)',
     justifyContent: 'center',
-    padding: spacing.spaceMd,
+    padding: spacing.spaceLg,
   },
   modalContainer: {
-    backgroundColor: colors.surface,
-    borderRadius: 14,
+    backgroundColor: '#071A21',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(45, 212, 191, 0.35)',
     padding: spacing.spaceLg,
-    elevation: 5,
+    elevation: 14,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   modalSubtitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
+    fontSize: 13,
+    color: '#94A3B8',
     marginBottom: spacing.spaceMd,
+    lineHeight: 18,
   },
   detailsCard: {
-    backgroundColor: '#F9F9F9',
-    borderRadius: 8,
-    padding: spacing.spaceSm,
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
+    borderRadius: 10,
+    padding: spacing.spaceMd,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     marginBottom: spacing.spaceMd,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   label: {
-    fontSize: 12,
-    color: colors.textSecondary,
+    fontSize: 13,
+    color: '#94A3B8',
   },
   value: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#FFFFFF',
     flexShrink: 1,
     textAlign: 'right',
   },
   lockNotice: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: 'rgba(217, 119, 6, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(217, 119, 6, 0.35)',
     padding: spacing.spaceSm,
-    borderRadius: 6,
-    marginBottom: spacing.spaceMd,
+    borderRadius: 8,
+    marginBottom: spacing.spaceLg,
   },
   lockNoticeText: {
-    fontSize: 11,
-    color: '#E65100',
-    lineHeight: 16,
+    fontSize: 12,
+    color: '#FCD34D',
+    lineHeight: 18,
   },
   modalButtons: {
     flexDirection: 'row',
-    gap: spacing.spaceSm,
+    gap: spacing.spaceMd,
   },
   cancelButton: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(255, 255, 255, 0.20)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     alignItems: 'center',
     minHeight: 48,
     justifyContent: 'center',
@@ -1254,24 +1246,27 @@ const modalStyles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.textSecondary,
+    color: '#CBD5E1',
   },
   confirmButton: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: colors.primary,
+    borderRadius: 10,
+    backgroundColor: '#10B981',
+    borderWidth: 1,
+    borderColor: '#34D399',
     alignItems: 'center',
     minHeight: 48,
     justifyContent: 'center',
   },
   confirmButtonDisabled: {
-    backgroundColor: '#BDBDBD',
+    backgroundColor: 'rgba(16, 185, 129, 0.30)',
+    borderColor: 'transparent',
   },
   confirmButtonText: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: '800',
+    color: '#03120E',
   },
 });
 

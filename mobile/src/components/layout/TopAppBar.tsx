@@ -105,14 +105,14 @@ TopAppBar.displayName = 'TopAppBar';
 const styles = StyleSheet.create({
   container: {
     height: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: 'rgba(7, 30, 34, 0.88)',
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: 'rgba(255, 255, 255, 0.12)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.spaceMd,
-    elevation: 1,
+    elevation: 2,
   },
   leftSection: {
     flexDirection: 'row',

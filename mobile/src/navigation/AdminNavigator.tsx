@@ -11,6 +11,7 @@ import { AdminGeographicAnalyticsScreen } from '../screens/admin/AdminGeographic
 import { AdminReportsScreen } from '../screens/admin/AdminReportsScreen';
 import { AdminGovernanceScreen } from '../screens/admin/AdminGovernanceScreen';
 import { AdminSystemHealthScreen } from '../screens/admin/AdminSystemHealthScreen';
+import { AdminNotificationCenterScreen } from '../screens/admin/AdminNotificationCenterScreen';
 import { colors } from '../theme/colors';
 
 const Tab = createBottomTabNavigator<AdminTabParamList>();
@@ -27,17 +28,17 @@ export const AdminNavigator: React.FC = () => {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-          borderTopColor: colors.divider,
+          backgroundColor: 'rgba(7, 30, 34, 0.94)',
+          borderTopColor: 'rgba(255, 255, 255, 0.12)',
           borderTopWidth: 1,
-          height: 62,
+          height: 64,
           paddingBottom: 8,
           paddingTop: 6,
-          elevation: 4,
-          shadowColor: colors.primary,
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.05,
-          shadowRadius: 4,
+          elevation: 8,
+          shadowColor: '#000000',
+          shadowOffset: { width: 0, height: -3 },
+          shadowOpacity: 0.35,
+          shadowRadius: 8,
         },
         tabBarLabelStyle: {
           fontSize: 12,
@@ -112,6 +113,14 @@ export const AdminNavigator: React.FC = () => {
       <Tab.Screen
         name="AdminSystemHealth"
         component={AdminSystemHealthScreen}
+        options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
+        }}
+      />
+      <Tab.Screen
+        name="AdminNotificationCenter"
+        component={AdminNotificationCenterScreen}
         options={{
           tabBarButton: () => null,
           tabBarItemStyle: { display: 'none' },

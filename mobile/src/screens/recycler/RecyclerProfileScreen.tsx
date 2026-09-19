@@ -25,7 +25,7 @@ import { useNetwork } from '../../hooks/useNetwork';
 import { TopAppBar } from '../../components/layout/TopAppBar';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { StatusBadge } from '../../components/common/StatusBadge';
-import { GradientBackground } from '../../components/glass/GradientBackground';
+import { EcoSetuBackground } from '../../components/eco';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -63,7 +63,7 @@ export const RecyclerProfileScreen: React.FC = () => {
   };
 
   return (
-    <GradientBackground>
+    <EcoSetuBackground>
       <TopAppBar
         title="Facility Profile"
         roleBadge="RECYCLER"
@@ -146,7 +146,7 @@ export const RecyclerProfileScreen: React.FC = () => {
 
         <View style={{ height: spacing.spaceXl }} />
       </ScrollView>
-    </GradientBackground>
+    </EcoSetuBackground>
   );
 };
 

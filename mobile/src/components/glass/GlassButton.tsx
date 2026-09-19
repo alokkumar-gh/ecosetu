@@ -148,41 +148,45 @@ const styles = StyleSheet.create({
 
 const buttonVariants: Record<ButtonVariant, object> = {
   primary: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primaryDark,
-    elevation: 2,
+    backgroundColor: '#10B981',
+    borderColor: '#34D399',
+    elevation: 4,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
   },
   outline: {
-    backgroundColor: 'rgba(255, 255, 255, 0.80)',
-    borderColor: colors.glassBorderStrong,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.18)',
   },
   accent: {
     backgroundColor: colors.accent,
-    borderColor: colors.accentDark,
-    elevation: 2,
+    borderColor: '#34D399',
+    elevation: 3,
   },
   danger: {
-    backgroundColor: colors.error,
-    borderColor: colors.error,
-    elevation: 2,
+    backgroundColor: 'rgba(239, 68, 68, 0.85)',
+    borderColor: '#F87171',
+    elevation: 3,
   },
 };
 
 const labelVariants: Record<ButtonVariant, TextStyle> = {
   primary: {
-    color: colors.textInverse,
-    fontWeight: '700',
+    color: '#051417',
+    fontWeight: '800',
   },
   outline: {
-    color: colors.textPrimary,
+    color: '#FFFFFF',
     fontWeight: '600',
   },
   accent: {
-    color: colors.textInverse,
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   danger: {
-    color: colors.textInverse,
+    color: '#FFFFFF',
     fontWeight: '700',
   },
 };

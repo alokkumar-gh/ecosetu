@@ -44,7 +44,7 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import { useNetwork } from '../../hooks/useNetwork';
 import { useI18n } from '../../i18n';
-import { GradientBackground } from '../../components/glass/GradientBackground';
+import { EcoSetuBackground, EcoGlassInput } from '../../components/eco';
 import { TopAppBar } from '../../components/layout/TopAppBar';
 import { Skeleton } from '../../components/common/Skeleton';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
@@ -371,10 +371,10 @@ export const CitizenProfileScreen: React.FC = () => {
 
   if (isLoading) {
     return (
-      <GradientBackground>
+      <EcoSetuBackground>
         <TopAppBar title={t('citizen.profile.title') || 'My Profile'} roleBadge="CITIZEN" />
         <ProfileSkeleton />
-      </GradientBackground>
+      </EcoSetuBackground>
     );
   }
 
@@ -382,7 +382,7 @@ export const CitizenProfileScreen: React.FC = () => {
 
   if (loadError && !profile) {
     return (
-      <GradientBackground>
+      <EcoSetuBackground>
         <TopAppBar title={t('citizen.profile.title') || 'My Profile'} roleBadge="CITIZEN" />
         {!isConnected && <OfflineBanner />}
         <View style={styles.errorContainer}>
@@ -398,7 +398,7 @@ export const CitizenProfileScreen: React.FC = () => {
             <Text style={styles.retryButtonText}>{t('citizen.traceability.retry') || 'Retry'}</Text>
           </TouchableOpacity>
         </View>
-      </GradientBackground>
+      </EcoSetuBackground>
     );
   }
 
@@ -410,7 +410,7 @@ export const CitizenProfileScreen: React.FC = () => {
   // ── Main render ────────────────────────────────────────────────────────────
 
   return (
-    <GradientBackground>
+    <EcoSetuBackground>
       <TopAppBar title={t('citizen.profile.title') || 'My Profile'} roleBadge="CITIZEN" />
 
       <KeyboardAvoidingView
@@ -534,68 +534,29 @@ export const CitizenProfileScreen: React.FC = () => {
               )}
 
               {/* Name Field */}
-              <Text
-                style={styles.inputLabel}
-                nativeID="name-label"
-              >
-                {t('citizen.profile.fullName') || 'Full Name'} <Text style={styles.required}>*</Text>
-              </Text>
-              <TextInput
-                style={[styles.input, nameError ? styles.inputError : null]}
+              <EcoGlassInput
+                label={`${t('citizen.profile.fullName') || 'Full Name'} *`}
                 value={editName}
                 onChangeText={handleNameChange}
                 placeholder={t('citizen.profile.fullName') || 'Your full name'}
-                placeholderTextColor={colors.textSecondary}
                 autoCapitalize="words"
                 maxLength={100}
-                accessibilityLabel={t('citizen.profile.fullName') || 'Full name'}
-                accessibilityHint="Enter your full name, 2 to 100 characters"
-                accessibilityState={{ selected: false }}
-                accessibilityLabelledBy="name-label"
+                error={nameError || undefined}
                 editable={!isSaving}
-                returnKeyType="next"
               />
-              {nameError && (
-                <Text
-                  style={styles.fieldError}
-                  accessibilityRole="alert"
-                  accessibilityLabel={nameError}
-                >
-                  {nameError}
-                </Text>
-              )}
 
               {/* Phone Field */}
-              <Text
-                style={[styles.inputLabel, { marginTop: spacing.spaceMd }]}
-                nativeID="phone-label"
-              >
-                {t('citizen.profile.phoneNumber') || 'Phone Number'}
-              </Text>
-              <TextInput
-                style={[styles.input, phoneError ? styles.inputError : null]}
+              <EcoGlassInput
+                label={t('citizen.profile.phoneNumber') || 'Phone Number'}
                 value={editPhone}
                 onChangeText={handlePhoneChange}
                 placeholder={t('citizen.profile.phonePlaceholder') || 'e.g. +91 98765 43210 (optional)'}
-                placeholderTextColor={colors.textSecondary}
                 keyboardType="phone-pad"
                 maxLength={20}
-                accessibilityLabel={t('citizen.profile.phoneNumber') || 'Phone number'}
-                accessibilityHint="Enter your phone number or leave blank"
-                accessibilityLabelledBy="phone-label"
+                error={phoneError || undefined}
                 editable={!isSaving}
-                returnKeyType="done"
-                onSubmitEditing={handleSave}
+                containerStyle={{ marginTop: spacing.spaceSm }}
               />
-              {phoneError && (
-                <Text
-                  style={styles.fieldError}
-                  accessibilityRole="alert"
-                  accessibilityLabel={phoneError}
-                >
-                  {phoneError}
-                </Text>
-              )}
 
               {/* Action Buttons */}
               <View style={styles.editActions}>
@@ -730,7 +691,7 @@ export const CitizenProfileScreen: React.FC = () => {
           <View style={{ height: spacing.spaceXl }} />
         </ScrollView>
       </KeyboardAvoidingView>
-    </GradientBackground>
+    </EcoSetuBackground>
   );
 };
 
@@ -950,66 +911,66 @@ const styles = StyleSheet.create({
 
   // ── Status banners ──
   statusWarningBanner: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
     borderRadius: 8,
     padding: spacing.spaceMd,
     marginBottom: spacing.spaceMd,
     borderLeftWidth: 4,
-    borderLeftColor: '#C62828',
+    borderLeftColor: '#EF4444',
   },
   statusWarningText: {
     fontSize: 13,
-    color: '#B71C1C',
+    color: '#FCA5A5',
     lineHeight: 19,
   },
   pendingBanner: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
     borderRadius: 8,
     padding: spacing.spaceMd,
     marginBottom: spacing.spaceMd,
     borderLeftWidth: 4,
-    borderLeftColor: '#E65100',
+    borderLeftColor: '#F59E0B',
   },
   pendingBannerText: {
     fontSize: 13,
-    color: '#BF360C',
+    color: '#FBBF24',
     lineHeight: 19,
   },
 
   // ── Save error ──
   saveErrorBanner: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
     borderRadius: 6,
     padding: spacing.spaceSm,
     marginBottom: spacing.spaceSm,
   },
   saveErrorText: {
     fontSize: 13,
-    color: colors.error,
+    color: '#FCA5A5',
   },
 
   // ── Offline edit notice ──
   offlineEditNotice: {
-    backgroundColor: '#FFF9C4',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
     borderRadius: 6,
     padding: spacing.spaceSm,
     marginBottom: spacing.spaceSm,
   },
   offlineEditText: {
     fontSize: 12,
-    color: '#F57F17',
+    color: '#FBBF24',
   },
 
   // ── Cached notice ──
   cachedNotice: {
-    backgroundColor: '#FFF9C4',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
     borderRadius: 6,
     padding: spacing.spaceXs,
     marginBottom: spacing.spaceSm,
   },
   cachedNoticeText: {
     fontSize: 12,
-    color: '#F57F17',
+    color: '#FBBF24',
   },
 
   // ── Logout ──

@@ -19,10 +19,9 @@ import { CitizenTabParamList } from '../../navigation/types';
 import { useNetwork } from '../../hooks/useNetwork';
 import { useI18n } from '../../i18n';
 import { TopAppBar } from '../../components/layout/TopAppBar';
-import { GradientBackground } from '../../components/glass/GradientBackground';
+import { EcoSetuBackground, EcoGlassInput, EcoGlassTextArea } from '../../components/eco';
 import { GlassCard } from '../../components/glass/GlassCard';
 import { GlassButton } from '../../components/glass/GlassButton';
-import { GlassInput } from '../../components/glass/GlassInput';
 import { GlassBadge } from '../../components/glass/GlassBadge';
 import { ewasteService } from '../../services/ewasteService';
 import { requestService } from '../../services/requestService';
@@ -101,6 +100,8 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [isResolvingAddress, setIsResolvingAddress] = useState<boolean>(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [isLocationConfirmed, setIsLocationConfirmed] = useState<boolean>(false);
+  const [showFullMapModal, setShowFullMapModal] = useState<boolean>(false);
 
   // Structured Address fields
   const [addressType, setAddressType] = useState<string>(ADDRESS_TYPES.HOME);
@@ -153,13 +154,14 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
     try {
       const resolved: ResolvedAddress | null = await reverseGeocode(lat, lng);
       if (resolved) {
-        if (resolved.houseNumber && !houseNumber) setHouseNumber(resolved.houseNumber);
-        if (resolved.street && !street) setStreet(resolved.street);
-        if (resolved.landmark && !landmark) setLandmark(resolved.landmark);
+        if (resolved.houseNumber) setHouseNumber(resolved.houseNumber);
+        if (resolved.street) setStreet(resolved.street);
+        if (resolved.landmark) setLandmark(resolved.landmark);
         if (resolved.city) setCity(resolved.city);
         if (resolved.district) setDistrict(resolved.district);
         if (resolved.state) setState(resolved.state);
         if (resolved.pincode) setPincode(resolved.pincode);
+        setIsLocationConfirmed(true);
       }
     } catch (err) {
       console.warn('[SubmitItemScreen] reverseGeocode error:', err);
@@ -407,7 +409,7 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   return (
-    <GradientBackground>
+    <EcoSetuBackground>
       <TopAppBar
         title={t('citizen.submit.title') || 'Submit E-Waste'}
         subtitle={t('citizen.submit.subtitle') || 'Doorstep e-waste pickup registration'}
@@ -529,126 +531,190 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
           {/* Section 2: Pickup Location & Map */}
           <GlassCard style={styles.sectionCard}>
             <View style={styles.sectionHeaderRow}>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.sectionTitle}>
                   🗺️ {t('citizen.submit.pickupLocation') || 'Pickup Location'}
                 </Text>
                 <Text style={styles.sectionSubtitle}>
-                  {isResolvingAddress
-                    ? t('citizen.submit.resolvingAddress') || 'Resolving address from live location...'
-                    : t('citizen.submit.movePin') || 'Drag the pin to adjust your doorstep location'}
+                  Choose exactly where your e-waste should be collected.
                 </Text>
               </View>
-              <TouchableOpacity
-                style={styles.locateBtn}
-                onPress={handleUseCurrentLocation}
-                disabled={isLocating}
-              >
-                {isLocating ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : (
-                  <Text style={styles.locateBtnText}>🎯 {t('location.useMyLocation') || 'GPS'}</Text>
-                )}
-              </TouchableOpacity>
             </View>
 
             {locationError && (
               <Text style={styles.locationErrorText}>{locationError}</Text>
             )}
 
+            {/* Interactive EcoSetuMap embedded */}
             <View style={styles.mapContainer}>
               <EcoSetuMap
                 latitude={pickupLat !== 0 ? pickupLat : 19.3149}
                 longitude={pickupLng !== 0 ? pickupLng : 84.7941}
                 draggable={true}
+                allowLocationSelection={true}
+                allowTapSelection={true}
+                allowLongPressSelection={true}
+                accuracy={locationAccuracy}
+                showAccuracyCircle={true}
+                showMapTypeControl={true}
+                showZoomControls={true}
+                showMyLocationButton={true}
+                showRecenterButton={true}
+                showSearch={true}
                 onLocationChange={handleMarkerDrag}
+                onLocationSelectWithAccuracy={(lat, lng, acc) => {
+                  setPickupLat(lat);
+                  setPickupLng(lng);
+                  if (acc) setLocationAccuracy(acc);
+                  triggerReverseGeocoding(lat, lng);
+                }}
                 pinTitle="Pickup Doorstep"
-                pinDescription="Drag to refine address"
+                pinDescription="Drag to refine doorstep location"
                 style={styles.map}
               />
+            </View>
+
+            {/* Selected Location Summary Glass Card */}
+            <View style={styles.selectedAddressPreviewCard}>
+              <View style={styles.selectedAddressTopRow}>
+                <Text style={styles.selectedAddressPinIcon}>📍</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.selectedAddressTitle}>Selected Pickup Location</Text>
+                  <Text style={styles.selectedAddressFormatted}>
+                    {isResolvingAddress
+                      ? t('location.updatingAddress') || 'Resolving address from live location...'
+                      : [houseNumber, street, landmark, city, state, pincode].filter(Boolean).join(', ') ||
+                        (pickupLat !== 0 ? `Coordinates: ${pickupLat.toFixed(4)}, ${pickupLng.toFixed(4)}` : 'No location selected')}
+                  </Text>
+                  {locationAccuracy !== null && locationAccuracy !== undefined ? (
+                    <Text style={styles.selectedAddressAccuracy}>
+                      🎯 {t('location.locationAccuracy') || 'Accuracy'}: Approx. ±{Math.round(locationAccuracy)} m
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+
+              {/* Action Buttons Row */}
+              <View style={styles.mapActionRow}>
+                <TouchableOpacity
+                  style={styles.mapSecondaryActionBtn}
+                  onPress={handleUseCurrentLocation}
+                  disabled={isLocating}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('location.useMyLocation') || 'Use My Location'}
+                >
+                  {isLocating ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Text style={styles.mapSecondaryActionText}>
+                      🎯 {t('location.useMyLocation') || 'Use My Location'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.mapSecondaryActionBtn}
+                  onPress={() => setShowFullMapModal(true)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('location.chooseOnMap') || 'Full Screen Map'}
+                >
+                  <Text style={styles.mapSecondaryActionText}>
+                    ⛶ {t('location.chooseOnMap') || 'Full Screen Map'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Confirm Location Button */}
+              <TouchableOpacity
+                style={[
+                  styles.confirmLocationBtn,
+                  isLocationConfirmed && styles.confirmLocationBtnActive,
+                ]}
+                onPress={() => {
+                  setIsLocationConfirmed(true);
+                  triggerReverseGeocoding(pickupLat, pickupLng);
+                }}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={t('location.confirmPickupLocation') || 'Confirm Pickup Location'}
+              >
+                <Text style={styles.confirmLocationBtnText}>
+                  {isLocationConfirmed
+                    ? `✓ ${t('location.confirmPickupLocation') || 'Pickup Location Confirmed'}`
+                    : `📍 ${t('location.confirmPickupLocation') || 'Confirm Pickup Location'}`}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Address Form Fields Auto-Resolved */}
             <View style={styles.addressFieldsGrid}>
               <View style={styles.fieldRow}>
                 <View style={styles.fieldHalf}>
-                  <Text style={styles.inputLabel}>{t('citizen.submit.houseNumber') || 'Building / House'}</Text>
-                  <TextInput
-                    style={styles.textInput}
+                  <EcoGlassInput
+                    label={t('citizen.submit.houseNumber') || 'Building / House'}
                     value={houseNumber}
                     onChangeText={setHouseNumber}
                     placeholder="e.g. Flat 4B / Plot 12"
-                    placeholderTextColor={colors.textTertiary}
                   />
                 </View>
                 <View style={styles.fieldHalf}>
-                  <Text style={styles.inputLabel}>{t('citizen.submit.street') || 'Street / Road'}</Text>
-                  <TextInput
-                    style={styles.textInput}
+                  <EcoGlassInput
+                    label={t('citizen.submit.street') || 'Street / Road'}
                     value={street}
                     onChangeText={setStreet}
                     placeholder="e.g. College Road"
-                    placeholderTextColor={colors.textTertiary}
                   />
                 </View>
               </View>
 
               <View style={styles.fieldRow}>
                 <View style={styles.fieldHalf}>
-                  <Text style={styles.inputLabel}>{t('citizen.submit.landmark') || 'Landmark'}</Text>
-                  <TextInput
-                    style={styles.textInput}
+                  <EcoGlassInput
+                    label={t('citizen.submit.landmark') || 'Landmark'}
                     value={landmark}
                     onChangeText={setLandmark}
                     placeholder="Near City Hospital"
-                    placeholderTextColor={colors.textTertiary}
                   />
                 </View>
                 <View style={styles.fieldHalf}>
-                  <Text style={styles.inputLabel}>{t('citizen.submit.city') || 'City / Town'}</Text>
-                  <TextInput
-                    style={styles.textInput}
+                  <EcoGlassInput
+                    label={t('citizen.submit.city') || 'City / Town'}
                     value={city}
                     onChangeText={setCity}
                     placeholder="e.g. Berhampur"
-                    placeholderTextColor={colors.textTertiary}
                   />
                 </View>
               </View>
 
               <View style={styles.fieldRow}>
                 <View style={styles.fieldHalf}>
-                  <Text style={styles.inputLabel}>{t('citizen.submit.district') || 'District'}</Text>
-                  <TextInput
-                    style={styles.textInput}
+                  <EcoGlassInput
+                    label={t('citizen.submit.district') || 'District'}
                     value={district}
                     onChangeText={setDistrict}
                     placeholder="e.g. Ganjam"
-                    placeholderTextColor={colors.textTertiary}
                   />
                 </View>
                 <View style={styles.fieldHalf}>
-                  <Text style={styles.inputLabel}>{t('citizen.submit.pincode') || 'PIN Code'}</Text>
-                  <TextInput
-                    style={styles.textInput}
+                  <EcoGlassInput
+                    label={t('citizen.submit.pincode') || 'PIN Code'}
                     value={pincode}
                     onChangeText={setPincode}
                     placeholder="760001"
                     keyboardType="numeric"
                     maxLength={6}
-                    placeholderTextColor={colors.textTertiary}
                   />
                 </View>
               </View>
 
               <View style={styles.fieldFull}>
-                <Text style={styles.inputLabel}>{t('citizen.submit.state') || 'State'}</Text>
-                <TextInput
-                  style={styles.textInput}
+                <EcoGlassInput
+                  label={t('citizen.submit.state') || 'State'}
                   value={state}
                   onChangeText={setState}
                   placeholder="e.g. Odisha"
-                  placeholderTextColor={colors.textTertiary}
                 />
               </View>
             </View>
@@ -776,25 +842,20 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
               </View>
 
               {/* Estimated Weight & Description */}
-              <Text style={styles.inputLabel}>{t('citizen.submit.estimatedWeight') || 'Estimated Weight (kg)'}</Text>
-              <TextInput
-                style={styles.textInput}
+              <EcoGlassInput
+                label={t('citizen.submit.estimatedWeight') || 'Estimated Weight (kg)'}
                 value={modalWeight}
                 onChangeText={setModalWeight}
                 placeholder="e.g. 0.5"
                 keyboardType="numeric"
-                placeholderTextColor={colors.textTertiary}
               />
 
-              <Text style={styles.inputLabel}>{t('citizen.submit.description') || 'Notes / Model Description'}</Text>
-              <TextInput
-                style={[styles.textInput, styles.textArea]}
+              <EcoGlassTextArea
+                label={t('citizen.submit.description') || 'Notes / Model Description'}
                 value={modalDescription}
                 onChangeText={setModalDescription}
                 placeholder="Brand, model, visible condition..."
-                placeholderTextColor={colors.textTertiary}
-                multiline
-                numberOfLines={3}
+                maxLength={500}
               />
 
               {/* Android Camera Photo Capture */}
@@ -851,7 +912,103 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
       </Modal>
-    </GradientBackground>
+
+      {/* ── Full Screen Map Picker Modal ── */}
+      <Modal
+        visible={showFullMapModal}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setShowFullMapModal(false)}
+      >
+        <View style={styles.fullMapModalRoot}>
+          {/* Header Bar */}
+          <View style={styles.fullMapHeader}>
+            <TouchableOpacity
+              style={styles.fullMapBackBtn}
+              onPress={() => setShowFullMapModal(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Back to Request"
+            >
+              <Text style={styles.fullMapBackBtnText}>← {t('common.back') || 'Back'}</Text>
+            </TouchableOpacity>
+            <Text style={styles.fullMapHeaderTitle}>
+              🗺️ {t('location.selectLocation') || 'Choose Pickup Location'}
+            </Text>
+            <View style={{ width: 60 }} />
+          </View>
+
+          {/* Full-Screen Map */}
+          <EcoSetuMap
+            latitude={pickupLat !== 0 ? pickupLat : 19.3149}
+            longitude={pickupLng !== 0 ? pickupLng : 84.7941}
+            draggable={true}
+            allowLocationSelection={true}
+            allowTapSelection={true}
+            allowLongPressSelection={true}
+            accuracy={locationAccuracy}
+            showAccuracyCircle={true}
+            showMapTypeControl={true}
+            showZoomControls={true}
+            showMyLocationButton={true}
+            showRecenterButton={true}
+            showSearch={true}
+            onLocationChange={handleMarkerDrag}
+            onLocationSelectWithAccuracy={(lat, lng, acc) => {
+              setPickupLat(lat);
+              setPickupLng(lng);
+              if (acc) setLocationAccuracy(acc);
+              triggerReverseGeocoding(lat, lng);
+            }}
+            pinTitle="Doorstep Pickup"
+            pinDescription="Drag pin or tap map to adjust"
+            style={styles.fullScreenMapElement}
+          />
+
+          {/* Bottom Confirmation Floating Glass Sheet */}
+          <View style={styles.fullMapBottomFloatingCard}>
+            <Text style={styles.fullMapBottomLabel}>
+              📍 {t('citizen.submit.selectedLocation') || 'Selected Pickup Location'}
+            </Text>
+            <Text style={styles.fullMapBottomAddress} numberOfLines={2}>
+              {isResolvingAddress
+                ? t('location.updatingAddress') || 'Resolving address...'
+                : [houseNumber, street, landmark, city, state, pincode].filter(Boolean).join(', ') ||
+                  (pickupLat !== 0 ? `Coordinates: ${pickupLat.toFixed(5)}, ${pickupLng.toFixed(5)}` : 'Tap on map')}
+            </Text>
+            {locationAccuracy !== null && locationAccuracy !== undefined ? (
+              <Text style={styles.fullMapBottomAccuracy}>
+                🎯 {t('location.locationAccuracy') || 'Accuracy'}: Approx. ±{Math.round(locationAccuracy)} m
+              </Text>
+            ) : null}
+
+            <View style={styles.fullMapBottomBtnRow}>
+              <TouchableOpacity
+                style={styles.fullMapRepositionBtn}
+                onPress={handleUseCurrentLocation}
+                disabled={isLocating}
+              >
+                <Text style={styles.fullMapRepositionText}>
+                  🎯 {t('location.useMyLocation') || 'GPS'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.fullMapConfirmBtn}
+                onPress={() => {
+                  setIsLocationConfirmed(true);
+                  triggerReverseGeocoding(pickupLat, pickupLng);
+                  setShowFullMapModal(false);
+                }}
+              >
+                <Text style={styles.fullMapConfirmText}>
+                  ✓ {t('location.confirmPickupLocation') || 'Confirm Location'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </EcoSetuBackground>
   );
 };
 
@@ -900,15 +1057,215 @@ const styles = StyleSheet.create({
     marginBottom: spacing.spaceSm,
   },
   mapContainer: {
-    height: 180,
+    height: 280,
     borderRadius: spacing.radiusMd,
     overflow: 'hidden',
-    marginBottom: spacing.spaceMd,
+    marginBottom: spacing.spaceSm,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   map: {
     ...StyleSheet.absoluteFillObject,
+  },
+
+  // ── Selected Address Preview Card ──
+  selectedAddressPreviewCard: {
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    padding: spacing.spaceMd,
+    marginBottom: spacing.spaceMd,
+    gap: 10,
+  },
+  selectedAddressTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  selectedAddressPinIcon: {
+    fontSize: 20,
+    marginTop: 2,
+  },
+  selectedAddressTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#34D399',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  selectedAddressFormatted: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginTop: 2,
+    lineHeight: 18,
+  },
+  selectedAddressAccuracy: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.65)',
+    marginTop: 3,
+  },
+  mapActionRow: {
+    flexDirection: 'row',
+    gap: spacing.spaceSm,
+  },
+  mapSecondaryActionBtn: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+  },
+  mapSecondaryActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  confirmLocationBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  confirmLocationBtnActive: {
+    backgroundColor: '#059669',
+  },
+  confirmLocationBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
+
+  // ── Full-Screen Map Picker Modal ──
+  fullMapModalRoot: {
+    flex: 1,
+    backgroundColor: '#051417',
+    position: 'relative',
+  },
+  fullMapHeader: {
+    position: 'absolute',
+    top: Platform.OS === 'android' ? 24 : 44,
+    left: 14,
+    right: 14,
+    height: 50,
+    backgroundColor: 'rgba(6, 21, 27, 0.90)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    zIndex: 25,
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  fullMapBackBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  fullMapBackBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#34D399',
+  },
+  fullMapHeaderTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  fullScreenMapElement: {
+    ...StyleSheet.absoluteFillObject,
+    height: '100%',
+    width: '100%',
+    marginVertical: 0,
+    borderRadius: 0,
+    borderWidth: 0,
+  },
+  fullMapBottomFloatingCard: {
+    position: 'absolute',
+    bottom: 24,
+    left: 14,
+    right: 14,
+    backgroundColor: 'rgba(6, 21, 27, 0.94)',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    padding: spacing.spaceMd,
+    gap: 8,
+    zIndex: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  fullMapBottomLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#34D399',
+    textTransform: 'uppercase',
+  },
+  fullMapBottomAddress: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    lineHeight: 18,
+  },
+  fullMapBottomAccuracy: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.65)',
+  },
+  fullMapBottomBtnRow: {
+    flexDirection: 'row',
+    gap: spacing.spaceSm,
+    marginTop: 4,
+  },
+  fullMapRepositionBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    minHeight: 48,
+  },
+  fullMapRepositionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  fullMapConfirmBtn: {
+    flex: 1,
+    backgroundColor: '#059669',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  fullMapConfirmText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   addressFieldsGrid: {
     gap: spacing.spaceSm,
@@ -1077,39 +1434,57 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 41, 66, 0.5)',
+    backgroundColor: 'rgba(2, 8, 13, 0.85)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: colors.backgroundBase,
-    borderTopLeftRadius: spacing.radiusLg,
-    borderTopRightRadius: spacing.radiusLg,
+    backgroundColor: '#071A21',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: 'rgba(45, 212, 191, 0.35)',
     maxHeight: '90%',
-    padding: spacing.spaceMd,
+    padding: spacing.spaceLg,
+    elevation: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.spaceSm,
+    marginBottom: spacing.spaceMd,
   },
   modalTitle: {
-    fontSize: typography.fontSizeLg,
-    fontWeight: typography.fontWeightBold,
-    color: colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   modalCloseBtn: {
     padding: 6,
+    minHeight: 36,
+    minWidth: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalCloseText: {
     fontSize: 20,
-    color: colors.textSecondary,
+    color: '#CBD5E1',
   },
   modalScroll: {
-    paddingBottom: 20,
+    paddingBottom: 24,
   },
   modalErrorText: {
-    color: colors.error,
+    color: '#FCA5A5',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.40)',
+    padding: 8,
+    borderRadius: 8,
     fontSize: typography.fontSizeSm,
     marginBottom: spacing.spaceSm,
   },
@@ -1123,14 +1498,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: spacing.radiusSm,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
     marginRight: 8,
   },
   categoryChipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: '#10B981',
+    borderColor: '#34D399',
   },
   categoryChipIcon: {
     fontSize: 16,
@@ -1138,12 +1513,12 @@ const styles = StyleSheet.create({
   },
   categoryChipLabel: {
     fontSize: typography.fontSizeSm,
-    color: colors.textPrimary,
+    color: '#CBD5E1',
     fontWeight: typography.fontWeightMedium,
   },
   categoryChipLabelSelected: {
-    color: colors.textInverse,
-    fontWeight: typography.fontWeightBold,
+    color: '#03120E',
+    fontWeight: '800',
   },
   conditionRow: {
     flexDirection: 'row',
@@ -1156,21 +1531,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: spacing.radiusSm,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
   },
   conditionChipSelected: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
+    backgroundColor: '#10B981',
+    borderColor: '#34D399',
   },
   conditionChipLabel: {
     fontSize: typography.fontSizeSm,
-    color: colors.textPrimary,
+    color: '#CBD5E1',
   },
   conditionChipLabelSelected: {
-    color: colors.textInverse,
-    fontWeight: typography.fontWeightBold,
+    color: '#03120E',
+    fontWeight: '800',
   },
   stepperContainer: {
     flexDirection: 'row',
@@ -1182,9 +1557,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: spacing.radiusSm,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: 'rgba(45, 212, 191, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1206,11 +1581,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 14,
-    borderRadius: spacing.radiusSm,
+    borderRadius: 10,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(15, 41, 66, 0.04)',
+    borderColor: '#10B981',
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
     marginVertical: 8,
   },
   cameraCaptureIcon: {
@@ -1219,8 +1594,8 @@ const styles = StyleSheet.create({
   },
   cameraCaptureText: {
     fontSize: typography.fontSizeBase,
-    fontWeight: typography.fontWeightSemiBold,
-    color: colors.primary,
+    fontWeight: '700',
+    color: '#34D399',
   },
   photoPreviewBox: {
     alignItems: 'center',
@@ -1231,7 +1606,7 @@ const styles = StyleSheet.create({
     height: 140,
     borderRadius: spacing.radiusMd,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: 'rgba(45, 212, 191, 0.40)',
   },
   photoActionsRow: {
     flexDirection: 'row',
@@ -1239,21 +1614,24 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   photoActionBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: spacing.radiusSm,
-    backgroundColor: 'rgba(15, 41, 66, 0.08)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
   },
   photoActionBtnText: {
     fontSize: typography.fontSizeSm,
-    fontWeight: typography.fontWeightSemiBold,
-    color: colors.primary,
+    fontWeight: '700',
+    color: '#34D399',
   },
   photoRemoveBtn: {
-    backgroundColor: colors.errorFill,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: 'rgba(239, 68, 68, 0.35)',
   },
   photoRemoveBtnText: {
-    color: colors.error,
+    color: '#FCA5A5',
   },
   modalSaveBtn: {
     marginTop: spacing.spaceMd,

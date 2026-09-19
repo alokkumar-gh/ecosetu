@@ -95,6 +95,11 @@ export interface TranslationSchema {
     slide3Subtitle: string;
     slide4Title: string;
     slide4Subtitle: string;
+    slide5Title: string;
+    slide5Subtitle: string;
+    slide6Title: string;
+    slide6Subtitle: string;
+    slide6Cta: string;
   };
   roles: {
     citizen: string;
@@ -193,6 +198,24 @@ export interface TranslationSchema {
     useMyLocation: string;
     locPermissionRequired: string;
     locPermissionDenied: string;
+    standard: string;
+    satellite: string;
+    terrain: string;
+    hybrid: string;
+    mapType: string;
+    zoomIn: string;
+    zoomOut: string;
+    recenter: string;
+    locationAccuracy: string;
+    accuracyLow: string;
+    updatingAddress: string;
+    addressUpdated: string;
+    addressNotFound: string;
+    chooseOnMap: string;
+    confirmLocation: string;
+    confirmPickupLocation: string;
+    searchLocation: string;
+    reposition: string;
   };
   voice: {
     voiceAssistance: string;

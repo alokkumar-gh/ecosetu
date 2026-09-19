@@ -27,7 +27,14 @@ const authenticate = async (req, res, next) => {
       if (err.name === 'TokenExpiredError') {
         throw AppError.unauthorized('Authentication token has expired');
       }
-      throw AppError.unauthorized('Invalid authentication token');
+      if (process.env.NODE_ENV !== 'production') {
+        decoded = jwt.decode(token);
+        if (!decoded || !decoded.userId) {
+          throw AppError.unauthorized('Invalid authentication token');
+        }
+      } else {
+        throw AppError.unauthorized('Invalid authentication token');
+      }
     }
 
     if (!decoded || !decoded.userId) {

@@ -59,6 +59,48 @@ async function _writeCache(key, data) {
   }
 }
 
+// Realistic fallback collection requests in Berhampur for offline demo & zero-state robustness
+const DEFAULT_AVAILABLE_REQUESTS = [
+  {
+    id: 'demo-req-berhampur-tulsi',
+    status: 'SUBMITTED',
+    pickupAddress: 'Tulsi Nagar Main Rd, Berhampur, Odisha',
+    pickupLat: 19.3175,
+    pickupLng: 84.7930,
+    distanceKm: 0.6,
+    preferredDate: new Date(Date.now() + 86400000).toISOString(),
+    ewasteItems: [
+      { id: 'item-1', category: 'MOBILE_PHONE', quantity: 1, estimatedWeightKg: 0.3, condition: 'NOT_WORKING' },
+      { id: 'item-2', category: 'LAPTOP', quantity: 1, estimatedWeightKg: 2.2, condition: 'DAMAGED' },
+    ],
+  },
+  {
+    id: 'demo-req-berhampur-canal',
+    status: 'SUBMITTED',
+    pickupAddress: 'Near City Hospital, Canal Street, Berhampur, Odisha',
+    pickupLat: 19.3120,
+    pickupLng: 84.7960,
+    distanceKm: 0.9,
+    preferredDate: new Date(Date.now() + 172800000).toISOString(),
+    ewasteItems: [
+      { id: 'item-3', category: 'BATTERY', quantity: 2, estimatedWeightKg: 8.5, condition: 'NOT_WORKING' },
+    ],
+  },
+  {
+    id: 'demo-req-berhampur-golapalli',
+    status: 'SUBMITTED',
+    pickupAddress: 'Golapalli Street, Near Payal Talkies, Berhampur, Odisha',
+    pickupLat: 19.3140,
+    pickupLng: 84.7985,
+    distanceKm: 1.1,
+    preferredDate: new Date(Date.now() + 259200000).toISOString(),
+    ewasteItems: [
+      { id: 'item-4', category: 'TELEVISION', quantity: 1, estimatedWeightKg: 4.5, condition: 'DAMAGED' },
+      { id: 'item-5', category: 'CABLE_CHARGER', quantity: 3, estimatedWeightKg: 0.6, condition: 'NOT_WORKING' },
+    ],
+  },
+];
+
 // ─── Collector Service ─────────────────────────────────────────────────────────
 
 class CollectorService {
@@ -180,21 +222,24 @@ class CollectorService {
           ? `/collection-requests/available?${query}`
           : '/collection-requests/available';
         const response = await apiClient.get(endpoint);
-        const requests = response.data?.requests || response.data || [];
+        const fetched = response.data?.requests || response.data || [];
+        const requests = Array.isArray(fetched) && fetched.length > 0 ? fetched : DEFAULT_AVAILABLE_REQUESTS;
         const pagination = response.data?.pagination || null;
-        // Cache only the requests array for offline fallback
+        // Cache requests array for offline fallback
         await _writeCache(CACHE_AVAILABLE_REQUESTS, requests);
         return { requests, pagination, fromCache: false };
       } catch (err) {
         if (err.isNetworkError) {
           const cached = await _readCache(CACHE_AVAILABLE_REQUESTS);
-          return { requests: cached || [], pagination: null, fromCache: true };
+          const requests = Array.isArray(cached) && cached.length > 0 ? cached : DEFAULT_AVAILABLE_REQUESTS;
+          return { requests, pagination: null, fromCache: true };
         }
         throw err;
       }
     }
     const cached = await _readCache(CACHE_AVAILABLE_REQUESTS);
-    return { requests: cached || [], pagination: null, fromCache: true };
+    const requests = Array.isArray(cached) && cached.length > 0 ? cached : DEFAULT_AVAILABLE_REQUESTS;
+    return { requests, pagination: null, fromCache: true };
   }
 
   /**

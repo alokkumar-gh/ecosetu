@@ -99,3 +99,6 @@ export const useI18n = (): I18nContextType => {
   }
   return ctx;
 };
+
+export const useTranslation = useI18n;
+

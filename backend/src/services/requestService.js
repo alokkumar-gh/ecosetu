@@ -4,7 +4,7 @@
 const prisma = require('../config/database');
 const AppError = require('../utils/AppError');
 const notificationService = require('./notificationService');
-const { calculateDistanceKm, formatAddress } = require('../utils/locationHelper');
+const { calculateDistanceKm, formatAddress, maskCoordinates } = require('../utils/locationHelper');
 const { ROLES, REQUEST_STATUS, ITEM_STATUS, PICKUP_STATUS, NOTIFICATION_TYPES } = require('../utils/constants');
 
 class RequestService {
@@ -215,9 +215,10 @@ class RequestService {
     const skip = (pageNum - 1) * limitNum;
     const paginated = filtered.slice(skip, skip + limitNum);
 
-    // Apply privacy masking per Task 33 specification:
+    // Apply privacy masking:
     // Collector receives structured doorstep address (houseNumber, street, landmark, city, district, state, pincode)
-    // but exact GPS coordinates (pickupLat, pickupLng, locationAccuracy) are strictly masked (null) before acceptance
+    // and ~1.1km masked coordinates (rounded to 2 decimal places) for approximate map zone plotting.
+    // Exact live doorstep GPS coordinates and locationAccuracy remain strictly protected before acceptance.
     const sanitized = paginated.map((r) => {
       const formattedAddress = [
         r.houseNumber,
@@ -228,6 +229,8 @@ class RequestService {
         r.state,
         r.pincode,
       ].filter(Boolean).join(', ');
+
+      const { maskedLat, maskedLng } = maskCoordinates(r.pickupLat, r.pickupLng, 2);
 
       return {
         ...r,
@@ -240,8 +243,8 @@ class RequestService {
         state: r.state || null,
         pincode: r.pincode || null,
         addressType: r.addressType || null,
-        pickupLat: null,
-        pickupLng: null,
+        pickupLat: maskedLat !== null ? maskedLat : null,
+        pickupLng: maskedLng !== null ? maskedLng : null,
         locationAccuracy: null,
       };
     });
@@ -305,6 +308,8 @@ class RequestService {
           request.pincode,
         ].filter(Boolean).join(', ');
 
+        const { maskedLat, maskedLng } = maskCoordinates(request.pickupLat, request.pickupLng, 2);
+
         return {
           ...request,
           pickupAddress: formattedAddress || request.pickupAddress || 'Address details available',
@@ -316,8 +321,8 @@ class RequestService {
           state: request.state || null,
           pincode: request.pincode || null,
           addressType: request.addressType || null,
-          pickupLat: null,
-          pickupLng: null,
+          pickupLat: maskedLat !== null ? maskedLat : null,
+          pickupLng: maskedLng !== null ? maskedLng : null,
           locationAccuracy: null,
         };
       }

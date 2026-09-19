@@ -2,13 +2,15 @@
  * GradientBackground
  *
  * Full-screen dark gradient background wrapper.
- * Uses layered Views to simulate a multi-stop gradient — no external dep.
+ * Renders the user-selected high-end environmental wallpaper with an integrated dark scrim.
  * Wraps SafeAreaView and composes with children.
  */
 
 import React, { memo } from 'react';
-import { View, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
+import { View, StyleSheet, SafeAreaView, StatusBar, ImageBackground } from 'react-native';
 import { colors } from '../../theme/colors';
+
+const BG_IMAGE = require('../../assets/images/ecosetu_bg.png');
 
 interface GradientBackgroundProps {
   children: React.ReactNode;
@@ -26,21 +28,20 @@ export const GradientBackground: React.FC<GradientBackgroundProps> = memo(({
   const outerStyle = mode === 'screen' ? styles.screenRoot : styles.flexRoot;
   return (
     <View style={outerStyle}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
-      {/* Layer 1 — soft canvas base */}
-      <View style={styles.gradBase} />
-      {/* Layer 2 — subtle ambient tint */}
-      <View style={styles.gradMid} />
-      {/* Layer 3 — subtle top tint */}
-      <View style={styles.gradTop} />
-      {/* Ambient subtle glow — top-right navy tint */}
-      <View style={styles.radialGlowTR} />
-      {/* Ambient subtle glow — bottom-left eco green tint */}
-      <View style={styles.radialGlowBL} />
+      <StatusBar barStyle="light-content" backgroundColor="#02080D" />
+      <ImageBackground
+        source={BG_IMAGE}
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        <View style={styles.scrimOverlay} pointerEvents="none" />
+        <View style={styles.radialGlowTR} pointerEvents="none" />
+        <View style={styles.radialGlowBL} pointerEvents="none" />
 
-      <SafeAreaView style={[styles.safeArea, contentStyle]}>
-        {children}
-      </SafeAreaView>
+        <SafeAreaView style={[styles.safeArea, contentStyle]}>
+          {children}
+        </SafeAreaView>
+      </ImageBackground>
     </View>
   );
 });
@@ -50,52 +51,39 @@ GradientBackground.displayName = 'GradientBackground';
 const styles = StyleSheet.create({
   screenRoot: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#02080D',
   },
   flexRoot: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#02080D',
+  },
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  scrimOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(2, 8, 13, 0.68)',
   },
   safeArea: {
     flex: 1,
   },
-  gradBase: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#F8FAFC',
-  },
-  gradMid: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: '25%',
-    bottom: 0,
-    backgroundColor: '#F1F5F9',
-    opacity: 0.5,
-  },
-  gradTop: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: '60%',
-    bottom: 0,
-    backgroundColor: '#E2E8F0',
-    opacity: 0.25,
-  },
   radialGlowTR: {
     position: 'absolute',
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: 'rgba(15, 41, 66, 0.02)',
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: 'rgba(16, 185, 129, 0.10)',
     top: -60,
     right: -80,
   },
   radialGlowBL: {
     position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: 'rgba(5, 150, 105, 0.03)',
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(6, 182, 212, 0.08)',
     bottom: 60,
     left: -60,
   },

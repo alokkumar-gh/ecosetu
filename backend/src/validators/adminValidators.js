@@ -138,10 +138,114 @@ const updateVerification = [
     .withMessage('reviewNotes must not exceed 500 characters'),
 ];
 
+const sendCustomNotification = [
+  body('title')
+    .exists({ checkNull: true })
+    .withMessage('Title is required')
+    .isString()
+    .trim()
+    .isLength({ min: 3, max: 200 })
+    .withMessage('Title must be between 3 and 200 characters'),
+
+  body('message')
+    .exists({ checkNull: true })
+    .withMessage('Message is required')
+    .isString()
+    .trim()
+    .isLength({ min: 5, max: 1000 })
+    .withMessage('Message must be between 5 and 1000 characters'),
+
+  body('audience')
+    .exists({ checkNull: true })
+    .withMessage('Audience is required')
+    .isString()
+    .toUpperCase()
+    .isIn([
+      'ALL',
+      'CITIZENS',
+      'COLLECTORS',
+      'RECYCLERS',
+      'ADMINS',
+      'VERIFIED',
+      'PENDING_VERIFICATION',
+      'SUSPENDED',
+      'INDIVIDUAL',
+    ])
+    .withMessage('Invalid audience target'),
+
+  body('targetUserId')
+    .optional({ nullable: true })
+    .isUUID()
+    .withMessage('targetUserId must be a valid UUID'),
+
+  body('type')
+    .optional()
+    .isString()
+    .trim()
+    .isLength({ max: 50 }),
+
+  body('actionUrl')
+    .optional({ nullable: true })
+    .isString()
+    .trim()
+    .isLength({ max: 500 }),
+
+  body('confirmed')
+    .optional()
+    .isBoolean()
+    .toBoolean(),
+];
+
+const previewRecipients = [
+  query('audience')
+    .exists({ checkNull: true })
+    .withMessage('Audience is required')
+    .isString()
+    .toUpperCase()
+    .isIn([
+      'ALL',
+      'CITIZENS',
+      'COLLECTORS',
+      'RECYCLERS',
+      'ADMINS',
+      'VERIFIED',
+      'PENDING_VERIFICATION',
+      'SUSPENDED',
+      'INDIVIDUAL',
+    ])
+    .withMessage('Invalid audience target'),
+
+  query('targetUserId')
+    .optional()
+    .isUUID()
+    .withMessage('targetUserId must be a valid UUID'),
+];
+
+const getAnalytics = [
+  query('period')
+    .optional()
+    .isIn(['7d', '30d', '90d', '1y', 'custom', 'all', '7D', '30D', '90D', '1Y', 'CUSTOM', 'ALL'])
+    .withMessage('period must be one of: 7d, 30d, 90d, 1y, custom, all'),
+
+  query('startDate')
+    .optional()
+    .isISO8601()
+    .withMessage('startDate must be a valid ISO 8601 date'),
+
+  query('endDate')
+    .optional()
+    .isISO8601()
+    .withMessage('endDate must be a valid ISO 8601 date'),
+];
+
 module.exports = {
   listUsers,
   updateUserStatus,
   listAuditLogs,
   listVerifications,
   updateVerification,
+  sendCustomNotification,
+  previewRecipients,
+  getAnalytics,
 };
+

@@ -26,6 +26,7 @@ import {
   SafeAreaView,
   RefreshControl,
 } from 'react-native';
+import { EcoSetuBackground } from '../../components/eco';
 import { TopAppBar } from '../../components/layout/TopAppBar';
 import { Skeleton } from '../../components/common/Skeleton';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -156,17 +157,17 @@ export const AdminAuditLogsScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <TopAppBar
-        title="Audit Trail"
-        subtitle="Immutable Security & Lifecycle Records"
-        showBack={false}
-      />
+    <EcoSetuBackground>
+      <SafeAreaView style={styles.safeArea}>
+        <TopAppBar
+          title="System Audit Trail"
+          subtitle="Immutable compliance & event logs"
+          showBack={false}
+        />
 
-      <OfflineBanner />
+        <OfflineBanner />
 
-      {/* Filter Inputs */}
-      <View style={styles.filterSection}>
+        <View style={styles.filterSection}>
         <View style={styles.filterInputRow}>
           <TextInput
             style={[styles.filterInput, { flex: 1 }]}
@@ -232,13 +233,14 @@ export const AdminAuditLogsScreen: React.FC = () => {
         />
       )}
     </SafeAreaView>
+  </EcoSetuBackground>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   filterSection: {
     paddingHorizontal: spacing.spaceMd,
@@ -250,14 +252,14 @@ const styles = StyleSheet.create({
     gap: spacing.spaceSm,
   },
   filterInput: {
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(45, 212, 191, 0.22)',
     paddingHorizontal: spacing.spaceSm + 4,
     paddingVertical: spacing.spaceSm,
     fontSize: typography.Caption.fontSize,
-    color: colors.textPrimary,
+    color: '#F8FAFC',
   },
   loadingContainer: {
     padding: spacing.spaceMd,
@@ -274,12 +276,12 @@ const styles = StyleSheet.create({
     gap: spacing.spaceSm,
   },
   logCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
+    borderRadius: 10,
     padding: spacing.spaceMd,
     borderWidth: 1,
-    borderColor: colors.divider,
-    elevation: 1,
+    borderColor: 'rgba(45, 212, 191, 0.22)',
+    elevation: 2,
   },
   logHeader: {
     flexDirection: 'row',
@@ -305,7 +307,7 @@ const styles = StyleSheet.create({
   actorText: {
     fontSize: typography.Caption.fontSize,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: '#F8FAFC',
   },
   actorEmail: {
     fontSize: typography.Caption.fontSize,
@@ -320,8 +322,8 @@ const styles = StyleSheet.create({
   entityTag: {
     fontSize: typography.Caption.fontSize,
     fontWeight: '600',
-    color: '#0277BD',
-    backgroundColor: '#E1F5FE',
+    color: '#38BDF8',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -340,21 +342,23 @@ const styles = StyleSheet.create({
     marginTop: spacing.spaceSm,
     paddingTop: spacing.spaceSm,
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
-    backgroundColor: '#F8F9FA',
+    borderTopColor: 'rgba(45, 212, 191, 0.20)',
+    backgroundColor: 'rgba(6, 21, 27, 0.90)',
     padding: spacing.spaceSm,
-    borderRadius: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(45, 212, 191, 0.20)',
   },
   detailsLabel: {
     fontSize: typography.Caption.fontSize,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#2DD4BF',
     marginBottom: 4,
   },
   detailsCode: {
     fontSize: 11,
     fontFamily: 'monospace',
-    color: colors.textPrimary,
+    color: '#34D399',
   },
 });
 

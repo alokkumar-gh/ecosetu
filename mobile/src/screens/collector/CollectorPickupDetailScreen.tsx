@@ -56,6 +56,7 @@ import { typography } from '../../theme/typography';
 import { PICKUP_STATUS, REQUEST_STATUS } from '../../utils/constants';
 import { useI18n } from '../../i18n';
 import { voiceService, AnnouncementPriority } from '../../services/voiceService';
+import { useCollectorVoice } from '../../context/CollectorVoiceContext';
 
 interface Props {
   navigation?: any;
@@ -101,6 +102,7 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
   const { user } = useAuth();
   const { isConnected } = useNetwork();
   const { t, language } = useI18n();
+  const { setSelectedEntity, registerActions } = useCollectorVoice();
 
   const [isVoiceEnabled, setIsVoiceEnabled] = useState<boolean>(false);
 
@@ -334,6 +336,38 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
       setIsActionLoading(false);
     }
   }, [pickup?.id, isConnected, isActionLoading, isVoiceEnabled, language, t]);
+
+  // Register current pickup as active Voice context entity
+  useEffect(() => {
+    const activeId = pickup?.id || pickupId;
+    if (activeId) {
+      const refCode = String(activeId).slice(-8).toUpperCase();
+      setSelectedEntity({
+        type: 'PICKUP',
+        id: activeId,
+        label: `Pickup #${refCode}`,
+        data: pickup,
+      });
+      return () => {
+        setSelectedEntity(null);
+      };
+    }
+  }, [pickupId, pickup, setSelectedEntity]);
+
+  // Connect voice actions for Start and Complete Pickup
+  useEffect(() => {
+    const unregister = registerActions({
+      onStartPickup: async () => {
+        handleStartPickup();
+      },
+      onCompletePickup: async (id) => {
+        if (navigation) {
+          navigation.navigate('CollectorPickups', { completePickupId: id });
+        }
+      },
+    });
+    return () => unregister();
+  }, [registerActions, handleStartPickup, navigation]);
 
   // Total estimated weight
   const totalEstWeight = items.reduce(

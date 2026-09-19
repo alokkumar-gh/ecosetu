@@ -60,11 +60,13 @@ export type RecyclerStackParamList = {
 export type AdminTabParamList = {
   AdminHome: undefined;
   AdminVerifications: undefined;
-  AdminUsers: undefined;
+  AdminUsers: { filterStatus?: string; filterRole?: string } | undefined;
   AdminAuditLogs: undefined;
   AdminProfile: undefined;
   AdminGeographicAnalytics: undefined;
   AdminReports: undefined;
   AdminGovernance: undefined;
   AdminSystemHealth: undefined;
+  AdminNotificationCenter: { tab?: 'compose' | 'history' | 'templates' | 'analytics'; initialAudience?: string; targetUser?: any } | undefined;
 };
+

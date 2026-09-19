@@ -40,6 +40,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { useNetwork } from '../../hooks/useNetwork';
 import { adminService } from '../../services/adminService';
+import { EcoSetuBackground } from '../../components/eco';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -233,12 +234,13 @@ export const AdminVerificationsScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <TopAppBar
-        title="Verification Queue"
-        subtitle="Identity & Facility Environmental Compliance"
-        showBack={false}
-      />
+    <EcoSetuBackground>
+      <SafeAreaView style={styles.safeArea}>
+        <TopAppBar
+          title="Verifications"
+          subtitle="Review Collector & Recycler Applications"
+          showBack={false}
+        />
 
       <OfflineBanner />
 
@@ -471,31 +473,33 @@ export const AdminVerificationsScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+      </SafeAreaView>
+    </EcoSetuBackground>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   filterScroll: {
-    maxHeight: 44,
-    marginTop: spacing.spaceSm,
+    maxHeight: 52,
+    marginVertical: spacing.spaceXs,
   },
   filterContainer: {
     paddingHorizontal: spacing.spaceMd,
-    paddingVertical: 4,
+    paddingVertical: 2,
     gap: spacing.spaceXs,
   },
   filterChip: {
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.spaceSm + 6,
-    paddingVertical: 6,
-    borderRadius: 16,
+    minHeight: 44,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(6, 21, 27, 0.75)',
+    paddingHorizontal: spacing.spaceSm + 4,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(45, 212, 191, 0.20)',
   },
   filterChipActive: {
     backgroundColor: colors.primary,
@@ -525,12 +529,12 @@ const styles = StyleSheet.create({
     gap: spacing.spaceSm,
   },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
+    borderRadius: 10,
     padding: spacing.spaceMd,
     borderWidth: 1,
-    borderColor: colors.divider,
-    elevation: 1,
+    borderColor: 'rgba(45, 212, 191, 0.22)',
+    elevation: 2,
   },
   cardPending: {
     borderLeftWidth: 4,
@@ -549,7 +553,7 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: typography.Body.fontSize,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#F8FAFC',
   },
   userEmail: {
     fontSize: typography.Caption.fontSize,
@@ -590,26 +594,28 @@ const styles = StyleSheet.create({
   },
   docAttachedTag: {
     fontSize: typography.Caption.fontSize,
-    color: '#0277BD',
+    color: '#38BDF8',
     fontWeight: '600',
   },
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(2, 8, 13, 0.85)',
     justifyContent: 'center',
     padding: spacing.spaceMd,
   },
   modalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: spacing.spaceMd,
+    backgroundColor: '#071A21',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(45, 212, 191, 0.35)',
+    padding: spacing.spaceLg,
     maxHeight: '90%',
   },
   modalTitle: {
     fontSize: typography.Subheading.fontSize,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#FFFFFF',
     marginBottom: spacing.spaceMd,
     textAlign: 'center',
   },
@@ -626,75 +632,78 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: typography.Body.fontSize,
-    color: colors.textSecondary,
+    color: '#94A3B8',
     fontWeight: '500',
   },
   detailValue: {
     fontSize: typography.Body.fontSize,
-    color: colors.textPrimary,
+    color: '#F8FAFC',
     fontWeight: '600',
     maxWidth: '65%',
     textAlign: 'right',
   },
   profileBox: {
-    backgroundColor: '#F8F9FA',
+    backgroundColor: 'rgba(6, 21, 27, 0.75)',
     padding: spacing.spaceSm,
-    borderRadius: 6,
+    borderRadius: 8,
     marginVertical: spacing.spaceSm,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(45, 212, 191, 0.20)',
   },
   reviewedBox: {
-    backgroundColor: '#FFF8E1',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
     padding: spacing.spaceSm,
-    borderRadius: 6,
+    borderRadius: 8,
     marginVertical: spacing.spaceSm,
     borderWidth: 1,
-    borderColor: '#FFE082',
+    borderColor: 'rgba(245, 158, 11, 0.30)',
   },
   boxTitle: {
     fontSize: typography.Caption.fontSize,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#F8FAFC',
     marginBottom: 4,
   },
   boxText: {
     fontSize: typography.Caption.fontSize,
-    color: colors.textSecondary,
+    color: '#CBD5E1',
     lineHeight: 18,
   },
   sectionHeading: {
     fontSize: typography.Body.fontSize,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#F8FAFC',
     marginTop: spacing.spaceMd,
     marginBottom: spacing.spaceXs,
   },
   notesInput: {
     borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: 6,
+    borderColor: 'rgba(45, 212, 191, 0.25)',
+    borderRadius: 8,
     padding: spacing.spaceSm,
     fontSize: typography.Body.fontSize,
-    color: colors.textPrimary,
+    color: '#FFFFFF',
+    backgroundColor: 'rgba(6, 21, 27, 0.90)',
     minHeight: 65,
     textAlignVertical: 'top',
     marginBottom: spacing.spaceSm,
   },
   offlineNotice: {
     fontSize: typography.Caption.fontSize,
-    color: '#E65100',
+    color: '#FBBF24',
     marginBottom: spacing.spaceSm,
     textAlign: 'center',
   },
   errorBanner: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
     padding: spacing.spaceSm,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
     marginVertical: spacing.spaceSm,
   },
   errorBannerText: {
-    color: '#C62828',
+    color: '#FCA5A5',
     fontSize: typography.Caption.fontSize,
   },
   decisionActionsRow: {
@@ -705,15 +714,15 @@ const styles = StyleSheet.create({
   },
   rejectButton: {
     flex: 1,
-    backgroundColor: '#FFEBEE',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
     paddingVertical: spacing.spaceSm + 2,
-    borderRadius: 6,
+    borderRadius: 8,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#FFCDD2',
+    borderColor: 'rgba(239, 68, 68, 0.35)',
   },
   rejectButtonText: {
-    color: '#C62828',
+    color: '#FCA5A5',
     fontWeight: '700',
     fontSize: typography.Button.fontSize,
   },

@@ -35,14 +35,26 @@ class AdminService {
   /**
    * Fetch platform-wide metrics and circular economy conversion funnel.
    * Cached for offline inspection with stale indication.
+   * @param {string} [period='7d'] - '7d', '30d', '90d', '1y', 'all', 'custom'
+   * @param {string} [startDate]
+   * @param {string} [endDate]
    * @returns {Promise<{ analytics: object, fromCache: boolean }>}
    */
-  async getAnalytics() {
+  async getAnalytics(period = '7d', startDate = null, endDate = null) {
     if (networkService.isConnected()) {
       try {
-        const response = await apiClient.get('/admin/analytics');
+        const query = new URLSearchParams();
+        if (period) query.append('period', String(period).toLowerCase());
+        if (startDate) query.append('startDate', startDate);
+        if (endDate) query.append('endDate', endDate);
+        const qs = query.toString();
+        const url = `/admin/analytics${qs ? `?${qs}` : ''}`;
+
+        const response = await apiClient.get(url);
         const analytics = response.data?.data || response.data;
         if (analytics) {
+          const cacheKey = `${CACHE_KEYS.ANALYTICS}_${period || '7d'}`;
+          await AsyncStorage.setItem(cacheKey, JSON.stringify(analytics));
           await AsyncStorage.setItem(CACHE_KEYS.ANALYTICS, JSON.stringify(analytics));
         }
         return { analytics, fromCache: false };
@@ -54,6 +66,77 @@ class AdminService {
       }
     }
     return this._getCachedItem(CACHE_KEYS.ANALYTICS);
+  }
+
+  /**
+   * Send custom administrative broadcast notification.
+   * Online-only: notifications are never queued offline.
+   * @param {object} payload - { title, message, type, audience, targetUserId, actionUrl, confirmed }
+   * @returns {Promise<object>}
+   */
+  async sendAdminNotification(payload) {
+    if (!networkService.isConnected()) {
+      throw Object.assign(new Error('Notification sending requires active network connection'), {
+        isOfflineError: true,
+      });
+    }
+    const response = await apiClient.post('/admin/notifications/send', payload);
+    return response.data?.data || response.data;
+  }
+
+  /**
+   * Preview audience recipient count before sending.
+   * @param {object} params - { audience, targetUserId }
+   * @returns {Promise<object>}
+   */
+  async previewNotificationRecipients({ audience, targetUserId = null }) {
+    if (!networkService.isConnected()) {
+      return { audience, count: 0, sample: [], requiresConfirmation: false };
+    }
+    const query = new URLSearchParams();
+    if (audience) query.append('audience', audience);
+    if (targetUserId) query.append('targetUserId', targetUserId);
+    const response = await apiClient.get(`/admin/notifications/recipients-preview?${query.toString()}`);
+    return response.data?.data || response.data;
+  }
+
+  /**
+   * List administrative notification broadcast campaign history.
+   * @param {object} [params] - { page, limit }
+   * @returns {Promise<{ broadcasts: Array, pagination: object }>}
+   */
+  async getAdminNotificationHistory({ page = 1, limit = 20 } = {}) {
+    if (!networkService.isConnected()) {
+      return { broadcasts: [], pagination: null };
+    }
+    const response = await apiClient.get(`/admin/notifications/history?page=${page}&limit=${limit}`);
+    return response.data?.data || response.data;
+  }
+
+  /**
+   * Get notification analytics overview.
+   * @returns {Promise<object>}
+   */
+  async getAdminNotificationAnalytics() {
+    if (!networkService.isConnected()) {
+      return null;
+    }
+    const response = await apiClient.get('/admin/notifications/analytics');
+    return response.data?.data || response.data;
+  }
+
+  /**
+   * Search users for individual notification targeting.
+   * @param {string} q - Query text
+   * @returns {Promise<Array<object>>}
+   */
+  async searchNotificationUsers(q) {
+    if (!networkService.isConnected() || !q || !q.trim()) {
+      return [];
+    }
+    const response = await apiClient.get(`/admin/notifications/users/search?q=${encodeURIComponent(q.trim())}`);
+    const data = response.data?.data || response.data;
+    return data?.users || [];
   }
 
   /**

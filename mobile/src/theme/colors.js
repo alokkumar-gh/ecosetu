@@ -1,81 +1,115 @@
 /**
- * EcoSetu Color Palette Design Tokens — Global Glassmorphism Edition
- * Source of Truth: docs/08_UI_UX_SPECIFICATION.md
+ * EcoSetu Color Palette Design Tokens — Premium SaaS Glassmorphism Edition
  *
- * UNIFIED PUBLIC-SERVICE GLASS:
- * Restrained, elegant translucent white surfaces on soft off-white canvas.
- * Deep ECOSETU navy typography with restrained forest green accents.
- * 100% WCAG AA contrast compliant. Zero neon, zero cyberpunk.
+ * UNIFIED ENVIRONMENTAL SAAS GLASS:
+ * Deep dark atmospheric environmental canvas with soft radial emerald/cyan glow pools.
+ * Translucent frosted glass card surfaces with subtle emerald/white highlights.
+ * High-contrast crisp typography (WCAG AA/AAA compliant).
+ * Authoritative deep navy #0F2942 preserved for brand identity and security tokens.
  */
 
 export const colors = Object.freeze({
-  // ── Core Brand ───────────────────────────────────────────────────────────
-  primary: '#0F2942',        // Deep ECOSETU navy — Primary brand, buttons, headers
-  primaryLight: '#1E3A8A',   // Navy blue highlight
-  primaryDark: '#0A192F',    // Deepest navy
-  secondary: '#2563EB',      // Public-service blue — Info, active indicators
-  secondaryLight: '#3B82F6', // Lighter accent blue
-  accent: '#059669',         // Restrained ECOSETU green — Environmental accent, success
-  accentLight: '#10B981',    // Emerald green
-  accentDark: '#047857',     // Forest green
+  // ── Core Brand & Identity ──────────────────────────────────────────────────
+  primary: '#10B981',        // Vibrant emerald green — active states, primary CTAs
+  primaryDark: '#059669',    // Deep emerald CTA gradient base
+  primaryLight: '#34D399',   // Light emerald highlight glow
+  primaryBrand: '#0F2942',   // Authoritative deep ECOSETU navy #0F2942 — trust, technology
+  navyBrand: '#0F2942',      // Explicit navy brand token #0F2942
+  secondary: '#06B6D4',      // Environmental cyan / teal — metrics, active indicators
+  secondaryLight: '#22D3EE', // Light cyan highlight
+  secondaryDark: '#0891B2',  // Deep cyan
+  accent: '#10B981',         // Environmental accent
+  accentLight: '#34D399',    // Soft mint
+  accentDark: '#047857',     // Deep forest green
+  accentMint: '#10B981',     // Glowing emerald mint
+  emeraldGlow: 'rgba(16, 185, 129, 0.35)',
 
-  // ── Background Layers (Soft Off-White Canvas) ────────────────────────────
-  backgroundDeep: '#FFFFFF',   // Pure white for card contrast
-  backgroundBase: '#F8FAFC',   // Slate 50 — primary canvas background
-  backgroundMid: '#F1F5F9',    // Slate 100 — subtle ambient gradient mid
-  backgroundTop: '#E2E8F0',    // Slate 200 — subtle ambient gradient top
-  background: '#F8FAFC',       // Primary screen background
+  // ── Atmospheric Background Layers ──────────────────────────────────────────
+  backgroundDeep: '#02080D',   // Deepest dark cosmic blue-black
+  backgroundBase: '#030C12',   // Primary atmospheric canvas base
+  backgroundMid: '#06151B',    // Atmospheric gradient mid
+  backgroundTop: '#092229',    // Atmospheric gradient top
+  background: '#030C12',       // Screen background default
 
-  // ── Glass Surfaces ────────────────────────────────────────────────────────
-  glassFill: 'rgba(255, 255, 255, 0.80)',         // Standard glass card fill
-  glassFillElevated: 'rgba(255, 255, 255, 0.92)', // Elevated card fill
-  glassFillHero: 'rgba(255, 255, 255, 0.86)',     // Hero/featured card fill
-  glassBorder: 'rgba(226, 232, 240, 0.85)',       // Subtle glass border
-  glassBorderStrong: 'rgba(203, 213, 225, 0.95)', // Prominent glass border
-  glassOverlay: 'rgba(15, 41, 66, 0.40)',         // Scrim/overlay behind modals
+  // ── Glass Surfaces (Translucent Frosted Layers) ───────────────────────────
+  glassFill: 'rgba(6, 21, 27, 0.72)',             // Standard translucent glass card
+  glassFillElevated: 'rgba(10, 30, 40, 0.82)',     // Elevated/interactive glass
+  glassFillHero: 'rgba(8, 25, 33, 0.88)',          // Rich hero glass panel
+  glassBorder: 'rgba(255, 255, 255, 0.12)',        // Clean glass border
+  glassBorderStrong: 'rgba(45, 212, 191, 0.32)',   // Emerald/cyan highlighted glass border
+  glassOverlay: 'rgba(2, 8, 13, 0.85)',            // Scrim overlay behind modals #0F2942 tint
+  glassHighlight: 'rgba(255, 255, 255, 0.22)',     // Inner highlight edge
 
-  // ── Accent Fills (Translucent) ────────────────────────────────────────────
-  accentFill: 'rgba(5, 150, 105, 0.10)',      // Restrained green transparent tint
-  accentFillStrong: 'rgba(5, 150, 105, 0.20)', // Stronger green tint
-  secondaryFill: 'rgba(37, 99, 235, 0.10)',    // Blue accent tint
+  // ── Accent Fills (Translucent Tint Layers) ─────────────────────────────────
+  accentFill: 'rgba(16, 185, 129, 0.14)',         // Emerald glow tint
+  accentFillStrong: 'rgba(16, 185, 129, 0.24)',   // Stronger emerald tint
+  secondaryFill: 'rgba(6, 182, 212, 0.14)',       // Cyan glow tint
+  navyFill: 'rgba(15, 41, 66, 0.35)',             // Navy institutional tint
 
-  // ── High-Contrast Typography ──────────────────────────────────────────────
-  textPrimary: '#0F2942',    // Deep navy — High emphasis, headers, body
-  textSecondary: '#475569',  // Slate 600 — Medium emphasis, subtitles, descriptions
-  textTertiary: '#94A3B8',   // Slate 400 — Low emphasis, placeholders, hints
-  textInverse: '#FFFFFF',    // Pure white on dark navy / green buttons
+  // ── High-Contrast Typography (100% Readable, Zero Invisible Text) ─────────
+  textPrimary: '#FFFFFF',    // Crisp white — maximum contrast on dark glass
+  textSecondary: '#CBD5E1',  // Slate 200 — high-contrast readable secondary copy
+  textTertiary: '#94A3B8',   // Slate 400 — clean subtle labels, hints
+  textMuted: '#64748B',      // Slate 500 — disabled/meta labels
+  textInverse: '#FFFFFF',    // Inverse white
+  textEmerald: '#34D399',    // Emerald highlighted text
+  textCyan: '#22D3EE',       // Cyan highlighted text
 
-  // ── Semantic ─────────────────────────────────────────────────────────────
-  success: '#059669',          // Forest green
-  successFill: 'rgba(5, 150, 105, 0.12)',
-  warning: '#D97706',          // Warm amber
-  warningFill: 'rgba(217, 119, 6, 0.12)',
-  error: '#DC2626',            // Crimson red
-  errorFill: 'rgba(220, 38, 38, 0.12)',
-  info: '#2563EB',             // Royal blue
-  infoFill: 'rgba(37, 99, 235, 0.12)',
+  // ── Semantic Feedback ────────────────────────────────────────────────────
+  success: '#10B981',          // Emerald green
+  successFill: 'rgba(16, 185, 129, 0.16)',
+  warning: '#F59E0B',          // Amber
+  warningFill: 'rgba(245, 158, 11, 0.16)',
+  error: '#EF4444',            // Red
+  errorFill: 'rgba(239, 68, 68, 0.16)',
+  info: '#06B6D4',             // Cyan
+  infoFill: 'rgba(6, 182, 212, 0.16)',
 
-  // ── Status Badge Colors (Legible on Light Glass) ──────────────────────────
+  // ── Status Badge Colors (Legible on Dark Glass) ───────────────────────────
   badge: {
-    draft:     { bg: 'rgba(100, 116, 139, 0.12)', text: '#475569' },
-    pending:   { bg: 'rgba(217, 119, 6, 0.12)',  text: '#B45309' },
-    created:   { bg: 'rgba(37, 99, 235, 0.12)',  text: '#1D4ED8' },
-    inTransit: { bg: 'rgba(217, 119, 6, 0.15)',  text: '#B45309' },
-    delivered: { bg: 'rgba(5, 150, 105, 0.12)',  text: '#047857' },
-    received:  { bg: 'rgba(124, 58, 237, 0.12)', text: '#6D28D9' },
-    approved:  { bg: 'rgba(5, 150, 105, 0.15)',  text: '#047857' },
-    progress:  { bg: 'rgba(234, 88, 12, 0.12)',  text: '#C2410C' },
-    completed: { bg: 'rgba(5, 150, 105, 0.18)',  text: '#065F46' },
-    cancelled: { bg: 'rgba(220, 38, 38, 0.12)',  text: '#B91C1C' },
-    expired:   { bg: 'rgba(100, 116, 139, 0.12)', text: '#64748B' },
+    draft:     { bg: 'rgba(148, 163, 184, 0.18)', text: '#F1F5F9', border: 'rgba(148, 163, 184, 0.35)' },
+    pending:   { bg: 'rgba(245, 158, 11, 0.20)',  text: '#FDE68A', border: 'rgba(245, 158, 11, 0.45)' },
+    created:   { bg: 'rgba(6, 182, 212, 0.20)',   text: '#A5F3FC', border: 'rgba(6, 182, 212, 0.45)' },
+    inTransit: { bg: 'rgba(6, 182, 212, 0.22)',   text: '#A5F3FC', border: 'rgba(6, 182, 212, 0.50)' },
+    delivered: { bg: 'rgba(245, 158, 11, 0.22)',  text: '#FDE68A', border: 'rgba(245, 158, 11, 0.50)' },
+    received:  { bg: 'rgba(168, 85, 247, 0.22)',  text: '#E9D5FF', border: 'rgba(168, 85, 247, 0.50)' },
+    approved:  { bg: 'rgba(16, 185, 129, 0.22)',  text: '#6EE7B7', border: 'rgba(16, 185, 129, 0.50)' },
+    progress:  { bg: 'rgba(249, 115, 22, 0.22)',  text: '#FDBA74', border: 'rgba(249, 115, 22, 0.50)' },
+    completed: { bg: 'rgba(16, 185, 129, 0.26)',  text: '#6EE7B7', border: 'rgba(16, 185, 129, 0.55)' },
+    cancelled: { bg: 'rgba(239, 68, 68, 0.22)',   text: '#FCA5A5', border: 'rgba(239, 68, 68, 0.45)' },
+    expired:   { bg: 'rgba(148, 163, 184, 0.20)', text: '#CBD5E1', border: 'rgba(148, 163, 184, 0.35)' },
   },
 
-  // Translucent public-service glass surface for consistent depth
-  surface: 'rgba(255, 255, 255, 0.88)',
-  divider: 'rgba(226, 232, 240, 0.90)',
-  glassSurface: 'rgba(255, 255, 255, 0.82)',
-  glassSurfaceRaised: 'rgba(255, 255, 255, 0.92)',
-  accentMint: '#059669',
+  // ── Carousel — Premium Fullscreen Onboarding ────────────────────────────
+  carousel: {
+    bgDeep: '#041216',
+    bgSecondary: '#08252A',
+    accentEmerald: '#10B981',
+    accentTeal: '#14B8A6',
+    accentCyan: '#06B6D4',
+    glowEmerald: 'rgba(16, 185, 129, 0.25)',
+    glowTeal: 'rgba(20, 184, 166, 0.18)',
+    glowCyan: 'rgba(6, 182, 212, 0.15)',
+    textHero: '#F0FDF4',
+    textBody: 'rgba(255, 255, 255, 0.75)',
+    textMicro: 'rgba(255, 255, 255, 0.50)',
+    glassFill: 'rgba(255, 255, 255, 0.08)',
+    glassBorder: 'rgba(255, 255, 255, 0.14)',
+    nodeActive: '#34D399',
+    nodeInactive: 'rgba(52, 211, 153, 0.25)',
+    pathLine: 'rgba(20, 184, 166, 0.40)',
+    gridLine: 'rgba(255, 255, 255, 0.06)',
+    particleGlow: 'rgba(52, 211, 153, 0.60)',
+  },
+
+  // ── Translucent Glass Surface Shorthands ──────────────────────────────────
+  surface: 'rgba(6, 21, 27, 0.72)',
+  surfaceStrong: 'rgba(10, 30, 40, 0.85)',
+  border: 'rgba(255, 255, 255, 0.12)',
+  borderStrong: 'rgba(45, 212, 191, 0.32)',
+  divider: 'rgba(255, 255, 255, 0.12)',
+  glassSurface: 'rgba(6, 21, 27, 0.72)',
+  glassSurfaceRaised: 'rgba(10, 30, 40, 0.85)',
 });
 
 export default colors;

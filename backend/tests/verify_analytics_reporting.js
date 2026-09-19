@@ -324,6 +324,22 @@ async function runAnalyticsAndReportingTests() {
     return [];
   };
 
+  prisma.ewasteItem.aggregate = async () => ({ _sum: { quantity: 5 } });
+
+  prisma.verification = {
+    count: async () => 0,
+  };
+
+  prisma.collectorProfile.count = async () => collectorProfilesDb.size;
+  prisma.collectorProfile.findMany = async () => [];
+
+  prisma.recyclerProfile.count = async () => recyclerProfilesDb.size;
+  prisma.recyclerProfile.findMany = async () => [];
+
+  prisma.pickup.groupBy = async () => [];
+  prisma.consignment.groupBy = async () => [];
+  prisma.collectionRequest.findMany = async () => [];
+
   prisma.pickup.count = async ({ where } = {}) => {
     let list = Array.from(pickupsDb.values());
     if (where) {

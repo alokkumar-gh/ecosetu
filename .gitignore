@@ -46,3 +46,8 @@ Thumbs.db
 ai/training/runs/
 ai/training/dataset/
 
+# Root screenshots & scratch
+/*.png
+scratch/
+
+

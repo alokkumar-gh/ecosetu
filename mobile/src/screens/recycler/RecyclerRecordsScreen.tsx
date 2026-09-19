@@ -552,7 +552,7 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
             <TextInput
               style={styles.modalInput}
               placeholder="e.g. 2.45"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor="rgba(255, 255, 255, 0.40)"
               keyboardType="decimal-pad"
               value={outputWeightKg}
               onChangeText={setOutputWeightKg}
@@ -562,7 +562,7 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
             <TextInput
               style={styles.modalInput}
               placeholder="e.g. Copper 0.8kg, shredded plastics 1.5kg"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor="rgba(255, 255, 255, 0.40)"
               maxLength={500}
               value={outputDescription}
               onChangeText={setOutputDescription}
@@ -572,7 +572,7 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
             <TextInput
               style={[styles.modalInput, styles.textArea]}
               placeholder="e.g. Batteries dismantled, plastics pelletized"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor="rgba(255, 255, 255, 0.40)"
               multiline
               numberOfLines={3}
               maxLength={1000}
@@ -622,9 +622,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: spacing.spaceMd,
     paddingVertical: spacing.spaceSm,
-    backgroundColor: 'rgba(255, 255, 255, 0.65)',
+    backgroundColor: 'rgba(6, 21, 27, 0.75)',
     borderBottomWidth: 1,
-    borderBottomColor: colors.glassBorder,
+    borderBottomColor: 'rgba(255, 255, 255, 0.10)',
     justifyContent: 'space-between',
   },
   metricCard: {
@@ -634,19 +634,19 @@ const styles = StyleSheet.create({
   metricValue: {
     fontSize: 18,
     fontWeight: '800',
-    color: colors.textPrimary,
+    color: '#FFFFFF',
   },
   metricLabel: {
     fontSize: 11,
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.65)',
     marginTop: 2,
     fontWeight: '600',
   },
   filterSection: {
     paddingVertical: spacing.spaceXs,
     borderBottomWidth: 1,
-    borderBottomColor: colors.glassBorder,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'transparent',
   },
   filterBar: {
     paddingHorizontal: spacing.spaceMd,
@@ -658,9 +658,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
     minHeight: 34,
     justifyContent: 'center',
     alignItems: 'center',
@@ -672,7 +672,7 @@ const styles = StyleSheet.create({
   filterChipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.70)',
   },
   filterChipTextActive: {
     color: '#FFFFFF',
@@ -692,7 +692,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     borderBottomWidth: 1,
-    borderBottomColor: colors.glassBorder,
+    borderBottomColor: 'rgba(255, 255, 255, 0.10)',
     paddingBottom: 8,
     marginBottom: 8,
   },
@@ -702,12 +702,12 @@ const styles = StyleSheet.create({
   recordRef: {
     fontSize: 15,
     fontWeight: '800',
-    color: colors.textPrimary,
+    color: '#FFFFFF',
     letterSpacing: 0.3,
   },
   consignmentRef: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.65)',
     marginTop: 2,
   },
   cardBody: {
@@ -720,12 +720,12 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 13,
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.65)',
   },
   detailValue: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: '#FFFFFF',
   },
   highlightValue: {
     color: colors.primary,
@@ -733,21 +733,21 @@ const styles = StyleSheet.create({
   },
   notesContainer: {
     marginTop: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.65)',
+    backgroundColor: 'rgba(6, 21, 27, 0.65)',
     padding: 8,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
   },
   notesLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.65)',
     marginBottom: 2,
   },
   notesText: {
     fontSize: 12,
-    color: colors.textPrimary,
+    color: 'rgba(255, 255, 255, 0.90)',
     lineHeight: 16,
   },
   cardFooter: {
@@ -757,7 +757,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: colors.glassBorder,
+    borderTopColor: 'rgba(255, 255, 255, 0.10)',
   },
   actionButton: {
     paddingHorizontal: 12,
@@ -790,7 +790,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(16, 185, 129, 0.3)',
   },
   completedTagText: {
-    color: '#065F46',
+    color: '#34D399',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -827,7 +827,7 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#FFFFFF',
   },
   errorMessage: {
     fontSize: 13,
@@ -848,19 +848,19 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 41, 66, 0.65)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.spaceMd,
   },
   modalContent: {
-    backgroundColor: colors.glassSurface,
+    backgroundColor: 'rgba(10, 36, 44, 0.95)',
     borderRadius: 18,
     padding: spacing.spaceLg,
     width: '100%',
     maxWidth: 400,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
@@ -870,17 +870,17 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: colors.textPrimary,
+    color: '#FFFFFF',
     letterSpacing: -0.2,
   },
   modalSubtitle: {
     fontSize: 13,
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.65)',
     marginBottom: spacing.spaceSm,
   },
   modalBodyText: {
     fontSize: 13,
-    color: colors.textPrimary,
+    color: 'rgba(255, 255, 255, 0.88)',
     lineHeight: 18,
     marginVertical: spacing.spaceSm,
   },
@@ -902,7 +902,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   modalCancelText: {
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.65)',
     fontWeight: '600',
     fontSize: 13,
   },
@@ -920,18 +920,18 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: 'rgba(255, 255, 255, 0.85)',
     marginTop: 8,
     marginBottom: 4,
   },
   modalInput: {
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: 'rgba(6, 21, 27, 0.85)',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
     padding: spacing.spaceSm,
     fontSize: 13,
-    color: colors.textPrimary,
+    color: '#FFFFFF',
   },
   textArea: {
     minHeight: 65,
@@ -954,11 +954,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: spacing.spaceSm,
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.25)',
+    borderColor: 'rgba(245, 158, 11, 0.35)',
   },
   modalWarningText: {
     fontSize: 11,
-    color: '#92400E',
+    color: '#FCD34D',
     lineHeight: 15,
   },
   accessRestrictedContainer: {
