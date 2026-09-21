@@ -23,6 +23,7 @@ import { EcoSetuBackground, EcoGlassInput, EcoGlassTextArea } from '../../compon
 import { GlassCard } from '../../components/glass/GlassCard';
 import { GlassButton } from '../../components/glass/GlassButton';
 import { GlassBadge } from '../../components/glass/GlassBadge';
+import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
 import { ewasteService } from '../../services/ewasteService';
 import { requestService } from '../../services/requestService';
 import { capturePhoto } from '../../services/cameraService';
@@ -86,6 +87,8 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
   // Item Draft Form States
   const [modalCategory, setModalCategory] = useState<string | null>(null);
   const [modalCondition, setModalCondition] = useState<string>(ITEM_CONDITIONS.UNKNOWN);
+  const selectedCategory = modalCategory;
+  const selectedCondition = modalCondition;
   const [modalQuantity, setModalQuantity] = useState<number>(1);
   const [modalWeight, setModalWeight] = useState<string>('');
   const [modalDescription, setModalDescription] = useState<string>('');
@@ -449,8 +452,8 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
 
           {/* Section 1: E-Waste Item List */}
           <GlassCard style={styles.sectionCard}>
-            <View style={styles.sectionHeaderRow}>
-              <View>
+            <View style={[styles.sectionHeaderRow, { justifyContent: 'space-between', alignItems: 'center' }]}>
+              <View style={{ flex: 1, paddingRight: 8 }}>
                 <Text style={styles.sectionTitle}>
                   📦 {t('citizen.submit.itemList') || 'E-Waste Items in this Request'}
                 </Text>
@@ -462,6 +465,10 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
                     : t('citizen.submit.noItemsInRequest') || 'No items added yet. Please add at least one item.'}
                 </Text>
               </View>
+              <ReadAloudButton
+                text={`${t('citizen.submit.title') || 'Register E-Waste Item'}. ${items.length > 0 ? `${items.length} items added.` : 'No items added yet.'}`}
+                size="small"
+              />
             </View>
 
             {items.map((item, index) => (

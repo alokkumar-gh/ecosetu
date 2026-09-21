@@ -5,6 +5,7 @@ import { Text } from 'react-native';
 import { RecyclerTabParamList, RecyclerStackParamList } from './types';
 import { PlaceholderScreen } from '../components/common/PlaceholderScreen';
 import { colors } from '../theme/colors';
+import { useI18n } from '../i18n';
 
 const Tab = createBottomTabNavigator<RecyclerTabParamList>();
 const Stack = createNativeStackNavigator<RecyclerStackParamList>();
@@ -15,6 +16,12 @@ import { RecyclerRecordsScreen } from '../screens/recycler/RecyclerRecordsScreen
 import { RecyclingRecordDetailScreen } from '../screens/recycler/RecyclingRecordDetailScreen';
 import { RecyclerDashboardScreen } from '../screens/recycler/RecyclerDashboardScreen';
 import { RecyclerProfileScreen } from '../screens/recycler/RecyclerProfileScreen';
+import { RecyclerCreateQuoteScreen } from '../screens/recycler/RecyclerCreateQuoteScreen';
+import { RecyclerHandoverConfirmScreen } from '../screens/recycler/RecyclerHandoverConfirmScreen';
+import { CollectorHandoverReceiptScreen } from '../screens/collector/CollectorHandoverReceiptScreen';
+import { CollectorTransactionsScreen } from '../screens/collector/CollectorTransactionsScreen';
+import { CollectorTransactionDetailScreen } from '../screens/collector/CollectorTransactionDetailScreen';
+import { CollectorLotTraceScreen } from '../screens/collector/CollectorLotTraceScreen';
 
 const RecyclerHomeTab = ({ navigation }: any) => <RecyclerDashboardScreen navigation={navigation} />;
 const RecyclerProfileTab = () => <RecyclerProfileScreen />;
@@ -30,6 +37,8 @@ const RecyclerVerificationModal = ({ navigation }: any) => (
 );
 
 const RecyclerTabs: React.FC = () => {
+  const { t } = useI18n();
+
   return (
     <Tab.Navigator
       initialRouteName="RecyclerHome"
@@ -61,7 +70,7 @@ const RecyclerTabs: React.FC = () => {
         name="RecyclerHome"
         component={RecyclerHomeTab}
         options={{
-          tabBarLabel: 'Home',
+          tabBarLabel: t('navigation.home') || 'Home',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>🏭</Text>,
         }}
       />
@@ -69,7 +78,7 @@ const RecyclerTabs: React.FC = () => {
         name="RecyclerIncoming"
         component={RecyclerIncomingScreen}
         options={{
-          tabBarLabel: 'Incoming',
+          tabBarLabel: t('recycler.consignments.title') || 'Incoming',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>📥</Text>,
         }}
       />
@@ -77,7 +86,7 @@ const RecyclerTabs: React.FC = () => {
         name="RecyclerRecords"
         component={RecyclerRecordsScreen}
         options={{
-          tabBarLabel: 'Records',
+          tabBarLabel: t('recycler.processing.title') || 'Records',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>📋</Text>,
         }}
       />
@@ -85,7 +94,7 @@ const RecyclerTabs: React.FC = () => {
         name="RecyclerProfile"
         component={RecyclerProfileTab}
         options={{
-          tabBarLabel: 'Profile',
+          tabBarLabel: t('navigation.profile') || 'Profile',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>🏢</Text>,
         }}
       />
@@ -112,7 +121,38 @@ export const RecyclerNavigator: React.FC = () => {
         component={RecyclingRecordDetailScreen}
         options={{ presentation: 'card' }}
       />
+      <Stack.Screen
+        name="RecyclerCreateQuote"
+        component={RecyclerCreateQuoteScreen}
+        options={{ presentation: 'card' }}
+      />
+      <Stack.Screen
+        name="RecyclerHandoverConfirm"
+        component={RecyclerHandoverConfirmScreen}
+        options={{ presentation: 'card' }}
+      />
+      <Stack.Screen
+        name="RecyclerHandoverReceipt"
+        component={CollectorHandoverReceiptScreen}
+        options={{ presentation: 'card' }}
+      />
+      <Stack.Screen
+        name="RecyclerTransactions"
+        component={CollectorTransactionsScreen}
+        options={{ presentation: 'card' }}
+      />
+      <Stack.Screen
+        name="RecyclerTransactionDetail"
+        component={CollectorTransactionDetailScreen}
+        options={{ presentation: 'card' }}
+      />
+      <Stack.Screen
+        name="RecyclerLotTrace"
+        component={CollectorLotTraceScreen}
+        options={{ presentation: 'card' }}
+      />
     </Stack.Navigator>
+
   );
 };
 

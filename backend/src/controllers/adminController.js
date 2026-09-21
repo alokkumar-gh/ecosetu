@@ -6,6 +6,7 @@ const analyticsService = require('../services/analyticsService');
 const auditService = require('../services/auditService');
 const verificationService = require('../services/verificationService');
 const adminNotificationService = require('../services/adminNotificationService');
+const recyclerService = require('../services/recyclerService');
 const { sendSuccess } = require('../utils/responseHelper');
 
 class AdminController {
@@ -173,6 +174,68 @@ class AdminController {
     try {
       const users = await adminNotificationService.searchUsersForNotification(req.query.q);
       return sendSuccess(res, { users }, 200);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * List recyclers for admin governance with status/search filtering
+   * GET /api/v1/admin/recyclers
+   */
+  async listRecyclers(req, res, next) {
+    try {
+      const data = await recyclerService.adminListRecyclers(req.query);
+      return sendSuccess(res, data, 200);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Get single recycler details for admin review including audit history
+   * GET /api/v1/admin/recyclers/:id
+   */
+  async getRecyclerById(req, res, next) {
+    try {
+      const data = await recyclerService.adminGetRecyclerById(req.params.id);
+      return sendSuccess(res, data, 200);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Update recycler authorization status with audit logging
+   * PATCH /api/v1/admin/recyclers/:id/authorization
+   */
+  async updateRecyclerAuthorization(req, res, next) {
+    try {
+      const updated = await recyclerService.adminUpdateRecyclerAuthorization(
+        req.user.id,
+        req.params.id,
+        req.body,
+        req.ip
+      );
+      return sendSuccess(res, { recycler: updated }, 200);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Update recycler operational profile (administrative maintenance)
+   * PATCH /api/v1/admin/recyclers/:id
+   */
+  async updateRecyclerProfile(req, res, next) {
+    try {
+      const updated = await recyclerService.adminUpdateRecyclerProfile(
+        req.user.id,
+        req.params.id,
+        req.body,
+        req.ip
+      );
+      return sendSuccess(res, { recycler: updated }, 200);
     } catch (err) {
       next(err);
     }

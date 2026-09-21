@@ -1,5 +1,7 @@
 {
   "projects": {
     "default": "ecosetu-production"
-  }
+  },
+  "targets": {},
+  "etags": {}
 }

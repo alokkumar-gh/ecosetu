@@ -24,6 +24,7 @@ import { requestService } from '../../services/requestService';
 import { REQUEST_STATUS } from '../../utils/constants';
 import { useI18n } from '../../i18n';
 import { GradientBackground } from '../../components/glass/GradientBackground';
+import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -243,19 +244,25 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
                 'Track doorstep collection by your local informal collector.'}
             </Text>
           </View>
-          <TouchableOpacity
-            style={styles.newRequestButton}
-            onPress={handleOpenSubmit}
-            accessibilityRole="button"
-            accessibilityLabel={
-              t('citizen.requests.submitItem') ||
-              'Submit e-waste item to create collection request'
-            }
-          >
-            <Text style={styles.newRequestButtonText}>
-              {t('citizen.requests.submitItem') || '+ Submit Item'}
-            </Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <ReadAloudButton
+              text={`My e-waste requests. You have ${requests.length} requests in total.`}
+              size="small"
+            />
+            <TouchableOpacity
+              style={styles.newRequestButton}
+              onPress={handleOpenSubmit}
+              accessibilityRole="button"
+              accessibilityLabel={
+                t('citizen.requests.submitItem') ||
+                'Submit e-waste item to create collection request'
+              }
+            >
+              <Text style={styles.newRequestButtonText}>
+                {t('citizen.requests.submitItem') || '+ Submit Item'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Offline notice if disconnected */}

@@ -13,7 +13,24 @@ import { CreateConsignmentScreen } from '../screens/collector/CreateConsignmentS
 import { CollectorConsignmentsScreen } from '../screens/collector/CollectorConsignmentsScreen';
 import { CollectorConsignmentStatusScreen } from '../screens/collector/CollectorConsignmentStatusScreen';
 import { CollectorPickupDetailScreen } from '../screens/collector/CollectorPickupDetailScreen';
+import { CollectorRecyclerDetailScreen } from '../screens/collector/CollectorRecyclerDetailScreen';
 import { RecyclerFacilityDetailScreen } from '../screens/collector/RecyclerFacilityDetailScreen';
+import { CollectorMaterialCaptureScreen } from '../screens/collector/CollectorMaterialCaptureScreen';
+import { CollectorCreateLotScreen } from '../screens/collector/CollectorCreateLotScreen';
+import { CollectorLotsScreen } from '../screens/collector/CollectorLotsScreen';
+import { CollectorLotDetailScreen } from '../screens/collector/CollectorLotDetailScreen';
+import { CollectorPriceBoardScreen } from '../screens/collector/CollectorPriceBoardScreen';
+import { CollectorRecyclerMatchesScreen } from '../screens/collector/CollectorRecyclerMatchesScreen';
+import { CollectorQuotesScreen } from '../screens/collector/CollectorQuotesScreen';
+import { CollectorHandoverScreen } from '../screens/collector/CollectorHandoverScreen';
+import { CollectorHandoverReceiptScreen } from '../screens/collector/CollectorHandoverReceiptScreen';
+import { CollectorRecordSaleScreen } from '../screens/collector/CollectorRecordSaleScreen';
+import { CollectorTransactionsScreen } from '../screens/collector/CollectorTransactionsScreen';
+import { CollectorTransactionDetailScreen } from '../screens/collector/CollectorTransactionDetailScreen';
+import { CollectorEarningsScreen } from '../screens/collector/CollectorEarningsScreen';
+import { CollectorSafetyCenterScreen } from '../screens/collector/CollectorSafetyCenterScreen';
+import { CollectorSafetyDetailScreen } from '../screens/collector/CollectorSafetyDetailScreen';
+import { CollectorLotTraceScreen } from '../screens/collector/CollectorLotTraceScreen';
 import { CollectorVoiceProvider } from '../context/CollectorVoiceContext';
 import { CollectorVoiceButton } from '../components/voice/CollectorVoiceButton';
 import { CollectorVoiceModal } from '../components/voice/CollectorVoiceModal';
@@ -154,7 +171,7 @@ const CollectorTabs: React.FC = () => {
         name="CollectorConsign"
         component={CollectorRecyclerDirectoryScreen}
         options={{
-          tabBarLabel: t('collector.recyclers.tabLabel') || 'Recyclers',
+          tabBarLabel: t('collector.recyclers.title') || 'Recyclers',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>🏭</Text>,
         }}
       />
@@ -208,10 +225,83 @@ export const CollectorNavigator: React.FC = () => {
           component={CollectorConsignmentStatusScreen}
         />
         <Stack.Screen
+          name="CollectorRecyclerDirectory"
+          component={CollectorRecyclerDirectoryScreen}
+        />
+        <Stack.Screen
+          name="CollectorRecyclerDetail"
+          component={CollectorRecyclerDetailScreen}
+        />
+        <Stack.Screen
           name="RecyclerFacilityDetail"
           component={RecyclerFacilityDetailScreen}
         />
+        <Stack.Screen
+          name="CollectorMaterialCapture"
+          component={CollectorMaterialCaptureScreen}
+        />
+        <Stack.Screen
+          name="CollectorCreateLot"
+          component={CollectorCreateLotScreen}
+        />
+        <Stack.Screen
+          name="CollectorLots"
+          component={CollectorLotsScreen}
+        />
+        <Stack.Screen
+          name="CollectorLotDetail"
+          component={CollectorLotDetailScreen}
+        />
+        <Stack.Screen
+          name="CollectorPriceBoard"
+          component={CollectorPriceBoardScreen}
+        />
+        <Stack.Screen
+          name="CollectorRecyclerMatches"
+          component={CollectorRecyclerMatchesScreen}
+        />
+        <Stack.Screen
+          name="CollectorQuotes"
+          component={CollectorQuotesScreen}
+        />
+        <Stack.Screen
+          name="CollectorHandover"
+          component={CollectorHandoverScreen}
+        />
+        <Stack.Screen
+          name="CollectorHandoverReceipt"
+          component={CollectorHandoverReceiptScreen}
+        />
+        <Stack.Screen
+          name="CollectorRecordSale"
+          component={CollectorRecordSaleScreen}
+        />
+        <Stack.Screen
+          name="CollectorTransactions"
+          component={CollectorTransactionsScreen}
+        />
+        <Stack.Screen
+          name="CollectorTransactionDetail"
+          component={CollectorTransactionDetailScreen}
+        />
+        <Stack.Screen
+          name="CollectorEarnings"
+          component={CollectorEarningsScreen}
+        />
+        <Stack.Screen
+          name="CollectorSafetyCenter"
+          component={CollectorSafetyCenterScreen}
+        />
+        <Stack.Screen
+          name="CollectorSafetyDetail"
+          component={CollectorSafetyDetailScreen}
+        />
+        <Stack.Screen
+          name="CollectorLotTrace"
+          component={CollectorLotTraceScreen}
+        />
       </Stack.Navigator>
+
       <CollectorVoiceButton />
       <CollectorVoiceModal />
     </CollectorVoiceProvider>

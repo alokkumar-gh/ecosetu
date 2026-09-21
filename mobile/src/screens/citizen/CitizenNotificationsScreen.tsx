@@ -49,6 +49,7 @@ import { useI18n } from '../../i18n';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { EcoSetuBackground } from '../../components/eco';
+import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
 
 type Nav = NativeStackNavigationProp<CitizenStackParamList>;
 
@@ -285,7 +286,7 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ item, onPress }) =>
               {meta.displayTitle}
             </Text>
 
-            <View style={styles.cardMeta}>
+            <View style={[styles.cardMeta, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
               {isUnread && (
                 <View style={styles.unreadDot} accessibilityElementsHidden>
                   <Text style={styles.srOnly}>Unread</Text>
@@ -294,6 +295,11 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ item, onPress }) =>
               {timeLabel ? (
                 <Text style={styles.timeLabel}>{timeLabel}</Text>
               ) : null}
+              <ReadAloudButton
+                text={`${meta.displayTitle}. ${item.message || item.title || ''}`}
+                size="small"
+                variant="icon"
+              />
             </View>
           </View>
 
@@ -492,6 +498,13 @@ export const CitizenNotificationsScreen: React.FC = () => {
           </Text>
         </View>
       )}
+
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: spacing.spaceMd, marginVertical: 4 }}>
+        <ReadAloudButton
+          text={`Notifications. You have ${notifications.length} notifications, ${unreadCount} unread.`}
+          size="small"
+        />
+      </View>
 
       {/* Mark all read — only when online and there are unread items */}
       {hasUnread && (

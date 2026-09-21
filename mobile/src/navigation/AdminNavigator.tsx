@@ -12,7 +12,9 @@ import { AdminReportsScreen } from '../screens/admin/AdminReportsScreen';
 import { AdminGovernanceScreen } from '../screens/admin/AdminGovernanceScreen';
 import { AdminSystemHealthScreen } from '../screens/admin/AdminSystemHealthScreen';
 import { AdminNotificationCenterScreen } from '../screens/admin/AdminNotificationCenterScreen';
+import { AdminHistoricalAnalyticsScreen } from '../screens/admin/AdminHistoricalAnalyticsScreen';
 import { colors } from '../theme/colors';
+import { useI18n } from '../i18n';
 
 const Tab = createBottomTabNavigator<AdminTabParamList>();
 
@@ -20,6 +22,8 @@ const Tab = createBottomTabNavigator<AdminTabParamList>();
 const AdminVerificationsTab = AdminVerificationsScreen;
 
 export const AdminNavigator: React.FC = () => {
+  const { t } = useI18n();
+
   return (
     <Tab.Navigator
       initialRouteName="AdminHome"
@@ -50,7 +54,7 @@ export const AdminNavigator: React.FC = () => {
         name="AdminHome"
         component={AdminDashboardScreen}
         options={{
-          tabBarLabel: 'Home',
+          tabBarLabel: t('navigation.home') || 'Home',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>🛡️</Text>,
         }}
       />
@@ -58,7 +62,7 @@ export const AdminNavigator: React.FC = () => {
         name="AdminVerifications"
         component={AdminVerificationsScreen}
         options={{
-          tabBarLabel: 'Verify',
+          tabBarLabel: t('admin.users.reviewVerification') || 'Verify',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>📑</Text>,
         }}
       />
@@ -66,7 +70,7 @@ export const AdminNavigator: React.FC = () => {
         name="AdminUsers"
         component={AdminUsersScreen}
         options={{
-          tabBarLabel: 'Users',
+          tabBarLabel: t('admin.users.title') || 'Users',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>👥</Text>,
         }}
       />
@@ -74,7 +78,7 @@ export const AdminNavigator: React.FC = () => {
         name="AdminAuditLogs"
         component={AdminAuditLogsScreen}
         options={{
-          tabBarLabel: 'Audit',
+          tabBarLabel: t('admin.governance.auditTab') || 'Audit',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>📜</Text>,
         }}
       />
@@ -82,7 +86,7 @@ export const AdminNavigator: React.FC = () => {
         name="AdminProfile"
         component={AdminProfileScreen}
         options={{
-          tabBarLabel: 'Profile',
+          tabBarLabel: t('navigation.profile') || 'Profile',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>👤</Text>,
         }}
       />
@@ -121,6 +125,14 @@ export const AdminNavigator: React.FC = () => {
       <Tab.Screen
         name="AdminNotificationCenter"
         component={AdminNotificationCenterScreen}
+        options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
+        }}
+      />
+      <Tab.Screen
+        name="AdminHistoricalAnalytics"
+        component={AdminHistoricalAnalyticsScreen}
         options={{
           tabBarButton: () => null,
           tabBarItemStyle: { display: 'none' },

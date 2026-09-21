@@ -1,0 +1,24 @@
+# Ignore raw image files and large archives
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.bmp
+*.gif
+*.tiff
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+
+# Keep directory structure and metadata
+!.gitkeep
+!*.json
+!*.jsonl
+!*.csv
+!*.md
+!*.yaml
+!*.yml
+!*.py
+!*.sh

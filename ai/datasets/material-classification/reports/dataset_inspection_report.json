@@ -1,0 +1,29 @@
+{
+  "timestamp": "2026-09-20T18:17:50.854270+00:00",
+  "dataset_path": "ai\\datasets\\material-classification\\processed",
+  "annotation_format": "unannotated_images",
+  "total_images": 0,
+  "corrupt_images": 0,
+  "unsupported_format_images": 0,
+  "duplicate_images": 0,
+  "total_annotations": 0,
+  "missing_annotations": 0,
+  "invalid_annotations": 0,
+  "unique_classes_found": 0,
+  "unmapped_classes_count": 0,
+  "ambiguous_classes_count": 0,
+  "min_samples_per_class": 0,
+  "max_samples_per_class": 0,
+  "median_samples_per_class": 0.0,
+  "imbalance_ratio": 0.0,
+  "class_distribution": {},
+  "split_distribution": {},
+  "unmapped_classes": [],
+  "ambiguous_classes": [],
+  "image_dimensions": {},
+  "leakage_detected": false,
+  "errors": [],
+  "warnings": [
+    "No image files (.jpg, .jpeg, .png) found at ai\\datasets\\material-classification\\processed"
+  ]
+}

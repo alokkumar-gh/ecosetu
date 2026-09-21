@@ -802,8 +802,8 @@ export const CollectorDashboardScreen: React.FC<{ navigation?: any }> = ({ navig
           />
         }
       >
-        {/* Offline banner */}
-        {!isConnected && <OfflineBanner />}
+        {/* Sync & Offline status banner */}
+        <OfflineBanner />
 
         {/* Stale data notice */}
         {dataFromCache && (
@@ -911,6 +911,168 @@ export const CollectorDashboardScreen: React.FC<{ navigation?: any }> = ({ navig
             </View>
           </View>
         )}
+
+        {/* ── SIH 26229 MATERIAL LOTS (COLLECTOR ECONOMIC WORKFLOW) ──── */}
+        <View style={styles.materialLotBanner}>
+          <View style={styles.materialLotHeader}>
+            <View style={styles.materialLotIconWrapper}>
+              <Text style={{ fontSize: 24 }}>📦</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.materialLotTitle}>
+                {t('materialLots.listTitle') || 'My Material Lots'}
+              </Text>
+              <Text style={styles.materialLotSubtitle}>
+                {t('materialLots.captureSubtitle') || 'Capture scrap, save drafts, and build economic lots'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.materialLotButtonRow}>
+            <TouchableOpacity
+              style={styles.materialLotActionBtn}
+              onPress={() => navigation?.navigate('CollectorMaterialCapture')}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={t('materialLots.captureTitle') || 'Capture Material'}
+            >
+              <Text style={styles.materialLotActionBtnText}>📸 {t('materialLots.captureTitle') || 'Capture Material'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.materialLotActionBtn, styles.materialLotSecondaryBtn]}
+              onPress={() => navigation?.navigate('CollectorLots')}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={t('materialLots.listTitle') || 'My Lots'}
+            >
+              <Text style={styles.materialLotSecondaryBtnText}>📋 {t('materialLots.listTitle') || 'My Lots'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ── SIH 26229 PRICE DISCOVERY BOARD (RATES & VALUATION) ──── */}
+        <View style={[styles.materialLotBanner, { borderColor: 'rgba(52, 211, 153, 0.4)' }]}>
+          <View style={styles.materialLotHeader}>
+            <View style={[styles.materialLotIconWrapper, { backgroundColor: 'rgba(52, 211, 153, 0.2)' }]}>
+              <Text style={{ fontSize: 24 }}>🏷️</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.materialLotTitle}>
+                {t('priceBoard.title') || 'Price Discovery Board'}
+              </Text>
+              <Text style={styles.materialLotSubtitle}>
+                {t('priceBoard.subtitle') || 'Current scrap buying rates & verified prices'}
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={[styles.materialLotActionBtn, { backgroundColor: '#10B981' }]}
+            onPress={() => navigation?.navigate('CollectorPriceBoard')}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={t('priceBoard.currentBuyingRates') || 'View Market Rates'}
+          >
+            <Text style={[styles.materialLotActionBtnText, { color: '#051417' }]}>
+              📈 {t('priceBoard.currentBuyingRates') || 'View Current Buying Rates'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── SIH 26229 COLLECTOR SAFETY CENTER (LOW-LITERACY PICTORIAL & AUDIO) ──── */}
+        <View style={[styles.materialLotBanner, { borderColor: 'rgba(56, 189, 248, 0.5)' }]}>
+          <View style={styles.materialLotHeader}>
+            <View style={[styles.materialLotIconWrapper, { backgroundColor: 'rgba(56, 189, 248, 0.2)' }]}>
+              <Text style={{ fontSize: 24 }}>🛡️</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.materialLotTitle}>
+                {t('safety.title') || 'Safety Center'}
+              </Text>
+              <Text style={styles.materialLotSubtitle}>
+                {t('safety.subtitle') || 'Safe handling guidance for informal collectors'}
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={[styles.materialLotActionBtn, { backgroundColor: '#0284C7' }]}
+            onPress={() => navigation?.navigate('CollectorSafetyCenter')}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={t('safety.title') || 'Safety Center'}
+          >
+            <Text style={[styles.materialLotActionBtnText, { color: '#FFFFFF' }]}>
+              🛡️ {t('safety.learnSafety') || 'Open Safety Center'} (🔊 Audio Guide)
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── SIH 26229 RECYCLER DIRECTORY & AGGREGATOR DISCOVERY ──── */}
+        <View style={[styles.materialLotBanner, { borderColor: 'rgba(20, 184, 166, 0.5)' }]}>
+          <View style={styles.materialLotHeader}>
+            <View style={[styles.materialLotIconWrapper, { backgroundColor: 'rgba(20, 184, 166, 0.2)' }]}>
+              <Text style={{ fontSize: 24 }}>🏢</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.materialLotTitle}>
+                {t('recyclerDirectory.title') || 'Recycler Directory'}
+              </Text>
+              <Text style={styles.materialLotSubtitle}>
+                {t('recyclerDirectory.subtitle') || 'Discover verified formal recyclers & aggregators'}
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={[styles.materialLotActionBtn, { backgroundColor: '#14B8A6' }]}
+            onPress={() => navigation?.navigate('CollectorRecyclerDirectory')}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={t('recyclerDirectory.title') || 'Recycler Directory'}
+          >
+            <Text style={[styles.materialLotActionBtnText, { color: '#051417' }]}>
+              🏢 {t('recyclerDirectory.openDirectory') || 'Browse Recyclers'} (📍 Rates & Pickup)
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── SIH 26229 COLLECTOR EARNINGS & SALES LEDGER (1-TAP ACTION <=3 TAPS) ──── */}
+        <View style={[styles.materialLotBanner, { borderColor: 'rgba(234, 179, 8, 0.5)' }]}>
+          <View style={styles.materialLotHeader}>
+            <View style={[styles.materialLotIconWrapper, { backgroundColor: 'rgba(234, 179, 8, 0.2)' }]}>
+              <Text style={{ fontSize: 24 }}>💵</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.materialLotTitle}>
+                {t('lowLiteracy.myEarningsQuickAction') || 'My Earnings & Sales'}
+              </Text>
+              <Text style={styles.materialLotSubtitle}>
+                {t('lowLiteracy.myEarningsSubtitle') || 'Recorded sales, cash received & pending balances'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.materialLotButtonRow}>
+            <TouchableOpacity
+              style={[styles.materialLotActionBtn, { backgroundColor: '#EAB308' }]}
+              onPress={() => navigation?.navigate('CollectorEarnings')}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={t('lowLiteracy.myEarningsQuickAction') || 'My Earnings & Sales'}
+            >
+              <Text style={[styles.materialLotActionBtnText, { color: '#051417' }]}>
+                💰 {t('earnings.title') || 'View Earnings Ledger'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.materialLotActionBtn, styles.materialLotSecondaryBtn]}
+              onPress={() => navigation?.navigate('CollectorTransactions')}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={t('transaction.salesRecords') || 'Sales Records'}
+            >
+              <Text style={styles.materialLotSecondaryBtnText}>
+                🧾 {t('transaction.salesRecords') || 'Sales Records'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {/* ── ACTIVE PICKUPS ───────────────────────────────────────────── */}
         <View style={styles.sectionHeader}>
@@ -1141,6 +1303,70 @@ const styles = StyleSheet.create({
     gap: spacing.spaceXs,
     marginBottom: spacing.spaceSm,
   },
+
+  // ── Material Lots Banner (SIH 26229) ──
+  materialLotBanner: {
+    backgroundColor: 'rgba(15, 35, 40, 0.85)',
+    borderRadius: 16,
+    padding: spacing.spaceMd,
+    marginBottom: spacing.spaceMd,
+    borderWidth: 1.5,
+    borderColor: 'rgba(20, 184, 166, 0.4)',
+  },
+  materialLotHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.spaceSm,
+  },
+  materialLotIconWrapper: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(20, 184, 166, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.spaceSm,
+  },
+  materialLotTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  materialLotSubtitle: {
+    fontSize: 11,
+    color: colors.textSecondary || '#94A3B8',
+    marginTop: 2,
+  },
+  materialLotButtonRow: {
+    flexDirection: 'row',
+    gap: spacing.spaceSm,
+    marginTop: spacing.spaceXs,
+  },
+  materialLotActionBtn: {
+    flex: 1,
+    backgroundColor: colors.primary || '#14B8A6',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 52,
+  },
+  materialLotActionBtnText: {
+    color: '#071E22',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  materialLotSecondaryBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  materialLotSecondaryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
 
   // ── Privacy note ──
   privacyNote: {

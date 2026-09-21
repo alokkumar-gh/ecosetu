@@ -24,6 +24,8 @@ import { useI18n } from '../../i18n';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { AuthorizedImage } from '../../components/common/AuthorizedImage';
+import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
 
 type Props = NativeStackScreenProps<CitizenStackParamList, 'RequestDetail'>;
 
@@ -361,7 +363,13 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                       `Created on ${request.createdAt ? new Date(request.createdAt).toLocaleDateString() : 'N/A'}`}
                   </Text>
                 </View>
-                <StatusBadge status={status} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <StatusBadge status={status} />
+                  <ReadAloudButton
+                    text={`Request ${refId}. Status is ${status.replace(/_/g, ' ')}. ${getLocalizedStatusDesc(status, request) || getStatusDescription(status, request)}`}
+                    size="small"
+                  />
+                </View>
               </View>
 
               <Text style={styles.statusDescription}>
@@ -552,6 +560,13 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                   return (
                     <View key={item.id || i} style={styles.itemCard}>
                       <View style={styles.itemHeader}>
+                        {item.imageUrl ? (
+                          <AuthorizedImage
+                            uri={item.imageUrl}
+                            style={{ width: 48, height: 48, borderRadius: 8, marginRight: 10 }}
+                            allowFullscreen
+                          />
+                        ) : null}
                         <View style={{ flex: 1 }}>
                           <Text style={styles.itemCategory}>
                             {(item.category || 'OTHER').replace(/_/g, ' ')}

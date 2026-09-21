@@ -122,6 +122,155 @@ enum AddressType {
   @@map("address_type")
 }
 
+enum MaterialCategory {
+  CRT
+  LCD_PANEL
+  PCB
+  CABLE
+  BATTERY
+  MOTOR
+  MAGNET_ASSEMBLY
+  MIXED_PLASTIC
+  MOBILE_PHONE
+  LAPTOP
+  MONITOR
+  PRINTER
+  KEYBOARD_MOUSE
+  DESKTOP_COMPUTER
+  TABLET
+  OTHER
+
+  @@map("material_category")
+}
+
+enum MaterialSourceType {
+  HOUSEHOLD
+  COMMERCIAL
+  INDUSTRIAL
+  STREET
+  OTHER
+
+  @@map("material_source_type")
+}
+
+enum MaterialLotStatus {
+  DRAFT
+  OPEN
+  QUOTED
+  ACCEPTED
+  HANDOVER_PENDING
+  COMPLETED
+
+  @@map("material_lot_status")
+}
+
+enum PriceUnit {
+  PER_KG
+  PER_UNIT
+  PER_LOT
+
+  @@map("price_unit")
+}
+
+enum PriceSource {
+  ADMIN_VERIFIED
+  RECYCLER_OFFER
+  IMPORTED_MARKET_DATA
+
+  @@map("price_source")
+}
+
+enum PriceStatus {
+  ACTIVE
+  EXPIRED
+  PENDING_REVIEW
+  REJECTED
+
+  @@map("price_status")
+}
+
+enum PickupAvailability {
+  AVAILABLE
+  NOT_AVAILABLE
+  UNKNOWN
+
+  @@map("pickup_availability")
+}
+
+enum RecyclerRateStatus {
+  ACTIVE
+  INACTIVE
+  EXPIRED
+
+  @@map("recycler_rate_status")
+}
+
+enum RecyclerAuthorizationStatus {
+  AUTHORIZED
+  PROVISIONAL
+  PENDING
+  REJECTED
+  SUSPENDED
+  EXPIRED
+  REVOKED
+
+  @@map("recycler_authorization_status")
+}
+
+enum QuoteStatus {
+  SENT
+  VIEWED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CANCELLED
+
+  @@map("quote_status")
+}
+
+enum HandoverStatus {
+  PENDING_COLLECTOR
+  COLLECTOR_CONFIRMED
+  RECYCLER_CONFIRMED
+  CONFIRMED
+  CANCELLED
+
+  @@map("handover_status")
+}
+
+enum TransactionType {
+  MATERIAL_SALE
+
+  @@map("transaction_type")
+}
+
+enum PaymentMethod {
+  CASH
+  UPI_RECORDED
+  BANK_TRANSFER_RECORDED
+  OTHER
+
+  @@map("payment_method")
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  PARTIALLY_PAID
+  FAILED
+  NOT_APPLICABLE
+
+  @@map("payment_status")
+}
+
+enum TransactionStatus {
+  DRAFT
+  RECORDED
+  CANCELLED
+
+  @@map("transaction_status")
+}
+
 // ==========================================
 // MODELS
 // ==========================================
@@ -147,6 +296,12 @@ model User {
   notifications         Notification[]      @relation("UserNotifications")
   deviceTokens          DeviceToken[]       @relation("UserDeviceTokens")
   auditLogs             AuditLog[]          @relation("ActorAuditLogs")
+  createdPrices         PriceData[]         @relation("AdminCreatedPrices")
+  createdQuotes         Quote[]             @relation("UserCreatedQuotes")
+  createdHandovers      HandoverRecord[]    @relation("UserCreatedHandovers")
+  uploadedHandoverPhotos HandoverPhoto[]    @relation("UserUploadedHandoverPhotos")
+  createdTransactions   TransactionRecord[] @relation("UserCreatedTransactions")
+  adminVerifiedRecyclers RecyclerProfile[]   @relation("AdminVerifiedRecyclers")
 
   @@index([role], map: "idx_users_role")
   @@index([status], map: "idx_users_status")
@@ -163,6 +318,7 @@ model CollectorProfile {
   city            String?  @db.VarChar(100)
   state           String?  @db.VarChar(100)
   pincode         String?  @db.VarChar(10)
+  preferredLanguage String? @default("en") @map("preferred_language") @db.VarChar(10)
   idDocumentUrl   String?  @map("id_document_url") @db.VarChar(500)
   bio             String?  @db.Text
   isAvailable     Boolean  @default(true) @map("is_available")
@@ -174,6 +330,10 @@ model CollectorProfile {
   collectionRequests CollectionRequest[] @relation("CollectorAssignedRequests")
   pickups            Pickup[]            @relation("CollectorPickups")
   consignments       Consignment[]       @relation("CollectorConsignments")
+  materialLots       MaterialLot[]       @relation("CollectorMaterialLots")
+  materialItems      MaterialItem[]      @relation("CollectorMaterialItems")
+  handovers          HandoverRecord[]    @relation("CollectorHandoversList")
+  transactions       TransactionRecord[] @relation("CollectorTransactionsList")
 
   @@index([isAvailable], map: "idx_cp_available")
   @@index([serviceAreaLat, serviceAreaLng], map: "idx_cp_location")
@@ -181,28 +341,50 @@ model CollectorProfile {
 }
 
 model RecyclerProfile {
-  id                 String   @id @default(uuid()) @db.Uuid
-  userId             String   @unique @map("user_id") @db.Uuid
-  facilityName       String   @map("facility_name") @db.VarChar(200)
-  facilityAddress    String   @map("facility_address") @db.Text
-  facilityLat        Decimal? @map("facility_lat") @db.Decimal(10, 7)
-  facilityLng        Decimal? @map("facility_lng") @db.Decimal(10, 7)
-  city               String?  @db.VarChar(100)
-  district           String?  @db.VarChar(100)
-  state              String?  @db.VarChar(100)
-  pincode            String?  @db.VarChar(10)
-  licenseNumber      String?  @map("license_number") @db.VarChar(100)
-  licenseDocumentUrl String?  @map("license_document_url") @db.VarChar(500)
-  acceptedCategories String[] @default([]) @map("accepted_categories")
-  totalConsignments  Int      @default(0) @map("total_consignments")
-  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                     String                      @id @default(uuid()) @db.Uuid
+  userId                 String                      @unique @map("user_id") @db.Uuid
+  facilityName           String                      @map("facility_name") @db.VarChar(200)
+  facilityAddress        String                      @map("facility_address") @db.Text
+  facilityLat            Decimal?                    @map("facility_lat") @db.Decimal(10, 7)
+  facilityLng            Decimal?                    @map("facility_lng") @db.Decimal(10, 7)
+  city                   String?                     @db.VarChar(100)
+  district               String?                     @db.VarChar(100)
+  state                  String?                     @db.VarChar(100)
+  pincode                String?                     @db.VarChar(10)
+  licenseNumber          String?                     @map("license_number") @db.VarChar(100)
+  licenseDocumentUrl     String?                     @map("license_document_url") @db.VarChar(500)
+  acceptedCategories     String[]                    @default([]) @map("accepted_categories")
+  acceptedSubcategories  String[]                    @default([]) @map("accepted_subcategories")
+  totalConsignments      Int                         @default(0) @map("total_consignments")
+  pickupAvailable        PickupAvailability          @default(UNKNOWN) @map("pickup_available")
+  serviceArea            String?                     @map("service_area") @db.VarChar(255)
+  serviceRadiusKm        Decimal?                    @default(25.00) @map("service_radius_km") @db.Decimal(5, 2)
+  authorizationStatus    RecyclerAuthorizationStatus @default(PENDING) @map("authorization_status")
+  authorizationNumber    String?                     @map("authorization_number") @db.VarChar(100)
+  issuingAuthority       String?                     @map("issuing_authority") @db.VarChar(200)
+  authorizationValidFrom DateTime?                   @map("authorization_valid_from") @db.Date
+  authorizationValidTill DateTime?                   @map("authorization_valid_till") @db.Date
+  operationalPhone       String?                     @map("operational_phone") @db.VarChar(20)
+  operationalEmail       String?                     @map("operational_email") @db.VarChar(255)
+  verifiedAt             DateTime?                   @map("verified_at") @db.Timestamptz(6)
+  verifiedBy             String?                     @map("verified_by") @db.Uuid
+  verificationNotes      String?                     @map("verification_notes") @db.Text
+  isActive               Boolean                     @default(true) @map("is_active")
+  createdAt              DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  consignments     Consignment[]     @relation("RecyclerConsignments")
-  recyclingRecords RecyclingRecord[] @relation("RecyclerRecords")
+  user             User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verifiedByUser   User?                 @relation("AdminVerifiedRecyclers", fields: [verifiedBy], references: [id], onDelete: SetNull)
+  consignments     Consignment[]         @relation("RecyclerConsignments")
+  recyclingRecords RecyclingRecord[]     @relation("RecyclerRecords")
+  offeredRates     RecyclerOfferedRate[] @relation("RecyclerOfferedRatesList")
+  quotes           Quote[]               @relation("RecyclerQuotesList")
+  handovers        HandoverRecord[]      @relation("RecyclerHandoversList")
+  transactions     TransactionRecord[]   @relation("RecyclerTransactionsList")
 
   @@index([facilityLat, facilityLng], map: "idx_rp_location")
+  @@index([authorizationStatus], map: "idx_rp_auth_status")
+  @@index([verifiedBy], map: "idx_rp_verified_by")
   @@map("recycler_profiles")
 }
 
@@ -453,4 +635,310 @@ model DeviceToken {
   @@index([userId, isActive], map: "idx_dt_active")
   @@map("device_tokens")
 }
+
+model MaterialItem {
+  id                  String             @id @default(uuid()) @db.Uuid
+  referenceId         String             @unique @map("reference_id") @db.VarChar(50)
+  collectorId         String             @map("collector_id") @db.Uuid
+  category            MaterialCategory
+  subcategory         String?            @db.VarChar(100)
+  description         String?            @db.Text
+  approximateWeightKg Decimal?           @map("approximate_weight_kg") @db.Decimal(8, 2)
+  condition           ItemCondition      @default(UNKNOWN)
+  sourceType          MaterialSourceType @default(HOUSEHOLD) @map("source_type")
+  createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  collector CollectorProfile  @relation("CollectorMaterialItems", fields: [collectorId], references: [id], onDelete: Restrict)
+  lotItems  MaterialLotItem[] @relation("ItemLotJunction")
+
+  @@index([collectorId], map: "idx_mi_collector")
+  @@index([category], map: "idx_mi_category")
+  @@map("material_items")
+}
+
+model MaterialLot {
+  id                       String             @id @default(uuid()) @db.Uuid
+  referenceNumber          String             @unique @map("reference_number") @db.VarChar(50)
+  clientReferenceId        String?            @unique @map("client_reference_id") @db.VarChar(100)
+  collectorId              String             @map("collector_id") @db.Uuid
+  status                   MaterialLotStatus  @default(DRAFT)
+  category                 MaterialCategory
+  subcategory              String?            @db.VarChar(100)
+  description              String?            @db.Text
+  approximateTotalWeightKg Decimal?           @map("approximate_total_weight_kg") @db.Decimal(8, 2)
+  condition                ItemCondition      @default(UNKNOWN)
+  sourceType               MaterialSourceType @default(HOUSEHOLD) @map("source_type")
+  collectionLat            Decimal?           @map("collection_lat") @db.Decimal(10, 7)
+  collectionLng            Decimal?           @map("collection_lng") @db.Decimal(10, 7)
+  collectionAccuracy       Decimal?           @map("collection_accuracy") @db.Decimal(6, 2)
+  collectionTimestamp      DateTime?          @map("collection_timestamp") @db.Timestamptz(6)
+  createdAt                DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  collector CollectorProfile   @relation("CollectorMaterialLots", fields: [collectorId], references: [id], onDelete: Restrict)
+  items     MaterialLotItem[]  @relation("LotItemsList")
+  photos    MaterialLotPhoto[] @relation("LotPhotosList")
+  quotes    Quote[]            @relation("LotQuotesList")
+  handovers HandoverRecord[]   @relation("LotHandoversList")
+  transactions TransactionRecord[] @relation("LotTransactionsList")
+
+  @@index([collectorId], map: "idx_ml_collector")
+  @@index([status], map: "idx_ml_status")
+  @@index([category], map: "idx_ml_category")
+  @@index([createdAt], map: "idx_ml_created")
+  @@map("material_lots")
+}
+
+model MaterialLotItem {
+  id             String   @id @default(uuid()) @db.Uuid
+  lotId          String   @map("lot_id") @db.Uuid
+  materialItemId String   @map("material_item_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  lot          MaterialLot  @relation("LotItemsList", fields: [lotId], references: [id], onDelete: Cascade)
+  materialItem MaterialItem @relation("ItemLotJunction", fields: [materialItemId], references: [id], onDelete: Restrict)
+
+  @@unique([lotId, materialItemId])
+  @@index([lotId], map: "idx_mli_lot")
+  @@index([materialItemId], map: "idx_mli_item")
+  @@map("material_lot_items")
+}
+
+model MaterialLotPhoto {
+  id          String    @id @default(uuid()) @db.Uuid
+  lotId       String    @map("lot_id") @db.Uuid
+  photoUrl    String    @map("photo_url") @db.VarChar(500)
+  storagePath String?   @map("storage_path") @db.VarChar(255)
+  fileSize    Int?      @map("file_size")
+  mimeType    String?   @map("mime_type") @db.VarChar(50)
+  capturedAt  DateTime? @map("captured_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  lot MaterialLot @relation("LotPhotosList", fields: [lotId], references: [id], onDelete: Cascade)
+
+  @@index([lotId], map: "idx_mlp_lot")
+  @@map("material_lot_photos")
+}
+
+model MediaStorage {
+  fileKey   String   @id @map("file_key") @db.VarChar(500)
+  mimeType  String   @map("mime_type") @db.VarChar(100)
+  fileSize  Int      @map("file_size")
+  data      Bytes    @db.ByteA
+  hash      String?  @db.VarChar(64)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([hash], map: "idx_media_storage_hash")
+  @@map("_media_storage")
+}
+
+model PriceData {
+  id              String           @id @default(uuid()) @db.Uuid
+  category        MaterialCategory
+  subcategory     String?          @db.VarChar(100)
+  location        String           @default("ALL") @db.VarChar(100)
+  buyingPrice     Decimal          @map("buying_price") @db.Decimal(10, 2)
+  quotedPrice     Decimal?         @map("quoted_price") @db.Decimal(10, 2)
+  unit            PriceUnit        @default(PER_KG)
+  currency        String           @default("INR") @db.VarChar(10)
+  source          PriceSource      @default(ADMIN_VERIFIED)
+  status          PriceStatus      @default(ACTIVE)
+  sourceReference String?          @map("source_reference") @db.VarChar(255)
+  effectiveDate   DateTime         @default(now()) @map("effective_date") @db.Timestamptz(6)
+  expiryDate      DateTime?        @map("expiry_date") @db.Timestamptz(6)
+  createdById     String?          @map("created_by_id") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  createdBy       User?            @relation("AdminCreatedPrices", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([category], map: "idx_pd_category")
+  @@index([location], map: "idx_pd_location")
+  @@index([status], map: "idx_pd_status")
+  @@index([effectiveDate], map: "idx_pd_effective")
+  @@map("price_data")
+}
+
+model RecyclerOfferedRate {
+  id              String             @id @default(uuid()) @db.Uuid
+  recyclerId      String             @map("recycler_id") @db.Uuid
+  category        MaterialCategory
+  subcategory     String?            @db.VarChar(100)
+  rate            Decimal            @map("rate") @db.Decimal(10, 2)
+  unit            PriceUnit          @default(PER_KG)
+  currency        String             @default("INR") @db.VarChar(10)
+  pickupAvailable PickupAvailability @default(UNKNOWN) @map("pickup_available")
+  serviceArea     String?            @map("service_area") @db.VarChar(255)
+  source          PriceSource        @default(RECYCLER_OFFER)
+  sourceReference String?            @map("source_reference") @db.VarChar(255)
+  status          RecyclerRateStatus @default(ACTIVE)
+  effectiveDate   DateTime           @default(now()) @map("effective_date") @db.Timestamptz(6)
+  expiryDate      DateTime?          @map("expiry_date") @db.Timestamptz(6)
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  recycler        RecyclerProfile    @relation("RecyclerOfferedRatesList", fields: [recyclerId], references: [id], onDelete: Cascade)
+
+  @@index([recyclerId], map: "idx_ror_recycler")
+  @@index([category], map: "idx_ror_category")
+  @@index([status], map: "idx_ror_status")
+  @@index([effectiveDate], map: "idx_ror_effective")
+  @@map("recycler_offered_rates")
+}
+
+model Quote {
+  id                 String           @id @default(uuid()) @db.Uuid
+  referenceNumber    String           @unique @map("reference_number") @db.VarChar(50)
+  materialLotId      String           @map("material_lot_id") @db.Uuid
+  recyclerId         String           @map("recycler_id") @db.Uuid
+  category           MaterialCategory
+  subcategory        String?          @db.VarChar(100)
+  quotedUnitPrice    Decimal          @map("quoted_unit_price") @db.Decimal(10, 2)
+  unit               PriceUnit        @default(PER_KG)
+  currency           String           @default("INR") @db.VarChar(10)
+  quotedQuantity     Decimal?         @map("quoted_quantity") @db.Decimal(8, 2)
+  quotedTotal        Decimal?         @map("quoted_total") @db.Decimal(10, 2)
+  status             QuoteStatus      @default(SENT)
+  validFrom          DateTime         @default(now()) @map("valid_from") @db.Timestamptz(6)
+  validUntil         DateTime         @map("valid_until") @db.Timestamptz(6)
+  notes              String?          @db.Text
+  rejectionReason    String?          @map("rejection_reason") @db.VarChar(255)
+  cancellationReason String?          @map("cancellation_reason") @db.VarChar(255)
+  viewedAt           DateTime?        @map("viewed_at") @db.Timestamptz(6)
+  acceptedAt         DateTime?        @map("accepted_at") @db.Timestamptz(6)
+  rejectedAt         DateTime?        @map("rejected_at") @db.Timestamptz(6)
+  createdById        String           @map("created_by_id") @db.Uuid
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  materialLot        MaterialLot      @relation("LotQuotesList", fields: [materialLotId], references: [id], onDelete: Cascade)
+  recycler           RecyclerProfile  @relation("RecyclerQuotesList", fields: [recyclerId], references: [id], onDelete: Cascade)
+  createdBy          User             @relation("UserCreatedQuotes", fields: [createdById], references: [id], onDelete: Restrict)
+  handovers          HandoverRecord[] @relation("QuoteHandoversList")
+  transactions       TransactionRecord[] @relation("QuoteTransactionsList")
+
+  @@index([materialLotId, status], map: "idx_quote_lot_status")
+  @@index([recyclerId, status], map: "idx_quote_recycler_status")
+  @@index([status, validUntil], map: "idx_quote_status_valid")
+  @@map("quotes")
+}
+
+model HandoverRecord {
+  id                      String          @id @default(uuid()) @db.Uuid
+  referenceNumber         String          @unique @map("reference_number") @db.VarChar(50)
+  materialLotId           String          @map("material_lot_id") @db.Uuid
+  quoteId                 String          @map("quote_id") @db.Uuid
+  collectorId             String          @map("collector_id") @db.Uuid
+  recyclerId              String          @map("recycler_id") @db.Uuid
+  status                  HandoverStatus  @default(PENDING_COLLECTOR)
+  declaredWeightKg        Decimal?        @map("declared_weight_kg") @db.Decimal(8, 2)
+  handoverWeightKg        Decimal?        @map("handover_weight_kg") @db.Decimal(8, 2)
+  handoverTimestamp       DateTime        @default(now()) @map("handover_timestamp") @db.Timestamptz(6)
+  latitude                Decimal?        @db.Decimal(10, 7)
+  longitude               Decimal?        @db.Decimal(10, 7)
+  locationAccuracyMeters  Decimal?        @map("location_accuracy_meters") @db.Decimal(6, 2)
+  locationAvailable       Boolean         @default(false) @map("location_available")
+  collectorConfirmedAt    DateTime?       @map("collector_confirmed_at") @db.Timestamptz(6)
+  recyclerConfirmedAt     DateTime?       @map("recycler_confirmed_at") @db.Timestamptz(6)
+  finalConfirmedAt        DateTime?       @map("final_confirmed_at") @db.Timestamptz(6)
+  cancelledAt             DateTime?       @map("cancelled_at") @db.Timestamptz(6)
+  cancellationReason      String?         @map("cancellation_reason") @db.VarChar(255)
+  notes                   String?         @db.Text
+  createdById             String          @map("created_by_id") @db.Uuid
+  createdAt               DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  materialLot             MaterialLot     @relation("LotHandoversList", fields: [materialLotId], references: [id], onDelete: Restrict)
+  quote                   Quote           @relation("QuoteHandoversList", fields: [quoteId], references: [id], onDelete: Restrict)
+  collector               CollectorProfile @relation("CollectorHandoversList", fields: [collectorId], references: [id], onDelete: Restrict)
+  recycler                RecyclerProfile @relation("RecyclerHandoversList", fields: [recyclerId], references: [id], onDelete: Restrict)
+  createdBy               User            @relation("UserCreatedHandovers", fields: [createdById], references: [id], onDelete: Restrict)
+  photos                  HandoverPhoto[] @relation("HandoverPhotosList")
+  transaction             TransactionRecord? @relation("HandoverTransaction")
+
+  @@index([materialLotId], map: "idx_hdo_lot")
+  @@index([quoteId], map: "idx_hdo_quote")
+  @@index([collectorId], map: "idx_hdo_collector")
+  @@index([recyclerId], map: "idx_hdo_recycler")
+  @@index([status], map: "idx_hdo_status")
+  @@index([createdAt], map: "idx_hdo_created")
+  @@map("handover_records")
+}
+
+model HandoverPhoto {
+  id           String         @id @default(uuid()) @db.Uuid
+  handoverId   String         @map("handover_id") @db.Uuid
+  photoUrl     String         @map("photo_url") @db.VarChar(500)
+  storagePath  String?        @map("storage_path") @db.VarChar(255)
+  fileSize     Int?           @map("file_size")
+  mimeType     String?        @map("mime_type") @db.VarChar(50)
+  caption      String?        @db.VarChar(100)
+  uploadedById String?        @map("uploaded_by_id") @db.Uuid
+  capturedAt   DateTime?      @map("captured_at") @db.Timestamptz(6)
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  handover     HandoverRecord @relation("HandoverPhotosList", fields: [handoverId], references: [id], onDelete: Cascade)
+  uploadedBy   User?          @relation("UserUploadedHandoverPhotos", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([handoverId], map: "idx_hdp_handover")
+  @@map("handover_photos")
+}
+
+model TransactionRecord {
+  id                     String            @id @default(uuid()) @db.Uuid
+  referenceNumber        String            @unique @map("reference_number") @db.VarChar(50)
+  materialLotId          String            @map("material_lot_id") @db.Uuid
+  quoteId                String            @map("quote_id") @db.Uuid
+  handoverId             String            @unique @map("handover_id") @db.Uuid
+  collectorId            String            @map("collector_id") @db.Uuid
+  recyclerId             String            @map("recycler_id") @db.Uuid
+  category               MaterialCategory
+  subcategory            String?           @db.VarChar(100)
+  quantity               Decimal           @db.Decimal(10, 2)
+  unit                   PriceUnit         @default(PER_KG)
+  quotedUnitPrice        Decimal           @map("quoted_unit_price") @db.Decimal(12, 2)
+  quotedTotal            Decimal           @map("quoted_total") @db.Decimal(12, 2)
+  finalUnitPrice         Decimal           @map("final_unit_price") @db.Decimal(12, 2)
+  finalSaleValue         Decimal           @map("final_sale_value") @db.Decimal(12, 2)
+  amountPaid             Decimal           @default(0.00) @map("amount_paid") @db.Decimal(12, 2)
+  amountDue              Decimal           @default(0.00) @map("amount_due") @db.Decimal(12, 2)
+  currency               String            @default("INR") @db.VarChar(10)
+  transactionType        TransactionType   @default(MATERIAL_SALE) @map("transaction_type")
+  paymentMethod          PaymentMethod     @default(CASH) @map("payment_method")
+  paymentStatus          PaymentStatus     @default(PENDING) @map("payment_status")
+  transactionStatus      TransactionStatus @default(RECORDED) @map("transaction_status")
+  transactionDate        DateTime          @default(now()) @map("transaction_date") @db.Timestamptz(6)
+  locationName           String?           @map("location_name") @db.VarChar(255)
+  latitude               Decimal?          @db.Decimal(10, 7)
+  longitude              Decimal?          @db.Decimal(10, 7)
+  locationAccuracyMeters Decimal?          @map("location_accuracy_meters") @db.Decimal(6, 2)
+  notes                  String?           @db.Text
+  disclaimer             String?           @db.Text
+  cancelledAt            DateTime?         @map("cancelled_at") @db.Timestamptz(6)
+  cancellationReason     String?           @map("cancellation_reason") @db.VarChar(255)
+  createdById            String            @map("created_by_id") @db.Uuid
+  createdAt              DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  materialLot            MaterialLot       @relation("LotTransactionsList", fields: [materialLotId], references: [id], onDelete: Restrict)
+  quote                  Quote             @relation("QuoteTransactionsList", fields: [quoteId], references: [id], onDelete: Restrict)
+  handover               HandoverRecord    @relation("HandoverTransaction", fields: [handoverId], references: [id], onDelete: Restrict)
+  collector              CollectorProfile  @relation("CollectorTransactionsList", fields: [collectorId], references: [id], onDelete: Restrict)
+  recycler               RecyclerProfile   @relation("RecyclerTransactionsList", fields: [recyclerId], references: [id], onDelete: Restrict)
+  createdBy              User              @relation("UserCreatedTransactions", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([referenceNumber], map: "idx_txn_ref")
+  @@index([materialLotId], map: "idx_txn_lot")
+  @@index([quoteId], map: "idx_txn_quote")
+  @@index([handoverId], map: "idx_txn_handover")
+  @@index([collectorId], map: "idx_txn_collector")
+  @@index([recyclerId], map: "idx_txn_recycler")
+  @@index([paymentStatus], map: "idx_txn_payment_status")
+  @@index([transactionStatus], map: "idx_txn_status")
+  @@index([transactionDate], map: "idx_txn_date")
+  @@map("transactions")
+}
+
+
 

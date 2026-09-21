@@ -3,7 +3,27 @@
 
 const prisma = require('../config/database');
 const AppError = require('../utils/AppError');
-const { ROLES, USER_STATUS } = require('../utils/constants');
+const auditService = require('./auditService');
+const { ROLES, USER_STATUS, RECYCLER_AUTHORIZATION_STATUS, AUDIT_ACTIONS } = require('../utils/constants');
+
+/**
+ * Haversine formula to compute great-circle distance between two GPS coordinates in km
+ */
+function calculateHaversineDistanceKm(lat1, lon1, lat2, lon2) {
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
+  const toRad = (x) => (x * Math.PI) / 180;
+  const R = 6371; // Earth radius in km
+
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 10) / 10; // Round to 1 decimal place
+}
 
 class RecyclerService {
   static USER_INCLUDE_FIELDS = {
@@ -44,7 +64,7 @@ class RecyclerService {
    * @param {object} profileData - Recycler profile details
    * @returns {Promise<object>} Upserted profile
    */
-  async upsertProfile(userId, { facilityName, facilityAddress, facilityLat, facilityLng, city, district, state, pincode, licenseNumber, acceptedCategories }) {
+  async upsertProfile(userId, { facilityName, facilityAddress, facilityLat, facilityLng, city, district, state, pincode, licenseNumber, acceptedCategories, acceptedSubcategories, pickupAvailable, serviceArea, serviceRadiusKm, operationalPhone, operationalEmail }) {
     const data = {
       facilityName: facilityName.trim(),
       facilityAddress: facilityAddress.trim(),
@@ -72,6 +92,24 @@ class RecyclerService {
     if (licenseNumber !== undefined) {
       data.licenseNumber = licenseNumber ? licenseNumber.trim() : null;
     }
+    if (acceptedSubcategories !== undefined) {
+      data.acceptedSubcategories = Array.isArray(acceptedSubcategories) ? acceptedSubcategories : [];
+    }
+    if (pickupAvailable !== undefined) {
+      data.pickupAvailable = pickupAvailable;
+    }
+    if (serviceArea !== undefined) {
+      data.serviceArea = serviceArea ? serviceArea.trim() : null;
+    }
+    if (serviceRadiusKm !== undefined) {
+      data.serviceRadiusKm = serviceRadiusKm !== null ? parseFloat(serviceRadiusKm) : null;
+    }
+    if (operationalPhone !== undefined) {
+      data.operationalPhone = operationalPhone ? operationalPhone.trim() : null;
+    }
+    if (operationalEmail !== undefined) {
+      data.operationalEmail = operationalEmail ? operationalEmail.trim() : null;
+    }
 
     const profile = await prisma.recyclerProfile.upsert({
       where: { userId },
@@ -89,12 +127,19 @@ class RecyclerService {
   }
 
   /**
-   * List all verified recyclers (for collectors creating consignments / admin)
-   * Exposes only public facility information and contact details
-   * @param {string} [category] - Optional e-waste category filter
-   * @returns {Promise<Array>} List of verified recyclers
+   * List verified recyclers with search, filters, safe distance, and pagination
+   * Exposes public facility information, authorization status, pickup, and rate availability
+   * @param {object|string} [params] - Optional query parameters or category string
+   * @returns {Promise<object>} List of recyclers and pagination metadata
    */
-  async listVerifiedRecyclers(category) {
+  async listVerifiedRecyclers(params = {}) {
+    let options = {};
+    if (typeof params === 'string') {
+      options = { category: params };
+    } else if (params && typeof params === 'object') {
+      options = params;
+    }
+
     const where = {
       user: {
         status: USER_STATUS.ACTIVE,
@@ -102,39 +147,466 @@ class RecyclerService {
       },
     };
 
-    if (category) {
+    if (options.category) {
       where.acceptedCategories = {
-        has: category,
+        has: options.category,
       };
     }
 
-    const recyclers = await prisma.recyclerProfile.findMany({
-      where,
-      select: {
-        id: true,
-        facilityName: true,
-        facilityAddress: true,
-        facilityLat: true,
-        facilityLng: true,
-        city: true,
-        district: true,
-        state: true,
-        pincode: true,
-        acceptedCategories: true,
-        totalConsignments: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
+    if (options.authorizationStatus) {
+      where.authorizationStatus = options.authorizationStatus;
+    }
+
+    if (options.pickupAvailable) {
+      where.pickupAvailable = options.pickupAvailable;
+    }
+
+    if (options.search) {
+      const searchTerm = options.search.trim();
+      if (searchTerm) {
+        where.OR = [
+          { facilityName: { contains: searchTerm, mode: 'insensitive' } },
+          { city: { contains: searchTerm, mode: 'insensitive' } },
+          { district: { contains: searchTerm, mode: 'insensitive' } },
+          { state: { contains: searchTerm, mode: 'insensitive' } },
+          { serviceArea: { contains: searchTerm, mode: 'insensitive' } },
+        ];
+      }
+    }
+
+    const now = new Date();
+    if (options.hasRates === true || options.hasRates === 'true') {
+      where.offeredRates = {
+        some: {
+          status: 'ACTIVE',
+          effectiveDate: { lte: now },
+          OR: [
+            { expiryDate: null },
+            { expiryDate: { gte: now } },
+          ],
+        },
+      };
+    }
+
+    const page = options.page ? Math.max(1, parseInt(options.page, 10)) : 1;
+    const limit = options.limit ? Math.min(100, Math.max(1, parseInt(options.limit, 10))) : 50;
+    const skip = (page - 1) * limit;
+
+    const [total, recyclers] = await Promise.all([
+      prisma.recyclerProfile.count({ where }),
+      prisma.recyclerProfile.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+            },
+          },
+          offeredRates: {
+            where: {
+              status: 'ACTIVE',
+              effectiveDate: { lte: now },
+              OR: [
+                { expiryDate: null },
+                { expiryDate: { gte: now } },
+              ],
+            },
+            select: {
+              id: true,
+              category: true,
+              subcategory: true,
+              rate: true,
+              unit: true,
+              currency: true,
+              pickupAvailable: true,
+              status: true,
+              sourceReference: true,
+              effectiveDate: true,
+              expiryDate: true,
+            },
           },
         },
-      },
-      orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    const userLat = options.lat != null ? parseFloat(options.lat) : null;
+    const userLng = options.lng != null ? parseFloat(options.lng) : null;
+
+    const formattedRecyclers = recyclers.map((r) => {
+      const facLat = r.facilityLat ? parseFloat(r.facilityLat.toString()) : null;
+      const facLng = r.facilityLng ? parseFloat(r.facilityLng.toString()) : null;
+      const distanceKm = calculateHaversineDistanceKm(userLat, userLng, facLat, facLng);
+
+      const activeRates = (r.offeredRates || []).map((rate) => ({
+        id: rate.id,
+        category: rate.category,
+        subcategory: rate.subcategory,
+        rate: parseFloat(rate.rate.toString()),
+        unit: rate.unit,
+        currency: rate.currency,
+        pickupAvailable: rate.pickupAvailable,
+        status: rate.status,
+        sourceReference: rate.sourceReference,
+        effectiveDate: rate.effectiveDate,
+        expiryDate: rate.expiryDate,
+      }));
+
+      return {
+        id: r.id,
+        facilityName: r.facilityName,
+        facilityAddress: r.facilityAddress,
+        facilityLat: facLat,
+        facilityLng: facLng,
+        city: r.city,
+        district: r.district,
+        state: r.state,
+        pincode: r.pincode,
+        licenseNumber: r.licenseNumber,
+        authorizationNumber: r.authorizationNumber || r.licenseNumber || null,
+        issuingAuthority: r.issuingAuthority || null,
+        authorizationValidFrom: r.authorizationValidFrom || null,
+        authorizationValidTill: r.authorizationValidTill || null,
+        acceptedCategories: r.acceptedCategories,
+        acceptedSubcategories: r.acceptedSubcategories || [],
+        totalConsignments: r.totalConsignments,
+        pickupAvailable: r.pickupAvailable,
+        serviceArea: r.serviceArea,
+        serviceRadiusKm: r.serviceRadiusKm ? parseFloat(r.serviceRadiusKm.toString()) : null,
+        authorizationStatus: r.authorizationStatus,
+        operationalPhone: r.operationalPhone || (r.user ? r.user.phone : null),
+        operationalEmail: r.operationalEmail || (r.user ? r.user.email : null),
+        isActive: r.isActive,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+        distanceKm,
+        hasActiveRates: activeRates.length > 0,
+        activeRatesCount: activeRates.length,
+        activeRates,
+        user: r.user,
+      };
     });
 
-    return recyclers;
+    return {
+      recyclers: formattedRecyclers,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
+
+  /**
+   * Get single recycler facility details with active offered rates and contact info
+   * @param {string} id - RecyclerProfile UUID
+   * @param {object} [options] - Optional coordinates { lat, lng }
+   * @returns {Promise<object>} Full recycler details
+   */
+  async getRecyclerById(id, options = {}) {
+    const now = new Date();
+    const profile = await prisma.recyclerProfile.findUnique({
+      where: { id },
+      include: {
+        user: RecyclerService.USER_INCLUDE_FIELDS,
+        offeredRates: {
+          where: {
+            status: 'ACTIVE',
+            effectiveDate: { lte: now },
+            OR: [
+              { expiryDate: null },
+              { expiryDate: { gte: now } },
+            ],
+          },
+          orderBy: { rate: 'desc' },
+        },
+      },
+    });
+
+    if (!profile) {
+      throw AppError.notFound('Recycler facility not found');
+    }
+
+    const userLat = options.lat != null ? parseFloat(options.lat) : null;
+    const userLng = options.lng != null ? parseFloat(options.lng) : null;
+    const facLat = profile.facilityLat ? parseFloat(profile.facilityLat.toString()) : null;
+    const facLng = profile.facilityLng ? parseFloat(profile.facilityLng.toString()) : null;
+    const distanceKm = calculateHaversineDistanceKm(userLat, userLng, facLat, facLng);
+
+    const activeOfferedRates = (profile.offeredRates || []).map((r) => ({
+      id: r.id,
+      category: r.category,
+      subcategory: r.subcategory,
+      rate: parseFloat(r.rate.toString()),
+      unit: r.unit,
+      currency: r.currency,
+      pickupAvailable: r.pickupAvailable,
+      serviceArea: r.serviceArea,
+      source: 'RECYCLER_OFFER',
+      sourceReference: r.sourceReference,
+      status: r.status,
+      effectiveDate: r.effectiveDate,
+      expiryDate: r.expiryDate,
+    }));
+
+    return {
+      id: profile.id,
+      facilityName: profile.facilityName,
+      facilityAddress: profile.facilityAddress,
+      facilityLat: facLat,
+      facilityLng: facLng,
+      city: profile.city,
+      district: profile.district,
+      state: profile.state,
+      pincode: profile.pincode,
+      licenseNumber: profile.licenseNumber,
+      authorizationNumber: profile.authorizationNumber || profile.licenseNumber || null,
+      issuingAuthority: profile.issuingAuthority || null,
+      authorizationValidFrom: profile.authorizationValidFrom || null,
+      authorizationValidTill: profile.authorizationValidTill || null,
+      acceptedCategories: profile.acceptedCategories,
+      acceptedSubcategories: profile.acceptedSubcategories || [],
+      totalConsignments: profile.totalConsignments,
+      pickupAvailable: profile.pickupAvailable,
+      serviceArea: profile.serviceArea,
+      serviceRadiusKm: profile.serviceRadiusKm ? parseFloat(profile.serviceRadiusKm.toString()) : null,
+      authorizationStatus: profile.authorizationStatus,
+      operationalPhone: profile.operationalPhone || (profile.user ? profile.user.phone : null),
+      operationalEmail: profile.operationalEmail || (profile.user ? profile.user.email : null),
+      verifiedAt: profile.verifiedAt || null,
+      verifiedBy: profile.verifiedBy || null,
+      verificationNotes: profile.verificationNotes || null,
+      isActive: profile.isActive,
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt,
+      distanceKm,
+      hasActiveRates: activeOfferedRates.length > 0,
+      activeRatesCount: activeOfferedRates.length,
+      offeredRates: activeOfferedRates,
+      contact: {
+        name: profile.user ? profile.user.name : null,
+        email: profile.operationalEmail || (profile.user ? profile.user.email : null),
+        phone: profile.operationalPhone || (profile.user ? profile.user.phone : null),
+      },
+      user: profile.user,
+    };
+  }
+
+  /**
+   * List recyclers for administrative governance
+   */
+  async adminListRecyclers(options = {}) {
+    const where = {};
+    if (options.authorizationStatus) {
+      where.authorizationStatus = options.authorizationStatus;
+    }
+    if (options.isActive !== undefined) {
+      where.isActive = options.isActive === true || options.isActive === 'true';
+    }
+    if (options.city) {
+      where.city = { contains: options.city.trim(), mode: 'insensitive' };
+    }
+    if (options.state) {
+      where.state = { contains: options.state.trim(), mode: 'insensitive' };
+    }
+    if (options.search) {
+      const q = options.search.trim();
+      where.OR = [
+        { facilityName: { contains: q, mode: 'insensitive' } },
+        { city: { contains: q, mode: 'insensitive' } },
+        { state: { contains: q, mode: 'insensitive' } },
+        { authorizationNumber: { contains: q, mode: 'insensitive' } },
+        { licenseNumber: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    const page = options.page ? Math.max(1, parseInt(options.page, 10)) : 1;
+    const limit = options.limit ? Math.min(100, Math.max(1, parseInt(options.limit, 10))) : 50;
+    const skip = (page - 1) * limit;
+
+    const [total, recyclers] = await Promise.all([
+      prisma.recyclerProfile.count({ where }),
+      prisma.recyclerProfile.findMany({
+        where,
+        include: {
+          user: RecyclerService.USER_INCLUDE_FIELDS,
+          verifiedByUser: {
+            select: { id: true, name: true, email: true },
+          },
+          _count: {
+            select: { offeredRates: true, quotes: true, handovers: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      recyclers,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
+
+  /**
+   * Get single recycler details for admin review including audit history
+   */
+  async adminGetRecyclerById(id) {
+    const profile = await prisma.recyclerProfile.findUnique({
+      where: { id },
+      include: {
+        user: RecyclerService.USER_INCLUDE_FIELDS,
+        verifiedByUser: {
+          select: { id: true, name: true, email: true },
+        },
+        offeredRates: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    if (!profile) {
+      throw AppError.notFound('Recycler profile not found');
+    }
+
+    const auditHistory = await prisma.auditLog.findMany({
+      where: {
+        entityType: 'RECYCLER_PROFILE',
+        entityId: profile.id,
+      },
+      include: {
+        actor: { select: { id: true, name: true, email: true, role: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+
+    return {
+      recycler: profile,
+      auditHistory,
+    };
+  }
+
+  /**
+   * Admin update authorization status with audit logging
+   */
+  async adminUpdateRecyclerAuthorization(adminId, recyclerId, data, ipAddress = null) {
+    const profile = await prisma.recyclerProfile.findUnique({
+      where: { id: recyclerId },
+      include: { user: true },
+    });
+
+    if (!profile) {
+      throw AppError.notFound('Recycler profile not found');
+    }
+
+    const previousStatus = profile.authorizationStatus;
+    const newStatus = data.status;
+
+    const updateData = {
+      authorizationStatus: newStatus,
+      verifiedBy: adminId,
+      verifiedAt: new Date(),
+      verificationNotes: data.reason ? data.reason.trim() : (data.verificationNotes ? data.verificationNotes.trim() : null),
+    };
+
+    if (data.authorizationNumber !== undefined) {
+      updateData.authorizationNumber = data.authorizationNumber ? data.authorizationNumber.trim() : null;
+    }
+    if (data.issuingAuthority !== undefined) {
+      updateData.issuingAuthority = data.issuingAuthority ? data.issuingAuthority.trim() : null;
+    }
+    if (data.validFrom !== undefined) {
+      updateData.authorizationValidFrom = data.validFrom ? new Date(data.validFrom) : null;
+    }
+    if (data.validTill !== undefined) {
+      updateData.authorizationValidTill = data.validTill ? new Date(data.validTill) : null;
+    }
+    if (data.isActive !== undefined) {
+      updateData.isActive = Boolean(data.isActive);
+    }
+
+    const updated = await prisma.recyclerProfile.update({
+      where: { id: recyclerId },
+      data: updateData,
+      include: {
+        user: RecyclerService.USER_INCLUDE_FIELDS,
+        verifiedByUser: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    await auditService.logAction({
+      actorId: adminId,
+      action: AUDIT_ACTIONS.RECYCLER_AUTHORIZATION_CHANGED || 'RECYCLER_AUTHORIZATION_CHANGED',
+      entityType: 'RECYCLER_PROFILE',
+      entityId: profile.id,
+      details: {
+        previousStatus,
+        newStatus,
+        reason: updateData.verificationNotes,
+        authorizationNumber: updateData.authorizationNumber,
+        issuingAuthority: updateData.issuingAuthority,
+        validFrom: updateData.authorizationValidFrom,
+        validTill: updateData.authorizationValidTill,
+      },
+      ipAddress,
+    });
+
+    return updated;
+  }
+
+  /**
+   * Admin maintenance update of recycler operational data
+   */
+  async adminUpdateRecyclerProfile(adminId, recyclerId, data, ipAddress = null) {
+    const profile = await prisma.recyclerProfile.findUnique({
+      where: { id: recyclerId },
+    });
+
+    if (!profile) {
+      throw AppError.notFound('Recycler profile not found');
+    }
+
+    const updateData = {};
+    if (data.facilityName !== undefined) updateData.facilityName = data.facilityName.trim();
+    if (data.facilityAddress !== undefined) updateData.facilityAddress = data.facilityAddress.trim();
+    if (data.city !== undefined) updateData.city = data.city ? data.city.trim() : null;
+    if (data.district !== undefined) updateData.district = data.district ? data.district.trim() : null;
+    if (data.state !== undefined) updateData.state = data.state ? data.state.trim() : null;
+    if (data.pincode !== undefined) updateData.pincode = data.pincode ? data.pincode.trim() : null;
+    if (data.serviceArea !== undefined) updateData.serviceArea = data.serviceArea ? data.serviceArea.trim() : null;
+    if (data.serviceRadiusKm !== undefined) updateData.serviceRadiusKm = data.serviceRadiusKm != null ? parseFloat(data.serviceRadiusKm) : null;
+    if (data.pickupAvailable !== undefined) updateData.pickupAvailable = data.pickupAvailable;
+    if (data.isActive !== undefined) updateData.isActive = Boolean(data.isActive);
+
+    const updated = await prisma.recyclerProfile.update({
+      where: { id: recyclerId },
+      data: updateData,
+      include: { user: RecyclerService.USER_INCLUDE_FIELDS },
+    });
+
+    await auditService.logAction({
+      actorId: adminId,
+      action: AUDIT_ACTIONS.RECYCLER_PROFILE_UPDATED || 'RECYCLER_PROFILE_UPDATED',
+      entityType: 'RECYCLER_PROFILE',
+      entityId: profile.id,
+      details: { updatedFields: Object.keys(updateData) },
+      ipAddress,
+    });
+
+    return updated;
   }
 }
 

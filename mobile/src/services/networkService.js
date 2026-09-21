@@ -93,12 +93,21 @@ class NetworkService {
   }
 
   /**
+   * Check if online and reachable
+   * @returns {boolean}
+   */
+  isOnline() {
+    return this._isConnected && this._isInternetReachable !== false;
+  }
+
+  /**
    * Check if internet is verified reachable
    * @returns {boolean}
    */
   isInternetReachable() {
     return this._isInternetReachable;
   }
+
 
   /**
    * Get full network state

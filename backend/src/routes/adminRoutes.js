@@ -3,10 +3,12 @@
 
 const express = require('express');
 const adminController = require('../controllers/adminController');
+const analyticsController = require('../controllers/analyticsController');
 const authenticate = require('../middleware/authenticate');
 const authorize = require('../middleware/authorize');
 const validate = require('../middleware/validate');
 const adminValidators = require('../validators/adminValidators');
+const analyticsValidators = require('../validators/analyticsValidators');
 const { ROLES } = require('../utils/constants');
 
 const router = express.Router();
@@ -37,6 +39,64 @@ router.get(
   validate(adminValidators.getAnalytics),
   (req, res, next) => adminController.getAnalytics(req, res, next)
 );
+
+// SIH 26229 Historical Analytics & Dataset Insights (Prompt 17)
+router.get(
+  '/analytics/overview',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  validate(analyticsValidators.generalAnalyticsQuery),
+  (req, res, next) => analyticsController.getOverview(req, res, next)
+);
+
+router.get(
+  '/analytics/prices',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  validate(analyticsValidators.historicalPriceQuery),
+  (req, res, next) => analyticsController.getPriceAnalytics(req, res, next)
+);
+
+router.get(
+  '/analytics/materials',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  validate(analyticsValidators.materialActivityQuery),
+  (req, res, next) => analyticsController.getMaterialAnalytics(req, res, next)
+);
+
+router.get(
+  '/analytics/transactions',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  validate(analyticsValidators.transactionActivityQuery),
+  (req, res, next) => analyticsController.getTransactionAnalytics(req, res, next)
+);
+
+router.get(
+  '/analytics/recyclers',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  validate(analyticsValidators.recyclerActivityQuery),
+  (req, res, next) => analyticsController.getRecyclerAnalytics(req, res, next)
+);
+
+router.get(
+  '/analytics/traceability',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  validate(analyticsValidators.generalAnalyticsQuery),
+  (req, res, next) => analyticsController.getTraceabilityAnalytics(req, res, next)
+);
+
+router.get(
+  '/analytics/data-quality',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  validate(analyticsValidators.generalAnalyticsQuery),
+  (req, res, next) => analyticsController.getDataQualityAnalytics(req, res, next)
+);
+
 
 // View audit trail with filtering and pagination (Admin only)
 router.get(
@@ -105,6 +165,41 @@ router.get(
   authenticate,
   authorize(ROLES.ADMIN),
   (req, res, next) => adminController.searchNotificationUsers(req, res, next)
+);
+
+// List recyclers for admin governance (Admin only)
+router.get(
+  '/recyclers',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  validate(adminValidators.listAdminRecyclers),
+  (req, res, next) => adminController.listRecyclers(req, res, next)
+);
+
+// Get single recycler facility details for review & audit (Admin only)
+router.get(
+  '/recyclers/:id',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  (req, res, next) => adminController.getRecyclerById(req, res, next)
+);
+
+// Update recycler authorization status & lifecycle state (Admin only)
+router.patch(
+  '/recyclers/:id/authorization',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  validate(adminValidators.updateRecyclerAuthorization),
+  (req, res, next) => adminController.updateRecyclerAuthorization(req, res, next)
+);
+
+// Admin maintenance update of recycler operational profile (Admin only)
+router.patch(
+  '/recyclers/:id',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  validate(adminValidators.updateRecyclerProfile),
+  (req, res, next) => adminController.updateRecyclerProfile(req, res, next)
 );
 
 module.exports = router;

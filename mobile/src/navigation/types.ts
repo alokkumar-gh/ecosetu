@@ -40,7 +40,33 @@ export type CollectorStackParamList = {
   CreateConsignment: { recyclerId?: string; recycler?: any } | undefined;
   CollectorConsignments: undefined;
   CollectorConsignmentStatus: { consignmentId: string; consignment?: any };
+  CollectorRecyclerDirectory: undefined;
+  CollectorRecyclerDetail: { recyclerId: string; recycler?: any; lotId?: string; preselectedCategory?: string };
   RecyclerFacilityDetail: { recyclerId: string; recycler?: any };
+  CollectorMaterialCapture: undefined;
+  CollectorCreateLot: {
+    category?: string;
+    subcategory?: string;
+    condition?: string;
+    sourceType?: string;
+    photos?: string[];
+    lotId?: string;
+    existingLot?: any;
+  } | undefined;
+  CollectorLots: { filterStatus?: string } | undefined;
+  CollectorLotDetail: { lotId: string; lot?: any };
+  CollectorPriceBoard: { preselectedCategory?: string; preselectedLocation?: string } | undefined;
+  CollectorRecyclerMatches: { lotId: string; lot?: any };
+  CollectorQuotes: { lotId: string; lot?: any };
+  CollectorHandover: { lotId?: string; quoteId?: string; lot?: any; quote?: any; handoverId?: string };
+  CollectorHandoverReceipt: { handoverId: string; handover?: any };
+  CollectorRecordSale: { handoverId: string; handover?: any };
+  CollectorTransactions: undefined;
+  CollectorTransactionDetail: { transactionId: string; transaction?: any };
+  CollectorEarnings: undefined;
+  CollectorSafetyCenter: undefined;
+  CollectorSafetyDetail: { topicId: string };
+  CollectorLotTrace: { lotId: string; lot?: any };
 };
 
 export type RecyclerTabParamList = {
@@ -55,7 +81,14 @@ export type RecyclerStackParamList = {
   Verification: undefined;
   ConsignmentDetail: { consignmentId: string; consignment?: any };
   RecyclingRecordDetail: { recordId: string; record?: any };
+  RecyclerCreateQuote: { lot: any; matchData?: any };
+  RecyclerHandoverConfirm: { handoverId: string; handover?: any };
+  RecyclerHandoverReceipt: { handoverId: string; handover?: any };
+  RecyclerTransactions: undefined;
+  RecyclerTransactionDetail: { transactionId: string; transaction?: any };
+  RecyclerLotTrace: { lotId: string; lot?: any };
 };
+
 
 export type AdminTabParamList = {
   AdminHome: undefined;
@@ -68,5 +101,6 @@ export type AdminTabParamList = {
   AdminGovernance: undefined;
   AdminSystemHealth: undefined;
   AdminNotificationCenter: { tab?: 'compose' | 'history' | 'templates' | 'analytics'; initialAudience?: string; targetUser?: any } | undefined;
+  AdminHistoricalAnalytics: { initialTab?: 'prices' | 'materials' | 'transactions' | 'recyclers' | 'traceability' | 'dataQuality' } | undefined;
 };
 

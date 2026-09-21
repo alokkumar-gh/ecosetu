@@ -46,6 +46,7 @@ import { ROLES as CONST_ROLES } from '../../utils/constants';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
 
 export type HealthStatusType =
   | 'HEALTHY'
@@ -324,21 +325,27 @@ export const AdminSystemHealthScreen: React.FC<Props> = ({ navigation }) => {
             </Text>
           </View>
 
-          <TouchableOpacity
-            style={[styles.runButton, isRunning && styles.buttonDisabled]}
-            onPress={runDiagnostics}
-            disabled={isRunning}
-            accessibilityRole="button"
-            accessibilityLabel={t('admin.systemHealth.runDiagnostics')}
-          >
-            {isRunning ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={styles.runButtonText}>
-                ⚡ {t('admin.systemHealth.runDiagnostics')}
-              </Text>
-            )}
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <ReadAloudButton
+              text={`Platform System Health Diagnostics. Status is ${report?.items?.find((c: any) => c.name === 'Backend API Service')?.status || 'Healthy'}.`}
+              size="small"
+            />
+            <TouchableOpacity
+              style={[styles.runButton, isRunning && styles.buttonDisabled]}
+              onPress={runDiagnostics}
+              disabled={isRunning}
+              accessibilityRole="button"
+              accessibilityLabel={t('admin.systemHealth.runDiagnostics')}
+            >
+              {isRunning ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.runButtonText}>
+                  ⚡ {t('admin.systemHealth.runDiagnostics')}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Factual Disclaimer */}

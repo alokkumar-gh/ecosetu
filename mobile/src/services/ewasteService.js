@@ -66,6 +66,39 @@ class EWasteService {
   }
 
   /**
+   * Upload image file to server storage
+   * @param {string} imageUri - Local file path (file://... or content://...)
+   * @param {string} [fileName]
+   * @param {string} [mimeType]
+   * @returns {Promise<Object>} { fileKey, imageUrl }
+   */
+  async uploadImage(imageUri, fileName = null, mimeType = 'image/jpeg') {
+    if (!imageUri) return null;
+    if (!networkService.isConnected()) {
+      return null;
+    }
+
+    const cleanUri = imageUri.startsWith('file://') || imageUri.startsWith('content://')
+      ? imageUri
+      : `file://${imageUri}`;
+    const name = fileName || `ewaste_${Date.now()}.jpg`;
+
+    const formData = new FormData();
+    formData.append('image', {
+      uri: cleanUri,
+      type: mimeType || 'image/jpeg',
+      name,
+    });
+
+    const response = await apiClient.request('/ewaste-items/upload', {
+      method: 'POST',
+      body: formData,
+    });
+
+    return response.data || response;
+  }
+
+  /**
    * Create e-waste item (Offline-first: queues if offline)
    * @param {Object} itemData - { categoryId, brand, model, condition, estimatedWeightKg, ... }
    * @returns {Promise<Object>} Created or draft item
@@ -73,7 +106,19 @@ class EWasteService {
   async createItem(itemData) {
     if (networkService.isConnected()) {
       try {
-        const response = await apiClient.post('/ewaste-items', itemData);
+        const payload = { ...itemData };
+        if (payload.imageUri && (payload.imageUri.startsWith('file:') || payload.imageUri.startsWith('content:'))) {
+          try {
+            const uploadRes = await this.uploadImage(payload.imageUri);
+            if (uploadRes?.imageUrl) {
+              payload.imageUrl = uploadRes.imageUrl;
+            }
+          } catch (uploadErr) {
+            console.warn('[EWasteService] Image upload warning, proceeding with item creation:', uploadErr?.message);
+          }
+        }
+
+        const response = await apiClient.post('/ewaste-items', payload);
         const createdItem = response.data?.item || response.data;
         await offlineStore.saveItemDraft(createdItem);
         return createdItem;

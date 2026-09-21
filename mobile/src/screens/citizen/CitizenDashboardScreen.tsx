@@ -32,6 +32,7 @@ import { GlassHeroCard } from '../../components/glass/GlassHeroCard';
 import { GlassAvatar } from '../../components/glass/GlassAvatar';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { Skeleton } from '../../components/common/Skeleton';
+import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
 import { ewasteService } from '../../services/ewasteService';
 import { requestService } from '../../services/requestService';
 
@@ -127,17 +128,23 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           </View>
 
-          <TouchableOpacity
-            style={styles.notificationBtn}
-            onPress={handleOpenNotifications}
-            accessibilityRole="button"
-            accessibilityLabel="Notifications"
-          >
-            <Text style={styles.notificationBellIcon}>🔔</Text>
-            <View style={styles.notificationBadge}>
-              <Text style={styles.notificationBadgeText}>1</Text>
-            </View>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <ReadAloudButton
+              text={`${t('citizen.dashboard.welcomeBack')}. ${user?.name || 'Citizen'}. ${itemsSubmittedCount} ${t('citizen.dashboard.itemsSubmitted')}. ${activeRequestsCount} ${t('citizen.dashboard.activeRequests')}.`}
+              size="small"
+            />
+            <TouchableOpacity
+              style={styles.notificationBtn}
+              onPress={handleOpenNotifications}
+              accessibilityRole="button"
+              accessibilityLabel="Notifications"
+            >
+              <Text style={styles.notificationBellIcon}>🔔</Text>
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>1</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <OfflineBanner />
@@ -183,10 +190,10 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           ) : (
             <>
-              {/* Hero Glass Card: "Your E-Waste Impact" */}
+              {/* Hero Glass Card */}
               <GlassHeroCard
-                title="Your E-Waste Impact"
-                subtitle="Small actions. Big change."
+                title={t('citizen.dashboard.welcomeBack')}
+                subtitle={t('citizen.dashboard.greetingSubtitle')}
                 icon={<Text style={styles.leafIcon}>🍃</Text>}
                 style={styles.heroCard}
               >
@@ -194,15 +201,15 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
                 <View style={styles.metricsPillsRow}>
                   <View style={styles.metricPill}>
                     <Text style={styles.metricPillValue}>{itemsSubmittedCount}</Text>
-                    <Text style={styles.metricPillLabel}>Submitted</Text>
+                    <Text style={styles.metricPillLabel}>{t('citizen.dashboard.itemsSubmitted')}</Text>
                   </View>
                   <View style={styles.metricPill}>
                     <Text style={styles.metricPillValue}>{activeRequestsCount}</Text>
-                    <Text style={styles.metricPillLabel}>Picked Up</Text>
+                    <Text style={styles.metricPillLabel}>{t('status.pickedUp')}</Text>
                   </View>
                   <View style={styles.metricPill}>
                     <Text style={styles.metricPillValue}>{completedPickupsCount}</Text>
-                    <Text style={styles.metricPillLabel}>Recycled</Text>
+                    <Text style={styles.metricPillLabel}>{t('status.recycled')}</Text>
                   </View>
                 </View>
 
@@ -212,14 +219,14 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
                     <Text style={styles.impactIcon}>🌱</Text>
                     <View>
                       <Text style={styles.impactValue}>{estimatedWeightKg} kg</Text>
-                      <Text style={styles.impactLabel}>E-Waste Diverted</Text>
+                      <Text style={styles.impactLabel}>{t('citizen.submit.estimatedWeight')}</Text>
                     </View>
                   </View>
                   <View style={styles.impactBadge}>
                     <Text style={styles.impactIcon}>☁</Text>
                     <View>
                       <Text style={styles.impactValue}>{estimatedCo2Kg} kg</Text>
-                      <Text style={styles.impactLabel}>CO₂ Equivalent Saved</Text>
+                      <Text style={styles.impactLabel}>{t('citizen.traceability.co2Saved') || 'CO₂ Saved'}</Text>
                     </View>
                   </View>
                 </View>
@@ -227,7 +234,7 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
 
               {/* Quick Actions Title */}
               <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Quick Actions</Text>
+                <Text style={styles.sectionTitle}>{t('citizen.dashboard.activityOverview')}</Text>
               </View>
 
               {/* 4-Grid Quick Actions */}
@@ -237,14 +244,14 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
                   style={[styles.quickActionTile, styles.quickActionSubmit]}
                   onPress={handleOpenSubmit}
                   accessibilityRole="button"
-                  accessibilityLabel="Submit E-Waste"
+                  accessibilityLabel={t('citizen.dashboard.submitNewEwaste')}
                   activeOpacity={0.8}
                 >
                   <View style={styles.submitIconCircle}>
                     <Text style={styles.submitPlusIcon}>+</Text>
                   </View>
-                  <Text style={styles.quickActionSubmitText}>Submit</Text>
-                  <Text style={styles.quickActionSubmitSubtext}>E-Waste</Text>
+                  <Text style={styles.quickActionSubmitText}>{t('nav.submit')}</Text>
+                  <Text style={styles.quickActionSubmitSubtext}>{t('ewaste.ewaste')}</Text>
                 </TouchableOpacity>
 
                 {/* My Requests Action */}
@@ -252,12 +259,11 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
                   style={styles.quickActionTile}
                   onPress={handleOpenRequests}
                   accessibilityRole="button"
-                  accessibilityLabel="My Requests"
+                  accessibilityLabel={t('citizen.requests.title')}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.quickActionIcon}>📄</Text>
-                  <Text style={styles.quickActionLabel}>My</Text>
-                  <Text style={styles.quickActionLabel}>Requests</Text>
+                  <Text style={styles.quickActionLabel}>{t('nav.requests')}</Text>
                 </TouchableOpacity>
 
                 {/* Traceability Action */}
@@ -265,11 +271,11 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
                   style={styles.quickActionTile}
                   onPress={handleOpenTraceability}
                   accessibilityRole="button"
-                  accessibilityLabel="Traceability"
+                  accessibilityLabel={t('citizen.traceability.title')}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.quickActionIcon}>🔍</Text>
-                  <Text style={styles.quickActionLabel}>Traceability</Text>
+                  <Text style={styles.quickActionLabel}>{t('citizen.traceability.title')}</Text>
                 </TouchableOpacity>
 
                 {/* Notifications Action */}
@@ -277,20 +283,20 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
                   style={styles.quickActionTile}
                   onPress={handleOpenNotifications}
                   accessibilityRole="button"
-                  accessibilityLabel="Notifications"
+                  accessibilityLabel={t('nav.alerts')}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.quickActionIcon}>🔔</Text>
-                  <Text style={styles.quickActionLabel}>Alerts</Text>
+                  <Text style={styles.quickActionLabel}>{t('nav.alerts')}</Text>
                 </TouchableOpacity>
               </View>
 
               {/* Recent Requests Section */}
               <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Recent Requests</Text>
+                <Text style={styles.sectionTitle}>{t('citizen.dashboard.recentRequests')}</Text>
                 {requests.length > 0 && (
                   <TouchableOpacity onPress={handleOpenRequests}>
-                    <Text style={styles.viewAllLink}>View All ({requests.length}) ›</Text>
+                    <Text style={styles.viewAllLink}>{t('citizen.dashboard.viewAll')} ({requests.length}) ›</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -298,19 +304,18 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
               {requests.length === 0 ? (
                 <GlassCard variant="standard" style={styles.emptyCard}>
                   <Text style={styles.emptyIcon}>♻</Text>
-                  <Text style={styles.emptyTitle}>No activity yet. Start by submitting your e-waste!</Text>
+                  <Text style={styles.emptyTitle}>{t('citizen.dashboard.noActivityMessage')}</Text>
                   <Text style={styles.emptySubtitle}>
-                    Ready to recycle? Submit your electronics to request doorstep collection.
+                    {t('citizen.dashboard.greetingSubtitle')}
                   </Text>
                   <TouchableOpacity
                     style={[styles.emptySubmitBtn, styles.primaryActionButton]}
                     onPress={handleOpenSubmit}
                     accessibilityRole="button"
-                    accessibilityLabel="Submit Your First Item"
+                    accessibilityLabel={t('citizen.dashboard.submitFirstItem')}
                   >
-                    <Text style={styles.emptySubmitBtnText}>+ Submit Your First Item</Text>
+                    <Text style={styles.emptySubmitBtnText}>+ {t('citizen.dashboard.submitFirstItem')}</Text>
                   </TouchableOpacity>
-                  {/* actionLabel="Submit Your First Item" */}
                 </GlassCard>
               ) : (
                 <View style={styles.requestsList}>

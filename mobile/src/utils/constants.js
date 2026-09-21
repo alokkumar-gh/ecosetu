@@ -101,8 +101,10 @@ export const NOTIFICATION_TYPES = Object.freeze({
 export const QUEUE_STATUS = Object.freeze({
   PENDING: 'PENDING',
   PROCESSING: 'PROCESSING',
+  SYNCING: 'SYNCING',
   SYNCED: 'SYNCED',
   FAILED: 'FAILED',
+  CONFLICT: 'CONFLICT',
 });
 
 // Offline Queue Action Types
@@ -111,6 +113,9 @@ export const QUEUE_ACTION_TYPES = Object.freeze({
   CREATE_REQUEST: 'CREATE_REQUEST',
   COMPLETE_PICKUP: 'COMPLETE_PICKUP',
   CREATE_CONSIGNMENT: 'CREATE_CONSIGNMENT',
+  CREATE_MATERIAL_LOT: 'CREATE_MATERIAL_LOT',
+  CREATE_MATERIAL_ITEM: 'CREATE_MATERIAL_ITEM',
+  UPDATE_COLLECTOR_PROFILE: 'UPDATE_COLLECTOR_PROFILE',
 });
 
 // Persistent Storage Keys
@@ -123,10 +128,120 @@ export const STORAGE_KEYS = Object.freeze({
   CACHE_ITEMS: '@ecosetu_cache_items',
   CACHE_REQUESTS: '@ecosetu_cache_requests',
   CACHE_PICKUPS: '@ecosetu_cache_pickups',
+  CACHE_MATERIAL_LOTS: '@ecosetu_cache_material_lots',
+  CACHE_MATERIAL_ITEMS: '@ecosetu_cache_material_items',
+  CACHE_PRICES: '@ecosetu_cache_prices',
+  CACHE_PRICES_TIMESTAMP: '@ecosetu_cache_prices_timestamp',
+  CACHE_PRICE_HISTORY: '@ecosetu_cache_price_history',
+  CACHE_PRICE_HISTORY_TIMESTAMP: '@ecosetu_cache_price_history_timestamp',
+  CACHE_RECYCLER_MATCHES_PREFIX: '@ecosetu_cache_matches_',
+  CACHE_RECYCLER_MATCHES_TIMESTAMP_PREFIX: '@ecosetu_cache_matches_ts_',
+  CACHE_LOT_QUOTES_PREFIX: '@ecosetu_cache_quotes_',
+  CACHE_LOT_QUOTES_TIMESTAMP_PREFIX: '@ecosetu_cache_quotes_ts_',
+  CACHE_HANDOVER_PREFIX: '@ecosetu_cache_handover_',
+  CACHE_HANDOVER_TIMESTAMP_PREFIX: '@ecosetu_cache_handover_ts_',
+  CACHE_LOT_HANDOVERS_PREFIX: '@ecosetu_cache_lot_handovers_',
+  CACHE_LOT_HANDOVERS_TIMESTAMP_PREFIX: '@ecosetu_cache_lot_handovers_ts_',
   LANGUAGE: '@ecosetu_language',
   VOICE_ASSISTANCE: '@ecosetu_voice_assistance',
   CAROUSEL_COMPLETED: '@ecosetu_carousel_completed',
 });
+
+// SIH 26229 Quote Statuses
+export const QUOTE_STATUS = Object.freeze({
+  SENT: 'SENT',
+  VIEWED: 'VIEWED',
+  ACCEPTED: 'ACCEPTED',
+  REJECTED: 'REJECTED',
+  EXPIRED: 'EXPIRED',
+  CANCELLED: 'CANCELLED',
+});
+
+// SIH 26229 Handover Statuses
+export const HANDOVER_STATUS = Object.freeze({
+  PENDING_COLLECTOR: 'PENDING_COLLECTOR',
+  COLLECTOR_CONFIRMED: 'COLLECTOR_CONFIRMED',
+  RECYCLER_CONFIRMED: 'RECYCLER_CONFIRMED',
+  CONFIRMED: 'CONFIRMED',
+  CANCELLED: 'CANCELLED',
+});
+
+
+// SIH 26229 Pickup Availability
+export const PICKUP_AVAILABILITY = Object.freeze({
+  AVAILABLE: 'AVAILABLE',
+  NOT_AVAILABLE: 'NOT_AVAILABLE',
+  UNKNOWN: 'UNKNOWN',
+});
+
+// SIH 26229 Match Status
+export const MATCH_STATUS = Object.freeze({
+  MATCHED: 'MATCHED',
+  PARTIAL_MATCH: 'PARTIAL_MATCH',
+  NOT_ELIGIBLE: 'NOT_ELIGIBLE',
+});
+
+// SIH 26229 Price Units
+export const PRICE_UNITS = Object.freeze({
+  PER_KG: 'PER_KG',
+  PER_UNIT: 'PER_UNIT',
+  PER_LOT: 'PER_LOT',
+});
+
+// SIH 26229 Price Sources
+export const PRICE_SOURCES = Object.freeze({
+  ADMIN_VERIFIED: 'ADMIN_VERIFIED',
+  RECYCLER_OFFER: 'RECYCLER_OFFER',
+  IMPORTED_MARKET_DATA: 'IMPORTED_MARKET_DATA',
+});
+
+// SIH 26229 Price Statuses
+export const PRICE_STATUSES = Object.freeze({
+  ACTIVE: 'ACTIVE',
+  EXPIRED: 'EXPIRED',
+  PENDING_REVIEW: 'PENDING_REVIEW',
+  REJECTED: 'REJECTED',
+});
+
+// SIH 26229 Material Categories
+export const MATERIAL_CATEGORIES = Object.freeze({
+  CRT: 'CRT',
+  LCD_PANEL: 'LCD_PANEL',
+  PCB: 'PCB',
+  CABLE: 'CABLE',
+  BATTERY: 'BATTERY',
+  MOTOR: 'MOTOR',
+  MAGNET_ASSEMBLY: 'MAGNET_ASSEMBLY',
+  MIXED_PLASTIC: 'MIXED_PLASTIC',
+  MOBILE_PHONE: 'MOBILE_PHONE',
+  LAPTOP: 'LAPTOP',
+  MONITOR: 'MONITOR',
+  PRINTER: 'PRINTER',
+  KEYBOARD_MOUSE: 'KEYBOARD_MOUSE',
+  DESKTOP_COMPUTER: 'DESKTOP_COMPUTER',
+  TABLET: 'TABLET',
+  OTHER: 'OTHER',
+});
+
+// SIH 26229 Material Source Types
+export const MATERIAL_SOURCE_TYPES = Object.freeze({
+  HOUSEHOLD: 'HOUSEHOLD',
+  COMMERCIAL: 'COMMERCIAL',
+  INDUSTRIAL: 'INDUSTRIAL',
+  STREET: 'STREET',
+  OTHER: 'OTHER',
+});
+
+// SIH 26229 Material Lot Statuses
+export const MATERIAL_LOT_STATUS = Object.freeze({
+  DRAFT: 'DRAFT',
+  OPEN: 'OPEN',
+  QUOTED: 'QUOTED',
+  ACCEPTED: 'ACCEPTED',
+  HANDOVER_PENDING: 'HANDOVER_PENDING',
+  COMPLETED: 'COMPLETED',
+});
+
 
 // Canonical Backend API URLs
 export const PRODUCTION_API_BASE_URL = 'https://ecosetu-backend.onrender.com/api/v1';
@@ -172,3 +287,17 @@ export const ADDRESS_TYPES = Object.freeze({
   OFFICE: 'OFFICE',
   OTHER: 'OTHER',
 });
+
+// Recycler Authorization Statuses
+export const RECYCLER_AUTHORIZATION_STATUS = Object.freeze({
+  AUTHORIZED: 'AUTHORIZED',
+  PROVISIONAL: 'PROVISIONAL',
+  PENDING: 'PENDING',
+  PENDING_REVIEW: 'PENDING_REVIEW', // Compatibility alias for PENDING
+  REJECTED: 'REJECTED',
+  SUSPENDED: 'SUSPENDED',
+  EXPIRED: 'EXPIRED',
+  INACTIVE: 'INACTIVE',
+  REVOKED: 'REVOKED',
+});
+

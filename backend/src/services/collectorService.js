@@ -23,7 +23,7 @@ class CollectorService {
    * @returns {Promise<object>} Collector profile with user data
    */
   async getProfile(userId) {
-    const profile = await prisma.collectorProfile.findUnique({
+    let profile = await prisma.collectorProfile.findUnique({
       where: { userId },
       include: {
         user: CollectorService.USER_INCLUDE_FIELDS,
@@ -31,7 +31,25 @@ class CollectorService {
     });
 
     if (!profile) {
-      throw AppError.notFound('Collector profile not found');
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: CollectorService.USER_INCLUDE_FIELDS.select,
+      });
+
+      if (!user) {
+        throw AppError.notFound('Collector profile not found');
+      }
+
+      profile = await prisma.collectorProfile.create({
+        data: {
+          userId,
+          preferredLanguage: 'en',
+          isAvailable: true,
+        },
+        include: {
+          user: CollectorService.USER_INCLUDE_FIELDS,
+        },
+      });
     }
 
     return profile;
@@ -43,7 +61,7 @@ class CollectorService {
    * @param {object} profileData - Profile details
    * @returns {Promise<object>} Upserted profile
    */
-  async upsertProfile(userId, { serviceAreaLat, serviceAreaLng, serviceRadiusKm, serviceArea, city, state, pincode, bio }) {
+  async upsertProfile(userId, { serviceAreaLat, serviceAreaLng, serviceRadiusKm, serviceArea, city, state, pincode, bio, preferredLanguage }) {
     const data = {};
 
     if (serviceAreaLat !== undefined) {
@@ -69,6 +87,13 @@ class CollectorService {
     }
     if (bio !== undefined) {
       data.bio = bio ? bio.trim() : null;
+    }
+    if (preferredLanguage !== undefined) {
+      const allowedLangs = ['en', 'hi', 'mr', 'or'];
+      if (preferredLanguage && !allowedLangs.includes(preferredLanguage)) {
+        throw AppError.badRequest('Invalid preferred language code. Supported: en, hi, mr, or');
+      }
+      data.preferredLanguage = preferredLanguage || 'en';
     }
 
     const profile = await prisma.collectorProfile.upsert({

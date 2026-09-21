@@ -32,13 +32,29 @@ class RecyclerController {
   }
 
   /**
-   * List all verified recyclers
+   * List all verified recyclers (directory)
    * GET /api/v1/recyclers
    */
   async listRecyclers(req, res, next) {
     try {
-      const recyclers = await recyclerService.listVerifiedRecyclers(req.query.category);
-      return sendSuccess(res, { recyclers }, 200);
+      const result = await recyclerService.listVerifiedRecyclers(req.query);
+      return sendSuccess(res, result, 200);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Get single recycler facility details
+   * GET /api/v1/recyclers/:id
+   */
+  async getRecyclerById(req, res, next) {
+    try {
+      const recycler = await recyclerService.getRecyclerById(req.params.id, {
+        lat: req.query.lat,
+        lng: req.query.lng,
+      });
+      return sendSuccess(res, { recycler }, 200);
     } catch (err) {
       next(err);
     }

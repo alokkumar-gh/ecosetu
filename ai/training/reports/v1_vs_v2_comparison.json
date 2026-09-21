@@ -1,0 +1,74 @@
+{
+  "comparison_metadata": {
+    "generated_at": "2026-09-21T03:35:00Z",
+    "production_status": "BASELINE V2 — EVALUATION REQUIRED",
+    "evaluation_policy": "Threshold selected on validation data only; held-out test evaluated once at operational threshold"
+  },
+  "dataset_specifications": {
+    "version": "material-detection-v0.1.0",
+    "source": "XBAT+ WEEE RGB (Zenodo DOI: 10.5281/zenodo.18022530)",
+    "total_images": 142,
+    "train_images": 99,
+    "val_images": 28,
+    "test_images": 15,
+    "classes": [
+      "KEYBOARD_MOUSE",
+      "MOBILE_PHONE",
+      "TABLET"
+    ]
+  },
+  "hyperparameter_deltas": {
+    "baseline_v1": {
+      "model_version": "material-detection-v0.1.0",
+      "architecture": "YOLOv8n",
+      "storage_directory": "/content/drive/MyDrive/ECOSETU_AI/models/material-detection/material-detection-v0.1.0/",
+      "initial_lr_lr0": 0.01,
+      "final_lr_lrf": 0.01,
+      "patience": 20,
+      "epochs_requested": 100,
+      "actual_epochs": 21,
+      "best_epoch": 2,
+      "early_stopping_triggered": true,
+      "seed": 42
+    },
+    "experiment_v2": {
+      "model_version": "material-detection-v0.2.0",
+      "architecture": "YOLOv8n",
+      "storage_directory": "/content/drive/MyDrive/ECOSETU_AI/models/material-detection/material-detection-v0.2.0/",
+      "initial_lr_lr0": 0.001,
+      "final_lr_lrf": 0.01,
+      "patience": 30,
+      "epochs_requested": 100,
+      "seed": 42,
+      "controlled_rationale": "Conservative 10x lower lr0 (0.001) with extended patience (30) to stabilize gradient steps on 99-image training set and prevent early plateau at Epoch 2."
+    }
+  },
+  "baseline_v1_measured_results": {
+    "validation": {
+      "precision_at_001": 0.0034,
+      "recall_at_001": 1.0,
+      "map50": 0.2386,
+      "map50_95": 0.1725
+    },
+    "held_out_test": {
+      "precision_at_001": 0.0034,
+      "recall_at_001": 1.0,
+      "map50": 0.1709,
+      "map50_95": 0.0950,
+      "operational_precision_conf_025": 0.4118,
+      "operational_recall_conf_025": 0.9333,
+      "high_precision_conf_050": 0.6875,
+      "high_recall_conf_050": 0.7333
+    }
+  },
+  "v2_evaluation_criteria": {
+    "validation_operating_thresholds_to_evaluate": [
+      0.10,
+      0.25,
+      0.50,
+      0.75
+    ],
+    "threshold_selection_rule": "Select threshold maximizing F1 score strictly on the 28-image validation split.",
+    "test_evaluation_rule": "Execute test inference exactly once on the 15-image held-out test split using the selected validation threshold. No tuning on test results."
+  }
+}

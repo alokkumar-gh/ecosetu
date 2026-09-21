@@ -26,6 +26,8 @@ import { GradientBackground } from '../../components/glass/GradientBackground';
 import { GlassCard } from '../../components/glass/GlassCard';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { AuthorizedImage } from '../../components/common/AuthorizedImage';
+import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
 
 interface Props {
   navigation?: any;
@@ -485,7 +487,13 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
                 #CSG-{consignment.id.slice(0, 8).toUpperCase()}
               </Text>
             </View>
-            <StatusBadge status={consignment.status} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.spaceSm }}>
+              <StatusBadge status={consignment.status} />
+              <ReadAloudButton
+                text={`Consignment ${consignment.id.slice(0, 8)}. Status is ${consignment.status.replace(/_/g, ' ')}. Total items: ${itemCount}, total weight: ${totalWeight}.`}
+                size="small"
+              />
+            </View>
           </View>
 
           {/* Timeline Dates */}
@@ -776,6 +784,13 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
               const itemWeight = item.actualWeightKg || item.estimatedWeightKg;
               return (
                 <View key={item.id || index} style={styles.itemRow}>
+                  {item.imageUrl ? (
+                    <AuthorizedImage
+                      uri={item.imageUrl}
+                      style={{ width: 44, height: 44, borderRadius: 6, marginRight: spacing.spaceSm }}
+                      allowFullscreen
+                    />
+                  ) : null}
                   <View style={styles.itemLeft}>
                     <Text style={styles.itemCategory}>
                       {item.category?.replace(/_/g, ' ') || 'E-Waste Item'}

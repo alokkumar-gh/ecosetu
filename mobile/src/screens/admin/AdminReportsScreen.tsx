@@ -39,6 +39,7 @@ import { useI18n } from '../../i18n';
 import { ROLES, EWASTE_CATEGORIES, REQUEST_STATUS } from '../../utils/constants';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
 
 interface Props {
   navigation?: any;
@@ -357,6 +358,14 @@ export const AdminReportsScreen: React.FC<Props> = ({ navigation }) => {
 
       {/* Export Action Controls */}
       <View style={styles.exportBar}>
+        <ReadAloudButton
+          variant="compact"
+          text={() =>
+            `${t('admin.reports.platformOverview') || 'Platform Overview'}. ${t('admin.reports.stepItemsSubmitted') || 'Items'}: ${analytics?.funnel?.itemsSubmitted ?? 0}. ${t('admin.reports.stepPickupsCompleted') || 'Pickups'}: ${analytics?.funnel?.pickupsCompleted ?? 0}. ${t('admin.reports.totalRecycledWeight') || 'Recycled Weight'}: ${analytics?.totalRecycledWeight ?? 0} kg.`
+          }
+          accessibilityLabel={t('voice.readAloud') || 'Read Aloud'}
+        />
+
         <TouchableOpacity
           style={[styles.exportButton, styles.exportButtonCsv]}
           onPress={handleExportCsv}

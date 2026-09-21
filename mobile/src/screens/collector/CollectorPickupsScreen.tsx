@@ -65,6 +65,7 @@ import { useI18n } from '../../i18n';
 import { voiceService, AnnouncementPriority } from '../../services/voiceService';
 import { useCollectorVoice } from '../../context/CollectorVoiceContext';
 import { EcoSetuBackground } from '../../components/eco';
+import { AuthorizedImage } from '../../components/common/AuthorizedImage';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -760,6 +761,15 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
           </Text>
           {items.map((it: any, idx: number) => (
             <View key={it.id || idx} style={styles.itemRow}>
+              {Boolean(it.imageUrl) && (
+                <View style={{ width: 44, height: 44, borderRadius: 6, overflow: 'hidden', marginRight: 8 }}>
+                  <AuthorizedImage
+                    uri={it.imageUrl}
+                    style={{ width: 44, height: 44 }}
+                    categoryLabel={it.category}
+                  />
+                </View>
+              )}
               <Text style={styles.itemBullet}>•</Text>
               <Text style={styles.itemDesc}>
                 {it.category}
@@ -812,7 +822,7 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
 
         {/* Action Controls */}
         <View style={styles.actionContainer}>
-          {/* View Map & Navigation Button */}
+          {/* View Details Button */}
           <TouchableOpacity
             style={[styles.actionBtn, styles.mapNavBtn]}
             onPress={() =>
@@ -822,12 +832,12 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
               })
             }
             accessibilityRole="button"
-            accessibilityLabel={`${t('collector.pickups.viewMapAndNavigation') || 'View Map & Navigation'} for pickup ${item.id ? String(item.id).slice(0, 8).toUpperCase() : ''}`}
-            accessibilityHint="Opens exact pickup map, structured address, and Google Maps navigation"
+            accessibilityLabel={`${t('collector.pickups.pickupDetails') || 'View Details'} for pickup ${item.id ? String(item.id).slice(0, 8).toUpperCase() : ''}`}
+            accessibilityHint="Opens pickup details, map, and items"
             activeOpacity={0.8}
           >
             <Text style={styles.mapNavBtnText}>
-              🗺 {t('collector.pickups.viewMapAndNavigation') || 'View Map & Navigation'}
+              🔍 {t('collector.pickups.pickupDetails') || 'View Details'}
             </Text>
           </TouchableOpacity>
 

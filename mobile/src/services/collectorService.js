@@ -133,25 +133,85 @@ class CollectorService {
   }
 
   /**
+   * Alias for getProfile()
+   */
+  async getCollectorProfile() {
+    return this.getProfile();
+  }
+
+  /**
    * Create or update collector profile details.
-   * Endpoint: PUT /api/v1/collectors/profile
-   * Editable fields: bio (<= 500 chars), serviceRadiusKm (1-50 km), serviceAreaLat, serviceAreaLng
+   * Endpoint: PUT /api/v1/collectors/profile or PATCH /api/v1/collectors/profile
+   * Editable fields: serviceArea, city, state, pincode, preferredLanguage, bio, serviceRadiusKm
    * Protected fields: id, userId, totalPickups, idDocumentUrl, createdAt, updatedAt
    *
-   * @param {object} fields - { bio?: string, serviceRadiusKm?: number, serviceAreaLat?: number, serviceAreaLng?: number }
+   * @param {object} fields - Profile update fields
    * @returns {Promise<object>} Updated collector profile
    */
   async updateCollectorProfile(fields) {
     if (!networkService.isConnected()) {
-      throw Object.assign(
-        new Error('Collector profile updates require an internet connection.'),
-        { isOfflineError: true },
-      );
+      const cached = (await _readCache(CACHE_COLLECTOR_PROFILE)) || {};
+      const updated = {
+        ...cached,
+        ...fields,
+        isPendingSync: true,
+        updatedAt: new Date().toISOString(),
+      };
+      await _writeCache(CACHE_COLLECTOR_PROFILE, updated);
+
+      // Enqueue to offline queue for automatic sync upon reconnection
+      try {
+        const { offlineQueue } = require('./offlineQueue.js');
+        await offlineQueue.enqueue({
+          type: 'UPDATE_COLLECTOR_PROFILE',
+          endpoint: '/collectors/profile',
+          method: 'PUT',
+          payload: fields,
+          localId: cached.id || 'collector_profile',
+        });
+      } catch (queueErr) {
+        console.warn('[CollectorService] Failed to enqueue profile update:', queueErr);
+      }
+
+      return updated;
     }
-    const response = await apiClient.put('/collectors/profile', fields);
-    const profile = response.data?.profile || response.data;
-    if (profile) await _writeCache(CACHE_COLLECTOR_PROFILE, profile);
-    return profile;
+
+    try {
+      const response = await apiClient.put('/collectors/profile', fields);
+      const profile = response.data?.profile || response.data;
+      if (profile) {
+        await _writeCache(CACHE_COLLECTOR_PROFILE, { ...profile, isPendingSync: false });
+      }
+      return { ...(profile || {}), isPendingSync: false };
+    } catch (err) {
+      if (err.isNetworkError || !networkService.isConnected()) {
+        const cached = (await _readCache(CACHE_COLLECTOR_PROFILE)) || {};
+        const updated = {
+          ...cached,
+          ...fields,
+          isPendingSync: true,
+          updatedAt: new Date().toISOString(),
+        };
+        await _writeCache(CACHE_COLLECTOR_PROFILE, updated);
+
+        // Enqueue to offline queue for automatic sync upon reconnection
+        try {
+          const { offlineQueue } = require('./offlineQueue.js');
+          await offlineQueue.enqueue({
+            type: 'UPDATE_COLLECTOR_PROFILE',
+            endpoint: '/collectors/profile',
+            method: 'PUT',
+            payload: fields,
+            localId: cached.id || 'collector_profile',
+          });
+        } catch (queueErr) {
+          console.warn('[CollectorService] Failed to enqueue profile update on network error:', queueErr);
+        }
+
+        return updated;
+      }
+      throw err;
+    }
   }
 
   /**

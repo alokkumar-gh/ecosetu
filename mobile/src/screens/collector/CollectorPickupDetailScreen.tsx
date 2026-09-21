@@ -1,30 +1,20 @@
 /**
  * CollectorPickupDetailScreen.tsx
- * Authenticated INFORMAL_COLLECTOR — Accepted Pickup Detail & Exact Map Navigation.
+ * Authenticated INFORMAL_COLLECTOR — State-Driven Doorstep Pickup Management.
  *
- * Operational Chain:
- *   CITIZEN → COLLECTION REQUEST → INFORMAL COLLECTOR ACCEPTS
- *   → PICKUP SCHEDULED → PICKUP IN PROGRESS → PICKUP COMPLETED
+ * Server State Machine:
+ *   REQUEST -> ACCEPTED -> PICKUP SCHEDULED -> START PICKUP -> COMPLETE PICKUP
  *
- * PRIVACY RULES (CRITICAL):
- * - Before authoritative acceptance:
- *     DO NOT render exact coordinates or exact address fields.
- *     DO NOT reconstruct exact coordinates on client.
- *     DO NOT call external geocoding/places/directions APIs.
- * - After authoritative acceptance:
- *     The backend authoritatively discloses exact coordinates and structured address.
- *     Render exact location on EcoSetuMap and structured address breakdown.
- *     Provide external Google Maps navigation intent via Linking.openURL.
+ * Operational UX Invariant:
+ * - SCHEDULED: ONE primary action -> "Start Pickup"
+ * - IN_PROGRESS: ONE primary action -> "Complete Pickup"
+ * - COMPLETED: No action CTA -> Clean completion receipt
+ * - CANCELLED / FAILED: Terminal information state
+ * - Navigation intent is secondary and strictly authorized
+ * - E-Waste items render authentic authorized citizen photo previews
+ * - Fully accessible with on-device Read Aloud voice assistance
  *
- * EXTERNAL NAVIGATION:
- * - Direct intent to device navigation application (google.navigation:q=lat,lng / geo:lat,lng).
- * - ZERO internal turn-by-turn routing or Directions API.
- *
- * Source of Truth:
- *   docs/05_API_SPECIFICATION.md Section 8
- *   docs/07_BUSINESS_WORKFLOWS.md Section 2.2
- *   docs/08_UI_UX_SPECIFICATION.md
- *   docs/13_SECURITY_PRIVACY.md
+ * Source of Truth: docs/05_API_SPECIFICATION.md, docs/08_UI_UX_SPECIFICATION.md
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -40,6 +30,9 @@ import {
   Linking,
   Platform,
   RefreshControl,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 import { useNetwork } from '../../hooks/useNetwork';
@@ -48,7 +41,11 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { Skeleton } from '../../components/common/Skeleton';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { EcoSetuMap } from '../../components/map/EcoSetuMap';
-import { getCurrentLocation } from '../../services/locationService';
+import { AuthorizedImage } from '../../components/common/AuthorizedImage';
+import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
+import { EcoSetuBackground } from '../../components/eco';
+import { GlassCard } from '../../components/glass/GlassCard';
+import { GlassButton } from '../../components/glass/GlassButton';
 import { collectorService } from '../../services/collectorService';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
@@ -104,14 +101,6 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
   const { t, language } = useI18n();
   const { setSelectedEntity, registerActions } = useCollectorVoice();
 
-  const [isVoiceEnabled, setIsVoiceEnabled] = useState<boolean>(false);
-
-  useEffect(() => {
-    voiceService.isVoiceAssistanceEnabled().then(setIsVoiceEnabled);
-    const unsub = voiceService.subscribe(setIsVoiceEnabled);
-    return () => unsub();
-  }, []);
-
   const pickupId = route?.params?.pickupId;
   const initialPickup = route?.params?.pickup;
 
@@ -120,14 +109,17 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // User location trigger state
-  const [isLocating, setIsLocating] = useState<boolean>(false);
-  const [collectorLoc, setCollectorLoc] = useState<{ latitude: number; longitude: number } | null>(null);
-
   // Per-action loading state
   const [isActionLoading, setIsActionLoading] = useState<boolean>(false);
 
-  // Load pickup details if not provided in route params
+  // Completion modal state
+  const [isCompleteModalVisible, setIsCompleteModalVisible] = useState<boolean>(false);
+  const [itemWeights, setItemWeights] = useState<{ [itemId: string]: string }>({});
+  const [collectorNotes, setCollectorNotes] = useState<string>('');
+  const [isSubmittingCompletion, setIsSubmittingCompletion] = useState<boolean>(false);
+  const [completionError, setCompletionError] = useState<string | null>(null);
+
+  // Load pickup details
   const loadPickupDetails = useCallback(async (silent = false) => {
     if (!silent) setError(null);
     try {
@@ -147,195 +139,98 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
       if (found) {
         setPickup(found);
       } else if (!pickup) {
-        setError('Pickup details could not be found.');
+        setError(t('collector.pickups.notFoundMessage') || 'Pickup details could not be found.');
       }
     } catch (err: any) {
-      if (!pickup) {
-        setError(err?.response?.data?.message || err?.message || 'Failed to load pickup details.');
+      if (!silent) {
+        setError(err?.response?.data?.message || err?.message || 'Could not load pickup details.');
       }
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [pickupId, pickup]);
+  }, [pickupId, pickup, t]);
 
   useEffect(() => {
-    if (!pickup) {
-      loadPickupDetails(false);
-    }
-  }, [loadPickupDetails, pickup]);
+    loadPickupDetails(false);
+  }, [loadPickupDetails]);
 
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
     loadPickupDetails(true);
   }, [loadPickupDetails]);
 
-  // Request & Status extraction
-  const req = pickup?.collectionRequest || route?.params?.request || {};
-  const items = req.ewasteItems || [];
-  const status = pickup?.status || PICKUP_STATUS.SCHEDULED;
+  // Derived state
+  const status: string = pickup?.status || PICKUP_STATUS.SCHEDULED;
+  const req = pickup?.collectionRequest || {};
+  const items: any[] = req.ewasteItems || [];
 
   const isScheduled = status === PICKUP_STATUS.SCHEDULED;
   const isInProgress = status === PICKUP_STATUS.IN_PROGRESS;
   const isCompleted = status === PICKUP_STATUS.COMPLETED;
+  const isCancelled = status === PICKUP_STATUS.CANCELLED;
+  const isFailed = status === PICKUP_STATUS.FAILED;
 
-  // ── Strict State-Gated Privacy Authorization ──────────────────────────────
-  // Authorized ONLY when the request is confirmed assigned to this collector
-  const isAuthorized = useMemo(() => {
-    if (!pickup) return false;
-    const s = String(pickup.status || '').toUpperCase();
-    const reqStatus = String(req.status || '').toUpperCase();
+  // Authorization check: collector can view exact coordinates once assigned
+  const isAuthorized = Boolean(
+    pickup?.collectorId ||
+    req.status === REQUEST_STATUS.ACCEPTED ||
+    req.status === REQUEST_STATUS.PICKUP_SCHEDULED ||
+    req.status === REQUEST_STATUS.PICKED_UP ||
+    isScheduled ||
+    isInProgress ||
+    isCompleted
+  );
 
-    const isPickupActive =
-      s === PICKUP_STATUS.SCHEDULED ||
-      s === PICKUP_STATUS.IN_PROGRESS ||
-      s === PICKUP_STATUS.COMPLETED;
+  const exactLat = typeof req.pickupLat === 'number'
+    ? req.pickupLat
+    : parseFloat(req.pickupLat || '0');
+  const exactLng = typeof req.pickupLng === 'number'
+    ? req.pickupLng
+    : parseFloat(req.pickupLng || '0');
+  const hasValidCoordinates = !isNaN(exactLat) && !isNaN(exactLng) && (exactLat !== 0 || exactLng !== 0);
 
-    const isRequestAccepted =
-      reqStatus === REQUEST_STATUS.ACCEPTED ||
-      reqStatus === REQUEST_STATUS.PICKUP_SCHEDULED ||
-      reqStatus === REQUEST_STATUS.PICKED_UP;
+  // Total estimated weight
+  const totalEstWeight = useMemo(() => {
+    return items.reduce((sum: number, it: any) => sum + (Number(it.estimatedWeightKg) || 0), 0);
+  }, [items]);
 
-    return isPickupActive || isRequestAccepted;
-  }, [pickup, req.status]);
+  // Total verified weight in modal
+  const calculatedTotalWeight = useMemo(() => {
+    return Object.values(itemWeights).reduce((sum, w) => {
+      const parsed = parseFloat(w);
+      return sum + (isNaN(parsed) ? 0 : parsed);
+    }, 0);
+  }, [itemWeights]);
 
-  // Exact coordinates safely parsed
-  const exactLat = typeof req.pickupLat === 'number' ? req.pickupLat : parseFloat(req.pickupLat);
-  const exactLng = typeof req.pickupLng === 'number' ? req.pickupLng : parseFloat(req.pickupLng);
-  const hasValidCoordinates =
-    isAuthorized &&
-    !isNaN(exactLat) &&
-    !isNaN(exactLng) &&
-    exactLat >= -90 &&
-    exactLat <= 90 &&
-    exactLng >= -180 &&
-    exactLng <= 180;
+  // Doorstep address string
+  const doorstepAddress = req.pickupAddress || [req.houseNumber, req.street, req.landmark, req.city, req.pincode].filter(Boolean).join(', ') || '';
 
-  // ── "Use My Location" user-triggered handler (no background tracking) ─────
-  const handleUseMyLocation = useCallback(async () => {
-    setIsLocating(true);
-    try {
-      const res = await getCurrentLocation();
-      if (res.success && res.coords) {
-        setCollectorLoc({ latitude: res.coords.latitude, longitude: res.coords.longitude });
-        Alert.alert(
-          t('collector.browse.useMyLocation') || 'My Location',
-          'Current position updated on map view.'
-        );
-      } else {
-        Alert.alert(
-          t('location.permissionRequiredTitle') || 'Location Permission',
-          t('location.permissionRequiredMessage') || 'Permission is required to determine your current position.'
-        );
-      }
-    } catch (err: any) {
-      Alert.alert(
-        t('location.permissionRequiredTitle') || 'Location Permission',
-        t('location.permissionRequiredMessage') || 'Permission is required to determine your current position.'
-      );
-    } finally {
-      setIsLocating(false);
-    }
-  }, [t]);
-
-  // ── External Google Maps Navigation Launcher ──────────────────────────────
-  const handleNavigateToPickup = useCallback(async () => {
-    if (!isAuthorized || !hasValidCoordinates) {
-      Alert.alert(
-        t('collector.pickups.navigationUnavailable') || 'Navigation Unavailable',
-        t('collector.pickups.navigationRequiresAcceptance') || 'Exact location and navigation are available after request acceptance.'
-      );
-      return;
-    }
-
-    if (!isConnected) {
-      Alert.alert(
-        t('collector.browse.offlineAlert') || 'Offline',
-        t('collector.pickups.navigationUnavailableDesc') || 'An internet connection is required to launch navigation.'
-      );
-      return;
-    }
-
-    // Android Google Maps Intent URLs
-    const navUrl = `google.navigation:q=${exactLat},${exactLng}`;
-    const geoUrl = `geo:${exactLat},${exactLng}?q=${exactLat},${exactLng}(Pickup Location)`;
-    const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${exactLat},${exactLng}`;
-
-    try {
-      const canOpenNav = await Linking.canOpenURL(navUrl);
-      if (canOpenNav) {
-        await Linking.openURL(navUrl);
-        return;
-      }
-    } catch {
-      // Fall through to geo intent or browser
-    }
-
-    try {
-      const canOpenGeo = await Linking.canOpenURL(geoUrl);
-      if (canOpenGeo) {
-        await Linking.openURL(geoUrl);
-        return;
-      }
-    } catch {
-      // Fall through to web
-    }
-
-    try {
-      await Linking.openURL(webUrl);
-    } catch {
-      Alert.alert(
-        t('collector.pickups.navigationUnavailable') || 'Navigation Unavailable',
-        t('collector.pickups.navigationUnavailableDesc') || 'Unable to launch maps navigation application on this device.'
-      );
-    }
-  }, [isAuthorized, hasValidCoordinates, isConnected, exactLat, exactLng, t]);
-
-  // ── Manual Read Aloud for Authorized Pickup Details ──────────────────────
-  const handleReadAloudAuthorizedPickup = useCallback(() => {
+  const handleReadAloudAuthorizedPickup = useCallback(async () => {
     if (!isAuthorized) return;
-    const st = String(status || '').replace(/_/g, ' ').toLowerCase();
     const parts = [
-      `Pickup status: ${st}.`,
-      req.houseNumber || req.street ? `Address: ${[req.houseNumber, req.street].filter(Boolean).join(', ')}.` : '',
-      req.landmark ? `Landmark: near ${req.landmark}.` : '',
-      req.city || req.district ? `City: ${[req.city, req.district].filter(Boolean).join(', ')}.` : '',
-      isScheduled
-        ? 'Next action: Start pickup when heading to doorstep.'
-        : isInProgress
-        ? 'Next action: Complete pickup after verifying weights.'
-        : '',
-    ]
-      .filter(Boolean)
-      .join(' ');
-
-    voiceService.speak(parts, {
-      priority: AnnouncementPriority.LOW,
-      language,
-      force: true, // Manual action
+      `Pickup for ${items.length} e-waste items.`,
+      `Status is ${status.replace('_', ' ').toLowerCase()}.`,
+      doorstepAddress ? `Doorstep address: ${doorstepAddress}.` : '',
+    ];
+    await voiceService.speak(parts.filter(Boolean).join(' '), {
+      priority: AnnouncementPriority.NORMAL,
+      force: true,
     });
-  }, [isAuthorized, status, req, isScheduled, isInProgress, language]);
+  }, [isAuthorized, items.length, status, doorstepAddress]);
 
-  // ── Start Pickup Lifecycle ────────────────────────────────────────────────
-  const handleStartPickup = useCallback(async () => {
-    if (!pickup?.id || !isConnected || isActionLoading) return;
-    setIsActionLoading(true);
-    try {
-      const updated = await collectorService.startPickup(pickup.id);
-      setPickup((prev: any) => ({ ...prev, ...updated, status: PICKUP_STATUS.IN_PROGRESS }));
-      if (isVoiceEnabled) {
-        voiceService.speak(
-          t('voice.pickupStarted') || 'Pickup started. Heading to citizen location.',
-          { priority: AnnouncementPriority.HIGH, language }
-        );
-      }
-      Alert.alert('Pickup Started', 'You are now en route to the citizen doorstep.');
-    } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.message || 'Could not start pickup.');
-    } finally {
-      setIsActionLoading(false);
-    }
-  }, [pickup?.id, isConnected, isActionLoading, isVoiceEnabled, language, t]);
+  // Voice announcement content
+  const screenSummaryText = useMemo(() => {
+    const parts = [
+      `Pickup for ${items.length} e-waste items.`,
+      `Status is ${status.replace('_', ' ').toLowerCase()}.`,
+      req.city ? `Located in ${req.city}.` : '',
+      isScheduled ? 'Next step: Start pickup when heading to doorstep.' : '',
+      isInProgress ? 'Next step: Complete pickup and record collected weights.' : '',
+      isCompleted ? 'Pickup completed and verified.' : '',
+    ];
+    return parts.filter(Boolean).join(' ');
+  }, [items.length, status, req.city, isScheduled, isInProgress, isCompleted]);
 
   // Register current pickup as active Voice context entity
   useEffect(() => {
@@ -354,339 +249,548 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
     }
   }, [pickupId, pickup, setSelectedEntity]);
 
-  // Connect voice actions for Start and Complete Pickup
+  // ── Primary Action Handlers ────────────────────────────────────────────────
+
+  // 1. Start Scheduled Pickup
+  const handleStartPickup = useCallback(async () => {
+    if (!pickup?.id || isActionLoading) return;
+    if (!isConnected) {
+      Alert.alert(
+        t('collector.browse.offlineAlert') || 'Offline',
+        t('collector.pickups.offlineWarning') || 'Cannot start pickup while offline. Please connect to the internet.'
+      );
+      return;
+    }
+
+    setIsActionLoading(true);
+    try {
+      const updated = await collectorService.startPickup(pickup.id);
+      setPickup((prev: any) => ({ ...prev, ...updated, status: PICKUP_STATUS.IN_PROGRESS }));
+      voiceService.speak(
+        t('voice.pickupStarted') || 'Pickup started. Heading to citizen location.',
+        { priority: AnnouncementPriority.HIGH, language }
+      );
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Could not start pickup.';
+      if (err?.response?.status === 409) {
+        Alert.alert(
+          t('collector.dashboard.conflictTitle') || 'Status Conflict',
+          'This pickup has already changed status. Refreshing latest details.'
+        );
+        loadPickupDetails(true);
+      } else {
+        Alert.alert(t('common.error') || 'Error', msg);
+      }
+    } finally {
+      setIsActionLoading(false);
+    }
+  }, [pickup?.id, isActionLoading, isConnected, language, t, loadPickupDetails]);
+
+  // 2. Open Complete Modal
+  const handleOpenCompleteModal = useCallback(() => {
+    setCompletionError(null);
+    // Pre-populate estimated weights
+    const initialWeights: { [itemId: string]: string } = {};
+    items.forEach((it: any) => {
+      initialWeights[it.id] = String(it.estimatedWeightKg || it.actualWeightKg || 1.0);
+    });
+    setItemWeights(initialWeights);
+    setCollectorNotes(pickup?.collectorNotes || '');
+    setIsCompleteModalVisible(true);
+  }, [items, pickup?.collectorNotes]);
+
+  // 3. Confirm and Finalize Completion
+  const handleConfirmCompletion = useCallback(async () => {
+    if (!pickup?.id || isSubmittingCompletion) return;
+    if (!isConnected) {
+      setCompletionError(t('collector.pickups.offlineWarning') || 'Cannot complete pickup while offline.');
+      return;
+    }
+
+    if (calculatedTotalWeight < 0.01) {
+      setCompletionError(t('collector.pickups.valWeight') || 'Total collected weight must be greater than 0 kg.');
+      return;
+    }
+
+    setIsSubmittingCompletion(true);
+    setCompletionError(null);
+
+    try {
+      const actualItems = items.map((it: any) => ({
+        itemId: it.id,
+        actualWeightKg: parseFloat(itemWeights[it.id] || '0') || Number(it.estimatedWeightKg) || 1.0,
+      }));
+
+      const payload = {
+        totalWeightKg: calculatedTotalWeight,
+        items: actualItems,
+        collectorNotes: collectorNotes.trim() || undefined,
+      };
+
+      const updated = await collectorService.completePickup(pickup.id, payload);
+      setPickup((prev: any) => ({
+        ...prev,
+        ...updated,
+        status: PICKUP_STATUS.COMPLETED,
+        totalWeightKg: calculatedTotalWeight,
+        collectorNotes: collectorNotes.trim() || null,
+        completedAt: new Date().toISOString(),
+      }));
+
+      setIsCompleteModalVisible(false);
+
+      voiceService.speak(
+        t('voice.pickupCompleted') || `Pickup completed. Total weight ${calculatedTotalWeight} kilograms recorded.`,
+        { priority: AnnouncementPriority.HIGH, language }
+      );
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const msg = err?.response?.data?.message || err?.message || 'Failed to complete pickup.';
+      if (status === 409) {
+        setCompletionError('Status conflict: Pickup state already updated.');
+        loadPickupDetails(true);
+      } else {
+        setCompletionError(msg);
+      }
+    } finally {
+      setIsSubmittingCompletion(false);
+    }
+  }, [pickup?.id, isSubmittingCompletion, isConnected, calculatedTotalWeight, items, itemWeights, collectorNotes, language, t, loadPickupDetails]);
+
+  // 4. Secondary Navigation: Open Google Maps Intent
+  const handleNavigateToPickup = useCallback(() => {
+    if (!hasValidCoordinates) {
+      Alert.alert(
+        t('collector.pickups.navigationUnavailable') || 'Location Unavailable',
+        t('collector.pickups.locationUnavailable') || 'Exact coordinates are not yet available for navigation.'
+      );
+      return;
+    }
+
+    const scheme = Platform.select({
+      ios: `maps:0,0?q=${exactLat},${exactLng}`,
+      android: `google.navigation:q=${exactLat},${exactLng}`,
+    });
+
+    const fallbackUrl = `https://www.google.com/maps/dir/?api=1&destination=${exactLat},${exactLng}`;
+
+    Linking.canOpenURL(scheme || fallbackUrl)
+      .then((supported) => {
+        if (supported) {
+          Linking.openURL(scheme || fallbackUrl);
+        } else {
+          Linking.openURL(fallbackUrl);
+        }
+      })
+      .catch(() => {
+        Linking.openURL(fallbackUrl);
+      });
+  }, [hasValidCoordinates, exactLat, exactLng, t]);
+
+  // Connect voice actions
   useEffect(() => {
     const unregister = registerActions({
       onStartPickup: async () => {
-        handleStartPickup();
+        if (isScheduled) handleStartPickup();
       },
-      onCompletePickup: async (id) => {
-        if (navigation) {
-          navigation.navigate('CollectorPickups', { completePickupId: id });
-        }
+      onCompletePickup: async () => {
+        if (isInProgress) handleOpenCompleteModal();
       },
     });
     return () => unregister();
-  }, [registerActions, handleStartPickup, navigation]);
+  }, [registerActions, isScheduled, isInProgress, handleStartPickup, handleOpenCompleteModal]);
 
-  // Total estimated weight
-  const totalEstWeight = items.reduce(
-    (sum: number, it: any) => sum + (Number(it.estimatedWeightKg) || 0),
-    0
-  );
+  // Loading Skeleton
+  if (isLoading && !pickup) {
+    return (
+      <EcoSetuBackground>
+        <SafeAreaView style={styles.container}>
+          <TopAppBar title={t('collector.pickups.pickupDetails') || 'Pickup Details'} onBack={() => navigation?.goBack()} />
+          <View style={styles.loadingPadding}>
+            <Skeleton width="100%" height={160} borderRadius={16} />
+            <View style={{ height: spacing.spaceMd }} />
+            <Skeleton width="100%" height={140} borderRadius={16} />
+            <View style={{ height: spacing.spaceMd }} />
+            <Skeleton width="100%" height={80} borderRadius={16} />
+          </View>
+        </SafeAreaView>
+      </EcoSetuBackground>
+    );
+  }
+
+  // Error State
+  if (error && !pickup) {
+    return (
+      <EcoSetuBackground>
+        <SafeAreaView style={styles.container}>
+          <TopAppBar title={t('collector.pickups.pickupDetails') || 'Pickup Details'} onBack={() => navigation?.goBack()} />
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorIcon}>⚠</Text>
+            <Text style={styles.errorTitle}>{t('common.error') || 'Error'}</Text>
+            <Text style={styles.errorMessage}>{error}</Text>
+            <GlassButton
+              label={t('common.retry') || 'Retry'}
+              variant="primary"
+              onPress={() => loadPickupDetails(false)}
+              style={styles.retryButton}
+            />
+          </View>
+        </SafeAreaView>
+      </EcoSetuBackground>
+    );
+  }
 
   const scheduledDateStr = fmtDate(pickup?.scheduledDate || req.preferredDate);
   const scheduledTimeStr = pickup?.timeSlot || req.timeSlot || fmtTime(req.preferredTimeStart);
 
-  if (isLoading && !pickup) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <TopAppBar title={t('collector.pickups.pickupDetails') || 'Pickup Details'} onBack={() => navigation?.goBack()} />
-        <View style={styles.loadingContainer}>
-          <Skeleton width="100%" height={220} borderRadius={12} />
-          <View style={{ height: spacing.spaceMd }} />
-          <Skeleton width="100%" height={120} borderRadius={12} />
-          <View style={{ height: spacing.spaceMd }} />
-          <Skeleton width="100%" height={100} borderRadius={12} />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (error && !pickup) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <TopAppBar title={t('collector.pickups.pickupDetails') || 'Pickup Details'} onBack={() => navigation?.goBack()} />
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorIcon}>⚠</Text>
-          <Text style={styles.errorTitle}>Pickup Unavailable</Text>
-          <Text style={styles.errorMessage}>{error}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => loadPickupDetails(false)}
-            accessibilityRole="button"
-            accessibilityLabel="Retry loading pickup details"
-          >
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <SafeAreaView style={styles.container}>
-      <TopAppBar
-        title={t('collector.pickups.pickupDetails') || 'Pickup Details'}
-        subtitle={`#${pickup?.id ? String(pickup.id).slice(0, 8).toUpperCase() : 'ECO'}`}
-        onBack={() => navigation?.goBack()}
-      />
+    <EcoSetuBackground>
+      <SafeAreaView style={styles.container}>
+        <TopAppBar
+          title={t('collector.pickups.pickupDetails') || 'Pickup Details'}
+          subtitle={`#${pickup?.id ? String(pickup.id).slice(0, 8).toUpperCase() : 'ECO'}`}
+          onBack={() => navigation?.goBack()}
+        />
 
-      <OfflineBanner />
+        <OfflineBanner />
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} colors={[colors.primary]} />}
-      >
-        {/* Status & Reference Header */}
-        <View style={styles.headerCard}>
-          <View style={styles.headerRow}>
-            <View>
-              <Text style={styles.refText}>
-                PICKUP #{pickup?.id ? String(pickup.id).slice(0, 8).toUpperCase() : 'ECO'}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+        >
+          {/* 1. Header Card: Reference, Status & Voice Read Aloud */}
+          <GlassCard style={styles.headerCard}>
+            <View style={styles.headerTopRow}>
+              <View style={styles.refColumn}>
+                <Text style={styles.refText}>
+                  PICKUP #{pickup?.id ? String(pickup.id).slice(0, 8).toUpperCase() : 'ECO'}
+                </Text>
+                <Text style={styles.dateSubText}>
+                  📅 {scheduledDateStr} {scheduledTimeStr ? `• ${scheduledTimeStr}` : ''}
+                </Text>
+              </View>
+              <StatusBadge status={status} />
+            </View>
+
+            <View style={styles.headerDivider} />
+
+            <View style={styles.voiceRow}>
+              <ReadAloudButton
+                text={screenSummaryText}
+                label={t('voice.readAloud') || 'Read Aloud'}
+                variant="pill"
+                accessibilityLabel="Read aloud pickup details and status"
+              />
+              <Text style={styles.itemsSummaryPill}>
+                {items.length} {items.length === 1 ? 'item' : 'items'} • ~{Math.round(totalEstWeight * 10) / 10} kg
               </Text>
-              {req.requestId && (
-                <Text style={styles.reqRefText}>Request: #{req.requestId}</Text>
+            </View>
+          </GlassCard>
+
+          {/* 2. Doorstep Address & Map Section */}
+          <GlassCard style={styles.sectionCard}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>
+                📍 {t('collector.pickups.doorstepAddress') || 'Doorstep Address'}
+              </Text>
+              {isAuthorized && hasValidCoordinates && isConnected && (
+                <TouchableOpacity
+                  style={styles.navSecondaryBtn}
+                  onPress={handleNavigateToPickup}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('collector.pickups.navigateToPickup') || 'Navigate to Pickup'}
+                  accessibilityHint="Opens Google Maps to route to doorstep"
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.navSecondaryIcon}>🧭</Text>
+                  <Text style={styles.navSecondaryText}>
+                    {t('collector.pickups.openInGoogleMaps') || 'Google Maps'}
+                  </Text>
+                </TouchableOpacity>
               )}
             </View>
-            <StatusBadge status={status} />
-          </View>
-          <Text style={styles.dateText}>
-            📅 {scheduledDateStr} {scheduledTimeStr ? `• ${scheduledTimeStr}` : ''}
-          </Text>
-        </View>
 
-        {/* ── Exact Map View ────────────────────────────────────────────── */}
-        <View style={styles.mapSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              🗺 {t('collector.pickups.exactPickupLocation') || 'Exact Pickup Location'}
-            </Text>
             {isAuthorized ? (
-              <View style={styles.authorizedBadge}>
-                <Text style={styles.authorizedBadgeText}>
-                  🛡 {t('collector.pickups.exactLocationAuthorized') || 'Authorized Doorstep'}
+              <View style={styles.addressBox}>
+                <Text style={styles.fullAddressText}>
+                  {req.pickupAddress || [req.houseNumber, req.street, req.landmark, req.city, req.pincode].filter(Boolean).join(', ') || 'Address verified upon acceptance'}
                 </Text>
+                {Boolean(req.landmark) && (
+                  <Text style={styles.landmarkText}>
+                    Landmark: Near {req.landmark}
+                  </Text>
+                )}
               </View>
             ) : (
-              <View style={styles.protectedBadge}>
-                <Text style={styles.protectedBadgeText}>
-                  🔒 {t('collector.browse.privacyProtected') || 'Privacy Protected'}
+              <View style={styles.privacyMaskBox}>
+                <Text style={styles.privacyMaskText}>
+                  🔒 {t('collector.browse.exactLocationAfterAcceptance') || 'Exact address revealed upon acceptance'}
                 </Text>
               </View>
             )}
-          </View>
 
-          {isAuthorized && hasValidCoordinates ? (
-            <View style={styles.mapWrapper}>
-              <EcoSetuMap
-                latitude={exactLat}
-                longitude={exactLng}
-                draggable={false}
-                showApproximateCircles={false}
-                pinTitle={t('collector.pickups.exactPickupLocation') || 'Exact Pickup Location'}
-                pinDescription={t('collector.pickups.exactLocationAuthorized') || 'Authorized Citizen Doorstep'}
-                isOffline={!isConnected}
-                style={styles.map}
-              />
-
-              {/* Map Floating Controls: Use My Location */}
-              <TouchableOpacity
-                style={styles.floatingLocateBtn}
-                onPress={handleUseMyLocation}
-                disabled={isLocating}
-                accessibilityRole="button"
-                accessibilityLabel="Use my current location to center map"
-                activeOpacity={0.8}
-              >
-                {isLocating ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : (
-                  <Text style={styles.locateBtnText}>🎯 {t('collector.browse.useMyLocation') || 'My Location'}</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.privacyMaskBox}>
-              <Text style={styles.privacyMaskIcon}>🛡</Text>
-              <Text style={styles.privacyMaskTitle}>
-                {t('collector.browse.approximateLocation') || 'Approximate Location'}
-              </Text>
-              <Text style={styles.privacyMaskSubtitle}>
-                {t('collector.pickups.navigationRequiresAcceptance') ||
-                  'Exact citizen doorstep coordinates and navigation become available once this collection request is accepted.'}
-              </Text>
-            </View>
-          )}
-
-          {/* ── External Navigation Button ──────────────────────────────── */}
-          <TouchableOpacity
-            style={[
-              styles.navButton,
-              (!isAuthorized || !hasValidCoordinates || !isConnected) && styles.navButtonDisabled,
-            ]}
-            onPress={handleNavigateToPickup}
-            disabled={!isAuthorized || !hasValidCoordinates || !isConnected}
-            accessibilityRole="button"
-            accessibilityLabel={t('collector.pickups.navigateToPickup') || 'Navigate to Pickup'}
-            accessibilityHint="Opens Google Maps or your external navigation app to route to this doorstep"
-            activeOpacity={0.85}
-          >
-            <Text style={styles.navButtonIcon}>🧭</Text>
-            <View style={styles.navButtonTextGroup}>
-              <Text style={styles.navButtonTitle}>
-                {t('collector.pickups.navigateToPickup') || 'Navigate to Pickup'}
-              </Text>
-              <Text style={styles.navButtonSub}>
-                {t('collector.pickups.openInGoogleMaps') || 'Open in Google Maps'}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── Structured Address Breakdown (Authoritative Acceptance Only) ── */}
-        <View style={styles.addressSection}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>
-              📍 {t('collector.pickups.doorstepAddress') || 'Doorstep Address'}
-            </Text>
-            {isAuthorized && (
-              <TouchableOpacity
-                style={styles.readAloudHeaderBtn}
-                onPress={handleReadAloudAuthorizedPickup}
-                accessibilityRole="button"
-                accessibilityLabel={t('voice.readAloud') || 'Read Aloud'}
-                accessibilityHint="Reads doorstep address details aloud"
-                activeOpacity={0.8}
-              >
-                <Text style={styles.readAloudHeaderBtnText}>🔊 {t('voice.readAloud') || 'Read Aloud'}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {isAuthorized ? (
-            <View style={styles.addressCard}>
-              {Boolean(req.houseNumber) && (
-                <View style={styles.addressRow}>
-                  <Text style={styles.addressLabel}>{t('collector.pickups.houseNumber') || 'Building / House'}:</Text>
-                  <Text style={styles.addressValue}>{req.houseNumber}</Text>
-                </View>
-              )}
-              {Boolean(req.street) && (
-                <View style={styles.addressRow}>
-                  <Text style={styles.addressLabel}>{t('collector.pickups.street') || 'Street'}:</Text>
-                  <Text style={styles.addressValue}>{req.street}</Text>
-                </View>
-              )}
-              {Boolean(req.landmark) && (
-                <View style={styles.addressRow}>
-                  <Text style={styles.addressLabel}>{t('collector.pickups.landmark') || 'Landmark'}:</Text>
-                  <Text style={styles.addressValue}>Near {req.landmark}</Text>
-                </View>
-              )}
-              {Boolean(req.city) && (
-                <View style={styles.addressRow}>
-                  <Text style={styles.addressLabel}>{t('collector.pickups.city') || 'City'}:</Text>
-                  <Text style={styles.addressValue}>{req.city}</Text>
-                </View>
-              )}
-              {Boolean(req.district) && (
-                <View style={styles.addressRow}>
-                  <Text style={styles.addressLabel}>{t('collector.pickups.district') || 'District'}:</Text>
-                  <Text style={styles.addressValue}>{req.district}</Text>
-                </View>
-              )}
-              {Boolean(req.state) && (
-                <View style={styles.addressRow}>
-                  <Text style={styles.addressLabel}>{t('collector.pickups.state') || 'State'}:</Text>
-                  <Text style={styles.addressValue}>{req.state}</Text>
-                </View>
-              )}
-              {Boolean(req.pincode) && (
-                <View style={styles.addressRow}>
-                  <Text style={styles.addressLabel}>{t('collector.pickups.pincode') || 'PIN Code'}:</Text>
-                  <Text style={styles.addressValue}>{req.pincode}</Text>
-                </View>
-              )}
-
-              <View style={styles.addressDivider} />
-              <Text style={styles.fullAddressText}>
-                {req.pickupAddress || 'Address details confirmed upon assignment'}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.privacyMaskBox}>
-              <Text style={styles.privacyMaskSubtitle}>
-                {t('collector.browse.exactLocationAfterAcceptance') || 'Exact address revealed upon acceptance'}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* ── E-Waste Items Summary ───────────────────────────────────────── */}
-        <View style={styles.itemsSection}>
-          <Text style={styles.sectionTitle}>
-            📦 E-Waste Items ({items.length}) • ~{Math.round(totalEstWeight * 10) / 10} kg est.
-          </Text>
-          {items.map((it: any, idx: number) => (
-            <View key={it.id || idx} style={styles.itemCard}>
-              <View style={styles.itemHeader}>
-                <Text style={styles.itemCategory}>{it.category}</Text>
-                <Text style={styles.itemQty}>Qty: {it.quantity ?? 1}</Text>
+            {/* Map Rendering */}
+            {isAuthorized && hasValidCoordinates && (
+              <View style={styles.mapContainer}>
+                <EcoSetuMap
+                  latitude={exactLat}
+                  longitude={exactLng}
+                  draggable={false}
+                  showApproximateCircles={false}
+                  pinTitle={t('collector.pickups.exactPickupLocation') || 'Doorstep Location'}
+                  isOffline={!isConnected}
+                  style={styles.map}
+                />
               </View>
-              {Boolean(it.subcategory) && (
-                <Text style={styles.itemSubcategory}>{it.subcategory}</Text>
-              )}
-              <Text style={styles.itemWeight}>
-                {it.actualWeightKg != null
-                  ? `Collected: ${it.actualWeightKg} kg`
-                  : it.estimatedWeightKg != null
-                  ? `Estimated: ~${it.estimatedWeightKg} kg`
-                  : 'Weight to be verified at doorstep'}
-              </Text>
-            </View>
-          ))}
-        </View>
+            )}
+          </GlassCard>
 
-        {/* ── Action Buttons ──────────────────────────────────────────────── */}
-        <View style={styles.actionsSection}>
-          {isScheduled && (
-            <TouchableOpacity
-              style={[
-                styles.primaryActionBtn,
-                (!isConnected || isActionLoading) && styles.btnDisabled,
-              ]}
-              onPress={handleStartPickup}
-              disabled={!isConnected || isActionLoading}
-              accessibilityRole="button"
-              accessibilityLabel="Start this pickup and notify citizen"
-              activeOpacity={0.8}
-            >
-              {isActionLoading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Text style={styles.primaryActionBtnText}>▶ {t('collector.pickups.startPickup') || 'Start Pickup'}</Text>
-              )}
-            </TouchableOpacity>
-          )}
+          {/* 3. E-Waste Items & Photos */}
+          <GlassCard style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>
+              📦 {t('collector.pickups.verifiedWeights') || 'E-Waste Items'} ({items.length})
+            </Text>
 
-          {isInProgress && (
-            <View style={styles.inProgressNotice}>
-              <Text style={styles.inProgressText}>
-                🚚 Pickup is currently in progress. Complete verification at doorstep.
-              </Text>
-            </View>
-          )}
+            {items.map((it: any, idx: number) => (
+              <View key={it.id || idx} style={styles.itemRow}>
+                {/* Image Preview Thumbnail with Fullscreen Modal */}
+                <View style={styles.imageThumbnailWrapper}>
+                  <AuthorizedImage
+                    uri={it.imageUrl}
+                    style={styles.itemImage}
+                    categoryLabel={it.category}
+                    allowFullscreen={true}
+                    fallbackIcon="📷"
+                    fallbackText="No Photo"
+                    accessibilityLabel={`Photo of ${it.category}`}
+                  />
+                </View>
 
+                {/* Item Details */}
+                <View style={styles.itemInfo}>
+                  <Text style={styles.itemCategory}>{it.category}</Text>
+                  <Text style={styles.itemSub}>
+                    Qty: {it.quantity ?? 1} • Condition: {it.condition || 'Unknown'}
+                  </Text>
+                  <Text style={styles.itemWeightBadge}>
+                    {it.actualWeightKg != null
+                      ? `✓ Collected: ${it.actualWeightKg} kg`
+                      : it.estimatedWeightKg != null
+                      ? `Est: ~${it.estimatedWeightKg} kg`
+                      : 'Weight verified at doorstep'}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </GlassCard>
+
+          {/* 4. State-Driven Receipt or Status Card */}
           {isCompleted && (
-            <View style={styles.completedNotice}>
-              <Text style={styles.completedText}>
-                ✓ Pickup successfully completed and recorded in e-waste chain of custody.
-              </Text>
-            </View>
+            <GlassCard style={styles.receiptCard}>
+              <View style={styles.receiptHeader}>
+                <Text style={styles.receiptIcon}>✓</Text>
+                <View>
+                  <Text style={styles.receiptTitle}>Pickup Completed</Text>
+                  <Text style={styles.receiptSub}>Recorded in EcoSetu Chain of Custody</Text>
+                </View>
+              </View>
+              <View style={styles.receiptDivider} />
+              <View style={styles.receiptRow}>
+                <Text style={styles.receiptLabel}>Total Collected Weight:</Text>
+                <Text style={styles.receiptValue}>{pickup?.totalWeightKg || totalEstWeight} kg</Text>
+              </View>
+              {pickup?.completedAt && (
+                <View style={styles.receiptRow}>
+                  <Text style={styles.receiptLabel}>Completion Time:</Text>
+                  <Text style={styles.receiptValue}>{fmtDate(pickup.completedAt)} {fmtTime(pickup.completedAt)}</Text>
+                </View>
+              )}
+              {Boolean(pickup?.collectorNotes) && (
+                <View style={styles.notesBox}>
+                  <Text style={styles.notesLabel}>Collector Notes:</Text>
+                  <Text style={styles.notesValue}>{pickup.collectorNotes}</Text>
+                </View>
+              )}
+            </GlassCard>
           )}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+
+          {(isCancelled || isFailed) && (
+            <GlassCard style={styles.cancelledCard}>
+              <Text style={styles.cancelledIcon}>⚠</Text>
+              <Text style={styles.cancelledTitle}>
+                {isCancelled ? 'Pickup Cancelled' : 'Pickup Failed'}
+              </Text>
+              <Text style={styles.cancelledSub}>
+                {req.cancellationReason || 'This collection request was terminated.'}
+              </Text>
+            </GlassCard>
+          )}
+
+          {/* 5. THE SINGLE PRIMARY ACTION CTA CONTAINER */}
+          <View style={styles.primaryActionContainer}>
+            {isScheduled && (
+              <GlassButton
+                label={t('collector.pickups.startPickup') || 'Start Pickup'}
+                variant="primary"
+                onPress={handleStartPickup}
+                loading={isActionLoading}
+                disabled={isActionLoading || !isConnected}
+                style={styles.primaryCtaBtn}
+                accessibilityLabel="Start pickup and notify citizen"
+              />
+            )}
+
+            {isInProgress && (
+              <GlassButton
+                label={t('collector.pickups.completePickup') || 'Complete Pickup'}
+                variant="primary"
+                onPress={handleOpenCompleteModal}
+                style={styles.primaryCtaBtn}
+                accessibilityLabel="Complete pickup and verify collected weights"
+              />
+            )}
+
+            {/* When completed, cancelled, or failed: ZERO primary action CTA is displayed */}
+          </View>
+        </ScrollView>
+
+        {/* ── Complete Pickup Verification Modal ── */}
+        <Modal
+          visible={isCompleteModalVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => !isSubmittingCompletion && setIsCompleteModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              style={styles.modalKeyboardAvoid}
+            >
+              <View style={styles.modalSheet}>
+                {/* Modal Title */}
+                <View style={styles.modalHeader}>
+                  <View>
+                    <Text style={styles.modalTitle}>
+                      {t('collector.pickups.completeModalTitle') || 'Complete Pickup'}
+                    </Text>
+                    <Text style={styles.modalSubtitle}>
+                      Record verified actual weights collected at citizen doorstep
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => !isSubmittingCompletion && setIsCompleteModalVisible(false)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={styles.modalCloseText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {completionError && (
+                  <View style={styles.modalErrorBox}>
+                    <Text style={styles.modalErrorText}>{completionError}</Text>
+                  </View>
+                )}
+
+                <ScrollView style={styles.modalScroll} keyboardShouldPersistTaps="handled">
+                  {/* Item Weight Inputs */}
+                  <Text style={styles.modalInputSectionTitle}>
+                    {t('collector.pickups.verifiedWeights') || 'Verified Item Weights (kg)'}
+                  </Text>
+
+                  {items.map((it: any) => (
+                    <View key={it.id} style={styles.modalItemInputRow}>
+                      <View style={styles.modalItemLabelCol}>
+                        <Text style={styles.modalItemCategoryText}>{it.category}</Text>
+                        <Text style={styles.modalItemEstText}>
+                          Est: ~{it.estimatedWeightKg ?? 1.0} kg • Qty: {it.quantity ?? 1}
+                        </Text>
+                      </View>
+                      <View style={styles.modalWeightInputWrapper}>
+                        <TextInput
+                          style={styles.weightTextInput}
+                          value={itemWeights[it.id] || ''}
+                          onChangeText={(val) => setItemWeights((prev) => ({ ...prev, [it.id]: val }))}
+                          placeholder="0.0"
+                          placeholderTextColor={colors.textSecondary}
+                          keyboardType="decimal-pad"
+                          editable={!isSubmittingCompletion}
+                        />
+                        <Text style={styles.kgUnitText}>kg</Text>
+                      </View>
+                    </View>
+                  ))}
+
+                  {/* Calculated Total Weight Pill */}
+                  <View style={styles.modalTotalWeightBox}>
+                    <Text style={styles.modalTotalWeightLabel}>
+                      {t('collector.delivery.totalWeight') || 'Total Weight'}:
+                    </Text>
+                    <Text style={styles.modalTotalWeightValue}>
+                      {Math.round(calculatedTotalWeight * 100) / 100} kg
+                    </Text>
+                  </View>
+
+                  {/* Collector Notes */}
+                  <Text style={styles.modalInputSectionTitle}>
+                    {t('collector.pickups.collectorNotes') || 'Collector Notes (Optional)'}
+                  </Text>
+                  <TextInput
+                    style={styles.notesTextInput}
+                    value={collectorNotes}
+                    onChangeText={setCollectorNotes}
+                    placeholder={t('collector.pickups.notesPlaceholder') || 'e.g. Collected in good condition...'}
+                    placeholderTextColor={colors.textSecondary}
+                    multiline
+                    numberOfLines={3}
+                    maxLength={500}
+                    editable={!isSubmittingCompletion}
+                  />
+
+                  {/* Modal Action Buttons: Cancel and ONE Primary Confirm */}
+                  <View style={styles.modalActionsRow}>
+                    <GlassButton
+                      label={t('collector.pickups.cancel') || 'Cancel'}
+                      variant="outline"
+                      onPress={() => setIsCompleteModalVisible(false)}
+                      disabled={isSubmittingCompletion}
+                      style={styles.modalCancelBtn}
+                    />
+                    <GlassButton
+                      label={t('collector.pickups.confirmCompletion') || 'Confirm & Complete'}
+                      variant="primary"
+                      onPress={handleConfirmCompletion}
+                      loading={isSubmittingCompletion}
+                      disabled={isSubmittingCompletion || calculatedTotalWeight < 0.01}
+                      style={styles.modalConfirmBtn}
+                    />
+                  </View>
+                </ScrollView>
+              </View>
+            </KeyboardAvoidingView>
+          </View>
+        </Modal>
+      </SafeAreaView>
+    </EcoSetuBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.backgroundBase,
+    backgroundColor: 'transparent',
   },
-  loadingContainer: {
+  scrollContent: {
+    padding: spacing.spaceMd,
+    paddingBottom: spacing.spaceXl + 40,
+  },
+  loadingPadding: {
     padding: spacing.spaceMd,
   },
   errorContainer: {
@@ -712,61 +816,53 @@ const styles = StyleSheet.create({
     marginBottom: spacing.spaceMd,
   },
   retryButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.spaceLg,
-    paddingVertical: spacing.spaceSm,
-    borderRadius: 8,
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  scrollContent: {
-    padding: spacing.spaceMd,
-    paddingBottom: spacing.spaceXl,
+    minWidth: 140,
   },
   headerCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: spacing.spaceMd,
-    borderWidth: 1,
-    borderColor: colors.divider,
     marginBottom: spacing.spaceMd,
   },
-  headerRow: {
+  headerTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: spacing.spaceXs,
+  },
+  refColumn: {
+    flex: 1,
   },
   refText: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
     color: colors.textPrimary,
     letterSpacing: 0.5,
   },
-  reqRefText: {
+  dateSubText: {
     fontSize: 12,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: 4,
   },
-  dateText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: spacing.spaceXs,
+  headerDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    marginVertical: spacing.spaceSm,
   },
-  mapSection: {
-    backgroundColor: colors.surface,
+  voiceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  itemsSummaryPill: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
+    backgroundColor: 'rgba(20, 184, 166, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 12,
-    padding: spacing.spaceMd,
-    borderWidth: 1,
-    borderColor: colors.divider,
+  },
+  sectionCard: {
     marginBottom: spacing.spaceMd,
   },
-  sectionHeader: {
+  sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -777,256 +873,336 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.textPrimary,
   },
-  authorizedBadge: {
-    backgroundColor: 'rgba(13, 148, 136, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+  navSecondaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(13, 148, 136, 0.4)',
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    gap: 4,
   },
-  authorizedBadgeText: {
+  navSecondaryIcon: {
+    fontSize: 13,
+  },
+  navSecondaryText: {
     fontSize: 11,
+    fontWeight: '700',
     color: colors.primary,
-    fontWeight: '700',
   },
-  protectedBadge: {
-    backgroundColor: 'rgba(234, 88, 12, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(234, 88, 12, 0.4)',
-  },
-  protectedBadgeText: {
-    fontSize: 11,
-    color: colors.warning,
-    fontWeight: '700',
-  },
-  mapWrapper: {
-    position: 'relative',
-    borderRadius: 10,
-    overflow: 'hidden',
-    marginBottom: spacing.spaceSm,
-  },
-  map: {
-    height: 220,
-    width: '100%',
-  },
-  floatingLocateBtn: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: 'rgba(8, 20, 10, 0.88)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  locateBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  privacyMaskBox: {
-    padding: spacing.spaceLg,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 10,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.divider,
-    marginBottom: spacing.spaceSm,
-  },
-  privacyMaskIcon: {
-    fontSize: 32,
-    marginBottom: spacing.spaceXs,
-  },
-  privacyMaskTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  privacyMaskSubtitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-  navButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.spaceMd,
-    paddingVertical: 12,
-    borderRadius: 10,
-    minHeight: 52,
-    marginTop: spacing.spaceXs,
-  },
-  navButtonDisabled: {
-    opacity: 0.5,
-  },
-  navButtonIcon: {
-    fontSize: 24,
-    marginRight: spacing.spaceSm,
-  },
-  navButtonTextGroup: {
-    flex: 1,
-  },
-  navButtonTitle: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  navButtonSub: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 12,
-  },
-  addressSection: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: spacing.spaceMd,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    marginBottom: spacing.spaceMd,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.spaceSm,
-  },
-  readAloudHeaderBtn: {
-    backgroundColor: '#E8F5E9',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    minHeight: 44,
-    paddingHorizontal: spacing.spaceSm + 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  readAloudHeaderBtnText: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  addressCard: {
-    marginTop: spacing.spaceSm,
-  },
-  addressRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  addressLabel: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    flex: 1,
-  },
-  addressValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    flex: 1.5,
-    textAlign: 'right',
-  },
-  addressDivider: {
-    height: 1,
-    backgroundColor: colors.divider,
-    marginVertical: spacing.spaceSm,
-  },
-  fullAddressText: {
-    fontSize: 13,
-    color: colors.textPrimary,
-    lineHeight: 18,
-    fontStyle: 'italic',
-  },
-  itemsSection: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: spacing.spaceMd,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    marginBottom: spacing.spaceMd,
-  },
-  itemCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+  addressBox: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 8,
     padding: spacing.spaceSm,
-    marginTop: spacing.spaceSm,
-    borderWidth: 1,
-    borderColor: colors.divider,
+    marginBottom: spacing.spaceSm,
   },
-  itemHeader: {
+  fullAddressText: {
+    fontSize: 14,
+    color: colors.textPrimary,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+  landmarkText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  privacyMaskBox: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 8,
+    padding: spacing.spaceSm,
+    marginBottom: spacing.spaceSm,
+  },
+  privacyMaskText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  mapContainer: {
+    height: 180,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
+    marginTop: spacing.spaceXs,
+  },
+  map: {
+    width: '100%',
+    height: '100%',
+  },
+  itemRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 10,
+    padding: spacing.spaceSm,
+    marginTop: spacing.spaceSm,
+  },
+  imageThumbnailWrapper: {
+    width: 64,
+    height: 64,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginRight: spacing.spaceSm,
+  },
+  itemImage: {
+    width: 64,
+    height: 64,
+  },
+  itemInfo: {
+    flex: 1,
   },
   itemCategory: {
     fontSize: 14,
     fontWeight: '700',
     color: colors.textPrimary,
   },
-  itemQty: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  itemSubcategory: {
+  itemSub: {
     fontSize: 12,
     color: colors.textSecondary,
     marginTop: 2,
   },
-  itemWeight: {
-    fontSize: 12,
+  itemWeightBadge: {
+    fontSize: 11,
+    fontWeight: '600',
     color: colors.primary,
     marginTop: 4,
-    fontWeight: '600',
   },
-  actionsSection: {
-    marginTop: spacing.spaceSm,
+  receiptCard: {
+    marginBottom: spacing.spaceMd,
+    borderColor: 'rgba(34, 197, 94, 0.35)',
   },
-  primaryActionBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    minHeight: 52,
+  receiptHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 12,
   },
-  primaryActionBtnText: {
-    color: '#FFFFFF',
+  receiptIcon: {
+    fontSize: 24,
+    color: '#22C55E',
+  },
+  receiptTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  receiptSub: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  receiptDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    marginVertical: spacing.spaceSm,
+  },
+  receiptRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  receiptLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  receiptValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  notesBox: {
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  notesLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  notesValue: {
+    fontSize: 13,
+    color: colors.textPrimary,
+    marginTop: 2,
+  },
+  cancelledCard: {
+    marginBottom: spacing.spaceMd,
+    alignItems: 'center',
+    padding: spacing.spaceMd,
+  },
+  cancelledIcon: {
+    fontSize: 32,
+    marginBottom: 4,
+  },
+  cancelledTitle: {
     fontSize: 16,
     fontWeight: '700',
-  },
-  btnDisabled: {
-    opacity: 0.5,
-  },
-  inProgressNotice: {
-    padding: spacing.spaceMd,
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.3)',
-  },
-  inProgressText: {
     color: colors.textPrimary,
+  },
+  cancelledSub: {
     fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 2,
     textAlign: 'center',
   },
-  completedNotice: {
-    padding: spacing.spaceMd,
-    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.3)',
+  primaryActionContainer: {
+    marginTop: spacing.spaceSm,
   },
-  completedText: {
+  primaryCtaBtn: {
+    minHeight: 52,
+    borderRadius: 14,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(7, 24, 28, 0.85)',
+    justifyContent: 'flex-end',
+  },
+  modalKeyboardAvoid: {
+    width: '100%',
+  },
+  modalSheet: {
+    backgroundColor: 'rgba(15, 34, 40, 0.98)',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    padding: spacing.spaceLg,
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.spaceMd,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
     color: colors.textPrimary,
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  modalCloseText: {
+    fontSize: 18,
+    color: colors.textSecondary,
+    fontWeight: '700',
+  },
+  modalErrorBox: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 1,
+    borderColor: '#EF4444',
+    borderRadius: 8,
+    padding: spacing.spaceSm,
+    marginBottom: spacing.spaceSm,
+  },
+  modalErrorText: {
+    color: '#EF4444',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  modalScroll: {
+    marginBottom: spacing.spaceSm,
+  },
+  modalInputSectionTitle: {
     fontSize: 13,
-    textAlign: 'center',
+    fontWeight: '700',
+    color: colors.textSecondary,
+    marginVertical: spacing.spaceSm,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  modalItemInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 10,
+    padding: spacing.spaceSm,
+    marginBottom: spacing.spaceXs,
+  },
+  modalItemLabelCol: {
+    flex: 1,
+  },
+  modalItemCategoryText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  modalItemEstText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  modalWeightInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 8,
+  },
+  weightTextInput: {
+    width: 60,
+    height: 38,
+    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  kgUnitText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginLeft: 4,
+  },
+  modalTotalWeightBox: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(20, 184, 166, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(20, 184, 166, 0.35)',
+    borderRadius: 10,
+    padding: spacing.spaceSm,
+    marginVertical: spacing.spaceSm,
+  },
+  modalTotalWeightLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  modalTotalWeightValue: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: colors.primary,
+  },
+  notesTextInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 10,
+    color: colors.textPrimary,
+    padding: spacing.spaceSm,
+    minHeight: 64,
+    textAlignVertical: 'top',
+    fontSize: 13,
+  },
+  modalActionsRow: {
+    flexDirection: 'row',
+    gap: spacing.spaceMd,
+    marginTop: spacing.spaceMd,
+  },
+  modalCancelBtn: {
+    flex: 1,
+  },
+  modalConfirmBtn: {
+    flex: 2,
   },
 });
 

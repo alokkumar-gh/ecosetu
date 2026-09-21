@@ -44,6 +44,7 @@ import { EcoSetuBackground } from '../../components/eco';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
 
 const STATUS_FILTERS = ['PENDING', 'APPROVED', 'REJECTED', 'ALL'];
 
@@ -267,6 +268,17 @@ export const AdminVerificationsScreen: React.FC = () => {
           </TouchableOpacity>
         ))}
       </ScrollView>
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.spaceMd, marginVertical: spacing.spaceXs }}>
+        <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+          {pagination?.total ?? verifications.length} {selectedStatus}
+        </Text>
+        <ReadAloudButton
+          variant="compact"
+          text={() => `Admin Verifications. ${selectedStatus} requests: ${pagination?.total ?? verifications.length}.`}
+          accessibilityLabel="Read verifications summary"
+        />
+      </View>
 
       {/* Main List */}
       {isLoading ? (

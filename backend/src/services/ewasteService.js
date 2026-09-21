@@ -1,8 +1,10 @@
 // EcoSetu E-Waste Item Service
 // Canonical Reference: docs/10_BACKEND_ARCHITECTURE.md Section 5.5, docs/05_API_SPECIFICATION.md Section 6, docs/07_BUSINESS_WORKFLOWS.md
 
+const path = require('path');
 const prisma = require('../config/database');
 const AppError = require('../utils/AppError');
+const mediaService = require('./mediaService');
 const { ROLES, ITEM_STATUS, EWASTE_CATEGORIES, ITEM_CONDITIONS } = require('../utils/constants');
 
 class EwasteService {
@@ -10,9 +12,10 @@ class EwasteService {
    * Submit a new e-waste item
    * @param {string} citizenId - Owner's user UUID
    * @param {object} itemData - Item attributes
+   * @param {object} [file] - Optional uploaded image file { filename, mimetype, buffer }
    * @returns {Promise<object>} Created item and AI prediction result
    */
-  async createItem(citizenId, { category, description, quantity, condition, estimatedWeightKg, imageUrl }) {
+  async createItem(citizenId, { category, description, quantity, condition, estimatedWeightKg, imageUrl }, file = null) {
     if (!category || !EWASTE_CATEGORIES[category]) {
       throw AppError.validation(`Invalid e-waste category: ${category}`);
     }
@@ -20,15 +23,25 @@ class EwasteService {
     const validCondition = condition && ITEM_CONDITIONS[condition] ? condition : ITEM_CONDITIONS.UNKNOWN;
     const itemQuantity = quantity !== undefined ? Math.max(1, parseInt(quantity, 10)) : 1;
 
+    let finalImageUrl = imageUrl ? imageUrl.trim() : null;
+
+    // If an image file was uploaded with the request, persist it
+    if (file && file.buffer) {
+      const savedMedia = await mediaService.saveImage(file, 'ewaste');
+      finalImageUrl = savedMedia.imageUrl;
+    }
+
+    const cId = typeof citizenId === 'object' ? (citizenId?.id || citizenId?.userId) : citizenId;
+
     const item = await prisma.ewasteItem.create({
       data: {
-        citizenId,
+        citizenId: cId,
         category,
         description: description ? description.trim() : null,
         quantity: itemQuantity,
         condition: validCondition,
         estimatedWeightKg: estimatedWeightKg !== undefined && estimatedWeightKg !== null ? parseFloat(estimatedWeightKg) : null,
-        imageUrl: imageUrl ? imageUrl.trim() : null,
+        imageUrl: finalImageUrl,
         status: ITEM_STATUS.SUBMITTED,
       },
     });
@@ -108,6 +121,23 @@ class EwasteService {
             },
           },
         },
+        consignmentItems: {
+          include: {
+            consignment: {
+              select: {
+                id: true,
+                status: true,
+                recyclerId: true,
+                recycler: {
+                  select: {
+                    id: true,
+                    userId: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -125,15 +155,175 @@ class EwasteService {
         item.collectionRequest &&
         item.collectionRequest.collector &&
         item.collectionRequest.collector.userId === actor.id;
+      const isAvailable =
+        item.collectionRequest &&
+        item.collectionRequest.status === 'SUBMITTED';
 
-      if (!isAssigned) {
+      if (!isAssigned && !isAvailable) {
         throw AppError.forbidden('Access forbidden: Item is not assigned to your collection');
       }
     } else if (actor.role === ROLES.RECYCLER) {
-      throw AppError.forbidden('Access forbidden: Item is not consigned to your facility');
+      const isConsigned =
+        item.consignmentItems &&
+        item.consignmentItems.some(
+          (ci) => ci.consignment && ci.consignment.recycler && ci.consignment.recycler.userId === actor.id
+        );
+
+      if (!isConsigned) {
+        throw AppError.forbidden('Access forbidden: Item is not consigned to your facility');
+      }
+    } else if (actor.role !== ROLES.ADMIN) {
+      throw AppError.forbidden('Access forbidden: Insufficient permissions');
     }
 
     return item;
+  }
+
+  /**
+   * Authorize and resolve media image for an e-waste item
+   * Enforces privacy: Citizen owner, assigned/nearby Collector, consigned Recycler, Admin
+   * Unrelated users receive 403 Forbidden
+   * @param {object} actor - Authenticated user { id, role }
+   * @param {string} identifier - Item UUID or fileKey
+   * @returns {Promise<{ filePath: string, mimeType: string, item: object }>}
+   */
+  async authorizeItemImageAccess(actor, identifier) {
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+
+    let item = null;
+    let fileKey = null;
+
+    if (isUUID) {
+      item = await prisma.ewasteItem.findUnique({
+        where: { id: identifier },
+        include: {
+          collectionRequest: {
+            select: {
+              id: true,
+              status: true,
+              collectorId: true,
+              collector: {
+                select: { id: true, userId: true },
+              },
+            },
+          },
+          consignmentItems: {
+            include: {
+              consignment: {
+                select: {
+                  id: true,
+                  status: true,
+                  recyclerId: true,
+                  recycler: {
+                    select: { id: true, userId: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (item && item.imageUrl) {
+        fileKey = path.basename(item.imageUrl);
+      }
+    } else {
+      fileKey = path.basename(identifier);
+      item = await prisma.ewasteItem.findFirst({
+        where: { imageUrl: { contains: fileKey } },
+        include: {
+          collectionRequest: {
+            select: {
+              id: true,
+              status: true,
+              collectorId: true,
+              collector: {
+                select: { id: true, userId: true },
+              },
+            },
+          },
+          consignmentItems: {
+            include: {
+              consignment: {
+                select: {
+                  id: true,
+                  status: true,
+                  recyclerId: true,
+                  recycler: {
+                    select: { id: true, userId: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+    }
+
+    if (!item) {
+      // If no item found, check if it is a freshly uploaded draft image owned by current citizen
+      if (actor.role === ROLES.CITIZEN && fileKey) {
+        const directPath = await mediaService.getImagePathAsync(fileKey);
+        if (directPath) {
+          return {
+            filePath: directPath,
+            fileKey,
+            mimeType: mediaService.getMimeType(fileKey),
+            item: null,
+          };
+        }
+      }
+      throw AppError.notFound('E-waste item or image not found');
+    }
+
+    // Role-based authorization
+    if (actor.role === ROLES.CITIZEN) {
+      if (item.citizenId !== actor.id) {
+        throw AppError.forbidden('Access forbidden: You can only view your own item images');
+      }
+    } else if (actor.role === ROLES.INFORMAL_COLLECTOR) {
+      const isAssigned =
+        item.collectionRequest &&
+        item.collectionRequest.collector &&
+        item.collectionRequest.collector.userId === actor.id;
+      const isAvailable =
+        item.collectionRequest &&
+        item.collectionRequest.status === 'SUBMITTED';
+
+      if (!isAssigned && !isAvailable) {
+        throw AppError.forbidden('Access forbidden: Item is not available or assigned to you');
+      }
+    } else if (actor.role === ROLES.RECYCLER) {
+      const isConsigned =
+        item.consignmentItems &&
+        item.consignmentItems.some(
+          (ci) => ci.consignment && ci.consignment.recycler && ci.consignment.recycler.userId === actor.id
+        );
+
+      if (!isConsigned) {
+        throw AppError.forbidden('Access forbidden: Item is not consigned to your facility');
+      }
+    } else if (actor.role !== ROLES.ADMIN) {
+      throw AppError.forbidden('Access forbidden: Insufficient permissions');
+    }
+
+    if (!item.imageUrl && !fileKey) {
+      throw AppError.notFound('Item does not have an associated image');
+    }
+
+    const resolvedFileKey = fileKey || path.basename(item.imageUrl);
+    const filePath = await mediaService.getImagePathAsync(resolvedFileKey);
+
+    if (!filePath) {
+      throw AppError.notFound('Image file not found on server storage');
+    }
+
+    return {
+      filePath,
+      fileKey: resolvedFileKey,
+      mimeType: mediaService.getMimeType(filePath),
+      item,
+    };
   }
 
   /**

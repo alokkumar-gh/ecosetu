@@ -9,6 +9,24 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { useI18n } from '../../i18n';
 
+export const STATUS_SYMBOLS: Record<string, string> = Object.freeze({
+  DRAFT: '📝',
+  PENDING: '⏳',
+  CREATED: '🏷️',
+  IN_TRANSIT: '🚚',
+  DELIVERED: '📥',
+  RECEIVED: '📥',
+  ACCEPTED: '✓',
+  CONFIRMED: '✓',
+  COMPLETED: '✓',
+  PAID: '✓',
+  IN_PROGRESS: '⚙️',
+  PARTIALLY_PAID: '⚖️',
+  CANCELLED: '✕',
+  REJECTED: '✕',
+  EXPIRED: '⏰',
+});
+
 interface StatusBadgeProps {
   status: string;
 }
@@ -118,12 +136,73 @@ export const StatusBadge: React.FC<StatusBadgeProps> = memo(({ status }) => {
       label = normalized;
   }
 
+  // SIH-LIT-003: Visual status indicator MUST use icon/symbol + text + color (never color alone)
+  let statusIcon = '●';
+  switch (normalized) {
+    case 'DRAFT':
+      statusIcon = '📝';
+      break;
+    case 'SUBMITTED':
+    case 'PENDING':
+    case 'PENDING_VERIFICATION':
+    case 'PENDING_COLLECTION':
+      statusIcon = '⏳';
+      break;
+    case 'CREATED':
+      statusIcon = '📋';
+      break;
+    case 'OPEN':
+    case 'QUOTED':
+      statusIcon = '🏷️';
+      break;
+    case 'IN_TRANSIT':
+      statusIcon = '🚚';
+      break;
+    case 'DELIVERED':
+    case 'RECEIVED':
+      statusIcon = '📥';
+      break;
+    case 'ACCEPTED':
+    case 'APPROVED':
+    case 'ACTIVE':
+    case 'CONFIRMED':
+    case 'COMPLETED':
+    case 'RECYCLED':
+    case 'PICKED_UP':
+    case 'COLLECTED':
+    case 'PAID':
+      statusIcon = '✓';
+      break;
+    case 'IN_PROGRESS':
+    case 'PROCESSING':
+    case 'PICKUP_SCHEDULED':
+    case 'HANDOVER_PENDING':
+      statusIcon = '⚙️';
+      break;
+    case 'PARTIALLY_PAID':
+      statusIcon = '⚖️';
+      break;
+    case 'CANCELLED':
+    case 'REJECTED':
+    case 'SUSPENDED':
+    case 'DEACTIVATED':
+    case 'FAILED':
+      statusIcon = '✕';
+      break;
+    case 'EXPIRED':
+      statusIcon = '⏰';
+      break;
+    default:
+      statusIcon = '●';
+  }
+
   return (
     <View
       style={[styles.badge, { backgroundColor: bg, borderColor: textColor + '40' }]}
       accessibilityRole="text"
       accessibilityLabel={`Status: ${label}`}
     >
+      <Text style={[styles.badgeIcon, { color: textColor }]}>{statusIcon}</Text>
       <Text style={[styles.badgeText, { color: textColor }]}>{label}</Text>
     </View>
   );
@@ -133,11 +212,19 @@ StatusBadge.displayName = 'StatusBadge';
 
 const styles = StyleSheet.create({
   badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: spacing.spaceSm,
     paddingVertical: 3,
     borderRadius: spacing.radiusPill,
     alignSelf: 'flex-start',
     borderWidth: 1,
+    minHeight: 24,
+  },
+  badgeIcon: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   badgeText: {
     fontSize: 11,

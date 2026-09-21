@@ -39,6 +39,7 @@ import { useI18n } from '../../i18n';
 import { ROLES, NOTIFICATION_TYPES } from '../../utils/constants';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
 
 interface Props {
   navigation?: any;
@@ -342,15 +343,24 @@ export const AdminGovernanceScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
         </View>
 
-        <TouchableOpacity
-          style={styles.refreshButton}
-          onPress={() => loadData(true)}
-          disabled={isLoading || isRefreshing}
-          accessibilityRole="button"
-          accessibilityLabel={t('admin.governance.refresh')}
-        >
-          <Text style={styles.refreshButtonText}>🔄 {t('admin.governance.refresh')}</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <ReadAloudButton
+            variant="compact"
+            text={() =>
+              `${t('admin.governance.title') || 'Governance'}. ${t('admin.governance.unreadCount') || 'Unread'}: ${unreadCount ?? 0}. ${t('admin.governance.totalAlerts') || 'Total Alerts'}: ${notifications.length}. ${t('admin.governance.totalAuditLogs') || 'Audit Logs'}: ${auditTotal}.`
+            }
+            accessibilityLabel={t('voice.readAloud') || 'Read Aloud'}
+          />
+          <TouchableOpacity
+            style={styles.refreshButton}
+            onPress={() => loadData(true)}
+            disabled={isLoading || isRefreshing}
+            accessibilityRole="button"
+            accessibilityLabel={t('admin.governance.refresh')}
+          >
+            <Text style={styles.refreshButtonText}>🔄 {t('admin.governance.refresh')}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* KPI Overview Cards */}

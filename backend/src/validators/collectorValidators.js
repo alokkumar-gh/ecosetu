@@ -56,10 +56,15 @@ const upsertProfile = [
     .withMessage('state must not exceed 100 characters'),
 
   body('pincode')
-    .optional({ nullable: true })
+    .optional({ nullable: true, checkFalsy: true })
     .trim()
     .matches(/^[1-9][0-9]{5}$/)
     .withMessage('pincode must be a valid 6-digit Indian postal PIN code'),
+
+  body('preferredLanguage')
+    .optional({ nullable: true })
+    .isIn(['en', 'hi', 'mr', 'or'])
+    .withMessage('preferredLanguage must be one of: en, hi, mr, or'),
 
   body('bio')
     .optional({ nullable: true })
@@ -76,7 +81,18 @@ const toggleAvailability = [
     .withMessage('isAvailable must be a boolean value'),
 ];
 
+const validateUpdateProfile = (data) => {
+  const allowedLangs = ['en', 'hi', 'mr', 'or'];
+  if (data.preferredLanguage !== undefined && data.preferredLanguage !== null) {
+    if (!allowedLangs.includes(data.preferredLanguage)) {
+      return { error: 'preferredLanguage must be one of: en, hi, mr, or' };
+    }
+  }
+  return { error: undefined };
+};
+
 module.exports = {
   upsertProfile,
   toggleAvailability,
+  validateUpdateProfile,
 };

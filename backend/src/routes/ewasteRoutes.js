@@ -7,15 +7,41 @@ const authenticate = require('../middleware/authenticate');
 const authorize = require('../middleware/authorize');
 const validate = require('../middleware/validate');
 const ewasteValidators = require('../validators/ewasteValidators');
+const { handleImageUpload } = require('../middleware/uploadMiddleware');
 const { ROLES } = require('../utils/constants');
 
 const router = express.Router();
+
+// Upload an e-waste photo (Citizen only)
+router.post(
+  '/upload',
+  authenticate,
+  authorize(ROLES.CITIZEN),
+  handleImageUpload,
+  (req, res, next) => ewasteController.uploadImage(req, res, next)
+);
+
+// Stream authorized e-waste photo by fileKey (supports hierarchical keys like ewaste/itemId/uuid.jpg)
+router.get(
+  '/media/:fileKey(*)',
+  authenticate,
+  (req, res, next) => ewasteController.getItemImage(req, res, next)
+);
+
+// Stream authorized e-waste photo by itemId
+router.get(
+  '/:id/image',
+  authenticate,
+  validate(ewasteValidators.getItem),
+  (req, res, next) => ewasteController.getItemImage(req, res, next)
+);
 
 // Submit a new e-waste item (Citizen only)
 router.post(
   '/',
   authenticate,
   authorize(ROLES.CITIZEN),
+  handleImageUpload,
   validate(ewasteValidators.createItem),
   (req, res, next) => ewasteController.createItem(req, res, next)
 );

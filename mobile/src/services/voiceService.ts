@@ -17,6 +17,7 @@
 import { NativeModules, Platform } from 'react-native';
 import { storage } from '../utils/storage';
 import { STORAGE_KEYS } from '../utils/constants';
+import { getLanguage } from '../i18n/core';
 
 export const AnnouncementPriority = Object.freeze({
   HIGH: 'HIGH' as const,
@@ -151,7 +152,7 @@ class VoiceService {
     this.currentPriority = priority;
     this.isSpeaking = true;
 
-    const lang = options.language || 'en';
+    const lang = options.language || (typeof getLanguage === 'function' ? getLanguage() : 'en');
 
     try {
       if (EcoSetuTTS?.speak) {

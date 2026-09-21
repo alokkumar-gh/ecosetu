@@ -42,6 +42,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useI18n } from '../../i18n';
+import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
 
 interface Props {
   navigation?: any;
@@ -75,9 +76,10 @@ export const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const loadData = useCallback(async (period: PeriodType = selectedPeriod, silent = false) => {
-    if (!silent) setError(null);
     try {
-      const result = await adminService.getAnalytics(period.toLowerCase());
+      const result = period
+        ? await adminService.getAnalytics(period.toLowerCase())
+        : await adminService.getAnalytics();
       setAnalytics(result.analytics || null);
       setFromCache(Boolean(result.fromCache));
     } catch (err: any) {
@@ -201,6 +203,14 @@ export const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.quickActionItem}
+            onPress={() => navigation?.navigate?.('AdminHistoricalAnalytics')}
+          >
+            <Text style={styles.quickActionIcon}>📊</Text>
+            <Text style={styles.quickActionLabel}>Analytics</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickActionItem}
             onPress={() => navigation?.navigate?.('AdminGeographicAnalytics')}
           >
             <Text style={styles.quickActionIcon}>🗺️</Text>
@@ -209,7 +219,7 @@ export const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.quickActionItem}
-            onPress={() => navigation?.navigate?.('AdminSystemHealth')}
+            onPress={() => navigation?.navigate('AdminSystemHealth')}
           >
             <Text style={styles.quickActionIcon}>⚙️</Text>
             <Text style={styles.quickActionLabel}>Health</Text>
@@ -264,9 +274,15 @@ export const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
               {/* ============================================================ */}
               {/* SECTION 2: EXECUTIVE KPI SECTION (16 CARDS)                  */}
               {/* ============================================================ */}
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Executive KPIs</Text>
-                <GlassBadge label={`Source: Neon DB (${selectedPeriod})`} tone="neutral" />
+              <View style={[styles.sectionHeaderRow, { justifyContent: 'space-between', alignItems: 'center' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={styles.sectionTitle}>Executive KPIs</Text>
+                  <GlassBadge label={`Source: Neon DB (${selectedPeriod})`} tone="neutral" />
+                </View>
+                <ReadAloudButton
+                  text={`Admin Command Center. Executive KPIs for ${selectedPeriod}. Total pickups: ${analytics?.totalPickups || 0}. Diverted weight: ${analytics?.totalWeightKg || 0} kilograms.`}
+                  size="small"
+                />
               </View>
 
               <View style={styles.kpiGrid}>

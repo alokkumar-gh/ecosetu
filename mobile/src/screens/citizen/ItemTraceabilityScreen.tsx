@@ -46,6 +46,8 @@ import {
 import { useI18n } from '../../i18n';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
+import { AuthorizedImage } from '../../components/common/AuthorizedImage';
 
 type Props = NativeStackScreenProps<CitizenStackParamList, 'ItemTraceability'>;
 
@@ -473,7 +475,13 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
                 </Text>
               )}
             </View>
-            {item?.status && <StatusBadge status={item.status} />}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {item?.status && <StatusBadge status={item.status} />}
+              <ReadAloudButton
+                text={`E-waste item ${item?.category?.replace(/_/g, ' ') || 'traceability'}. Current stage is ${item?.status?.replace(/_/g, ' ') || 'in progress'}.`}
+                size="small"
+              />
+            </View>
           </View>
 
           <View style={styles.divider} />

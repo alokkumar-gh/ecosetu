@@ -25,6 +25,8 @@ import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { GlassCard } from '../../components/glass/GlassCard';
 import { GlassAvatar } from '../../components/glass/GlassAvatar';
+import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
+import { useI18n } from '../../i18n';
 
 interface Props {
   navigation?: any;
@@ -33,6 +35,7 @@ interface Props {
 export const RecyclerDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
   const { isConnected } = useNetwork();
+  const { t } = useI18n();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const recyclerName = user?.name || 'Abhishek Singh';
@@ -85,14 +88,23 @@ export const RecyclerDashboardScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           </View>
 
-          <TouchableOpacity
-            style={styles.settingsBtn}
-            onPress={() => navigation?.navigate?.('RecyclerProfile')}
-            accessibilityRole="button"
-            accessibilityLabel="Settings"
-          >
-            <Text style={styles.settingsIcon}>⚙️</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <ReadAloudButton
+              variant="compact"
+              text={() =>
+                `${t('recycler.dashboard.title') || 'Recycler Dashboard'}. ${recyclerName}. ${t('recycler.dashboard.authorizedFacility') || 'Authorized Facility'}. ${t('recycler.dashboard.incomingBatches') || 'Incoming'}: 4. ${t('recycler.dashboard.facilityThroughput') || 'Processed'}: 186 kg.`
+              }
+              accessibilityLabel={t('voice.readAloud') || 'Read Aloud'}
+            />
+            <TouchableOpacity
+              style={styles.settingsBtn}
+              onPress={() => navigation?.navigate?.('RecyclerProfile')}
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
+            >
+              <Text style={styles.settingsIcon}>⚙️</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {!isConnected && <OfflineBanner />}

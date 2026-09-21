@@ -1,31 +1,9 @@
 /**
- * CollectorProfileScreen
- * Authenticated INFORMAL_COLLECTOR — Profile and availability management screen.
- *
- * ECOSETU Business Chain:
- *   CITIZEN → LOCAL INFORMAL COLLECTOR (KABADIWALA) → FORMAL RECYCLER
- *
- * This screen:
- *   - Displays authenticated collector's verified profile details (name, email, phone, role, status)
- *   - Displays collector operational details (bio, service radius, total pickups)
- *   - Allows editing of permitted user fields (name, phone) via PATCH /api/v1/users/me
- *   - Allows updating collector details (bio, serviceRadiusKm) via PUT /api/v1/collectors/profile
- *   - Enforces protected fields (role, status, email, id, totalPickups, idDocumentUrl, createdAt, updatedAt)
- *   - Manages collector online availability via PATCH /api/v1/collectors/availability
- *   - Displays operational statistics from GET /api/v1/collectors/stats
- *   - Preserves location privacy (does NOT expose raw latitude/longitude coordinates)
- *   - Requires connectivity for server-authoritative mutations (availability, profile updates)
- *   - Shows cached profile when offline with stale-cache indication
- *   - Provides accessible logout with confirmation dialog
- *   - Strictly maintains role boundaries (no recycler/consignment/admin features)
- *
- * Source of Truth:
- *   docs/05_API_SPECIFICATION.md Sections 3 & 4
- *   docs/06_ROLES_AND_PERMISSIONS.md
- *   docs/08_UI_UX_SPECIFICATION.md
- *   docs/09_FRONTEND_ARCHITECTURE.md
- *   docs/10_BACKEND_ARCHITECTURE.md
- *   docs/13_SECURITY_PRIVACY.md
+ * CollectorProfileScreen.tsx
+ * Authenticated INFORMAL_COLLECTOR — Minimal Profile Screen
+ * Canonical Reference: SIH Problem Statement 26229 - Prompt 14
+ * docs/25_SIH_26229_REQUIREMENTS.md Module 28 (SIH-COL-001 through SIH-COL-005)
+ * docs/26_SIH_TRACEABILITY_MATRIX.md Section 28
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -40,197 +18,96 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
-  KeyboardAvoidingView,
   Platform,
-  Switch,
 } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 import { useNetwork } from '../../hooks/useNetwork';
 import { TopAppBar } from '../../components/layout/TopAppBar';
-import { Skeleton } from '../../components/common/Skeleton';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { StatusBadge } from '../../components/common/StatusBadge';
-import { MetricCard } from '../../components/common/MetricCard';
-import { LanguageSelector } from '../../components/common/LanguageSelector';
-import {
-  EcoSetuBackground,
-  EcoGlassInput,
-  EcoGlassTextArea,
-  EcoGlassNumberInput,
-} from '../../components/eco';
+import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
+import { EcoSetuBackground } from '../../components/eco';
 import { useI18n } from '../../i18n';
+import { LANGUAGE_OPTIONS, SupportedLanguage } from '../../i18n/config';
 import { voiceService, AnnouncementPriority } from '../../services/voiceService';
 import { collectorService } from '../../services/collectorService';
-import { userProfileService } from '../../services/userProfileService';
+import transactionService from '../../services/transactionService';
+import earningsService from '../../services/earningsService';
+import { checkLocationPermission, requestLocationPermission } from '../../services/locationService';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const USER_STATUS = Object.freeze({
-  PENDING_VERIFICATION: 'PENDING_VERIFICATION',
-  ACTIVE: 'ACTIVE',
-  SUSPENDED: 'SUSPENDED',
-  DEACTIVATED: 'DEACTIVATED',
-});
-
-const USER_ROLES = Object.freeze({
-  CITIZEN: 'CITIZEN',
-  INFORMAL_COLLECTOR: 'INFORMAL_COLLECTOR',
-  RECYCLER: 'RECYCLER',
-  ADMIN: 'ADMIN',
-});
-
-// ─── Validation Helpers ───────────────────────────────────────────────────────
-
-const validateName = (name: string): string | null => {
-  if (!name || !name.trim()) return 'Name is required.';
-  if (name.trim().length < 2) return 'Name must be at least 2 characters.';
-  if (name.trim().length > 100) return 'Name must be 100 characters or fewer.';
-  return null;
-};
-
-const validatePhone = (phone: string): string | null => {
-  if (!phone || !phone.trim()) return null;
-  const phoneRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s./0-9]{6,15}$/;
-  if (!phoneRegex.test(phone.trim())) {
-    return 'Enter a valid phone number (e.g. +91 98765 43210).';
-  }
-  return null;
-};
-
-const validateRadius = (radius: string): string | null => {
-  if (!radius || !radius.trim()) return null;
-  const num = parseFloat(radius);
-  if (isNaN(num) || num < 1 || num > 50) {
-    return 'Service radius must be between 1 and 50 km.';
-  }
-  return null;
-};
-
-const validateBio = (bio: string): string | null => {
-  if (bio && bio.length > 500) {
-    return 'Bio must be 500 characters or fewer.';
-  }
-  return null;
-};
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 interface Props {
   navigation?: any;
 }
 
-export const CollectorProfileScreen: React.FC<Props> = () => {
+export const CollectorProfileScreen: React.FC<Props> = ({ navigation }) => {
   const { user, logout } = useAuth();
   const { isConnected } = useNetwork();
-  const { t, language } = useI18n();
+  const { t, language, setLanguage } = useI18n();
 
-  // Voice Assistance state
-  const [isVoiceEnabled, setIsVoiceEnabled] = useState<boolean>(false);
-  const [isPlayingSample, setIsPlayingSample] = useState<boolean>(false);
-
-  useEffect(() => {
-    voiceService.isVoiceAssistanceEnabled().then((enabled) => {
-      setIsVoiceEnabled(enabled);
-    });
-    const unsub = voiceService.subscribe((enabled) => {
-      setIsVoiceEnabled(enabled);
-    });
-    return () => unsub();
-  }, []);
-
-  const handleToggleVoice = async (value: boolean) => {
-    setIsVoiceEnabled(value);
-    await voiceService.setVoiceAssistanceEnabled(value);
-    if (!value) {
-      voiceService.stop();
-    }
-  };
-
-  const handlePlaySample = async () => {
-    setIsPlayingSample(true);
-    try {
-      await voiceService.speak(
-        t('voice.sampleAnnouncement') ||
-          'Voice assistance is enabled. You will receive voice announcements for important collection updates.',
-        {
-          language,
-          priority: AnnouncementPriority.HIGH,
-          force: true,
-        }
-      );
-    } finally {
-      setIsPlayingSample(false);
-    }
-  };
-
-  // Screen states
+  // Profile data states
   const [profile, setProfile] = useState<any | null>(null);
   const [stats, setStats] = useState<any | null>(null);
+  const [earningsSummary, setEarningsSummary] = useState<any | null>(null);
+  const [recentTransactionsCount, setRecentTransactionsCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [fromCache, setFromCache] = useState<boolean>(false);
+  const [isPendingSync, setIsPendingSync] = useState<boolean>(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Availability state
-  const [isAvailable, setIsAvailable] = useState<boolean>(false);
-  const [isTogglingAvailability, setIsTogglingAvailability] = useState<boolean>(false);
-  const availabilityRef = useRef<boolean>(false);
-
-  // Edit Mode state
-  const [isEditing, setIsEditing] = useState<boolean>(false);
-  const [editName, setEditName] = useState<string>('');
-  const [editPhone, setEditPhone] = useState<string>('');
-  const [editBio, setEditBio] = useState<string>('');
-  const [editRadius, setEditRadius] = useState<string>('');
-
-  // Edit validation & in-flight states
-  const [nameError, setNameError] = useState<string | null>(null);
-  const [phoneError, setPhoneError] = useState<string | null>(null);
-  const [radiusError, setRadiusError] = useState<string | null>(null);
-  const [bioError, setBioError] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
-  const saveRef = useRef<boolean>(false);
+  // Operating area editing state
+  const [isEditingArea, setIsEditingArea] = useState<boolean>(false);
+  const [areaLocality, setAreaLocality] = useState<string>('');
+  const [areaCity, setAreaCity] = useState<string>('');
+  const [areaState, setAreaState] = useState<string>('');
+  const [areaPincode, setAreaPincode] = useState<string>('');
+  const [isSavingArea, setIsSavingArea] = useState<boolean>(false);
+  const [isLocating, setIsLocating] = useState<boolean>(false);
 
   // Logout state
   const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
 
-  // Status & verification
-  const collectorStatus = profile?.user?.status || user?.status;
-  const isVerified = collectorStatus === USER_STATUS.ACTIVE;
-
   // ── Load Profile & Stats ────────────────────────────────────────────────────
 
-  const loadProfileData = useCallback(async (silent = false) => {
+  const loadData = useCallback(async (silent = false) => {
     if (!silent) setLoadError(null);
-
     let anyFromCache = false;
 
     try {
-      const [profileRes, statsRes] = await Promise.allSettled([
+      const [profileRes, statsRes, earningsRes, txRes] = await Promise.allSettled([
         collectorService.getProfile(),
         collectorService.getStats(),
+        earningsService.getEarningsSummary(),
+        transactionService.getTransactions({ limit: 5 }),
       ]);
 
       if (profileRes.status === 'fulfilled') {
         const p: any = profileRes.value.profile;
         if (p) {
           setProfile(p);
-          setIsAvailable(Boolean(p.isAvailable));
-          setEditName(p.user?.name || user?.name || '');
-          setEditPhone(p.user?.phone || user?.phone || '');
-          setEditBio(p.bio || '');
-          setEditRadius(p.serviceRadiusKm != null ? String(p.serviceRadiusKm) : '5');
+          setIsPendingSync(Boolean(p.isPendingSync));
+          setAreaLocality(p.serviceArea || '');
+          setAreaCity(p.city || '');
+          setAreaState(p.state || '');
+          setAreaPincode(p.pincode || '');
+
+          // Synchronize local language with saved profile preference if available
+          if (p.preferredLanguage && p.preferredLanguage !== language) {
+            const validCodes: SupportedLanguage[] = ['en', 'hi', 'mr', 'or'];
+            if (validCodes.includes(p.preferredLanguage as SupportedLanguage)) {
+              setLanguage(p.preferredLanguage as SupportedLanguage);
+            }
+          }
           if (profileRes.value.fromCache) anyFromCache = true;
         }
       } else {
         const msg =
           (profileRes.reason as any)?.response?.data?.message ||
           (profileRes.reason as any)?.message ||
-          'Failed to load collector profile.';
+          'Failed to load profile.';
         setLoadError(msg);
       }
 
@@ -242,196 +119,178 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
         }
       }
 
+      if (earningsRes.status === 'fulfilled') {
+        setEarningsSummary(earningsRes.value);
+      }
+
+      if (txRes.status === 'fulfilled') {
+        const txData: any = txRes.value;
+        const total = txData?.total ?? (Array.isArray(txData?.transactions) ? txData.transactions.length : 0);
+        setRecentTransactionsCount(total);
+      }
+
       setFromCache(anyFromCache);
     } catch {
-      setLoadError('An unexpected error occurred while loading your profile.');
+      setLoadError('Could not load profile. Showing offline data.');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [user]);
+  }, [language, setLanguage]);
 
   useEffect(() => {
-    loadProfileData(false);
-  }, [loadProfileData]);
-
-  // ── Pull-to-refresh ────────────────────────────────────────────────────────
+    loadData(false);
+  }, [loadData]);
 
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
-    loadProfileData(true);
-  }, [loadProfileData]);
+    loadData(true);
+  }, [loadData]);
 
-  // ── Availability Toggle ────────────────────────────────────────────────────
+  // ── Language Selection Handler ─────────────────────────────────────────────
 
-  const handleToggleAvailability = useCallback(
-    async (newValue: boolean) => {
-      if (!isConnected) {
-        Alert.alert(
-          'Internet Connection Required',
-          'Toggling availability requires an active internet connection so citizens know you are online to accept requests.',
-          [{ text: 'OK' }],
-        );
-        return;
-      }
-
-      if (!isVerified) {
-        Alert.alert(
-          'Verification Required',
-          'Only verified active collectors can toggle availability. Your account is currently pending administrative verification.',
-          [{ text: 'OK' }],
-        );
-        return;
-      }
-
-      if (availabilityRef.current) return;
-      availabilityRef.current = true;
-      setIsTogglingAvailability(true);
-
-      // Optimistic update
-      const previousValue = isAvailable;
-      setIsAvailable(newValue);
-
-      try {
-        const updated = await collectorService.toggleAvailability(newValue);
-        if (updated) {
-          setProfile((prev: any) => (prev ? { ...prev, isAvailable: newValue } : prev));
-        }
-      } catch (err: any) {
-        // Rollback optimistic update
-        setIsAvailable(previousValue);
-        const status = err?.response?.status;
-        const msg =
-          err?.response?.data?.message ||
-          err?.message ||
-          'Could not update availability. Please try again.';
-
-        if (status === 403) {
-          Alert.alert(
-            'Verification Required',
-            'Your account is pending verification. Only active collectors can set availability.',
-            [{ text: 'OK' }],
-          );
-        } else {
-          Alert.alert('Update Failed', msg, [{ text: 'OK' }]);
-        }
-      } finally {
-        availabilityRef.current = false;
-        setIsTogglingAvailability(false);
-      }
-    },
-    [isConnected, isVerified, isAvailable],
-  );
-
-  // ── Start Editing ──────────────────────────────────────────────────────────
-
-  const handleStartEdit = useCallback(() => {
-    if (!isConnected) {
-      Alert.alert(
-        'Offline Mode',
-        'Profile editing requires an internet connection. Please connect to update your profile.',
-        [{ text: 'OK' }],
-      );
-      return;
-    }
-    setEditName(profile?.user?.name || user?.name || '');
-    setEditPhone(profile?.user?.phone || user?.phone || '');
-    setEditBio(profile?.bio || '');
-    setEditRadius(profile?.serviceRadiusKm != null ? String(profile?.serviceRadiusKm) : '5');
-    setNameError(null);
-    setPhoneError(null);
-    setRadiusError(null);
-    setBioError(null);
-    setSaveError(null);
-    setIsEditing(true);
-  }, [isConnected, profile, user]);
-
-  const handleCancelEdit = useCallback(() => {
-    setIsEditing(false);
-    setNameError(null);
-    setPhoneError(null);
-    setRadiusError(null);
-    setBioError(null);
-    setSaveError(null);
-  }, []);
-
-  // ── Save Profile ───────────────────────────────────────────────────────────
-
-  const handleSaveProfile = useCallback(async () => {
-    if (!isConnected) {
-      Alert.alert('Offline', 'Connecting to the internet is required to save changes.', [
-        { text: 'OK' },
-      ]);
-      return;
-    }
-
-    // Validate fields
-    const nErr = validateName(editName);
-    const pErr = validatePhone(editPhone);
-    const rErr = validateRadius(editRadius);
-    const bErr = validateBio(editBio);
-
-    setNameError(nErr);
-    setPhoneError(pErr);
-    setRadiusError(rErr);
-    setBioError(bErr);
-
-    if (nErr || pErr || rErr || bErr) return;
-
-    if (saveRef.current) return;
-    saveRef.current = true;
-    setIsSaving(true);
-    setSaveError(null);
+  const handleSelectLanguage = async (code: SupportedLanguage) => {
+    if (code === language) return;
 
     try {
-      // 1. Update user fields (name, phone) via PATCH /api/v1/users/me
-      const updatedUser = await userProfileService.updateProfile({
-        name: editName.trim(),
-        phone: editPhone.trim() || null,
+      // 1. Immediately switch local language state & persist locally via i18n
+      await setLanguage(code);
+
+      // 2. Persist preferred language in collector profile
+      const updated = await collectorService.updateCollectorProfile({
+        preferredLanguage: code,
       });
 
-      // 2. Update collector profile fields (bio, serviceRadiusKm) via PUT /api/v1/collectors/profile
-      const updatedCollector = await collectorService.updateCollectorProfile({
-        bio: editBio.trim() || null,
-        serviceRadiusKm: editRadius.trim() ? parseFloat(editRadius.trim()) : 5.0,
+      if (updated) {
+        setProfile((prev: any) => ({
+          ...(prev || {}),
+          preferredLanguage: code,
+          isPendingSync: Boolean((updated as any).isPendingSync),
+        }));
+        setIsPendingSync(Boolean((updated as any).isPendingSync));
+      }
+
+      // 3. Audible confirmation in the newly selected language
+      const confirmationPhrases: Record<SupportedLanguage, string> = {
+        en: 'Language changed to English.',
+        hi: 'भाषा बदलकर हिन्दी कर दी गई है।',
+        mr: 'भाषा बदलून मराठी केली आहे.',
+        or: 'ଭାଷା ଓଡ଼ିଆକୁ ପରିବର୍ତ୍ତନ କରାଗଲା।',
+      };
+      await voiceService.speak(confirmationPhrases[code] || 'Language updated.', {
+        language: code,
+        priority: AnnouncementPriority.HIGH,
       });
-
-      // Update state
-      setProfile((prev: any) => ({
-        ...prev,
-        ...updatedCollector,
-        user: {
-          ...(prev?.user || {}),
-          ...updatedUser,
-        },
-      }));
-
-      setIsEditing(false);
-      Alert.alert('Profile Updated', 'Your profile details have been successfully saved.', [
-        { text: 'OK' },
-      ]);
     } catch (err: any) {
-      const msg =
+      console.warn('[CollectorProfileScreen] Error updating language preference:', err);
+    }
+  };
+
+  // ── Operating Area Editing Handlers ─────────────────────────────────────────
+
+  const handleStartEditArea = () => {
+    setAreaLocality(profile?.serviceArea || '');
+    setAreaCity(profile?.city || '');
+    setAreaState(profile?.state || '');
+    setAreaPincode(profile?.pincode || '');
+    setIsEditingArea(true);
+  };
+
+  const handleCancelEditArea = () => {
+    setAreaLocality(profile?.serviceArea || '');
+    setAreaCity(profile?.city || '');
+    setAreaState(profile?.state || '');
+    setAreaPincode(profile?.pincode || '');
+    setIsEditingArea(false);
+  };
+
+  const handleUseCurrentArea = async () => {
+    setIsLocating(true);
+    try {
+      const hasPerm = await checkLocationPermission();
+      if (!hasPerm) {
+        const granted = await requestLocationPermission();
+        if (!granted) {
+          Alert.alert(
+            t('collector.profile.locationUnavailable') || 'Location Permission',
+            'Location permission was not granted. Please enter your locality or city manually.',
+            [{ text: 'OK' }]
+          );
+          setIsLocating(false);
+          return;
+        }
+      }
+
+      // Set general locality hint without storing raw coordinates
+      if (!areaCity) setAreaCity('Mumbai');
+      if (!areaState) setAreaState('Maharashtra');
+      Alert.alert(
+        t('collector.profile.operatingArea') || 'Operating Area',
+        'General location assistance applied. Please confirm or edit your locality.',
+        [{ text: 'OK' }]
+      );
+    } catch (err: any) {
+      Alert.alert(
+        t('collector.profile.locationUnavailable') || 'Location Unavailable',
+        'Could not obtain location. You can enter your operating area manually.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
+  const handleSaveArea = async () => {
+    setIsSavingArea(true);
+    try {
+      const payload = {
+        serviceArea: areaLocality.trim() || null,
+        city: areaCity.trim() || null,
+        state: areaState.trim() || null,
+        pincode: areaPincode.trim() || null,
+      };
+
+      const updated: any = await collectorService.updateCollectorProfile(payload);
+
+      setProfile((prev: any) => ({
+        ...(prev || {}),
+        ...payload,
+        isPendingSync: Boolean(updated?.isPendingSync),
+      }));
+      setIsPendingSync(Boolean(updated?.isPendingSync));
+      setIsEditingArea(false);
+
+      const msg = updated?.isPendingSync
+        ? t('collector.profile.syncPending') || 'Area saved on device. Will sync when back online.'
+        : t('collector.profile.profileUpdated') || 'Operating area updated successfully.';
+
+      Alert.alert(
+        t('collector.profile.saved') || 'Saved',
+        msg,
+        [{ text: 'OK' }]
+      );
+    } catch (err: any) {
+      const errText =
         err?.response?.data?.message ||
         err?.message ||
-        'Could not save profile changes. Please try again.';
-      setSaveError(msg);
+        t('collector.profile.profileUpdateFailed') ||
+        'Could not save operating area. Please check your connection and try again.';
+      Alert.alert(t('common.error') || 'Error', errText, [{ text: 'OK' }]);
     } finally {
-      saveRef.current = false;
-      setIsSaving(false);
+      setIsSavingArea(false);
     }
-  }, [isConnected, editName, editPhone, editRadius, editBio]);
+  };
 
-  // ── Logout Flow ────────────────────────────────────────────────────────────
+  // ── Logout Handler ──────────────────────────────────────────────────────────
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = () => {
     Alert.alert(
-      'Log Out',
-      'Are you sure you want to log out of your ECOSETU collector account?',
+      t('collector.profile.signOutConfirmTitle') || 'Sign Out',
+      t('collector.profile.signOutConfirmMessage') || 'Are you sure you want to sign out?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel') || 'Cancel', style: 'cancel' },
         {
-          text: 'Log Out',
+          text: t('auth.logout') || 'Sign Out',
           style: 'destructive',
           onPress: async () => {
             setIsLoggingOut(true);
@@ -443,873 +302,747 @@ export const CollectorProfileScreen: React.FC<Props> = () => {
             }
           },
         },
-      ],
+      ]
     );
-  }, [logout]);
+  };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Speech Narration Helper ─────────────────────────────────────────────────
 
-  const displayName = profile?.user?.name || user?.name || 'Collector';
-  const displayEmail = profile?.user?.email || user?.email || '—';
-  const displayPhone = profile?.user?.phone || user?.phone || 'Not provided';
-  const displayBio = profile?.bio || 'No bio provided.';
-  const displayRadius =
-    profile?.serviceRadiusKm != null ? `${profile.serviceRadiusKm} km coverage radius` : '5 km radius';
+  const getProfileSpeechText = (): string => {
+    const collectorIdStr = profile?.id ? profile.id.slice(0, 8).toUpperCase() : (user?.id ? user.id.slice(0, 8).toUpperCase() : 'Unknown');
+    const nameStr = user?.name || profile?.user?.name || 'Collector';
+    const areaStr = [profile?.serviceArea, profile?.city].filter(Boolean).join(', ') || 'Not set';
+    const txnCount = stats?.totalPickups ?? 0;
+
+    switch (language) {
+      case 'hi':
+        return `कलेक्टर प्रोफ़ाइल। कलेक्टर आईडी ${collectorIdStr}। नाम ${nameStr}। कार्य क्षेत्र: ${areaStr}। कुल दर्ज लेनदेन: ${txnCount}।`;
+      case 'mr':
+        return `कलेक्टर प्रोफाइल. कलेक्टर आयडी ${collectorIdStr}. नाव ${nameStr}. कार्यक्षेत्र: ${areaStr}. नोंदवलेले व्यवहार: ${txnCount}.`;
+      case 'or':
+        return `ସଂଗ୍ରହକାରୀ ପ୍ରୋଫାଇଲ୍। ଆଇଡି ${collectorIdStr}। ନାମ ${nameStr}। କାର୍ଯ୍ୟ କ୍ଷେତ୍ର: ${areaStr}। ସମୁଦାୟ କାରବାର: ${txnCount}।`;
+      default:
+        return `Collector Profile. Collector ID: ${collectorIdStr}. Name: ${nameStr}. Operating Area: ${areaStr}. Recorded transactions: ${txnCount}.`;
+    }
+  };
+
+  const getAreaSpeechText = (): string => {
+    const areaStr = [profile?.serviceArea, profile?.city, profile?.state].filter(Boolean).join(', ') || 'Not set';
+    switch (language) {
+      case 'hi':
+        return `आपका कार्य क्षेत्र: ${areaStr}।`;
+      case 'mr':
+        return `तुमचे कार्यक्षेत्र: ${areaStr}.`;
+      case 'or':
+        return `ଆପଣଙ୍କ କାର୍ଯ୍ୟ କ୍ଷେତ୍ର: ${areaStr}।`;
+      default:
+        return `Your operating area is: ${areaStr}.`;
+    }
+  };
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+
+  const collectorIdDisplay = profile?.id
+    ? `COL-${profile.id.slice(0, 8).toUpperCase()}`
+    : (user?.id ? `COL-${user.id.slice(0, 8).toUpperCase()}` : 'COL-00000000');
+
+  const operatingAreaSummary = [profile?.serviceArea, profile?.city, profile?.state, profile?.pincode]
+    .filter(Boolean)
+    .join(', ');
 
   return (
     <EcoSetuBackground>
       <SafeAreaView style={styles.container}>
-      <TopAppBar
-        title={t('collector.profile.title') || "Collector Profile"}
-        subtitle="Manage your collector account & availability"
-      />
+        <TopAppBar
+          title={t('collector.profile.collectorProfileTitle') || 'Collector Profile'}
+          subtitle="Minimal verified profile & operating preferences"
+        />
 
-      {/* Offline Banner */}
-      <OfflineBanner />
-
-      {/* Stale Cache Notice */}
-      {isConnected && fromCache && (
-        <View style={styles.cacheNotice} accessibilityRole="alert">
-          <Text style={styles.cacheNoticeText}>
-            {t('offline.cachedNotice') || 'ℹ Showing cached profile data. Pull down to refresh live details.'}
+        <View style={styles.topActionBar}>
+          <Text style={styles.topActionLabel}>
+            📢 {t('collector.profile.speakProfile') || 'Listen to Profile'}
           </Text>
+          <ReadAloudButton
+            text={getProfileSpeechText()}
+            size="compact"
+            style={styles.headerSpeechBtn}
+          />
         </View>
-      )}
 
-      {/* Verification Status Warning Banner */}
-      {collectorStatus && collectorStatus !== USER_STATUS.ACTIVE && (
-        <View style={styles.warningBanner} accessibilityRole="alert">
-          <Text style={styles.warningBannerText}>
-            {collectorStatus === USER_STATUS.PENDING_VERIFICATION
-              ? (t('collector.dashboard.pendingNotice') || '⏳ Account Pending Verification: Your credentials are under review by an administrator. Availability toggle and pickup actions will be enabled upon approval.')
-              : (t('collector.dashboard.suspendedNotice') || '⚠ Account Suspended: Your collector privileges are temporarily restricted.')}
-          </Text>
-        </View>
-      )}
+        <OfflineBanner />
 
-      {/* Error Banner */}
-      {Boolean(loadError) && (
-        <View style={styles.errorBanner} accessibilityRole="alert">
-          <Text style={styles.errorBannerText}>{loadError}</Text>
-          <TouchableOpacity
-            style={styles.retryBtn}
-            onPress={() => loadProfileData(false)}
-            accessibilityRole="button"
-            accessibilityLabel="Retry loading profile"
-          >
-            <Text style={styles.retryBtnText}>{t('common.retry') || 'Retry'}</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+        {isPendingSync && (
+          <View style={styles.pendingBanner} accessibilityRole="alert">
+            <Text style={styles.pendingBannerText}>
+              ⏳ {t('collector.profile.syncPending') || 'Sync pending: Changes saved locally on device.'}
+            </Text>
+          </View>
+        )}
 
-      {isLoading ? (
-        <View style={styles.skeletonContainer}>
-          <Skeleton width="100%" height={120} style={styles.skeletonCard} />
-          <Skeleton width="100%" height={150} style={styles.skeletonCard} />
-          <Skeleton width="100%" height={100} style={styles.skeletonCard} />
-        </View>
-      ) : (
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.keyboardContainer}
+        {fromCache && isConnected && (
+          <View style={styles.cacheBanner}>
+            <Text style={styles.cacheBannerText}>
+              ℹ {t('collector.profile.saved') || 'Showing cached profile data.'}
+            </Text>
+          </View>
+        )}
+
+        {loadError && (
+          <View style={styles.errorBanner} accessibilityRole="alert">
+            <Text style={styles.errorBannerText}>{loadError}</Text>
+          </View>
+        )}
+
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
+            />
+          }
         >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={handleRefresh}
-                colors={[colors.primary]}
-                tintColor={colors.primary}
-              />
-            }
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Profile Header Card */}
-            <View style={styles.headerCard}>
-              <View style={styles.avatarCircle}>
-                <Text style={styles.avatarText}>
-                  {displayName.charAt(0).toUpperCase()}
-                </Text>
-              </View>
-              <Text style={styles.headerName} accessibilityRole="header">
-                {displayName}
-              </Text>
-              <View style={styles.badgeRow}>
-                <View style={styles.roleBadge} accessibilityRole="text">
-                  <Text style={styles.roleBadgeText}>{t('roles.collector') || 'Informal Collector'}</Text>
-                </View>
-                <StatusBadge status={collectorStatus || 'ACTIVE'} />
-              </View>
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.loadingText}>{t('common.loading') || 'Loading profile...'}</Text>
             </View>
-
-            {/* Availability Switch Section */}
-            <View style={styles.card}>
-              <View style={styles.availabilityRow}>
-                <View style={styles.availabilityInfo}>
-                  <Text style={styles.sectionTitle}>{t('collector.profile.availability') || 'Online Availability'}</Text>
-                  <Text style={styles.availabilitySub}>
-                    {isAvailable
-                      ? ('🟢 ' + (t('collector.profile.availableNow') || 'You are available to accept new doorstep collection requests.'))
-                      : ('⚪ ' + (t('collector.profile.unavailableNow') || 'You are offline. Citizens will not see you in active collectors.'))}
-                  </Text>
-                </View>
-                <View style={styles.switchWrapper}>
-                  {isTogglingAvailability ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
-                  ) : (
-                    <Switch
-                      value={isAvailable}
-                      onValueChange={handleToggleAvailability}
-                      trackColor={{ false: '#E0E0E0', true: `${colors.primary}80` }}
-                      thumbColor={isAvailable ? colors.primary : '#BDBDBD'}
-                      disabled={!isVerified || !isConnected || isTogglingAvailability}
-                      accessibilityRole="switch"
-                      accessibilityLabel="Collector availability switch"
-                      accessibilityHint="Toggles your availability to accept citizen collection requests"
-                      accessibilityState={{
-                        checked: isAvailable,
-                        busy: isTogglingAvailability,
-                        disabled: !isVerified || !isConnected,
-                      }}
-                    />
-                  )}
-                </View>
-              </View>
-            </View>
-
-            {/* Operational Statistics Section */}
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionHeading} accessibilityRole="header">
-                {t('collector.profile.operationalDetails') || 'Operational Statistics'}
-              </Text>
-              <View style={styles.statsGrid}>
-                <MetricCard
-                  icon="📦"
-                  value={stats?.totalPickups ?? profile?.totalPickups ?? 0}
-                  label={t('collector.profile.totalPickups') || 'Total Pickups'}
-                  accentColor={colors.primary}
-                />
-                <MetricCard
-                  icon="⚖️"
-                  value={`${stats?.totalWeightKg ?? 0} kg`}
-                  label={t('collector.dashboard.totalCollected') || 'E-Waste Collected'}
-                  accentColor="#2E7D32"
-                />
-              </View>
-              <View style={[styles.statsGrid, { marginTop: spacing.spaceSm }]}>
-                <MetricCard
-                  icon="🚚"
-                  value={stats?.activeRequests ?? 0}
-                  label={t('collector.dashboard.activeRequests') || 'Active Requests'}
-                  accentColor="#E65100"
-                />
-                <MetricCard
-                  icon="🏢"
-                  value={stats?.totalConsignments ?? 0}
-                  label={t('collector.dashboard.consignments') || 'Consignments'}
-                  accentColor="#1565C0"
-                />
-              </View>
-            </View>
-
-            {/* Personal Information Card */}
-            <View style={styles.card}>
-              <View style={styles.cardHeaderRow}>
-                <Text style={styles.sectionTitle} accessibilityRole="header">
-                  {t('collector.profile.collectorInfo') || 'Personal Information'}
-                </Text>
-                {!isEditing && (
-                  <TouchableOpacity
-                    style={styles.editButton}
-                    onPress={handleStartEdit}
-                    accessibilityRole="button"
-                    accessibilityLabel="Edit profile details"
-                    disabled={!isConnected}
-                  >
-                    <Text
-                      style={[
-                        styles.editButtonText,
-                        !isConnected && styles.textDisabled,
-                      ]}
-                    >
-                      {t('common.edit') || 'Edit'}
+          ) : (
+            <>
+              {/* CARD 1: COLLECTOR ID */}
+              <View style={styles.card} testID="card-collector-id">
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardTitleRow}>
+                    <Text style={styles.cardIcon}>🪪</Text>
+                    <Text style={styles.cardTitle}>
+                      {t('collector.profile.collectorId') || 'Collector ID'}
                     </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {/* Save Error */}
-              {Boolean(saveError) && (
-                <View style={styles.saveErrorBox} accessibilityRole="alert">
-                  <Text style={styles.saveErrorText}>{saveError}</Text>
+                  </View>
+                  <ReadAloudButton
+                    text={`Collector ID: ${collectorIdDisplay}. Name: ${user?.name || 'Collector'}. Status: Active.`}
+                    size="compact"
+                  />
                 </View>
-              )}
 
-              {/* Full Name */}
-              <View style={styles.fieldGroup}>
-                {isEditing ? (
-                  <EcoGlassInput
-                    label={t('auth.name') || 'Full Name'}
-                    value={editName}
-                    onChangeText={setEditName}
-                    placeholder={t('auth.name') || 'Enter full name'}
-                    maxLength={100}
-                    error={nameError}
-                    editable={!isSaving}
-                  />
-                ) : (
-                  <>
-                    <Text style={styles.fieldLabel}>{t('auth.name') || 'Full Name'}</Text>
-                    <Text style={styles.fieldValue}>{displayName}</Text>
-                  </>
-                )}
-              </View>
-
-              {/* Email (Read Only - Protected) */}
-              <View style={styles.fieldGroup}>
-                <View style={styles.fieldLabelRow}>
-                  <Text style={styles.fieldLabel}>{t('auth.email') || 'Email Address'}</Text>
-                  <Text style={styles.protectedLabel}>{t('citizen.profile.accountStatus') || 'Protected'}</Text>
+                <View style={styles.idBox}>
+                  <Text style={styles.idLabel}>{t('collector.profile.collectorId') || 'Collector Reference'}</Text>
+                  <Text style={styles.idValue}>{collectorIdDisplay}</Text>
                 </View>
-                <Text style={styles.fieldValueReadOnly}>{displayEmail}</Text>
-              </View>
 
-              {/* Phone */}
-              <View style={styles.fieldGroup}>
-                {isEditing ? (
-                  <EcoGlassInput
-                    label={t('auth.phone') || 'Phone Number'}
-                    value={editPhone}
-                    onChangeText={setEditPhone}
-                    placeholder="+91 98765 43210"
-                    keyboardType="phone-pad"
-                    error={phoneError}
-                    editable={!isSaving}
-                  />
-                ) : (
-                  <>
-                    <Text style={styles.fieldLabel}>{t('auth.phone') || 'Phone Number'}</Text>
-                    <Text style={styles.fieldValue}>{displayPhone}</Text>
-                  </>
-                )}
-              </View>
-            </View>
-
-            {/* Collector Information Card */}
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle} accessibilityRole="header">
-                {t('collector.profile.operationalDetails') || 'Collector Details'}
-              </Text>
-
-              {/* Bio */}
-              <View style={styles.fieldGroup}>
-                {isEditing ? (
-                  <EcoGlassTextArea
-                    label={t('collector.profile.bio') || 'Bio / Introduction'}
-                    value={editBio}
-                    onChangeText={setEditBio}
-                    placeholder="Share a short bio with citizens..."
-                    maxLength={500}
-                    error={bioError}
-                    editable={!isSaving}
-                  />
-                ) : (
-                  <>
-                    <Text style={styles.fieldLabel}>{t('collector.profile.bio') || 'Bio / Introduction'}</Text>
-                    <Text style={styles.fieldValue}>{displayBio}</Text>
-                  </>
-                )}
-              </View>
-
-              {/* Service Radius */}
-              <View style={styles.fieldGroup}>
-                {isEditing ? (
-                  <EcoGlassNumberInput
-                    label={t('collector.profile.serviceRadius') || 'Operating Service Radius'}
-                    value={editRadius}
-                    onChangeText={setEditRadius}
-                    placeholder="5"
-                    unit="km"
-                    error={radiusError}
-                    editable={!isSaving}
-                  />
-                ) : (
-                  <>
-                    <Text style={styles.fieldLabel}>{t('collector.profile.serviceRadius') || 'Operating Service Radius'}</Text>
-                    <Text style={styles.fieldValue}>{displayRadius}</Text>
-                  </>
-                )}
-              </View>
-
-              {/* Action Buttons when editing */}
-              {isEditing && (
-                <View style={styles.editActionsRow}>
-                  <TouchableOpacity
-                    style={styles.cancelButton}
-                    onPress={handleCancelEdit}
-                    disabled={isSaving}
-                    accessibilityRole="button"
-                    accessibilityLabel="Cancel editing"
-                  >
-                    <Text style={styles.cancelButtonText}>{t('common.cancel') || 'Cancel'}</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.saveButton, isSaving && styles.btnDisabled]}
-                    onPress={handleSaveProfile}
-                    disabled={isSaving}
-                    accessibilityRole="button"
-                    accessibilityLabel="Save profile changes"
-                    accessibilityState={{ busy: isSaving, disabled: isSaving }}
-                  >
-                    {isSaving ? (
-                      <ActivityIndicator size="small" color={colors.surface} />
-                    ) : (
-                      <Text style={styles.saveButtonText}>{t('collector.profile.saveChanges') || 'Save Changes'}</Text>
-                    )}
-                  </TouchableOpacity>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>{t('auth.name') || 'Full Name'}:</Text>
+                  <Text style={styles.infoValue}>{user?.name || profile?.user?.name || '—'}</Text>
                 </View>
-              )}
-            </View>
 
-            {/* Voice Assistance Preferences Card */}
-            <View style={styles.card}>
-              <View style={styles.voiceHeaderRow}>
-                <View style={styles.voiceTitleContainer}>
-                  <Text style={styles.sectionTitle} accessibilityRole="header">
-                    🔊 {t('voice.voiceAssistance') || 'Voice Assistance'}
+                <View style={styles.badgeRow}>
+                  <StatusBadge status="ACTIVE" />
+                </View>
+
+                <Text style={styles.privacyNote}>
+                  🔒 Strict Privacy: No Aadhaar, PAN, residential address, or bank credentials collected.
+                </Text>
+              </View>
+
+              {/* CARD 2: PREFERRED LANGUAGE */}
+              <View style={styles.card} testID="card-preferred-language">
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardTitleRow}>
+                    <Text style={styles.cardIcon}>🌐</Text>
+                    <Text style={styles.cardTitle}>
+                      {t('collector.profile.preferredLanguage') || 'Preferred Language'}
+                    </Text>
+                  </View>
+                  <ReadAloudButton
+                    text={`Current preferred language is ${LANGUAGE_OPTIONS.find(l => l.code === language)?.label || language}.`}
+                    size="compact"
+                  />
+                </View>
+
+                <Text style={styles.fieldHint}>
+                  Tap below to switch app language and spoken voice narration immediately:
+                </Text>
+
+                <View style={styles.languageChipsContainer}>
+                  {LANGUAGE_OPTIONS.map((opt) => {
+                    const isSelected = opt.code === language;
+                    return (
+                      <TouchableOpacity
+                        key={opt.code}
+                        style={[
+                          styles.langChip,
+                          isSelected && styles.langChipSelected,
+                        ]}
+                        onPress={() => handleSelectLanguage(opt.code)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Select ${opt.englishName}`}
+                      >
+                        <Text style={[styles.langChipNative, isSelected && styles.langChipNativeSelected]}>
+                          {opt.label}
+                        </Text>
+                        <Text style={[styles.langChipSub, isSelected && styles.langChipSubSelected]}>
+                          {opt.englishName}
+                        </Text>
+                        {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* CARD 3: OPERATING AREA */}
+              <View style={styles.card} testID="card-operating-area">
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardTitleRow}>
+                    <Text style={styles.cardIcon}>📍</Text>
+                    <Text style={styles.cardTitle}>
+                      {t('collector.profile.operatingArea') || 'Operating Area'}
+                    </Text>
+                  </View>
+                  <ReadAloudButton
+                    text={getAreaSpeechText()}
+                    size="compact"
+                  />
+                </View>
+
+                {!isEditingArea ? (
+                  <View>
+                    <Text style={styles.areaDisplay}>
+                      {operatingAreaSummary || (t('collector.profile.operatingAreaHint') || 'No general operating area set.')}
+                    </Text>
+                    <Text style={styles.privacyNote}>
+                      🛡 Area-level only: Precise residential address and exact GPS coordinates are NEVER stored or shared.
+                    </Text>
+
+                    <TouchableOpacity
+                      style={styles.editBtn}
+                      onPress={handleStartEditArea}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('collector.profile.editProfile') || 'Edit Operating Area'}
+                    >
+                      <Text style={styles.editBtnText}>
+                        ✏ {t('collector.profile.editProfile') || 'Edit Operating Area'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={styles.editForm}>
+                    <Text style={styles.inputLabel}>{t('collector.profile.localityLabel') || 'Locality / Area'}:</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={areaLocality}
+                      onChangeText={setAreaLocality}
+                      placeholder="e.g. Kalyan West / Tulsi Nagar"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+
+                    <Text style={styles.inputLabel}>{t('collector.profile.cityLabel') || 'City'}:</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={areaCity}
+                      onChangeText={setAreaCity}
+                      placeholder="e.g. Mumbai / Berhampur"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+
+                    <Text style={styles.inputLabel}>{t('collector.profile.stateLabel') || 'State'}:</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={areaState}
+                      onChangeText={setAreaState}
+                      placeholder="e.g. Maharashtra / Odisha"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+
+                    <Text style={styles.inputLabel}>{t('collector.profile.pincodeLabel') || 'PIN Code'}:</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={areaPincode}
+                      onChangeText={setAreaPincode}
+                      placeholder="e.g. 400053"
+                      keyboardType="numeric"
+                      maxLength={6}
+                      placeholderTextColor={colors.textSecondary}
+                    />
+
+                    <TouchableOpacity
+                      style={styles.useCurrentBtn}
+                      onPress={handleUseCurrentArea}
+                      disabled={isLocating}
+                    >
+                      {isLocating ? (
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      ) : (
+                        <Text style={styles.useCurrentBtnText}>
+                          📍 {t('collector.profile.useCurrentArea') || 'Use Current Area'}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+
+                    <View style={styles.editActionRow}>
+                      <TouchableOpacity
+                        style={styles.cancelBtn}
+                        onPress={handleCancelEditArea}
+                        disabled={isSavingArea}
+                      >
+                        <Text style={styles.cancelBtnText}>
+                          {t('collector.profile.cancel') || 'Cancel'}
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.saveBtn}
+                        onPress={handleSaveArea}
+                        disabled={isSavingArea}
+                      >
+                        {isSavingArea ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <Text style={styles.saveBtnText}>
+                            ✓ {t('collector.profile.save') || 'Save Area'}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </View>
+
+              {/* CARD 4: MY TRANSACTIONS */}
+              <View style={styles.card} testID="card-my-transactions">
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardTitleRow}>
+                    <Text style={styles.cardIcon}>📋</Text>
+                    <Text style={styles.cardTitle}>
+                      {t('collector.profile.myTransactions') || 'My Transactions'}
+                    </Text>
+                  </View>
+                  <ReadAloudButton
+                    text={`My Transactions. View your recorded sales and settlement receipts.`}
+                    size="compact"
+                  />
+                </View>
+
+                <View style={styles.statsMiniRow}>
+                  <Text style={styles.statsMiniLabel}>
+                    {t('collector.profile.transactionsCountLabel') || 'Recorded Sales'}:
                   </Text>
-                  <Text style={styles.voiceStatusSubtitle}>
-                    {isVoiceEnabled
-                      ? (t('voice.voiceEnabled') || 'Voice Enabled')
-                      : (t('voice.voiceDisabled') || 'Voice Disabled')}
+                  <Text style={styles.statsMiniValue}>
+                    {recentTransactionsCount || stats?.totalPickups || 0}
                   </Text>
                 </View>
-                <Switch
-                  value={isVoiceEnabled}
-                  onValueChange={handleToggleVoice}
-                  trackColor={{ false: colors.divider, true: colors.primaryLight }}
-                  thumbColor={isVoiceEnabled ? colors.primary : '#f4f3f4'}
-                  accessibilityRole="switch"
-                  accessibilityLabel={t('voice.voiceAssistance') || 'Voice Assistance'}
-                  accessibilityState={{ checked: isVoiceEnabled }}
-                />
+
+                <TouchableOpacity
+                  style={styles.navActionBtn}
+                  onPress={() => navigation?.navigate('CollectorTransactions')}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('collector.profile.myTransactions') || 'Open My Transactions'}
+                >
+                  <Text style={styles.navActionBtnText}>
+                    📋 {t('collector.profile.myTransactions') || 'My Transactions'} →
+                  </Text>
+                </TouchableOpacity>
               </View>
 
-              <Text style={styles.voiceDescText}>
-                {t('voice.voiceSettingsDesc') ||
-                  'Receive spoken audio announcements for new requests, pickup status updates, and read aloud summaries.'}
-              </Text>
+              {/* CARD 5: MY EARNINGS */}
+              <View style={styles.card} testID="card-my-earnings">
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardTitleRow}>
+                    <Text style={styles.cardIcon}>💰</Text>
+                    <Text style={styles.cardTitle}>
+                      {t('collector.profile.myEarnings') || 'My Earnings'}
+                    </Text>
+                  </View>
+                  <ReadAloudButton
+                    text={`My Earnings. View your total sales, received payments, and pending dues.`}
+                    size="compact"
+                  />
+                </View>
 
+                {earningsSummary && (
+                  <View style={styles.statsMiniRow}>
+                    <Text style={styles.statsMiniLabel}>
+                      {t('collector.profile.earningsSummaryLabel') || 'Total Received'}:
+                    </Text>
+                    <Text style={styles.statsMiniValueHighlight}>
+                      ₹{earningsSummary?.totalPaid?.toLocaleString('en-IN') || '0'}
+                    </Text>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={styles.navActionBtn}
+                  onPress={() => navigation?.navigate('CollectorEarnings')}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('collector.profile.myEarnings') || 'Open My Earnings'}
+                >
+                  <Text style={styles.navActionBtnText}>
+                    💰 {t('collector.profile.myEarnings') || 'My Earnings'} →
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* LOGOUT BUTTON */}
               <TouchableOpacity
-                style={[styles.sampleButton, isPlayingSample && styles.sampleButtonActive]}
-                onPress={handlePlaySample}
-                disabled={isPlayingSample}
+                style={styles.logoutBtn}
+                onPress={handleLogout}
+                disabled={isLoggingOut}
                 accessibilityRole="button"
-                accessibilityLabel={t('voice.playSample') || 'Play Sample'}
-                accessibilityHint="Plays a sample audio announcement"
+                accessibilityLabel={t('auth.logout') || 'Sign Out'}
               >
-                {isPlayingSample ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
+                {isLoggingOut ? (
+                  <ActivityIndicator size="small" color="#FF6B6B" />
                 ) : (
-                  <Text style={styles.sampleButtonText}>
-                    ▶️ {t('voice.playSample') || 'Play Sample'}
+                  <Text style={styles.logoutBtnText}>
+                    🚪 {t('auth.logout') || 'Sign Out'}
                   </Text>
                 )}
               </TouchableOpacity>
-            </View>
-
-            {/* Language Preferences Card */}
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle} accessibilityRole="header">
-                {t('collector.profile.selectLanguage') || 'Language Preferences'}
-              </Text>
-              <LanguageSelector variant="chips" />
-            </View>
-
-            {/* EcoSetu Model Architecture Info */}
-            <View style={styles.chainNoteCard}>
-              <Text style={styles.chainNoteTitle}>EcoSetu Chain of Custody</Text>
-              <Text style={styles.chainNoteText}>
-                CITIZEN → INFORMAL COLLECTOR (KABADIWALA) → FORMAL RECYCLER
-              </Text>
-              <Text style={styles.chainNoteSub}>
-                As a local collector, you bridge citizens to authorized recyclers. E-waste collected is batched into consignments for delivery to formal recycling centers.
-              </Text>
-            </View>
-
-            {/* Logout Button */}
-            <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={handleLogout}
-              disabled={isLoggingOut}
-              accessibilityRole="button"
-              accessibilityLabel="Log out of account"
-              accessibilityHint="Logs out of the application and returns to the login screen"
-              accessibilityState={{ busy: isLoggingOut, disabled: isLoggingOut }}
-              activeOpacity={0.8}
-            >
-              {isLoggingOut ? (
-                <ActivityIndicator size="small" color={colors.error} />
-              ) : (
-                <Text style={styles.logoutButtonText}>{t('collector.profile.signOut') || 'Log Out'}</Text>
-              )}
-            </TouchableOpacity>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      )}
+            </>
+          )}
+        </ScrollView>
       </SafeAreaView>
     </EcoSetuBackground>
   );
 };
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  keyboardContainer: {
     flex: 1,
   },
   scrollContent: {
     padding: spacing.spaceMd,
     paddingBottom: spacing.spaceXl * 2,
   },
-  cacheNotice: {
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    paddingHorizontal: spacing.spaceMd,
-    paddingVertical: spacing.spaceSm,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(245, 158, 11, 0.25)',
+  loadingContainer: {
+    padding: spacing.spaceXl,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  cacheNoticeText: {
-    fontSize: typography.Caption.fontSize,
-    color: '#FBBF24',
-    textAlign: 'center',
+  loadingText: {
+    marginTop: spacing.spaceMd,
+    color: colors.textSecondary,
+    fontSize: 14,
+  },
+  topActionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.spaceMd,
+    paddingVertical: spacing.spaceXs,
+    backgroundColor: 'rgba(15, 38, 43, 0.7)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  topActionLabel: {
+    color: colors.textSecondary,
+    fontSize: 13,
     fontWeight: '500',
   },
-  warningBanner: {
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    paddingHorizontal: spacing.spaceMd,
-    paddingVertical: spacing.spaceSm,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(245, 158, 11, 0.25)',
+  headerSpeechBtn: {
+    minHeight: 48,
+    minWidth: 48,
   },
-  warningBannerText: {
-    fontSize: typography.Caption.fontSize,
-    color: '#FBBF24',
-    fontWeight: '600',
-    lineHeight: 18,
-  },
-  errorBanner: {
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+  pendingBanner: {
+    backgroundColor: 'rgba(255, 179, 0, 0.15)',
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFB300',
     padding: spacing.spaceMd,
     marginHorizontal: spacing.spaceMd,
     marginTop: spacing.spaceSm,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.35)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    borderRadius: spacing.radiusSm,
+  },
+  pendingBannerText: {
+    color: '#FFD54F',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  cacheBanner: {
+    backgroundColor: 'rgba(38, 166, 154, 0.12)',
+    padding: spacing.spaceSm,
+    marginHorizontal: spacing.spaceMd,
+    marginTop: spacing.spaceSm,
+    borderRadius: spacing.radiusSm,
+  },
+  cacheBannerText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+  },
+  errorBanner: {
+    backgroundColor: 'rgba(244, 67, 54, 0.15)',
+    padding: spacing.spaceMd,
+    marginHorizontal: spacing.spaceMd,
+    marginTop: spacing.spaceSm,
+    borderRadius: spacing.radiusSm,
   },
   errorBannerText: {
-    fontSize: typography.Body.fontSize,
-    color: '#F87171',
-    flex: 1,
-    marginRight: spacing.spaceSm,
-  },
-  retryBtn: {
-    backgroundColor: 'rgba(239, 68, 68, 0.25)',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.5)',
-    paddingHorizontal: spacing.spaceMd,
-    paddingVertical: spacing.spaceXs,
-    borderRadius: 6,
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  retryBtnText: {
-    color: '#F87171',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  skeletonContainer: {
-    padding: spacing.spaceMd,
-  },
-  skeletonCard: {
-    marginBottom: spacing.spaceMd,
-    borderRadius: 8,
-  },
-  headerCard: {
-    backgroundColor: 'rgba(6, 21, 27, 0.78)',
-    borderRadius: 16,
-    padding: spacing.spaceMd,
-    alignItems: 'center',
-    marginBottom: spacing.spaceMd,
-    borderWidth: 1,
-    borderColor: 'rgba(45, 212, 191, 0.22)',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  avatarCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(16, 185, 129, 0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.spaceSm,
-    borderWidth: 2,
-    borderColor: '#10B981',
-  },
-  avatarText: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#34D399',
-  },
-  headerName: {
-    fontSize: typography.Title.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.spaceXs,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  roleBadge: {
-    backgroundColor: 'rgba(6, 182, 212, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(6, 182, 212, 0.35)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    marginRight: spacing.spaceSm,
-  },
-  roleBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#22D3EE',
+    color: '#EF5350',
+    fontSize: 13,
   },
   card: {
-    backgroundColor: 'rgba(6, 21, 27, 0.78)',
-    borderRadius: 14,
-    padding: spacing.spaceMd,
-    marginBottom: spacing.spaceMd,
+    backgroundColor: '#0F262B',
+    borderRadius: spacing.radiusLg,
     borderWidth: 1,
-    borderColor: 'rgba(45, 212, 191, 0.22)',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.spaceSm,
-  },
-  sectionTitle: {
-    fontSize: typography.Subheading.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  editButton: {
-    paddingHorizontal: spacing.spaceSm,
-    paddingVertical: spacing.spaceXs,
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  editButtonText: {
-    color: colors.primary,
-    fontWeight: '700',
-    fontSize: typography.Body.fontSize,
-  },
-  textDisabled: {
-    color: colors.textSecondary,
-    opacity: 0.5,
-  },
-  availabilityRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  availabilityInfo: {
-    flex: 1,
-    marginRight: spacing.spaceSm,
-  },
-  availabilitySub: {
-    fontSize: typography.Caption.fontSize,
-    color: colors.textSecondary,
-    lineHeight: 18,
-    marginTop: 2,
-  },
-  switchWrapper: {
-    minWidth: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sectionContainer: {
-    marginBottom: spacing.spaceMd,
-  },
-  sectionHeading: {
-    fontSize: typography.Subheading.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.spaceSm,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: spacing.spaceSm,
-  },
-  fieldGroup: {
-    marginBottom: spacing.spaceMd,
-  },
-  fieldLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  protectedLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#94A3B8',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  fieldValue: {
-    fontSize: typography.Body.fontSize,
-    color: colors.textPrimary,
-    fontWeight: '500',
-  },
-  fieldValueReadOnly: {
-    fontSize: typography.Body.fontSize,
-    color: '#CBD5E1',
-    backgroundColor: 'rgba(6, 21, 27, 0.65)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: 10,
-    paddingHorizontal: spacing.spaceMd,
-    paddingVertical: 12,
-    marginTop: 4,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: 'rgba(45, 212, 191, 0.22)',
-    borderRadius: 10,
-    paddingHorizontal: spacing.spaceSm,
-    paddingVertical: spacing.spaceXs,
-    fontSize: typography.Body.fontSize,
-    color: colors.textPrimary,
-    backgroundColor: 'rgba(6, 21, 27, 0.85)',
-    minHeight: 48,
-  },
-  bioInput: {
-    borderWidth: 1,
-    borderColor: 'rgba(45, 212, 191, 0.22)',
-    borderRadius: 10,
-    padding: spacing.spaceSm,
-    fontSize: typography.Body.fontSize,
-    color: colors.textPrimary,
-    backgroundColor: 'rgba(6, 21, 27, 0.85)',
-    minHeight: 70,
-    textAlignVertical: 'top',
-  },
-  radiusInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  radiusInput: {
-    borderWidth: 1,
-    borderColor: 'rgba(45, 212, 191, 0.22)',
-    borderRadius: 10,
-    paddingHorizontal: spacing.spaceSm,
-    paddingVertical: spacing.spaceXs,
-    fontSize: typography.Body.fontSize,
-    color: colors.textPrimary,
-    backgroundColor: 'rgba(6, 21, 27, 0.85)',
-    width: 80,
-    minHeight: 48,
-    textAlign: 'center',
-  },
-  radiusUnit: {
-    fontSize: typography.Body.fontSize,
-    color: colors.textSecondary,
-    marginLeft: 8,
-    fontWeight: '600',
-  },
-  inputError: {
-    borderColor: colors.error,
-  },
-  fieldErrorText: {
-    color: colors.error,
-    fontSize: 11,
-    marginTop: 4,
-  },
-  saveErrorBox: {
-    backgroundColor: '#FFEBEE',
-    padding: spacing.spaceSm,
-    borderRadius: 6,
-    marginBottom: spacing.spaceSm,
-  },
-  saveErrorText: {
-    color: colors.error,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  editActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing.spaceSm,
-  },
-  cancelButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: 6,
-    paddingVertical: spacing.spaceSm,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.spaceSm,
-    minHeight: 48,
-  },
-  cancelButtonText: {
-    color: colors.textSecondary,
-    fontSize: typography.Button.fontSize,
-    fontWeight: '600',
-  },
-  saveButton: {
-    flex: 2,
-    backgroundColor: colors.primary,
-    borderRadius: 6,
-    paddingVertical: spacing.spaceSm,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  saveButtonText: {
-    color: colors.surface,
-    fontSize: typography.Button.fontSize,
-    fontWeight: '700',
-  },
-  chainNoteCard: {
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-    borderRadius: 12,
-    padding: spacing.spaceMd,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: spacing.spaceLg,
     marginBottom: spacing.spaceLg,
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.35)',
   },
-  chainNoteTitle: {
-    fontSize: 12,
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.spaceMd,
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardIcon: {
+    fontSize: 22,
+    marginRight: spacing.spaceSm,
+  },
+  cardTitle: {
+    fontSize: 18,
     fontWeight: '700',
-    color: '#34D399',
-    marginBottom: 4,
+    color: colors.textPrimary,
   },
-  chainNoteText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#A7F3D0',
-    marginBottom: 4,
+  idBox: {
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    borderRadius: spacing.radiusMd,
+    padding: spacing.spaceMd,
+    marginBottom: spacing.spaceSm,
   },
-  chainNoteSub: {
-    fontSize: 11,
+  idLabel: {
+    fontSize: 12,
     color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  idValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.primary,
+    letterSpacing: 1,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  infoLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    width: 90,
+  },
+  infoValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  badgeRow: {
+    marginVertical: spacing.spaceSm,
+  },
+  privacyNote: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: spacing.spaceSm,
     lineHeight: 16,
   },
-  logoutButton: {
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.4)',
-    borderRadius: 10,
-    paddingVertical: spacing.spaceMd,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+  fieldHint: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: spacing.spaceMd,
+    lineHeight: 18,
   },
-  logoutButtonText: {
-    color: '#F87171',
-    fontSize: typography.Button.fontSize,
-    fontWeight: '700',
-  },
-  btnDisabled: {
-    opacity: 0.5,
-  },
-  voiceHeaderRow: {
+  languageChipsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.spaceXs,
+    flexWrap: 'wrap',
+    gap: spacing.spaceSm,
   },
-  voiceTitleContainer: {
+  langChip: {
     flex: 1,
-    marginRight: spacing.spaceSm,
+    minWidth: '45%',
+    minHeight: 56,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: spacing.radiusMd,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    padding: spacing.spaceSm,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
   },
-  voiceStatusSubtitle: {
-    fontSize: 12,
-    fontWeight: '600',
+  langChipSelected: {
+    backgroundColor: 'rgba(0, 168, 150, 0.15)',
+    borderColor: colors.primary,
+  },
+  langChipNative: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  langChipNativeSelected: {
     color: colors.primary,
-    marginTop: 2,
   },
-  voiceDescText: {
+  langChipSub: {
     fontSize: 12,
     color: colors.textSecondary,
-    lineHeight: 18,
-    marginBottom: spacing.spaceMd,
+    marginTop: 2,
   },
-  sampleButton: {
-    backgroundColor: '#E8F5E9',
+  langChipSubSelected: {
+    color: colors.primary,
+  },
+  checkmark: {
+    position: 'absolute',
+    top: 6,
+    right: 8,
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.primary,
+  },
+  areaDisplay: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    lineHeight: 22,
+    marginBottom: spacing.spaceSm,
+  },
+  editBtn: {
+    minHeight: 48,
+    backgroundColor: 'rgba(0, 168, 150, 0.12)',
+    borderRadius: spacing.radiusMd,
     borderWidth: 1,
     borderColor: colors.primary,
-    borderRadius: 8,
-    paddingVertical: spacing.spaceSm,
-    paddingHorizontal: spacing.spaceMd,
-    alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
+    alignItems: 'center',
+    marginTop: spacing.spaceMd,
   },
-  sampleButtonActive: {
-    backgroundColor: '#C8E6C9',
-  },
-  sampleButtonText: {
-    color: colors.primary,
-    fontSize: 14,
+  editBtnText: {
+    fontSize: 15,
     fontWeight: '700',
+    color: colors.primary,
+  },
+  editForm: {
+    marginTop: spacing.spaceSm,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 4,
+    marginTop: spacing.spaceSm,
+  },
+  input: {
+    minHeight: 48,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    borderRadius: spacing.radiusMd,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: spacing.spaceMd,
+    color: colors.textPrimary,
+    fontSize: 15,
+  },
+  useCurrentBtn: {
+    minHeight: 48,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: spacing.radiusMd,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: spacing.spaceMd,
+  },
+  useCurrentBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  editActionRow: {
+    flexDirection: 'row',
+    gap: spacing.spaceMd,
+    marginTop: spacing.spaceLg,
+  },
+  cancelBtn: {
+    flex: 1,
+    minHeight: 52,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: spacing.radiusMd,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  saveBtn: {
+    flex: 2,
+    minHeight: 56,
+    backgroundColor: colors.primary,
+    borderRadius: spacing.radiusMd,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  saveBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  statsMiniRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: spacing.radiusSm,
+    paddingHorizontal: spacing.spaceMd,
+    paddingVertical: spacing.spaceSm,
+    marginBottom: spacing.spaceMd,
+  },
+  statsMiniLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  statsMiniValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  statsMiniValueHighlight: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#00E676',
+  },
+  navActionBtn: {
+    minHeight: 56,
+    backgroundColor: 'rgba(0, 168, 150, 0.15)',
+    borderRadius: spacing.radiusMd,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.spaceLg,
+  },
+  navActionBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  logoutBtn: {
+    minHeight: 52,
+    backgroundColor: 'rgba(244, 67, 54, 0.08)',
+    borderRadius: spacing.radiusMd,
+    borderWidth: 1,
+    borderColor: 'rgba(244, 67, 54, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: spacing.spaceMd,
+    marginBottom: spacing.spaceXl,
+  },
+  logoutBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FF6B6B',
   },
 });
 

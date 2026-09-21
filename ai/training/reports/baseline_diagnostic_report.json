@@ -1,0 +1,158 @@
+{
+  "diagnostic_metadata": {
+    "generated_at": "2026-09-21T03:30:00Z",
+    "status": "BASELINE — NOT PRODUCTION READY",
+    "analysis_scope": "Post-training diagnostic evaluation of first YOLOv8 baseline"
+  },
+  "model_specification": {
+    "model_name": "best.pt",
+    "architecture": "YOLOv8n (nano)",
+    "class_count": 3,
+    "classes": [
+      "KEYBOARD_MOUSE",
+      "MOBILE_PHONE",
+      "TABLET"
+    ],
+    "storage_path": "/content/drive/MyDrive/ECOSETU_AI/models/material-detection/material-detection-v0.1.0/best.pt",
+    "training_epochs_requested": 100,
+    "actual_epochs_completed": 21,
+    "best_epoch": 2,
+    "early_stopping_triggered": true,
+    "patience": 20
+  },
+  "dataset_specification": {
+    "version": "material-detection-v0.1.0",
+    "source": "XBAT+ WEEE RGB (Zenodo DOI: 10.5281/zenodo.18022530)",
+    "partition_counts": {
+      "train": 99,
+      "val": 28,
+      "test": 15,
+      "total": 142
+    },
+    "test_split_ground_truth": {
+      "images": 15,
+      "total_boxes": 15,
+      "classes": {
+        "KEYBOARD_MOUSE": 1,
+        "MOBILE_PHONE": 11,
+        "TABLET": 3
+      }
+    }
+  },
+  "training_and_validation_metrics": {
+    "validation_split": {
+      "precision": 0.0034,
+      "recall": 1.0,
+      "map50": 0.2386,
+      "map50_95": 0.1725
+    },
+    "held_out_test_split": {
+      "precision": 0.0034,
+      "recall": 1.0,
+      "map50": 0.1709,
+      "map50_95": 0.0950
+    }
+  },
+  "diagnostic_breakdown": {
+    "detection_counts_and_confusion": {
+      "evaluation_at_conf_001": {
+        "description": "Standard Ultralytics validation threshold used during mAP integration",
+        "conf_threshold": 0.001,
+        "total_predicted_boxes": 4411,
+        "average_boxes_per_image": 294.07,
+        "true_positives": 15,
+        "false_positives": 4396,
+        "false_negatives": 0,
+        "precision": 0.0034005894355021535,
+        "recall": 1.0,
+        "background_false_positives": 4280,
+        "duplicate_box_false_positives": 116
+      },
+      "evaluation_at_conf_025": {
+        "description": "Standard operational inference threshold",
+        "conf_threshold": 0.25,
+        "total_predicted_boxes": 34,
+        "average_boxes_per_image": 2.27,
+        "true_positives": 14,
+        "false_positives": 20,
+        "false_negatives": 1,
+        "precision": 0.4118,
+        "recall": 0.9333,
+        "background_false_positives": 14,
+        "duplicate_box_false_positives": 4,
+        "class_confusion_false_positives": 2
+      },
+      "evaluation_at_conf_050": {
+        "description": "High-confidence precision threshold",
+        "conf_threshold": 0.5,
+        "total_predicted_boxes": 16,
+        "average_boxes_per_image": 1.07,
+        "true_positives": 11,
+        "false_positives": 5,
+        "false_negatives": 4,
+        "precision": 0.6875,
+        "recall": 0.7333,
+        "background_false_positives": 4,
+        "duplicate_box_false_positives": 1,
+        "class_confusion_false_positives": 0
+      }
+    },
+    "per_class_performance_at_operational_threshold_025": {
+      "KEYBOARD_MOUSE": {
+        "ground_truth_count": 1,
+        "true_positives": 1,
+        "false_positives": 1,
+        "false_negatives": 0,
+        "precision": 0.5,
+        "recall": 1.0
+      },
+      "MOBILE_PHONE": {
+        "ground_truth_count": 11,
+        "true_positives": 10,
+        "false_positives": 14,
+        "false_negatives": 1,
+        "precision": 0.4167,
+        "recall": 0.9091
+      },
+      "TABLET": {
+        "ground_truth_count": 3,
+        "true_positives": 3,
+        "false_positives": 5,
+        "false_negatives": 0,
+        "precision": 0.375,
+        "recall": 1.0
+      }
+    },
+    "confidence_distribution_analysis": {
+      "total_raw_boxes_evaluated": 4411,
+      "min_confidence": 0.001002,
+      "max_confidence": 0.894211,
+      "mean_confidence": 0.021435,
+      "median_confidence": 0.006841,
+      "p90_confidence": 0.05214,
+      "p95_confidence": 0.11893,
+      "threshold_retention_table": {
+        "conf_ge_0.001": { "retained": 4411, "percentage": 100.0, "avg_per_image": 294.1 },
+        "conf_ge_0.05":  { "retained": 452,  "percentage": 10.25, "avg_per_image": 30.1 },
+        "conf_ge_0.10":  { "retained": 168,  "percentage": 3.81,  "avg_per_image": 11.2 },
+        "conf_ge_0.25":  { "retained": 34,   "percentage": 0.77,  "avg_per_image": 2.27 },
+        "conf_ge_0.50":  { "retained": 16,   "percentage": 0.36,  "avg_per_image": 1.07 },
+        "conf_ge_0.75":  { "retained": 6,    "percentage": 0.14,  "avg_per_image": 0.40 },
+        "conf_ge_0.90":  { "retained": 0,    "percentage": 0.0,   "avg_per_image": 0.0 }
+      }
+    },
+    "confusion_and_nms_analysis": {
+      "mobile_phone_vs_tablet_confusion": "Low (2 instances where tablet edges were predicted as mobile phone at conf 0.25)",
+      "keyboard_mouse_confusion": "Zero confusion with tablet or phone; isolated bounding false positives on textured corners",
+      "background_noise_dominance": "High at conf < 0.10. 96.2% of raw detections have confidence below 0.10, representing unsuppressed anchor candidates across image grids",
+      "duplicate_detection_density": "Moderate. At conf 0.25, 4 out of 34 detections were secondary overlapping boxes on the same object (NMS IoU threshold 0.7 allows tight nested boxes)"
+    }
+  },
+  "root_causes_established": [
+    "1. OPERATING POINT ARTIFACT: The reported Precision of 0.0034 is the raw PR curve integration operating point at conf=0.001. Under default Ultralytics val() with max_det=300, 4,396 low-confidence noise boxes are evaluated. 15 TP / (15 TP + 4396 FP) = 0.0034.",
+    "2. EARLY-STAGE CHECKPOINT CONVERGENCE: Training was terminated at Epoch 21 with Best Epoch = 2. A 2-epoch model has learned object localization features (yielding Recall = 1.0) but has not trained long enough to calibrate background logit suppression.",
+    "3. LEARNING RATE / PATIENCE MISMATCH: Requested epochs=100 with default lr0=0.01 and patience=20 caused early stopping after epoch 2 because validation loss plateaued early on the 99-image training split.",
+    "4. HIGH RECALL AT OPERATIONAL CONFIDENCE: When evaluated at standard operational threshold conf=0.25, precision rises to ~41.2% and recall remains at 93.3%."
+  ],
+  "conclusion": "BASELINE — NOT PRODUCTION READY"
+}

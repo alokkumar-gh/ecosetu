@@ -1,0 +1,54 @@
+# Baseline YOLO Training Configuration for EcoSetu Material Classification
+# Canonical Reference: docs/12_AI_TRAINING_PLAN.md Section 8.2
+
+# Dataset path (relative to repo root or Colab working directory)
+path: ai/datasets/material-classification/processed
+
+# Splits
+train: train
+val: val
+test: test
+
+# Number of canonical classes
+nc: 16
+
+# Authoritative ECOSETU Canonical Categories
+names:
+  0: CRT
+  1: LCD_PANEL
+  2: PCB
+  3: CABLE
+  4: BATTERY
+  5: MOTOR
+  6: MAGNET_ASSEMBLY
+  7: MIXED_PLASTIC
+  8: MOBILE_PHONE
+  9: LAPTOP
+  10: MONITOR
+  11: PRINTER
+  12: KEYBOARD_MOUSE
+  13: DESKTOP_COMPUTER
+  14: TABLET
+  15: OTHER
+
+# Baseline Hyperparameters (Ultralytics standard)
+task: classify
+model: yolov8n-cls.pt
+imgsz: 224
+epochs: 100
+batch: 32
+patience: 10
+lr0: 0.001
+optimizer: AdamW
+seed: 42
+device: cpu
+
+# Conservative Augmentation Settings
+hsv_h: 0.0       # Preserve color hue (prevents material identity distortion)
+hsv_s: 0.15      # Saturation variation +/- 15%
+hsv_v: 0.15      # Brightness variation +/- 15%
+degrees: 10.0    # Rotation +/- 10 degrees
+translate: 0.1   # Translation +/- 10%
+scale: 0.1       # Scale +/- 10%
+fliplr: 0.5      # Horizontal flip
+flipud: 0.0      # No vertical flip

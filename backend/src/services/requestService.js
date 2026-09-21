@@ -243,8 +243,8 @@ class RequestService {
         state: r.state || null,
         pincode: r.pincode || null,
         addressType: r.addressType || null,
-        pickupLat: maskedLat !== null ? maskedLat : null,
-        pickupLng: maskedLng !== null ? maskedLng : null,
+        pickupLat: null,
+        pickupLng: null,
         locationAccuracy: null,
       };
     });
@@ -321,8 +321,8 @@ class RequestService {
           state: request.state || null,
           pincode: request.pincode || null,
           addressType: request.addressType || null,
-          pickupLat: maskedLat !== null ? maskedLat : null,
-          pickupLng: maskedLng !== null ? maskedLng : null,
+          pickupLat: null,
+          pickupLng: null,
           locationAccuracy: null,
         };
       }
