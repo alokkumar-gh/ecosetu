@@ -20,12 +20,12 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   TextInput,
   Image,
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useI18n } from '../../i18n';
 import { useNetwork } from '../../hooks/useNetwork';
 import { TopAppBar } from '../../components/layout/TopAppBar';
@@ -82,6 +82,12 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
     params.existingLot?.approximateTotalWeightKg ? String(params.existingLot.approximateTotalWeightKg) : ''
   );
   const [description, setDescription] = useState<string>(params.existingLot?.description || '');
+  const [listingPurpose, setListingPurpose] = useState<'RECYCLING' | 'REUSE' | 'REPAIR_REUSE'>(
+    params.existingLot?.listingPurpose || (condition === 'WORKING' || condition === 'TESTED_WORKING' ? 'REUSE' : 'RECYCLING')
+  );
+  const [askingPrice, setAskingPrice] = useState<string>(
+    params.existingLot?.askingPrice ? String(params.existingLot.askingPrice) : ''
+  );
 
   // Live Rule-based Valuation state (SIH-PRICE-003, SIH-VAL-001)
   const [valuation, setValuation] = useState<ValuationResult | null>(null);
@@ -169,6 +175,7 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
     defaultName: category,
     i18nKey: 'materialLots.categories.OTHER',
   };
+  const [showPreviewModal, setShowPreviewModal] = useState<boolean>(false);
 
   const handleSave = async (targetStatus: 'DRAFT' | 'OPEN') => {
     const parsedWeight = parseFloat(weightKg);
@@ -177,14 +184,29 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
       return;
     }
 
+    if (targetStatus === 'OPEN') {
+      setShowPreviewModal(true);
+      return;
+    }
+
+    await executeSave('DRAFT');
+  };
+
+  const executeSave = async (targetStatus: 'DRAFT' | 'OPEN') => {
+    const parsedWeight = parseFloat(weightKg);
     try {
       setIsSubmitting(true);
+      setShowPreviewModal(false);
 
+      const parsedAsking = parseFloat(askingPrice);
       const payload = {
         category,
         subcategory: subcategory || undefined,
         condition,
         sourceType,
+        listingPurpose,
+        askingPrice: !isNaN(parsedAsking) && parsedAsking > 0 ? parsedAsking : null,
+        priceUnit: 'TOTAL',
         description: description.trim() || undefined,
         approximateTotalWeightKg: parsedWeight,
         status: targetStatus,
@@ -202,8 +224,10 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
       }
 
       const msg = targetStatus === 'DRAFT'
-        ? t('materialLots.draftSavedSuccess')
-        : t('materialLots.lotSubmittedSuccess');
+        ? t('materialLots.draftSavedSuccess') || 'Lot draft saved locally'
+        : listingPurpose === 'RECYCLING'
+        ? 'Material listed for recycling! Authorized recyclers can now discover your lot.'
+        : 'Item listed on Circular Citizen Marketplace! Local citizens can discover and make purchase offers.';
 
       Alert.alert(t('common.success'), msg, [
         {
@@ -224,13 +248,13 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
     <EcoSetuBackground>
       <SafeAreaView style={styles.safeArea}>
         <TopAppBar
-          title={isEditing ? 'Edit Material Lot' : t('materialLots.createTitle')}
-          subtitle={t('materialLots.createSubtitle')}
-          showBack
+          title={isEditing ? 'Edit Material Lot' : 'List Material for Sale'}
+          subtitle="Supply Creation"
+          showBack={true}
           onBack={() => navigation.goBack()}
         />
 
-        {!isConnected && <OfflineBanner />}
+        <OfflineBanner />
 
         <ScrollView
           style={styles.scrollView}
@@ -343,6 +367,91 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
             </View>
           )}
 
+          {/* Section: Listing Purpose (Recycling vs Circular Reuse) */}
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>🎯 Listing Purpose & Target Buyer</Text>
+            <Text style={styles.sectionSubtitle}>
+              Select where this lot should be listed:
+            </Text>
+
+            <View style={styles.purposeOptionsCol}>
+              <TouchableOpacity
+                style={[
+                  styles.purposeOptionCard,
+                  listingPurpose === 'RECYCLING' && styles.purposeOptionCardActive,
+                ]}
+                onPress={() => setListingPurpose('RECYCLING')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.purposeOptionIcon}>🏭</Text>
+                <View style={styles.purposeOptionInfo}>
+                  <Text style={[styles.purposeOptionTitle, listingPurpose === 'RECYCLING' && styles.purposeOptionTitleActive]}>
+                    Recycling Supply (Authorized Recyclers)
+                  </Text>
+                  <Text style={styles.purposeOptionDesc}>
+                    Best for raw materials, PCBs, damaged components, and industrial processing.
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.purposeOptionCard,
+                  listingPurpose === 'REUSE' && styles.purposeOptionCardActive,
+                ]}
+                onPress={() => setListingPurpose('REUSE')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.purposeOptionIcon}>🛍️</Text>
+                <View style={styles.purposeOptionInfo}>
+                  <Text style={[styles.purposeOptionTitle, listingPurpose === 'REUSE' && styles.purposeOptionTitleActive]}>
+                    Circular Reuse (Direct to Citizens)
+                  </Text>
+                  <Text style={styles.purposeOptionDesc}>
+                    Lists on Citizen Marketplace for working smartphones, laptops, appliances, etc.
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.purposeOptionCard,
+                  listingPurpose === 'REPAIR_REUSE' && styles.purposeOptionCardActive,
+                ]}
+                onPress={() => setListingPurpose('REPAIR_REUSE')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.purposeOptionIcon}>🔧</Text>
+                <View style={styles.purposeOptionInfo}>
+                  <Text style={[styles.purposeOptionTitle, listingPurpose === 'REPAIR_REUSE' && styles.purposeOptionTitleActive]}>
+                    Repair / Refurbish (Hobbyists & Technicians)
+                  </Text>
+                  <Text style={styles.purposeOptionDesc}>
+                    Partially working or repairable items sold for spare parts or fixing.
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {/* Asking Price Input (Mandatory/Encouraged for Reuse) */}
+            {(listingPurpose === 'REUSE' || listingPurpose === 'REPAIR_REUSE') && (
+              <View style={styles.askingPriceContainer}>
+                <Text style={styles.askingPriceLabel}>💰 Asking Price (₹ Total - Optional)</Text>
+                <TextInput
+                  style={styles.askingPriceInput}
+                  keyboardType="numeric"
+                  value={askingPrice}
+                  onChangeText={setAskingPrice}
+                  placeholder="e.g. 1200 (Leave blank if open for offers)"
+                  placeholderTextColor="rgba(255, 255, 255, 0.35)"
+                />
+                <Text style={styles.askingPriceHelper}>
+                  Citizens can buy at this price or submit counter-offers for negotiation.
+                </Text>
+              </View>
+            )}
+          </View>
+
           {/* Section: Description & Notes */}
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>📝 {t('materialLots.description')}</Text>
@@ -394,23 +503,87 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
               <Text style={styles.draftButtonText}>💾 {t('materialLots.saveDraft')}</Text>
             </TouchableOpacity>
 
-            {/* Submit Lot (Open) */}
+            {/* List For Sale (Open for Bids) */}
             <TouchableOpacity
               style={styles.submitButton}
               onPress={() => handleSave('OPEN')}
               disabled={isSubmitting}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel={t('materialLots.submitLot')}
+              accessibilityLabel="List For Sale"
             >
               {isSubmitting ? (
                 <ActivityIndicator color="#071E22" />
               ) : (
-                <Text style={styles.submitButtonText}>🚀 {t('materialLots.submitLot')}</Text>
+                <Text style={styles.submitButtonText}>🏷️ List For Sale</Text>
               )}
             </TouchableOpacity>
           </View>
         </ScrollView>
+
+        {/* Phase 3: Marketplace Listing Preview Modal */}
+        {showPreviewModal && (
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>🏷️ PREVIEW MARKETPLACE LISTING</Text>
+              <Text style={styles.modalSubtitle}>
+                Publishing makes this lot discoverable to verified authorized recyclers for competitive bidding.
+              </Text>
+
+              <View style={styles.previewMatrix}>
+                <View style={styles.matrixRow}>
+                  <Text style={styles.matrixLabel}>Material Category:</Text>
+                  <Text style={styles.matrixValue}>{categoryDef.defaultName}</Text>
+                </View>
+                {subcategory ? (
+                  <View style={styles.matrixRow}>
+                    <Text style={styles.matrixLabel}>Subcategory:</Text>
+                    <Text style={styles.matrixValue}>{subcategory}</Text>
+                  </View>
+                ) : null}
+                <View style={styles.matrixRow}>
+                  <Text style={styles.matrixLabel}>Weight:</Text>
+                  <Text style={styles.matrixValue}>{weightKg} kg</Text>
+                </View>
+                <View style={styles.matrixRow}>
+                  <Text style={styles.matrixLabel}>Condition:</Text>
+                  <Text style={styles.matrixValue}>{condition}</Text>
+                </View>
+                <View style={styles.matrixRow}>
+                  <Text style={styles.matrixLabel}>Location:</Text>
+                  <Text style={styles.matrixValue}>
+                    {gpsLocation ? '📍 GPS Tagged' : '📍 Service Area'}
+                  </Text>
+                </View>
+                <View style={styles.matrixRow}>
+                  <Text style={styles.matrixLabel}>Photos:</Text>
+                  <Text style={styles.matrixValue}>{photos.length} attached</Text>
+                </View>
+              </View>
+
+              <View style={styles.modalActionsRow}>
+                <TouchableOpacity
+                  style={styles.modalCancelButton}
+                  onPress={() => setShowPreviewModal(false)}
+                >
+                  <Text style={styles.modalCancelText}>Edit Details</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalConfirmButton}
+                  onPress={() => executeSave('OPEN')}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator color="#071E22" />
+                  ) : (
+                    <Text style={styles.modalConfirmText}>[ LIST FOR SALE ]</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
       </SafeAreaView>
     </EcoSetuBackground>
   );
@@ -665,5 +838,162 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.primary,
     fontWeight: '600',
+  },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: space.md,
+    zIndex: 999,
+  },
+  modalCard: {
+    backgroundColor: '#0F2A2E',
+    borderRadius: 20,
+    padding: space.lg,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1.5,
+    borderColor: colors.primary || '#14B8A6',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.primary || '#14B8A6',
+    marginBottom: 6,
+    letterSpacing: 0.5,
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.75)',
+    lineHeight: 18,
+    marginBottom: space.md,
+  },
+  previewMatrix: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    padding: space.md,
+    marginBottom: space.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    gap: space.xs,
+  },
+  matrixRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 3,
+  },
+  matrixLabel: {
+    fontSize: 13,
+    color: colors.textSecondary || '#94A3B8',
+  },
+  matrixValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  modalActionsRow: {
+    flexDirection: 'row',
+    gap: space.sm,
+  },
+  modalCancelButton: {
+    flex: 1,
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  modalCancelText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalConfirmButton: {
+    flex: 1.5,
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+    backgroundColor: colors.primary || '#14B8A6',
+  },
+  modalConfirmText: {
+    color: '#071E22',
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  purposeOptionsCol: {
+    gap: space.sm,
+    marginTop: space.sm,
+  },
+  purposeOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: space.md,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+  },
+  purposeOptionCardActive: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: '#10B981',
+  },
+  purposeOptionIcon: {
+    fontSize: 24,
+    marginRight: space.sm,
+  },
+  purposeOptionInfo: {
+    flex: 1,
+  },
+  purposeOptionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  purposeOptionTitleActive: {
+    color: '#10B981',
+  },
+  purposeOptionDesc: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.65)',
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  askingPriceContainer: {
+    marginTop: space.md,
+    paddingTop: space.md,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  askingPriceLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#10B981',
+    marginBottom: space.xs,
+  },
+  askingPriceInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 1,
+    borderRadius: 12,
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    paddingHorizontal: space.md,
+    height: 48,
+  },
+  askingPriceHelper: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.5)',
+    marginTop: 4,
   },
 });

@@ -13,7 +13,7 @@ const router = express.Router();
 router.post(
   '/',
   authenticate,
-  authorize(ROLES.INFORMAL_COLLECTOR, ROLES.RECYCLER, ROLES.ADMIN),
+  authorize(ROLES.INFORMAL_COLLECTOR, ROLES.RECYCLER, ROLES.CITIZEN, ROLES.ADMIN),
   (req, res, next) => handoverController.createHandover(req, res, next)
 );
 
@@ -31,6 +31,14 @@ router.get(
   authenticate,
   authorize(ROLES.RECYCLER, ROLES.ADMIN),
   (req, res, next) => handoverController.getRecyclerHandovers(req, res, next)
+);
+
+// Citizen list own purchase handovers
+router.get(
+  '/citizen',
+  authenticate,
+  authorize(ROLES.CITIZEN, ROLES.ADMIN),
+  (req, res, next) => handoverController.getCitizenHandovers(req, res, next)
 );
 
 // Get single handover details
@@ -61,6 +69,14 @@ router.post(
   authenticate,
   authorize(ROLES.RECYCLER, ROLES.ADMIN),
   (req, res, next) => handoverController.recyclerConfirm(req, res, next)
+);
+
+// Citizen buyer confirms receipt of material handover
+router.post(
+  '/:id/buyer-confirm',
+  authenticate,
+  authorize(ROLES.CITIZEN, ROLES.ADMIN),
+  (req, res, next) => handoverController.buyerConfirm(req, res, next)
 );
 
 // Attach evidence photo

@@ -21,7 +21,7 @@ export * from './core';
 export interface I18nContextType {
   language: SupportedLanguage;
   setLanguage: (lang: SupportedLanguage) => Promise<void>;
-  t: (key: string, params?: Record<string, string | number>, defaultValue?: string) => string;
+  t: (key: string, params?: Record<string, string | number> | string, defaultValue?: string) => string;
   supportedLanguages: LanguageOption[];
   isReady: boolean;
 }
@@ -65,7 +65,7 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const translate = useCallback(
-    (key: string, params?: Record<string, string | number>, defaultValue?: string) => {
+    (key: string, params?: Record<string, string | number> | string, defaultValue?: string) => {
       return t(key, params, defaultValue);
     },
     // re-create translate reference whenever currentLang updates so components re-render with new language

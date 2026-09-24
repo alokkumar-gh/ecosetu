@@ -1,25 +1,31 @@
 /**
  * CollectorLotsScreen.tsx
- * Authenticated INFORMAL_COLLECTOR — List of Material Lots
+ * Authenticated INFORMAL_COLLECTOR — Seller Listings Management
  *
  * Requirements:
  * SIH-LOT-005: Human-readable reference number display
  * SIH-LOT-006: Clear lot status display (Draft, Open, Quoted, Accepted, Handover Pending, Completed)
  * Offline support: displays local drafts and pending sync badges
+ * Clear seller-side marketplace experience:
+ * - Tabs: ALL, OPEN, OFFERS RECEIVED, ACCEPTED, COMPLETED
+ * - Clear offer count and direct "View Offers" navigation
+ * - Honest empty states
  *
  * Canonical Reference: docs/25_SIH_26229_REQUIREMENTS.md Section 4 Module 2
- */import React, { useState, useEffect, useCallback } from 'react';
+ */
+
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  SafeAreaView,
   ActivityIndicator,
   RefreshControl,
   Platform,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useI18n } from '../../i18n';
 import { useNetwork } from '../../hooks/useNetwork';
 import { TopAppBar } from '../../components/layout/TopAppBar';
@@ -43,18 +49,25 @@ interface CollectorLotsScreenProps {
   navigation: any;
 }
 
+type TabStatus = 'ALL' | 'OPEN' | 'QUOTED' | 'ACCEPTED' | 'COMPLETED' | 'DRAFT';
+
 export const CollectorLotsScreen: React.FC<CollectorLotsScreenProps> = ({ navigation }) => {
   const { t } = useI18n();
   const { isConnected } = useNetwork();
+  const insets = useSafeAreaInsets();
 
   const [lots, setLots] = useState<MaterialLotItem[]>([]);
-  const [filterStatus, setFilterStatus] = useState<string>('ALL');
+  const [filterStatus, setFilterStatus] = useState<TabStatus>('ALL');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   const fetchLots = useCallback(async () => {
     try {
-      const query = filterStatus === 'ALL' ? {} : { status: filterStatus };
+      const query: any = {};
+      if (filterStatus !== 'ALL') {
+        query.status = filterStatus;
+      }
+      // Only fetch lot list — metrics already shown on Dashboard home screen
       const result = await materialLotService.listLots(query);
       setLots(result.lots);
     } catch (err) {
@@ -88,31 +101,31 @@ export const CollectorLotsScreen: React.FC<CollectorLotsScreenProps> = ({ naviga
       case 'OPEN':
         return (
           <View style={[styles.badge, styles.badgeOpen]}>
-            <Text style={styles.badgeText}>🟢 {t('materialLots.statuses.OPEN')}</Text>
+            <Text style={styles.badgeText}>🟢 {t('materialLots.statuses.OPEN') || 'LISTED'}</Text>
           </View>
         );
       case 'QUOTED':
         return (
           <View style={[styles.badge, styles.badgeQuoted]}>
-            <Text style={styles.badgeText}>💬 {t('materialLots.statuses.QUOTED')}</Text>
+            <Text style={styles.badgeText}>💬 {t('materialLots.statuses.QUOTED') || 'OFFERS RECEIVED'}</Text>
           </View>
         );
       case 'ACCEPTED':
         return (
           <View style={[styles.badge, styles.badgeAccepted]}>
-            <Text style={styles.badgeText}>🤝 {t('materialLots.statuses.ACCEPTED')}</Text>
+            <Text style={styles.badgeText}>🤝 {t('materialLots.statuses.ACCEPTED') || 'DEAL ACCEPTED'}</Text>
           </View>
         );
       case 'HANDOVER_PENDING':
         return (
           <View style={[styles.badge, styles.badgeHandover]}>
-            <Text style={styles.badgeText}>📦 {t('materialLots.statuses.HANDOVER_PENDING')}</Text>
+            <Text style={styles.badgeText}>📦 {t('materialLots.statuses.HANDOVER_PENDING') || 'HANDED OVER'}</Text>
           </View>
         );
       case 'COMPLETED':
         return (
           <View style={[styles.badge, styles.badgeCompleted]}>
-            <Text style={styles.badgeText}>✅ {t('materialLots.statuses.COMPLETED')}</Text>
+            <Text style={styles.badgeText}>✅ {t('materialLots.statuses.COMPLETED') || 'COMPLETED'}</Text>
           </View>
         );
       default:
@@ -131,6 +144,8 @@ export const CollectorLotsScreen: React.FC<CollectorLotsScreenProps> = ({ naviga
       i18nKey: 'materialLots.categories.OTHER',
     };
 
+    const offerCount = (item as any)._count?.quotes || 0;
+
     return (
       <TouchableOpacity
         style={styles.lotCard}
@@ -146,7 +161,7 @@ export const CollectorLotsScreen: React.FC<CollectorLotsScreenProps> = ({ naviga
           <View style={styles.lotHeaderInfo}>
             <Text style={styles.lotReference}>{item.referenceNumber}</Text>
             <Text style={styles.lotCategoryName}>
-              {t(categoryDef.i18nKey) || categoryDef.defaultName}
+              {t(categoryDef.i18nKey) || categoryDef.defaultName} {item.subcategory ? `• ${item.subcategory}` : ''}
             </Text>
           </View>
           {renderStatusBadge(item.status, item.isOfflineDraft, item.pendingSync)}
@@ -154,20 +169,22 @@ export const CollectorLotsScreen: React.FC<CollectorLotsScreenProps> = ({ naviga
 
         <View style={styles.lotCardBody}>
           <View style={styles.lotMetaItem}>
-            <Text style={styles.lotMetaLabel}>{t('materialLots.weight')}</Text>
+            <Text style={styles.lotMetaLabel}>{t('materialLots.weight') || 'Weight'}</Text>
             <Text style={styles.lotMetaValue}>
               {item.approximateTotalWeightKg ? `${item.approximateTotalWeightKg} kg` : '—'}
             </Text>
           </View>
 
           <View style={styles.lotMetaItem}>
-            <Text style={styles.lotMetaLabel}>{t('materialLots.condition')}</Text>
+            <Text style={styles.lotMetaLabel}>{t('materialLots.condition') || 'Condition'}</Text>
             <Text style={styles.lotMetaValue}>{item.condition || 'UNKNOWN'}</Text>
           </View>
 
           <View style={styles.lotMetaItem}>
-            <Text style={styles.lotMetaLabel}>{t('materialLots.photos')}</Text>
-            <Text style={styles.lotMetaValue}>{item.photos?.length || 0}</Text>
+            <Text style={styles.lotMetaLabel}>Offers</Text>
+            <Text style={[styles.lotMetaValue, offerCount > 0 ? styles.offerHighlight : null]}>
+              💬 {offerCount}
+            </Text>
           </View>
         </View>
 
@@ -176,40 +193,91 @@ export const CollectorLotsScreen: React.FC<CollectorLotsScreenProps> = ({ naviga
             {item.description}
           </Text>
         ) : null}
+
+        {/* Quick Action Row */}
+        <View style={styles.cardActionsRow}>
+          {offerCount > 0 ? (
+            <TouchableOpacity
+              style={styles.viewOffersButton}
+              onPress={() => navigation.navigate('CollectorQuotes', { lotId: item.id, lot: item })}
+              accessibilityRole="button"
+            >
+              <Text style={styles.viewOffersButtonText}>
+                💬 View {offerCount} {offerCount === 1 ? 'Offer' : 'Offers'}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.findBuyersButton}
+              onPress={() => navigation.navigate('CollectorRecyclerMatches', { lotId: item.id, lot: item })}
+              accessibilityRole="button"
+            >
+              <Text style={styles.findBuyersButtonText}>
+                🔍 Find Buyers
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={styles.detailsButton}
+            onPress={() => navigation.navigate('CollectorLotDetail', { lotId: item.id, lot: item })}
+            accessibilityRole="button"
+          >
+            <Text style={styles.detailsButtonText}>Details →</Text>
+          </TouchableOpacity>
+        </View>
       </TouchableOpacity>
     );
   };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const metrics: any = null; // overview metrics not loaded in this legacy screen
 
   return (
     <EcoSetuBackground>
       <SafeAreaView style={styles.safeArea}>
         <TopAppBar
-          title={t('materialLots.listTitle')}
-          subtitle={lots.length > 0 ? `${lots.length} ${t('materialLots.photosCount')}` : undefined}
-          showBack={true}
-          onBack={() => navigation.goBack()}
+          title={t('collector.deals') || 'My Deals & Listings'}
+          subtitle={lots.length > 0 ? `${lots.length} active listings` : undefined}
+          showBack={navigation?.canGoBack ? navigation.canGoBack() : false}
+          onBack={() => navigation.canGoBack && navigation.canGoBack() && navigation.goBack()}
         />
 
         {/* Sync & Offline status banner */}
         <OfflineBanner />
 
-        {/* Filter Pills */}
-        <View style={styles.filterRow}>
-          {(['ALL', 'DRAFT', 'OPEN'] as const).map((status) => {
-            const isSelected = filterStatus === status;
-            return (
-              <TouchableOpacity
-                key={status}
-                style={[styles.filterPill, isSelected && styles.filterPillSelected]}
-                onPress={() => setFilterStatus(status)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.filterPillText, isSelected && styles.filterPillTextSelected]}>
-                  {status === 'ALL' ? t('earnings.allStatuses') : status === 'DRAFT' ? t('status.draft') : t('status.submitted')}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+        {/* Marketplace Summary Section removed — metrics now shown on Home dashboard */}
+
+        {/* Seller Filter Tabs */}
+        <View style={styles.filterSection}>
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            data={[
+              { id: 'ALL', label: 'All' },
+              { id: 'OPEN', label: '🟢 Listed' },
+              { id: 'QUOTED', label: '💬 Offers Received' },
+              { id: 'ACCEPTED', label: '🤝 Deal Accepted' },
+              { id: 'COMPLETED', label: '✅ Completed' },
+              { id: 'DRAFT', label: '📝 Drafts' },
+            ]}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.filterScroll}
+            renderItem={({ item }) => {
+              const isSelected = filterStatus === item.id;
+              return (
+                <TouchableOpacity
+                  style={[styles.filterPill, isSelected && styles.filterPillSelected]}
+                  onPress={() => setFilterStatus(item.id as TabStatus)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.filterPillText, isSelected && styles.filterPillTextSelected]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            }}
+          />
         </View>
 
         {/* Main List */}
@@ -233,9 +301,9 @@ export const CollectorLotsScreen: React.FC<CollectorLotsScreenProps> = ({ naviga
             ListEmptyComponent={
               <EmptyState
                 icon="📦"
-                title={t('lowLiteracy.emptyBatchesTitle')}
-                message={t('lowLiteracy.emptyBatchesDesc')}
-                actionLabel={t('lowLiteracy.captureFirstBatch')}
+                title="No active marketplace listings."
+                message="You have no material lots currently listed under this status. Tap below to list material for sale."
+                actionLabel={t('lowLiteracy.captureFirstBatch') || 'List Material For Sale'}
                 onAction={() => navigation.navigate('CollectorMaterialCapture')}
               />
             }
@@ -244,14 +312,17 @@ export const CollectorLotsScreen: React.FC<CollectorLotsScreenProps> = ({ naviga
 
         {/* Floating Add Lot Button */}
         <TouchableOpacity
-          style={styles.fabButton}
+          style={[
+            styles.fabButton,
+            { bottom: Math.max(insets.bottom + 12, 24) },
+          ]}
           onPress={() => navigation.navigate('CollectorMaterialCapture')}
           activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel={t('materialLots.createNewLot')}
+          accessibilityLabel={t('materialLots.createNewLot') || 'List Material For Sale'}
         >
           <Text style={styles.fabIcon}>＋</Text>
-          <Text style={styles.fabText}>{t('materialLots.createNewLot')}</Text>
+          <Text style={styles.fabText}>List For Sale</Text>
         </TouchableOpacity>
       </SafeAreaView>
     </EcoSetuBackground>
@@ -262,20 +333,81 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  filterRow: {
+  overviewCard: {
+    backgroundColor: 'rgba(15, 35, 40, 0.90)',
+    borderRadius: 16,
+    padding: space.md,
+    marginHorizontal: space.md,
+    marginTop: space.sm,
+    marginBottom: space.xs,
+    borderWidth: 1.2,
+    borderColor: 'rgba(20, 184, 166, 0.3)',
+  },
+  overviewHeaderRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: space.sm,
+  },
+  overviewTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.primary || '#14B8A6',
+    letterSpacing: 0.5,
+  },
+  overviewSubtitle: {
+    fontSize: 11,
+    color: colors.textSecondary || '#94A3B8',
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: space.xs,
+  },
+  metricItem: {
+    flex: 1,
+    minWidth: '18%',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  metricValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  highlightMetric: {
+    color: '#34D399',
+  },
+  metricLabel: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: colors.textSecondary || '#94A3B8',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  filterSection: {
+    paddingVertical: space.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  filterScroll: {
     paddingHorizontal: space.md,
-    paddingVertical: space.sm,
     gap: space.xs,
   },
   filterPill: {
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
-    minHeight: 48,
+    minHeight: 44,
     justifyContent: 'center',
   },
   filterPillSelected: {
@@ -284,8 +416,8 @@ const styles = StyleSheet.create({
   },
   filterPillText: {
     color: colors.textSecondary || '#CBD5E1',
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 12,
+    fontWeight: '600',
   },
   filterPillTextSelected: {
     color: '#FFFFFF',
@@ -301,12 +433,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   lotCard: {
-    backgroundColor: 'rgba(15, 35, 40, 0.8)',
+    backgroundColor: 'rgba(15, 35, 40, 0.85)',
     borderRadius: 16,
     padding: space.md,
     marginBottom: space.md,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   lotCardHeader: {
     flexDirection: 'row',
@@ -314,16 +446,16 @@ const styles = StyleSheet.create({
     marginBottom: space.sm,
   },
   categorySymbolBadge: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: 'rgba(20, 184, 166, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: space.sm,
   },
   categorySymbol: {
-    fontSize: 26,
+    fontSize: 24,
   },
   lotHeaderInfo: {
     flex: 1,
@@ -337,11 +469,12 @@ const styles = StyleSheet.create({
   lotCategoryName: {
     fontSize: 12,
     color: colors.textSecondary || '#94A3B8',
+    marginTop: 2,
   },
   badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
   badgeDraft: {
     backgroundColor: 'rgba(245, 158, 11, 0.2)',
@@ -377,9 +510,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   badgeText: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   lotCardBody: {
     flexDirection: 'row',
@@ -403,15 +536,66 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
+  offerHighlight: {
+    color: '#60A5FA',
+    fontWeight: '800',
+  },
   lotDescription: {
     fontSize: 12,
     color: 'rgba(255, 255, 255, 0.65)',
     marginTop: space.xs,
     fontStyle: 'italic',
   },
+  cardActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  viewOffersButton: {
+    flex: 2,
+    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+  },
+  viewOffersButtonText: {
+    color: '#60A5FA',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  findBuyersButton: {
+    flex: 2,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  findBuyersButtonText: {
+    color: '#34D399',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  detailsButton: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  detailsButtonText: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   fabButton: {
     position: 'absolute',
-    bottom: 24,
     right: 20,
     backgroundColor: colors.primary || '#14B8A6',
     borderRadius: 28,
@@ -438,3 +622,5 @@ const styles = StyleSheet.create({
     color: '#071E22',
   },
 });
+
+export default CollectorLotsScreen;

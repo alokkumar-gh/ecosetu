@@ -204,6 +204,11 @@ const getRecyclerById = [
     .optional()
     .isFloat({ min: -180, max: 180 })
     .withMessage('lng must be a valid longitude between -180 and 180'),
+
+  query('lotId')
+    .optional()
+    .isUUID()
+    .withMessage('lotId must be a valid UUID'),
 ];
 
 module.exports = {

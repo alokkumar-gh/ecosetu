@@ -23,6 +23,10 @@ const quoteRoutes = require('./quoteRoutes');
 const handoverRoutes = require('./handoverRoutes');
 const transactionRoutes = require('./transactionRoutes');
 const earningsRoutes = require('./earningsRoutes');
+const pickupBatchRoutes = require('./pickupBatchRoutes');
+const sourcingRequestRoutes = require('./sourcingRequestRoutes');
+const sourcingResponseRoutes = require('./sourcingResponseRoutes');
+const recurringTradeRoutes = require('./recurringTradeRoutes');
 
 const router = express.Router();
 
@@ -83,6 +87,28 @@ router.use('/transactions', transactionRoutes);
 
 // SIH 26229 Collector Earnings Ledger & Pending Dues
 router.use('/earnings', earningsRoutes);
+
+// SIH 26229 Phase 5 Pickup Batches (Advanced Logistics & Multi-Lot Consolidation)
+router.use('/pickup-batches', pickupBatchRoutes);
+
+// SIH 26229 Phase 6 Sourcing Requests & Demand Discovery
+router.use('/sourcing-requests', sourcingRequestRoutes);
+router.use('/sourcing-responses', sourcingResponseRoutes);
+
+// SIH 26229 Phase 6 Recurring Trade & Relationship History
+router.use('/recurring-trade', recurringTradeRoutes);
+
+// SIH 26229 Phase 7 Dispute Resolution & Return Workflows
+const disputeRoutes = require('./disputeRoutes');
+router.use('/disputes', disputeRoutes);
+
+// SIH 26229 Payment Validation & Razorpay Digital Rails
+const paymentRoutes = require('./paymentRoutes');
+router.use('/payments', paymentRoutes);
+
+// SIH 26229 Canonical Transaction Billing & Invoicing Engine
+const billRoutes = require('./billRoutes');
+router.use('/bills', billRoutes);
 
 module.exports = router;
 

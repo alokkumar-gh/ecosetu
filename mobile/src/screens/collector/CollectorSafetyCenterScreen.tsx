@@ -11,15 +11,15 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
-  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { TopAppBar } from '../../components/layout/TopAppBar';
+import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import {
   SAFETY_TOPICS,
   SafetyTopic,
   generateSafetyOverviewSpeechText,
-  getTopicColorTheme,
 } from '../../data/safetyGuidance';
 import voiceService, { AnnouncementPriority } from '../../services/voiceService';
 import { useTranslation } from '../../i18n';
@@ -60,226 +60,192 @@ export const CollectorSafetyCenterScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-          >
-            <Text style={styles.backArrow}>←</Text>
-          </TouchableOpacity>
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.headerTitle}>
-              {t('safety.centerTitle') || 'Collector Safety Center'}
-            </Text>
-            <Text style={styles.headerSubtitle}>
-              {t('safety.centerSubtitle') ||
-                'Pictorial & audio guide for safe e-waste handling. Prevention & awareness first.'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Audio Overview Action Banner */}
-        <TouchableOpacity
-          style={[
-            styles.audioBanner,
-            isSpeaking && styles.audioBannerSpeaking,
-          ]}
-          onPress={handleSpeakOverview}
-          accessibilityRole="button"
-          accessibilityLabel={
-            isSpeaking
-              ? 'Stop speaking safety overview'
-              : 'Listen to safety overview in your language'
+    <EcoSetuBackground>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <TopAppBar
+          title={t('safety.centerTitle') || 'Safety Center'}
+          subtitle={
+            t('safety.centerSubtitle') ||
+            'Pictorial & audio guide for safe e-waste handling.'
           }
+          showBack={true}
+          onBack={() => navigation.goBack()}
+        />
+
+        <ScrollView
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.audioBannerIcon}>
-            {isSpeaking ? '⏹️' : '🔊'}
-          </Text>
-          <View style={styles.audioBannerTextContainer}>
-            <Text style={styles.audioBannerTitle}>
-              {isSpeaking
-                ? 'Speaking Safety Overview...'
-                : t('safety.speakOverview') || 'Listen to Safety Overview'}
-            </Text>
-            <Text style={styles.audioBannerSubtitle}>
-              {isSpeaking
-                ? 'Tap here to stop voice playback'
-                : 'Tap for spoken explanation in ' + language.toUpperCase()}
+          {/* Audio Overview Action Banner */}
+          <TouchableOpacity
+            style={[
+              styles.audioBanner,
+              isSpeaking && styles.audioBannerSpeaking,
+            ]}
+            onPress={handleSpeakOverview}
+            accessibilityRole="button"
+            accessibilityLabel={
+              isSpeaking
+                ? 'Stop speaking safety overview'
+                : 'Listen to safety overview in your language'
+            }
+            activeOpacity={0.85}
+          >
+            <View style={styles.audioIconWrapper}>
+              <Text style={styles.audioBannerIcon}>
+                {isSpeaking ? '⏹️' : '🔊'}
+              </Text>
+            </View>
+            <View style={styles.audioBannerTextContainer}>
+              <Text style={styles.audioBannerTitle}>
+                {isSpeaking
+                  ? 'Speaking Safety Overview...'
+                  : t('safety.speakOverview') || 'Listen to Safety Overview'}
+              </Text>
+              <Text style={styles.audioBannerSubtitle}>
+                {isSpeaking
+                  ? 'Tap here to stop voice playback'
+                  : 'Tap for spoken explanation in ' + language.toUpperCase()}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Offline Badge */}
+          <View style={styles.offlineNoticeContainer}>
+            <Text style={styles.offlineNoticeIcon}>📶</Text>
+            <Text style={styles.offlineNoticeText}>
+              {t('safety.offlineNotice') ||
+                'Offline Mode: Complete safety guidance is available locally on your device.'}
             </Text>
           </View>
-        </TouchableOpacity>
 
-        {/* Offline Badge */}
-        <View style={styles.offlineNoticeContainer}>
-          <Text style={styles.offlineNoticeIcon}>📶</Text>
-          <Text style={styles.offlineNoticeText}>
-            {t('safety.offlineNotice') ||
-              'Offline Mode: Complete safety guidance is available locally on your device.'}
+          {/* Section Heading */}
+          <Text style={styles.sectionHeader}>
+            {t('safety.topicsTitle') || 'MATERIAL HAZARDS & SAFE PRACTICES'}
           </Text>
-        </View>
 
-        {/* Topic Grid */}
-        <View style={styles.gridContainer}>
-          {SAFETY_TOPICS.map((topic: SafetyTopic) => {
-            const colorTheme = getTopicColorTheme(topic.id);
-            const localizedTitle = t(topic.titleKey as any) || topic.category;
-            const localizedWarning = t(topic.warningKey as any) || 'Hazardous handling caution';
+          {/* Topic Grid */}
+          <View style={styles.gridContainer}>
+            {SAFETY_TOPICS.map((topic: SafetyTopic) => {
+              const localizedTitle = t(topic.titleKey as any) || topic.category;
+              const localizedWarning = t(topic.warningKey as any) || 'Hazardous handling caution';
 
-            return (
-              <TouchableOpacity
-                key={topic.id}
-                style={[
-                  styles.topicCard,
-                  { borderColor: colorTheme.border },
-                ]}
-                onPress={() => navigateToDetail(topic.id)}
-                activeOpacity={0.85}
-                accessibilityRole="button"
-                accessibilityLabel={`${localizedTitle}: ${localizedWarning}. Tap to learn safety`}
-              >
-                {/* Visual Icon Badge */}
-                <View
-                  style={[
-                    styles.iconCircle,
-                    { backgroundColor: colorTheme.background },
-                  ]}
+              return (
+                <TouchableOpacity
+                  key={topic.id}
+                  style={styles.topicCard}
+                  onPress={() => navigateToDetail(topic.id)}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${localizedTitle}: ${localizedWarning}. Tap to learn safety`}
                 >
-                  <Text style={styles.topicIcon}>{topic.icon}</Text>
-                </View>
+                  <View style={styles.cardTopRow}>
+                    {/* Visual Icon Badge */}
+                    <View style={styles.iconCircle}>
+                      <Text style={styles.topicEmoji}>{topic.icon}</Text>
+                    </View>
 
-                {/* Title & Short Warning */}
-                <Text style={styles.topicTitle} numberOfLines={2}>
-                  {localizedTitle}
-                </Text>
+                    {/* Danger / Severity Pill */}
+                    <View style={styles.severityBadge}>
+                      <Text style={styles.severityText}>HIGH RISK</Text>
+                    </View>
+                  </View>
 
-                <View style={styles.warningPill}>
-                  <Text style={styles.warningPillIcon}>⚠️</Text>
-                  <Text style={styles.topicWarning} numberOfLines={3}>
-                    {localizedWarning}
-                  </Text>
-                </View>
+                  <View style={styles.topicContent}>
+                    <Text style={styles.topicTitle}>{localizedTitle}</Text>
+                    <Text style={styles.topicWarning} numberOfLines={2}>
+                      {localizedWarning}
+                    </Text>
+                  </View>
 
-                {/* Learn Safety Action */}
-                <View
-                  style={[
-                    styles.learnActionBtn,
-                    { backgroundColor: colorTheme.primary },
-                  ]}
-                >
-                  <Text style={styles.learnActionBtnText}>
-                    {t('safety.learnSafety') || 'Learn Safety'} →
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+                  {/* Learn Safety Action Row */}
+                  <View style={styles.actionRow}>
+                    <Text style={styles.actionText}>
+                      {t('safety.tapToLearn') || 'View Safety Guide'}
+                    </Text>
+                    <Text style={styles.actionArrow}>→</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
-        {/* Bottom Educational Disclaimer */}
-        <View style={styles.disclaimerContainer}>
-          <Text style={styles.disclaimerIcon}>ℹ️</Text>
-          <Text style={styles.disclaimerText}>
-            {t('safety.disclaimer') ||
-              'Safety guidance is informational. Follow applicable local rules and authorized recycler instructions. Never dismantle or process hazardous scrap yourself.'}
-          </Text>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+          {/* Emergency Safety Footer */}
+          <View style={styles.emergencyBox}>
+            <Text style={styles.emergencyIcon}>⚠️</Text>
+            <View style={styles.emergencyTextWrap}>
+              <Text style={styles.emergencyTitle}>
+                {t('safety.emergencyNoticeTitle') || 'Safety First Protocol'}
+              </Text>
+              <Text style={styles.emergencyDesc}>
+                {t('safety.emergencyNoticeDesc') ||
+                  'Never burn cables, break CRT glass, or puncture lithium batteries. Always deliver intact to authorized facilities.'}
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </EcoSetuBackground>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f8fafc',
   },
   container: {
     padding: 16,
-    paddingBottom: 32,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  backButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  backArrow: {
-    fontSize: 22,
-    color: '#0f172a',
-    fontWeight: 'bold',
-  },
-  headerTextContainer: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  headerSubtitle: {
-    fontSize: 12,
-    color: '#64748b',
-    marginTop: 2,
-    lineHeight: 16,
+    paddingBottom: 40,
   },
   audioBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#eff6ff',
-    borderRadius: 14,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+    borderRadius: 16,
     padding: 14,
     marginBottom: 12,
-    borderWidth: 1.5,
-    borderColor: '#93c5fd',
-    minHeight: 56,
   },
   audioBannerSpeaking: {
-    backgroundColor: '#fef3c7',
-    borderColor: '#f59e0b',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: '#ef4444',
+  },
+  audioIconWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   audioBannerIcon: {
-    fontSize: 28,
-    marginRight: 12,
+    fontSize: 22,
   },
   audioBannerTextContainer: {
     flex: 1,
   },
   audioBannerTitle: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#1e3a8a',
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 2,
   },
   audioBannerSubtitle: {
     fontSize: 12,
-    color: '#3b82f6',
-    marginTop: 2,
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontWeight: '500',
   },
   offlineNoticeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f1f5f9',
-    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     marginBottom: 16,
   },
   offlineNoticeIcon: {
@@ -288,104 +254,119 @@ const styles = StyleSheet.create({
   },
   offlineNoticeText: {
     fontSize: 11,
-    color: '#475569',
+    color: 'rgba(255, 255, 255, 0.55)',
     flex: 1,
-    fontWeight: '500',
+  },
+  sectionHeader: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: 'rgba(255, 255, 255, 0.45)',
+    letterSpacing: 0.8,
+    marginBottom: 12,
+    marginLeft: 4,
   },
   gridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+    gap: 12,
   },
   topicCard: {
-    width: '48%',
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(16, 42, 46, 0.65)',
     borderRadius: 16,
-    padding: 14,
-    marginBottom: 14,
-    borderWidth: 1.5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(34, 211, 238, 0.18)',
+    padding: 16,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
-    minHeight: 220,
+    alignItems: 'center',
+    marginBottom: 12,
   },
   iconCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    alignItems: 'center',
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(34, 211, 238, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(34, 211, 238, 0.25)',
     justifyContent: 'center',
-    marginBottom: 10,
+    alignItems: 'center',
   },
-  topicIcon: {
-    fontSize: 34,
+  topicEmoji: {
+    fontSize: 22,
+  },
+  severityBadge: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  severityText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#f87171',
+    letterSpacing: 0.5,
+  },
+  topicContent: {
+    marginBottom: 12,
   },
   topicTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
-    color: '#0f172a',
-    textAlign: 'center',
-    marginBottom: 6,
-    minHeight: 38,
-  },
-  warningPill: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#fff7ed',
-    padding: 8,
-    borderRadius: 8,
-    marginBottom: 10,
-    width: '100%',
-  },
-  warningPillIcon: {
-    fontSize: 12,
-    marginRight: 4,
-    marginTop: 1,
+    color: '#ffffff',
+    marginBottom: 4,
   },
   topicWarning: {
-    fontSize: 11,
-    color: '#c2410c',
-    flex: 1,
-    lineHeight: 14,
-    fontWeight: '500',
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.6)',
+    lineHeight: 18,
   },
-  learnActionBtn: {
-    width: '100%',
-    minHeight: 48,
-    borderRadius: 10,
+  actionRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
+    justifyContent: 'space-between',
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
   },
-  learnActionBtnText: {
-    color: '#ffffff',
+  actionText: {
     fontSize: 13,
     fontWeight: '700',
+    color: '#22D3EE',
   },
-  disclaimerContainer: {
+  actionArrow: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#22D3EE',
+  },
+  emergencyBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#f8fafc',
-    borderRadius: 10,
-    padding: 12,
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+    borderRadius: 14,
+    padding: 14,
+    marginTop: 16,
   },
-  disclaimerIcon: {
-    fontSize: 14,
-    marginRight: 8,
-    marginTop: 1,
+  emergencyIcon: {
+    fontSize: 20,
+    marginRight: 10,
+    marginTop: 2,
   },
-  disclaimerText: {
-    fontSize: 11,
-    color: '#64748b',
+  emergencyTextWrap: {
     flex: 1,
+  },
+  emergencyTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#fbbf24',
+    marginBottom: 2,
+  },
+  emergencyDesc: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.65)',
     lineHeight: 16,
   },
 });

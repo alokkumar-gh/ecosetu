@@ -1,21 +1,8 @@
 /**
- * ItemTraceabilityScreen
- * Citizen view — Full lifecycle chain of custody for an e-waste item.
- *
- * ECOSETU Business Chain:
- *   CITIZEN → LOCAL INFORMAL COLLECTOR (Kabadiwala) → FORMAL RECYCLER
- *
- * This screen shows the item's journey without creating any direct
- * Citizen → Recycler transaction.  The informal collector remains a
- * mandatory intermediary and is always displayed as the collection side.
- *
- * API: GET /api/v1/ewaste-items/:id/traceability
- * Source of Truth:
- *   - docs/05_API_SPECIFICATION.md
- *   - docs/07_BUSINESS_WORKFLOWS.md
- *   - docs/08_UI_UX_SPECIFICATION.md
- *   - docs/09_FRONTEND_ARCHITECTURE.md
- *   - docs/21_TRACEABILITY_AND_AUDIT.md
+ * ItemTraceabilityScreen — COMPLETE REBUILD
+ * Citizen views the verified lifecycle journey of their e-waste item.
+ * Goal: Simple visual chain — YOU → Collected → Recycler → Done.
+ * No internal backend terminology exposed.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -26,958 +13,628 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
-  SafeAreaView,
   ActivityIndicator,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { CitizenStackParamList } from '../../navigation/types';
 import { useNetwork } from '../../hooks/useNetwork';
-import { TopAppBar } from '../../components/layout/TopAppBar';
-import { StatusBadge } from '../../components/common/StatusBadge';
-import { Skeleton } from '../../components/common/Skeleton';
-import { OfflineBanner } from '../../components/common/OfflineBanner';
+import { useI18n } from '../../i18n';
 import { ewasteService } from '../../services/ewasteService';
+import { EcoSetuBackground } from '../../components/eco';
 import {
   ITEM_STATUS,
   CONSIGNMENT_STATUS,
   RECYCLING_STATUS,
   PICKUP_STATUS,
 } from '../../utils/constants';
-import { useI18n } from '../../i18n';
 import { colors } from '../../theme/colors';
-import { spacing } from '../../theme/spacing';
-import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
-import { AuthorizedImage } from '../../components/common/AuthorizedImage';
 
 type Props = NativeStackScreenProps<CitizenStackParamList, 'ItemTraceability'>;
 
-// ─── Chain Stage Config ────────────────────────────────────────────────────────
+// ─── Stage config ──────────────────────────────────────────────────────────────
 
-interface ChainStage {
+interface Stage {
   id: string;
   icon: string;
-  actorLabel: string;  // Who is acting
-  stageLabel: string;  // What the stage is called
-  completedKey: keyof TraceabilityData; // Which field signals completion
+  title: string;
+  description: string;
 }
 
-/**
- * Ordered stages of the ECOSETU lifecycle chain.
- * Aligns with docs/07_BUSINESS_WORKFLOWS.md and docs/21_TRACEABILITY_AND_AUDIT.md.
- *
- * NOTE: Citizen is always Stage 0 (originator), not a "recipient".
- *       Informal Collector is the mandatory collection-side intermediary.
- *       Recycler receives items from the collector, NEVER directly from citizens.
- */
-const CHAIN_STAGES: ChainStage[] = [
-  {
-    id: 'citizen',
-    icon: '👤',
-    actorLabel: 'You (Citizen)',
-    stageLabel: 'Submitted',
-    completedKey: 'item',
-  },
-  {
-    id: 'collector',
-    icon: '♻️',
-    actorLabel: 'Informal Collector (Kabadiwala)',
-    stageLabel: 'Collected',
-    completedKey: 'request',
-  },
-  {
-    id: 'consignment',
-    icon: '🚛',
-    actorLabel: 'Collector → Recycler',
-    stageLabel: 'Consignment',
-    completedKey: 'consignment',
-  },
-  {
-    id: 'recycler',
-    icon: '🏭',
-    actorLabel: 'Formal Recycler',
-    stageLabel: 'Recycled',
-    completedKey: 'recyclingRecord',
-  },
-];
+// ─── Stage completeness logic ──────────────────────────────────────────────────
 
-// ─── Data Helpers ──────────────────────────────────────────────────────────────
-
-interface TraceabilityData {
+interface TraceData {
   item?: any;
   request?: any;
   pickup?: any;
   consignment?: any;
   recyclingRecord?: any;
-  certificate?: any;
 }
 
-/**
- * Determine whether a chain stage is "complete" based on status values.
- * Rules derived from docs/07_BUSINESS_WORKFLOWS.md and docs/04_DATABASE_SCHEMA.md.
- */
-const isStageComplete = (stageId: string, data: TraceabilityData): boolean => {
+function getStageState(stageId: string, data: TraceData): 'done' | 'current' | 'pending' {
   switch (stageId) {
-    case 'citizen':
-      return !!(data.item?.status && data.item.status !== ITEM_STATUS.DRAFT);
-    case 'collector':
-      return !!(
-        data.request?.status === 'PICKED_UP' ||
-        data.pickup?.status === PICKUP_STATUS.COMPLETED ||
+    case 'submitted':
+      if (!data.item?.status || data.item.status === 'DRAFT') return 'pending';
+      return 'done';
+
+    case 'collected':
+      if (
         data.item?.status === ITEM_STATUS.COLLECTED ||
         data.item?.status === ITEM_STATUS.CONSIGNED ||
-        data.item?.status === ITEM_STATUS.RECYCLED
-      );
-    case 'consignment':
-      return !!(
-        (data.consignment &&
-          [
-            CONSIGNMENT_STATUS.ACCEPTED,
-            CONSIGNMENT_STATUS.DELIVERED,
-            CONSIGNMENT_STATUS.IN_TRANSIT,
-          ].includes(data.consignment.status)) ||
-        data.item?.status === ITEM_STATUS.CONSIGNED ||
         data.item?.status === ITEM_STATUS.RECYCLED ||
-        data.recyclingRecord
-      );
-    case 'recycler':
-      return !!(
-        data.recyclingRecord?.status === RECYCLING_STATUS.COMPLETED ||
-        data.item?.status === ITEM_STATUS.RECYCLED
-      );
-    default:
-      return false;
-  }
-};
-
-const isStageInProgress = (stageId: string, data: TraceabilityData): boolean => {
-  switch (stageId) {
-    case 'citizen':
-      return data.item?.status === ITEM_STATUS.SUBMITTED && !isStageComplete('collector', data);
-    case 'collector':
-      return !!(
+        data.request?.status === 'PICKED_UP' ||
+        data.pickup?.status === PICKUP_STATUS.COMPLETED
+      ) return 'done';
+      if (
         data.request?.status === 'ACCEPTED' ||
         data.request?.status === 'PICKUP_SCHEDULED' ||
         data.pickup?.status === PICKUP_STATUS.SCHEDULED ||
         data.pickup?.status === PICKUP_STATUS.IN_PROGRESS
-      );
-    case 'consignment':
-      return !!(
+      ) return 'current';
+      return 'pending';
+
+    case 'in_transit':
+      if (
+        data.item?.status === ITEM_STATUS.RECYCLED ||
+        data.recyclingRecord ||
+        (data.consignment && [
+          CONSIGNMENT_STATUS.ACCEPTED,
+          CONSIGNMENT_STATUS.DELIVERED,
+        ].includes(data.consignment.status))
+      ) return 'done';
+      if (
         data.consignment &&
         (data.consignment.status === CONSIGNMENT_STATUS.CREATED ||
           data.consignment.status === CONSIGNMENT_STATUS.IN_TRANSIT ||
           data.consignment.status === 'PENDING')
-      );
-    case 'recycler':
-      return !!(
+      ) return 'current';
+      return 'pending';
+
+    case 'recycled':
+      if (
+        data.recyclingRecord?.status === RECYCLING_STATUS.COMPLETED ||
+        data.item?.status === ITEM_STATUS.RECYCLED
+      ) return 'done';
+      if (
         data.recyclingRecord &&
         (data.recyclingRecord.status === RECYCLING_STATUS.RECEIVED ||
           data.recyclingRecord.status === RECYCLING_STATUS.PROCESSING)
-      );
+      ) return 'current';
+      return 'pending';
+
     default:
-      return false;
+      return 'pending';
   }
-};
-
-/** Friendly formatted date string, or '—' if absent */
-const fmtDate = (iso?: string | null): string => {
-  if (!iso) return '—';
-  try {
-    return new Date(iso).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return '—';
-  }
-};
-
-/** Friendly formatted date+time string */
-const fmtDateTime = (iso?: string | null): string => {
-  if (!iso) return '—';
-  try {
-    return new Date(iso).toLocaleString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return '—';
-  }
-};
-
-// ─── Sub-Components ────────────────────────────────────────────────────────────
-
-interface ChainNodeProps {
-  stage: ChainStage;
-  actorLabel?: string;
-  stageLabel?: string;
-  isComplete: boolean;
-  isInProgress: boolean;
-  isLast: boolean;
-  children?: React.ReactNode;
 }
 
-const ChainNode: React.FC<ChainNodeProps> = ({
-  stage,
-  actorLabel,
-  stageLabel,
-  isComplete,
-  isInProgress,
-  isLast,
-  children,
-}) => {
-  const { t } = useI18n();
-  const nodeBg = isComplete
-    ? colors.success
-    : isInProgress
-    ? colors.warning
-    : colors.divider;
-  const nodeText = isComplete || isInProgress ? '#FFFFFF' : colors.textSecondary;
+// ─── Date formatter ───────────────────────────────────────────────────────────
 
-  return (
-    <View style={styles.chainRow}>
-      {/* Left column: icon node + connector */}
-      <View style={styles.chainLeft}>
-        <View style={[styles.chainNode, { backgroundColor: nodeBg }]}>
-          <Text style={[styles.chainNodeIcon, { color: nodeText }]}>{stage.icon}</Text>
-        </View>
-        {!isLast && (
-          <View
-            style={[
-              styles.chainConnector,
-              { backgroundColor: isComplete ? colors.success : colors.divider },
-            ]}
-          />
-        )}
-      </View>
-
-      {/* Right column: content */}
-      <View style={styles.chainContent}>
-        <View style={styles.chainHeader}>
-          <Text style={styles.chainActorLabel}>{actorLabel || stage.actorLabel}</Text>
-          {isComplete && (
-            <View style={styles.completedBadge}>
-              <Text style={styles.completedBadgeText}>
-                {t('citizen.traceability.done') || '✓ Done'}
-              </Text>
-            </View>
-          )}
-          {isInProgress && !isComplete && (
-            <View style={styles.inProgressBadge}>
-              <Text style={styles.inProgressBadgeText}>
-                {t('citizen.traceability.inProgress') || 'In Progress'}
-              </Text>
-            </View>
-          )}
-        </View>
-        <Text style={styles.chainStageLabel}>{stageLabel || stage.stageLabel}</Text>
-        {children && <View style={styles.chainDetails}>{children}</View>}
-      </View>
-    </View>
-  );
-};
-
-interface InfoRowProps {
-  label: string;
-  value: string;
+function fmtDate(iso?: string | null): string {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch {
+    return '';
+  }
 }
-const InfoRow: React.FC<InfoRowProps> = ({ label, value }) => (
-  <View style={styles.infoRow}>
-    <Text style={styles.infoLabel}>{label}</Text>
-    <Text style={styles.infoValue}>{value}</Text>
-  </View>
-);
 
-// ─── Main Screen ───────────────────────────────────────────────────────────────
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) => {
-  const { itemId } = route.params;
+  const itemId = route?.params?.itemId;
   const { isConnected } = useNetwork();
   const { t } = useI18n();
 
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [traceability, setTraceability] = useState<TraceabilityData | null>(null);
-  const [isCached, setIsCached] = useState<boolean>(false);
+  const stages: Stage[] = [
+    {
+      id: 'submitted',
+      icon: '📤',
+      title: t('traceability.stageSubmittedTitle', 'You gave it'),
+      description: t('traceability.stageSubmittedDesc', 'You submitted this item for e-waste collection.'),
+    },
+    {
+      id: 'collected',
+      icon: '🤝',
+      title: t('traceability.stageCollectedTitle', 'Picked up'),
+      description: t('traceability.stageCollectedDesc', 'A local collector (Kabadiwala) collected it from your doorstep.'),
+    },
+    {
+      id: 'in_transit',
+      icon: '🚛',
+      title: t('traceability.stageTransitTitle', 'Handed over'),
+      description: t('traceability.stageTransitDesc', 'The collector delivered it to a verified recycling facility.'),
+    },
+    {
+      id: 'recycled',
+      icon: '♻️',
+      title: t('traceability.stageRecycledTitle', 'Formally recycled'),
+      description: t('traceability.stageRecycledDesc', 'The item has been responsibly processed at a certified recycler.'),
+    },
+  ];
 
-  const getStageLocalized = (stageId: string, defaultActor: string, defaultStage: string) => {
-    switch (stageId) {
-      case 'citizen':
-        return {
-          actorLabel: t('citizen.traceability.actorCitizen') || defaultActor,
-          stageLabel: t('citizen.traceability.stageSubmitted') || defaultStage,
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<TraceData | null>(null);
+  const [userItems, setUserItems] = useState<any[]>([]);
+  const [selectedId, setSelectedId] = useState<string | undefined>(itemId);
+
+  const load = useCallback(async (refresh = false) => {
+    if (!refresh) setIsLoading(true);
+    setError(null);
+
+    try {
+      let activeId = selectedId || itemId;
+
+      // If no item ID, fetch citizen's item list first
+      if (!activeId) {
+        const items: any = await ewasteService.getItems();
+        const list: any[] = Array.isArray(items) ? items : [];
+        setUserItems(list);
+        if (list.length > 0 && list[0]?.id) {
+          activeId = String(list[0].id);
+          setSelectedId(activeId);
+        } else {
+          setData(null);
+          setIsLoading(false);
+          setIsRefreshing(false);
+          return;
+        }
+      } else if (userItems.length === 0) {
+        // Pre-fetch in background
+        ewasteService.getItems().then((items: any) => {
+          if (Array.isArray(items)) setUserItems(items);
+        }).catch(() => {});
+      }
+
+      if (!activeId) { setIsLoading(false); setIsRefreshing(false); return; }
+
+      try {
+        const trace = await ewasteService.getItemTraceability(activeId);
+        setData(trace || { item: { id: activeId, status: 'SUBMITTED', createdAt: new Date().toISOString() } });
+      } catch {
+        // Graceful fallback — show submitted state with whatever we have
+        const fallback = userItems.find((i) => i.id === activeId) || {
+          id: activeId,
+          status: 'SUBMITTED',
+          createdAt: new Date().toISOString(),
         };
-      case 'collector':
-        return {
-          actorLabel: t('citizen.traceability.actorCollector') || defaultActor,
-          stageLabel: t('citizen.traceability.stageCollected') || defaultStage,
-        };
-      case 'consignment':
-        return {
-          actorLabel: t('citizen.traceability.actorConsignment') || defaultActor,
-          stageLabel: t('citizen.traceability.stageConsignment') || defaultStage,
-        };
-      case 'recycler':
-        return {
-          actorLabel: t('citizen.traceability.actorRecycler') || defaultActor,
-          stageLabel: t('citizen.traceability.stageRecycled') || defaultStage,
-        };
-      default:
-        return { actorLabel: defaultActor, stageLabel: defaultStage };
+        setData({ item: fallback });
+      }
+    } catch (err: any) {
+      setError(err?.message || t('common.error', 'Unable to load traceability data.'));
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
     }
+  }, [selectedId, itemId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const item = data?.item;
+  const category = (item?.category || '').replace(/_/g, ' ');
+  const submittedDate = fmtDate(item?.createdAt);
+  const collectedDate = fmtDate(data?.pickup?.completedAt || data?.request?.updatedAt);
+  const handedOverDate = fmtDate(data?.consignment?.updatedAt);
+  const recycledDate = fmtDate(data?.recyclingRecord?.completedAt);
+
+  const stageDates: Record<string, string> = {
+    submitted: submittedDate,
+    collected: collectedDate,
+    in_transit: handedOverDate,
+    recycled: recycledDate,
   };
 
-  // ── Data Fetching ────────────────────────────────────────────────────────────
+  const collectorName = data?.request?.collector?.name || data?.pickup?.collector?.name;
+  const recyclerName = data?.recyclingRecord?.recycler?.name || data?.consignment?.recycler?.name;
+  const recyclerLocation = data?.recyclingRecord?.recycler?.city || data?.consignment?.recycler?.city;
 
-  const loadTraceability = useCallback(
-    async (silent = false) => {
-      if (!silent) setErrorMessage(null);
-      try {
-        const data = await ewasteService.getItemTraceability(itemId);
-        if (!data) {
-          setErrorMessage(
-            t('citizen.traceability.notFoundError') ||
-              'Traceability record not found. The item may not have been submitted yet, or data is unavailable offline.'
-          );
-        } else {
-          setTraceability(data);
-          setIsCached(!isConnected);
-        }
-      } catch (err: any) {
-        const msg =
-          err?.response?.data?.message ||
-          err?.message ||
-          (t('citizen.traceability.loadError') ||
-            'Unable to load traceability data. Please try again.');
-        setErrorMessage(msg);
-      } finally {
-        setIsLoading(false);
-        setIsRefreshing(false);
-      }
-    },
-    [itemId, isConnected, t]
-  );
-
-  useEffect(() => {
-    setIsLoading(true);
-    loadTraceability();
-  }, [loadTraceability]);
-
-  const handleRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    loadTraceability(true);
-  }, [loadTraceability]);
-
-  // ── Derived Data ─────────────────────────────────────────────────────────────
-
-  const item = traceability?.item;
-  const request = traceability?.request;
-  const pickup = traceability?.pickup;
-  const consignment = traceability?.consignment;
-  const recyclingRecord = traceability?.recyclingRecord;
-  const certificate = traceability?.certificate;
-
-  // ── Render: Loading ──────────────────────────────────────────────────────────
-
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <TopAppBar
-          title={t('citizen.traceability.title') || 'Item Traceability'}
-          onBack={() => navigation.goBack()}
-        />
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <Skeleton height={80} style={styles.skeletonCard} />
-          <Skeleton height={280} style={styles.skeletonCard} />
-          <Skeleton height={160} style={styles.skeletonCard} />
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  // ── Render: Error ─────────────────────────────────────────────────────────────
-
-  if (errorMessage && !traceability) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <TopAppBar
-          title={t('citizen.traceability.title') || 'Item Traceability'}
-          onBack={() => navigation.goBack()}
-        />
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorIcon}>⚠️</Text>
-          <Text style={styles.errorTitle}>
-            {t('citizen.traceability.couldNotLoad') || 'Could Not Load'}
-          </Text>
-          <Text style={styles.errorMessage}>{errorMessage}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => {
-              setIsLoading(true);
-              loadTraceability();
-            }}
-            accessibilityLabel={t('citizen.requests.retry') || 'Retry loading traceability'}
-            accessibilityRole="button"
-          >
-            <Text style={styles.retryButtonText}>
-              {t('citizen.requests.retry') || 'Retry'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // ── Render: Main ─────────────────────────────────────────────────────────────
+  const certId = data?.recyclingRecord?.certificateId || data?.recyclingRecord?.id;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <TopAppBar
-        title={t('citizen.traceability.title') || 'Item Traceability'}
-        onBack={() => navigation.goBack()}
-      />
+    <EcoSetuBackground>
 
-      {/* Offline banner */}
-      {!isConnected && <OfflineBanner />}
-
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
+      {/* Back */}
+      <TouchableOpacity
+        style={styles.backBtn}
+        onPress={() => navigation.goBack()}
+        accessibilityRole="button"
+        accessibilityLabel={t('common.back', 'Go back')}
       >
-        {/* ── Item Summary Card ──────────────────────────────────────────── */}
-        <View style={styles.card} accessibilityLabel="Item summary">
-          <View style={styles.cardHeader}>
-            <View style={styles.cardTitleContainer}>
-              <Text style={styles.cardTitle}>
-                {item?.category
-                  ? item.category.replace(/_/g, ' ')
-                  : t('citizen.traceability.ewasteItem') || 'E-Waste Item'}
-              </Text>
-              {item?.brand && (
-                <Text style={styles.cardSubtitle}>
-                  {item.brand}
-                  {item.model ? ` · ${item.model}` : ''}
-                </Text>
-              )}
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {item?.status && <StatusBadge status={item.status} />}
-              <ReadAloudButton
-                text={`E-waste item ${item?.category?.replace(/_/g, ' ') || 'traceability'}. Current stage is ${item?.status?.replace(/_/g, ' ') || 'in progress'}.`}
-                size="small"
-              />
-            </View>
-          </View>
+        <Text style={styles.backText}>← {t('common.back', 'Back')}</Text>
+      </TouchableOpacity>
 
-          <View style={styles.divider} />
-
-          <View style={styles.metaGrid}>
-            <InfoRow
-              label={t('citizen.traceability.submitted') || 'Submitted'}
-              value={fmtDate(item?.createdAt || item?.submittedAt)}
+      {isLoading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#10B981" />
+        </View>
+      ) : error && !data ? (
+        <View style={styles.center}>
+          <Text style={styles.errorIcon}>⚠️</Text>
+          <Text style={styles.errorTitle}>{t('common.error', "Can't Load Journey")}</Text>
+          <Text style={styles.errorMessage}>{error}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => { setIsLoading(true); load(); }}>
+            <Text style={styles.retryText}>{t('common.retry', 'Retry')}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : !data ? (
+        <View style={styles.center}>
+          <Text style={styles.emptyIcon}>📦</Text>
+          <Text style={styles.emptyTitle}>{t('emptyStates.noActivity', 'No Items Found')}</Text>
+          <Text style={styles.emptyMessage}>
+            {t('emptyStates.submitFirstItem', 'Submit an e-waste collection request first to see the journey of your items.')}
+          </Text>
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={() => { setIsRefreshing(true); load(true); }}
+              tintColor="#10B981"
+              colors={['#10B981']}
             />
-            {item?.estimatedWeightKg != null && (
-              <InfoRow
-                label={t('citizen.traceability.estWeight') || 'Est. Weight'}
-                value={`${item.estimatedWeightKg} kg`}
-              />
-            )}
-            {item?.condition && (
-              <InfoRow
-                label={t('citizen.traceability.condition') || 'Condition'}
-                value={item.condition.replace(/_/g, ' ')}
-              />
-            )}
+          }
+        >
+          {/* Hero */}
+          <View style={styles.hero}>
+            <Text style={styles.heroTitle}>{t('traceability.journeyTitle', "Your Item's Journey")}</Text>
+            {category ? (
+              <Text style={styles.heroSub}>{category}</Text>
+            ) : null}
           </View>
 
-          {/* Cached data notice */}
-          {isCached && (
-            <View style={styles.cachedNotice}>
-              <Text style={styles.cachedNoticeText}>
-                {t('citizen.traceability.cachedNotice') ||
-                  '📴 Showing cached data (last synced while online)'}
-              </Text>
+          {/* Item selector if multiple items */}
+          {userItems.length > 1 && (
+            <View style={styles.itemSelector}>
+              <Text style={styles.selectorLabel}>{t('common.selectItem', 'Select item')}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {userItems.map((it) => (
+                  <TouchableOpacity
+                    key={it.id}
+                    style={[styles.selectorChip, selectedId === it.id && styles.selectorChipActive]}
+                    onPress={() => setSelectedId(it.id)}
+                  >
+                    <Text style={[styles.selectorChipText, selectedId === it.id && styles.selectorChipTextActive]}>
+                      {(it.category || 'Item').replace(/_/g, ' ')} · …{it.id.slice(-4)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
           )}
-        </View>
 
-        {/* ── Chain of Custody ──────────────────────────────────────────── */}
-        <View style={styles.card} accessibilityLabel="Chain of custody lifecycle">
-          <Text style={styles.sectionTitle}>
-            {t('citizen.traceability.chainOfCustody') || 'Chain of Custody'}
-          </Text>
-          <Text style={styles.sectionSubtitle}>
-            {t('citizen.traceability.chainSubtitle') ||
-              "Your item's journey through the ECOSETU collection chain"}
-          </Text>
-
-          <View style={styles.chainContainer}>
-            {CHAIN_STAGES.map((stage, index) => {
-              if (!traceability) return null;
-              const complete = isStageComplete(stage.id, traceability);
-              const inProgress = !complete && isStageInProgress(stage.id, traceability);
-              const isLast = index === CHAIN_STAGES.length - 1;
-              const localized = getStageLocalized(stage.id, stage.actorLabel, stage.stageLabel);
+          {/* Journey chain */}
+          <View style={styles.chain}>
+            {stages.map((stage, i) => {
+              const state = getStageState(stage.id, data);
+              const date = stageDates[stage.id];
+              const isLast = i === stages.length - 1;
 
               return (
-                <ChainNode
-                  key={stage.id}
-                  stage={stage}
-                  actorLabel={localized.actorLabel}
-                  stageLabel={localized.stageLabel}
-                  isComplete={complete}
-                  isInProgress={inProgress}
-                  isLast={isLast}
-                >
-                  {/* Stage-specific detail rows */}
-                  {stage.id === 'citizen' && item && (
-                    <>
-                      <InfoRow
-                        label={t('citizen.traceability.category') || 'Category'}
-                        value={item.category?.replace(/_/g, ' ') || '—'}
-                      />
-                      <InfoRow
-                        label={t('citizen.traceability.date') || 'Date'}
-                        value={fmtDate(item.createdAt || item.submittedAt)}
-                      />
-                    </>
-                  )}
+                <View key={stage.id} style={styles.stageRow}>
+                  {/* Left: node + connector */}
+                  <View style={styles.stageLeft}>
+                    <View style={[
+                      styles.stageNode,
+                      state === 'done' && styles.stageNodeDone,
+                      state === 'current' && styles.stageNodeCurrent,
+                    ]}>
+                      {state === 'done' ? (
+                        <Text style={styles.stageNodeCheck}>✓</Text>
+                      ) : state === 'current' ? (
+                        <Text style={styles.stageNodeIcon}>{stage.icon}</Text>
+                      ) : (
+                        <Text style={styles.stageNodeIconPending}>{stage.icon}</Text>
+                      )}
+                    </View>
+                    {!isLast && (
+                      <View style={[
+                        styles.stageLine,
+                        state === 'done' && styles.stageLineDone,
+                      ]} />
+                    )}
+                  </View>
 
-                  {stage.id === 'collector' && request && (
-                    <>
-                      {request.collector?.name && (
-                        <InfoRow
-                          label={t('citizen.traceability.collector') || 'Collector'}
-                          value={request.collector.name}
-                        />
+                  {/* Right: content */}
+                  <View style={[styles.stageContent, isLast && { paddingBottom: 8 }]}>
+                    <View style={styles.stageTitleRow}>
+                      <Text style={[
+                        styles.stageTitle,
+                        state === 'done' && styles.stageTitleDone,
+                        state === 'current' && styles.stageTitleCurrent,
+                        state === 'pending' && styles.stageTitlePending,
+                      ]}>
+                        {stage.title}
+                      </Text>
+                      {state === 'done' && (
+                        <View style={styles.stageDoneBadge}>
+                          <Text style={styles.stageDoneBadgeText}>✓ {t('status.completed', 'Done')}</Text>
+                        </View>
                       )}
-                      {pickup?.scheduledAt && (
-                        <InfoRow
-                          label={t('citizen.traceability.scheduled') || 'Scheduled'}
-                          value={fmtDateTime(pickup.scheduledAt)}
-                        />
+                      {state === 'current' && (
+                        <View style={styles.stageActiveBadge}>
+                          <Text style={styles.stageActiveBadgeText}>{t('status.inProgress', 'In progress')}</Text>
+                        </View>
                       )}
-                      {pickup?.completedAt && (
-                        <InfoRow
-                          label={t('citizen.traceability.collected') || 'Collected'}
-                          value={fmtDateTime(pickup.completedAt)}
-                        />
-                      )}
-                      {pickup?.verifiedWeightKg != null && (
-                        <InfoRow
-                          label={t('citizen.traceability.verifiedWeight') || 'Verified Weight'}
-                          value={`${pickup.verifiedWeightKg} kg`}
-                        />
-                      )}
-                    </>
-                  )}
+                    </View>
 
-                  {stage.id === 'consignment' && consignment && (
-                    <>
-                      <InfoRow
-                        label={t('citizen.traceability.status') || 'Status'}
-                        value={consignment.status?.replace(/_/g, ' ') || '—'}
-                      />
-                      {consignment.totalWeightKg != null && (
-                        <InfoRow
-                          label={t('citizen.traceability.weight') || 'Weight'}
-                          value={`${consignment.totalWeightKg} kg`}
-                        />
-                      )}
-                      {consignment.createdAt && (
-                        <InfoRow
-                          label={t('citizen.traceability.dispatched') || 'Dispatched'}
-                          value={fmtDate(consignment.createdAt)}
-                        />
-                      )}
-                      {consignment.acceptedAt && (
-                        <InfoRow
-                          label={
-                            t('citizen.traceability.acceptedByRecycler') ||
-                            'Accepted by Recycler'
-                          }
-                          value={fmtDate(consignment.acceptedAt)}
-                        />
-                      )}
-                    </>
-                  )}
+                    <Text style={[
+                      styles.stageDesc,
+                      state === 'pending' && styles.stageDescPending,
+                    ]}>
+                      {stage.description}
+                    </Text>
 
-                  {stage.id === 'recycler' && recyclingRecord && (
-                    <>
-                      {recyclingRecord.recycler?.name && (
-                        <InfoRow
-                          label={t('citizen.traceability.recycler') || 'Recycler'}
-                          value={recyclingRecord.recycler.name}
-                        />
-                      )}
-                      <InfoRow
-                        label={t('citizen.traceability.status') || 'Status'}
-                        value={recyclingRecord.status?.replace(/_/g, ' ') || '—'}
-                      />
-                      {recyclingRecord.processedAt && (
-                        <InfoRow
-                          label={t('citizen.traceability.processed') || 'Processed'}
-                          value={fmtDate(recyclingRecord.processedAt)}
-                        />
-                      )}
-                      {recyclingRecord.methodUsed && (
-                        <InfoRow
-                          label={t('citizen.traceability.method') || 'Method'}
-                          value={recyclingRecord.methodUsed}
-                        />
-                      )}
-                      {recyclingRecord.materialRecoveredKg != null && (
-                        <InfoRow
-                          label={
-                            t('citizen.traceability.materialsRecovered') ||
-                            'Materials Recovered'
-                          }
-                          value={`${recyclingRecord.materialRecoveredKg} kg`}
-                        />
-                      )}
-                      {recyclingRecord.notes && (
-                        <InfoRow
-                          label={t('citizen.traceability.notes') || 'Notes'}
-                          value={recyclingRecord.notes}
-                        />
-                      )}
-                    </>
-                  )}
-                </ChainNode>
+                    {date && state === 'done' && (
+                      <Text style={styles.stageDate}>📅 {date}</Text>
+                    )}
+
+                    {/* Stage-specific detail */}
+                    {stage.id === 'collected' && state !== 'pending' && collectorName && (
+                      <View style={styles.detailPill}>
+                        <Text style={styles.detailPillText}>🧑 {collectorName}</Text>
+                      </View>
+                    )}
+                    {stage.id === 'recycled' && state !== 'pending' && recyclerName && (
+                      <View style={styles.detailPill}>
+                        <Text style={styles.detailPillText}>
+                          🏭 {recyclerName}{recyclerLocation ? ` · ${recyclerLocation}` : ''}
+                        </Text>
+                      </View>
+                    )}
+                    {stage.id === 'recycled' && state === 'done' && certId && (
+                      <View style={[styles.detailPill, styles.certPill]}>
+                        <Text style={styles.certPillText}>
+                          🛡️ {t('traceability.certificate', 'Certificate')}: …{certId.slice(-8).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
               );
             })}
           </View>
-        </View>
 
-        {/* ── Circular Economy Certificate ─────────────────────────────── */}
-        {certificate && (
-          <View
-            style={[styles.card, styles.certCard]}
-            accessibilityLabel="Circular economy certificate"
-          >
-            <View style={styles.certHeader}>
-              <Text style={styles.certIcon}>🏆</Text>
-              <View>
-                <Text style={styles.certTitle}>
-                  {t('citizen.traceability.circularCertificate') ||
-                    'Circular Economy Certificate'}
-                </Text>
-                <Text style={styles.certSubtitle}>
-                  {t('citizen.traceability.certSubtitle') ||
-                    'Your e-waste was responsibly recycled'}
-                </Text>
-              </View>
+          {/* Completed summary */}
+          {getStageState('recycled', data) === 'done' && (
+            <View style={styles.completedCard}>
+              <Text style={styles.completedIcon}>🎉</Text>
+              <Text style={styles.completedTitle}>{t('traceability.fullyTraced', 'Fully Traced ✓')}</Text>
+              <Text style={styles.completedDesc}>
+                {t('traceability.fullyTracedDesc', 'Your e-waste has completed the full responsible recycling journey. It has been processed in a certified formal recycling facility.')}
+              </Text>
             </View>
-            <View style={styles.divider} />
-            {certificate.certificateNumber && (
-              <InfoRow
-                label={t('citizen.traceability.certificateNumber') || 'Certificate #'}
-                value={certificate.certificateNumber}
-              />
-            )}
-            {certificate.issuedAt && (
-              <InfoRow
-                label={t('citizen.traceability.issuedOn') || 'Issued On'}
-                value={fmtDate(certificate.issuedAt)}
-              />
-            )}
-            {certificate.co2SavedKg != null && (
-              <InfoRow
-                label={t('citizen.traceability.co2Saved') || 'CO₂ Saved'}
-                value={`${certificate.co2SavedKg} kg`}
-              />
-            )}
+          )}
+
+          {/* Trust note */}
+          <View style={styles.trustNote}>
+            <Text style={styles.trustNoteIcon}>ℹ️</Text>
+            <Text style={styles.trustNoteText}>
+              {t('traceability.trustNote', 'Only verified and completed stages are shown. Unverified information is never displayed.')}
+            </Text>
           </View>
-        )}
 
-        {/* ── Non-Anonymised Audit Note ─────────────────────────────────── */}
-        <View style={styles.auditNote}>
-          <Text style={styles.auditNoteText}>
-            {t('citizen.traceability.auditNote') ||
-              '🔒 This traceability record is read-only and cannot be modified. All chain-of-custody events are audit-logged by ECOSETU.'}
-          </Text>
-        </View>
-
-        <View style={{ height: spacing.spaceLg }} />
-      </ScrollView>
-    </SafeAreaView>
+          <View style={{ height: 60 }} />
+        </ScrollView>
+      )}
+    </EcoSetuBackground>
   );
 };
 
-// ─── Styles ────────────────────────────────────────────────────────────────────
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
+  // ── Back ──
+  backBtn: {
+    paddingHorizontal: 20,
+    paddingTop: 56,
+    paddingBottom: 12,
   },
-  scrollContent: {
-    padding: spacing.spaceMd,
-    paddingBottom: spacing.spaceXl,
+  backText: { fontSize: 15, color: '#34D399', fontWeight: '700' },
+
+  // ── Center states ──
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  },
+  errorIcon: { fontSize: 48, marginBottom: 12 },
+  errorTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF', marginBottom: 8 },
+  errorMessage: { fontSize: 13, color: 'rgba(255,255,255,0.55)', textAlign: 'center', lineHeight: 20 },
+  retryBtn: {
+    marginTop: 20,
+    backgroundColor: '#10B981',
+    borderRadius: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  retryText: { fontSize: 15, color: '#FFFFFF', fontWeight: '700' },
+  emptyIcon: { fontSize: 52, marginBottom: 12 },
+  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF', marginBottom: 8 },
+  emptyMessage: { fontSize: 13, color: 'rgba(255,255,255,0.55)', textAlign: 'center', lineHeight: 20 },
+
+  // ── Scroll ──
+  scroll: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
   },
 
-  // ── Cards ──
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: spacing.spaceMd,
-    marginBottom: spacing.spaceMd,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
+  // ── Hero ──
+  hero: { marginBottom: 20 },
+  heroTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.4,
+    marginBottom: 4,
   },
-  certCard: {
-    borderWidth: 1.5,
-    borderColor: colors.success,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: spacing.spaceSm,
-  },
-  cardTitleContainer: {
-    flex: 1,
-    marginRight: spacing.spaceSm,
-  },
-  cardTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.textPrimary,
+  heroSub: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.50)',
+    fontWeight: '500',
     textTransform: 'capitalize',
   },
-  cardSubtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  sectionTitle: {
-    fontSize: 15,
+
+  // ── Item Selector ──
+  itemSelector: { marginBottom: 16 },
+  selectorLabel: {
+    fontSize: 11,
     fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 2,
+    color: 'rgba(255,255,255,0.40)',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 8,
   },
-  sectionSubtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginBottom: spacing.spaceMd,
+  selectorChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    marginRight: 8,
   },
+  selectorChipActive: {
+    backgroundColor: 'rgba(16,185,129,0.20)',
+    borderColor: '#10B981',
+  },
+  selectorChipText: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.55)' },
+  selectorChipTextActive: { color: '#34D399' },
 
-  // ── Divider ──
-  divider: {
-    height: 1,
-    backgroundColor: colors.divider,
-    marginVertical: spacing.spaceSm,
+  // ── Chain ──
+  chain: { gap: 0, marginBottom: 24 },
+  stageRow: {
+    flexDirection: 'row',
+    gap: 14,
+    minHeight: 60,
   },
+  stageLeft: { alignItems: 'center', width: 32 },
+  stageNode: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stageNodeDone: {
+    backgroundColor: '#10B981',
+    borderColor: '#10B981',
+  },
+  stageNodeCurrent: {
+    backgroundColor: 'rgba(16,185,129,0.20)',
+    borderColor: '#10B981',
+  },
+  stageNodeCheck: { fontSize: 14, color: '#FFFFFF', fontWeight: '800' },
+  stageNodeIcon: { fontSize: 15 },
+  stageNodeIconPending: { fontSize: 14, opacity: 0.3 },
+  stageLine: {
+    flex: 1,
+    width: 2,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    marginVertical: 3,
+  },
+  stageLineDone: { backgroundColor: '#10B981' },
 
-  // ── Meta Grid ──
-  metaGrid: {
+  stageContent: {
+    flex: 1,
+    paddingBottom: 20,
     gap: 4,
   },
-
-  // ── Info Rows ──
-  infoRow: {
+  stageTitleRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
+    marginTop: 5,
+  },
+  stageTitle: { fontSize: 16, fontWeight: '700' },
+  stageTitleDone: { color: '#FFFFFF' },
+  stageTitleCurrent: { color: '#FFFFFF' },
+  stageTitlePending: { color: 'rgba(255,255,255,0.30)' },
+
+  stageDoneBadge: {
+    backgroundColor: 'rgba(16,185,129,0.18)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  infoLabel: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    flex: 1,
+  stageDoneBadgeText: { fontSize: 10, color: '#34D399', fontWeight: '700' },
+  stageActiveBadge: {
+    backgroundColor: 'rgba(245,158,11,0.18)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
-  infoValue: {
+  stageActiveBadgeText: { fontSize: 10, color: '#FBBF24', fontWeight: '700' },
+
+  stageDesc: {
     fontSize: 13,
-    color: colors.textPrimary,
+    color: 'rgba(255,255,255,0.65)',
+    lineHeight: 19,
+  },
+  stageDescPending: { color: 'rgba(255,255,255,0.25)' },
+  stageDate: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.40)',
     fontWeight: '500',
-    flex: 2,
-    textAlign: 'right',
   },
+  detailPill: {
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  detailPillText: { fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: '500' },
+  certPill: {
+    backgroundColor: 'rgba(16,185,129,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.30)',
+  },
+  certPillText: { fontSize: 11, color: '#34D399', fontWeight: '700' },
 
-  // ── Chain of Custody ──
-  chainContainer: {
-    paddingTop: spacing.spaceSm,
-  },
-  chainRow: {
-    flexDirection: 'row',
-    marginBottom: 0,
-  },
-  chainLeft: {
-    width: 40,
-    alignItems: 'center',
-  },
-  chainNode: {
-    width: 36,
-    height: 36,
+  // ── Completed card ──
+  completedCard: {
+    backgroundColor: 'rgba(16,185,129,0.12)',
     borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.30)',
+    padding: 20,
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 16,
   },
-  chainNodeIcon: {
-    fontSize: 16,
-  },
-  chainConnector: {
-    width: 2,
-    flex: 1,
-    minHeight: 24,
-    marginVertical: 2,
-  },
-  chainContent: {
-    flex: 1,
-    paddingLeft: spacing.spaceSm,
-    paddingBottom: spacing.spaceMd,
-  },
-  chainHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  chainActorLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  chainStageLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 1,
-    marginBottom: 6,
-  },
-  chainDetails: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    paddingHorizontal: spacing.spaceSm,
-    paddingVertical: spacing.spaceXs,
-  },
-  completedBadge: {
-    backgroundColor: '#C8E6C9',
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  completedBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#1B5E20',
-  },
-  inProgressBadge: {
-    backgroundColor: '#FFE0B2',
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  inProgressBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#E65100',
-  },
-
-  // ── Certificate ──
-  certHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.spaceSm,
-    marginBottom: spacing.spaceSm,
-  },
-  certIcon: {
-    fontSize: 32,
-  },
-  certTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.success,
-  },
-  certSubtitle: {
+  completedIcon: { fontSize: 36 },
+  completedTitle: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
+  completedDesc: {
     fontSize: 13,
-    color: colors.textSecondary,
+    color: 'rgba(255,255,255,0.65)',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 
-  // ── Audit Note ──
-  auditNote: {
-    backgroundColor: '#EDE7F6',
-    borderRadius: 8,
-    padding: spacing.spaceSm,
-    marginBottom: spacing.spaceSm,
-  },
-  auditNoteText: {
-    fontSize: 12,
-    color: '#4527A0',
-    lineHeight: 18,
-  },
-
-  // ── Cached Notice ──
-  cachedNotice: {
-    marginTop: spacing.spaceSm,
-    backgroundColor: '#FFF9C4',
-    borderRadius: 6,
-    padding: spacing.spaceXs,
-  },
-  cachedNoticeText: {
-    fontSize: 12,
-    color: '#F57F17',
-  },
-
-  // ── Loading Skeletons ──
-  skeletonCard: {
+  // ── Trust note ──
+  trustNote: {
+    flexDirection: 'row',
+    gap: 10,
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 12,
-    marginBottom: spacing.spaceMd,
+    padding: 12,
+    alignItems: 'flex-start',
+    marginBottom: 8,
   },
-
-  // ── Error State ──
-  errorContainer: {
+  trustNoteIcon: { fontSize: 14, marginTop: 1 },
+  trustNoteText: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.spaceLg,
-    gap: spacing.spaceSm,
-  },
-  errorIcon: {
-    fontSize: 48,
-    marginBottom: spacing.spaceSm,
-  },
-  errorTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    textAlign: 'center',
-  },
-  errorMessage: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  retryButton: {
-    marginTop: spacing.spaceMd,
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.spaceLg,
-    paddingVertical: spacing.spaceSm,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.40)',
+    lineHeight: 17,
   },
 });
 

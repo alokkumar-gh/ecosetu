@@ -13,6 +13,9 @@ import { AdminGovernanceScreen } from '../screens/admin/AdminGovernanceScreen';
 import { AdminSystemHealthScreen } from '../screens/admin/AdminSystemHealthScreen';
 import { AdminNotificationCenterScreen } from '../screens/admin/AdminNotificationCenterScreen';
 import { AdminHistoricalAnalyticsScreen } from '../screens/admin/AdminHistoricalAnalyticsScreen';
+import { AdminDisputesScreen } from '../screens/admin/AdminDisputesScreen';
+import { BillsScreen } from '../screens/billing/BillsScreen';
+import { BillDetailScreen } from '../screens/billing/BillDetailScreen';
 import { colors } from '../theme/colors';
 import { useI18n } from '../i18n';
 
@@ -133,6 +136,30 @@ export const AdminNavigator: React.FC = () => {
       <Tab.Screen
         name="AdminHistoricalAnalytics"
         component={AdminHistoricalAnalyticsScreen}
+        options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
+        }}
+      />
+      <Tab.Screen
+        name="AdminDisputes"
+        component={AdminDisputesScreen}
+        options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
+        }}
+      />
+      <Tab.Screen
+        name="AdminBills"
+        component={BillsScreen}
+        options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
+        }}
+      />
+      <Tab.Screen
+        name="AdminBillDetail"
+        component={BillDetailScreen}
         options={{
           tabBarButton: () => null,
           tabBarItemStyle: { display: 'none' },

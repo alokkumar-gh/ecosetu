@@ -7,12 +7,16 @@ const {
   ITEM_CONDITIONS,
   MATERIAL_SOURCE_TYPES,
   MATERIAL_LOT_STATUS,
+  LISTING_PURPOSE,
+  PRICE_UNITS,
 } = require('../utils/constants');
 
 const VALID_CATEGORIES = Object.values(MATERIAL_CATEGORIES);
 const VALID_CONDITIONS = Object.values(ITEM_CONDITIONS);
 const VALID_SOURCE_TYPES = Object.values(MATERIAL_SOURCE_TYPES);
 const VALID_LOT_STATUSES = Object.values(MATERIAL_LOT_STATUS);
+const VALID_LISTING_PURPOSES = Object.values(LISTING_PURPOSE);
+const VALID_PRICE_UNITS = Object.values(PRICE_UNITS);
 
 const PROTECTED_LOT_FIELDS = [
   'id',
@@ -101,8 +105,21 @@ const createMaterialLot = [
     .optional({ nullable: true })
     .isString()
     .withMessage('clientReferenceId must be a string')
-    .isLength({ max: 100 })
-    .withMessage('clientReferenceId max length is 100 characters'),
+    .isLength({ max: 100 }),
+  body('listingPurpose')
+    .optional({ nullable: true })
+    .isIn(Object.values(LISTING_PURPOSE))
+    .withMessage(`listingPurpose must be one of: ${Object.values(LISTING_PURPOSE).join(', ')}`),
+
+  body('askingPrice')
+    .optional({ nullable: true })
+    .isFloat({ min: 0 })
+    .withMessage('askingPrice must be a non-negative number'),
+
+  body('priceUnit')
+    .optional({ nullable: true })
+    .isIn(Object.values(PRICE_UNITS))
+    .withMessage(`priceUnit must be one of: ${Object.values(PRICE_UNITS).join(', ')}`),
 
   body('photos')
     .optional({ nullable: true })
@@ -160,6 +177,21 @@ const updateMaterialLot = [
     .isIn(VALID_LOT_STATUSES)
     .withMessage(`status must be one of: ${VALID_LOT_STATUSES.join(', ')}`),
 
+  body('listingPurpose')
+    .optional({ nullable: true })
+    .isIn(VALID_LISTING_PURPOSES)
+    .withMessage(`listingPurpose must be one of: ${VALID_LISTING_PURPOSES.join(', ')}`),
+
+  body('askingPrice')
+    .optional({ nullable: true })
+    .isFloat({ min: 0 })
+    .withMessage('askingPrice must be a non-negative number'),
+
+  body('priceUnit')
+    .optional({ nullable: true })
+    .isIn(VALID_PRICE_UNITS)
+    .withMessage(`priceUnit must be one of: ${VALID_PRICE_UNITS.join(', ')}`),
+
   body('collectionLat')
     .optional({ nullable: true })
     .isFloat({ min: -90, max: 90 })
@@ -198,6 +230,31 @@ const listMaterialLots = [
     .optional()
     .isIn(VALID_CATEGORIES)
     .withMessage(`Category filter must be one of: ${VALID_CATEGORIES.join(', ')}`),
+
+  query('listingPurpose')
+    .optional()
+    .isIn(VALID_LISTING_PURPOSES)
+    .withMessage(`listingPurpose must be one of: ${VALID_LISTING_PURPOSES.join(', ')}`),
+
+  query('condition')
+    .optional()
+    .isIn(VALID_CONDITIONS)
+    .withMessage(`condition must be one of: ${VALID_CONDITIONS.join(', ')}`),
+
+  query('search')
+    .optional()
+    .isString()
+    .withMessage('search must be a string'),
+
+  query('minPrice')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('minPrice must be non-negative'),
+
+  query('maxPrice')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('maxPrice must be non-negative'),
 ];
 
 const addLotPhotos = [

@@ -30,10 +30,8 @@
 
 import { apiClient } from './apiClient.js';
 import { networkService } from './networkService.js';
-
-const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-
-const PROFILE_CACHE_KEY = '@ecosetu_user_profile';
+import { storage } from '../utils/storage.js';
+import { STORAGE_KEYS } from '../utils/constants.js';
 
 class UserProfileService {
   /**
@@ -48,7 +46,7 @@ class UserProfileService {
         const response = await apiClient.get('/users/me');
         const user = response.data?.user || response.data;
         if (user) {
-          await AsyncStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(user));
+          await storage.setItem(STORAGE_KEYS.USER_PROFILE, user);
         }
         return { user, fromCache: false };
       } catch (err) {
@@ -63,9 +61,9 @@ class UserProfileService {
 
   async _getCachedProfile() {
     try {
-      const raw = await AsyncStorage.getItem(PROFILE_CACHE_KEY);
-      if (!raw) return { user: null, fromCache: true };
-      return { user: JSON.parse(raw), fromCache: true };
+      const user = await storage.getItem(STORAGE_KEYS.USER_PROFILE);
+      if (!user) return { user: null, fromCache: true };
+      return { user, fromCache: true };
     } catch {
       return { user: null, fromCache: true };
     }

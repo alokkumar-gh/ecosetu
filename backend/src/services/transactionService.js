@@ -14,6 +14,7 @@ const {
   PAYMENT_METHOD,
   PAYMENT_STATUS,
   TRANSACTION_STATUS,
+  MATERIAL_LOT_STATUS,
   AUDIT_ACTIONS,
   NOTIFICATION_TYPES,
 } = require('../utils/constants');
@@ -150,12 +151,13 @@ class TransactionService {
     }
 
     // 4. Ownership Verification:
-    // Actor must be the collector, recycler, or admin
+    // Actor must be the collector, recycler, citizen buyer, or admin
     const isCollector = handover.collector.userId === actor.id;
-    const isRecycler = handover.recycler.userId === actor.id;
+    const isRecycler = handover.recycler && handover.recycler.userId === actor.id;
+    const isCitizenBuyer = handover.buyerUserId === actor.id;
     const isAdmin = actor.role === ROLES.ADMIN;
 
-    if (!isCollector && !isRecycler && !isAdmin) {
+    if (!isCollector && !isRecycler && !isCitizenBuyer && !isAdmin) {
       throw AppError.forbidden(
         'You are not authorized to record a transaction for this handover'
       );
@@ -176,11 +178,6 @@ class TransactionService {
     }
 
     // 6. Decimal-safe monetary and weight derivations
-    const finalSaleValue = new Prisma.Decimal(Number(data.finalSaleValue).toFixed(2));
-    if (finalSaleValue.lte(0)) {
-      throw AppError.badRequest('Final sale value must be greater than zero');
-    }
-
     const quantityNum =
       Number(handover.handoverWeightKg) ||
       Number(handover.declaredWeightKg) ||
@@ -188,15 +185,29 @@ class TransactionService {
       1;
     const quantity = new Prisma.Decimal(quantityNum.toFixed(2));
 
+    const quotedUnitPriceNum = Number(handover.quote.quotedUnitPrice ?? handover.quote.unitPrice ?? 0);
+    const isPerLotOrConsumer = handover.quote?.unit === 'PER_LOT' || handover.quote?.unit === 'PER_UNIT' || handover.quote?.isConsumerOffer;
+    const calculatedSaleValue =
+      data.finalSaleValue !== undefined && data.finalSaleValue !== null
+        ? Number(data.finalSaleValue)
+        : isPerLotOrConsumer
+        ? quotedUnitPriceNum
+        : Math.round(quantityNum * quotedUnitPriceNum * 100) / 100;
+
+    const finalSaleValue = new Prisma.Decimal(calculatedSaleValue.toFixed(2));
+    if (finalSaleValue.lte(0)) {
+      throw AppError.badRequest('Final sale value must be greater than zero');
+    }
+
     const finalUnitPrice = data.finalUnitPrice
       ? new Prisma.Decimal(Number(data.finalUnitPrice).toFixed(2))
+      : isPerLotOrConsumer
+      ? new Prisma.Decimal(quotedUnitPriceNum.toFixed(2))
       : new Prisma.Decimal((Number(finalSaleValue) / quantityNum).toFixed(2));
 
-    const quotedUnitPrice = new Prisma.Decimal(
-      Number(handover.quote.quotedUnitPrice ?? handover.quote.unitPrice ?? 0).toFixed(2)
-    );
+    const quotedUnitPrice = new Prisma.Decimal(quotedUnitPriceNum.toFixed(2));
     const quotedTotal = new Prisma.Decimal(
-      Number(handover.quote.quotedTotal ?? 0).toFixed(2)
+      Number(handover.quote.quotedTotal ?? (quantityNum * quotedUnitPriceNum)).toFixed(2)
     );
 
     // 7. Calculate amountPaid and amountDue according to paymentStatus
@@ -245,46 +256,58 @@ class TransactionService {
     // 10. Non-movement statutory disclaimer
     const disclaimer = this.getDisclaimerForPaymentMethod(paymentMethod);
 
-    // 11. Transactional creation in database
-    const transaction = await prisma.transactionRecord.create({
-      data: {
-        referenceNumber,
-        materialLotId: handover.materialLotId,
-        quoteId: handover.quoteId,
-        handoverId: handover.id,
-        collectorId: handover.collectorId,
-        recyclerId: handover.recyclerId,
-        category: handover.materialLot.category,
-        subcategory: handover.materialLot.subcategory || null,
-        quantity,
-        unit: handover.quote.unit,
-        quotedUnitPrice,
-        quotedTotal,
-        finalUnitPrice,
-        finalSaleValue,
-        amountPaid,
-        amountDue,
-        currency: 'INR',
-        transactionType: TRANSACTION_TYPE.MATERIAL_SALE,
-        paymentMethod,
-        paymentStatus,
-        transactionStatus: TRANSACTION_STATUS.RECORDED,
-        transactionDate: new Date(),
-        locationName,
-        latitude,
-        longitude,
-        locationAccuracyMeters,
-        notes: data.notes || null,
-        disclaimer,
-        createdById: actor.id,
-      },
-      include: {
-        materialLot: true,
-        quote: true,
-        handover: true,
-        collector: { include: { user: true } },
-        recycler: { include: { user: true } },
-      },
+    // 11. Transactional creation in database with atomic MaterialLot completion
+    const transaction = await prisma.$transaction(async (tx) => {
+      const createdTx = await tx.transactionRecord.create({
+        data: {
+          referenceNumber,
+          materialLotId: handover.materialLotId,
+          quoteId: handover.quoteId,
+          handoverId: handover.id,
+          collectorId: handover.collectorId,
+          recyclerId: handover.recyclerId,
+          buyerUserId: handover.buyerUserId,
+          buyerRole: handover.buyerRole || (isCitizenBuyer ? ROLES.CITIZEN : null),
+          category: handover.materialLot.category,
+          subcategory: handover.materialLot.subcategory || null,
+          quantity,
+          unit: handover.quote.unit,
+          quotedUnitPrice,
+          quotedTotal,
+          finalUnitPrice,
+          finalSaleValue,
+          amountPaid,
+          amountDue,
+          currency: 'INR',
+          transactionType: TRANSACTION_TYPE.MATERIAL_SALE,
+          paymentMethod,
+          paymentStatus,
+          transactionStatus: TRANSACTION_STATUS.RECORDED,
+          transactionDate: new Date(),
+          locationName,
+          latitude,
+          longitude,
+          locationAccuracyMeters,
+          notes: data.notes || null,
+          disclaimer,
+          createdById: actor.id,
+        },
+        include: {
+          materialLot: true,
+          quote: true,
+          handover: true,
+          buyerUser: { select: { id: true, name: true } },
+          collector: { include: { user: true } },
+          recycler: { include: { user: true } },
+        },
+      });
+
+      await tx.materialLot.update({
+        where: { id: handover.materialLotId },
+        data: { status: MATERIAL_LOT_STATUS.COMPLETED },
+      });
+
+      return createdTx;
     });
 
     // 12. Audit Logging
@@ -307,7 +330,7 @@ class TransactionService {
 
     // 13. Resilient Notifications (Non-blocking)
     const notifyRecipientId = isCollector
-      ? handover.recycler.userId
+      ? (handover.buyerUserId || handover.recycler?.userId)
       : handover.collector.userId;
 
     if (notifyRecipientId) {
@@ -332,29 +355,56 @@ class TransactionService {
       `[TransactionService] Transaction ${transaction.referenceNumber} recorded for handover ${handover.referenceNumber}`
     );
 
-    return this.formatTransactionResponse(transaction);
+    return this.formatTransactionResponse(transaction, actor?.role);
   }
 
   /**
-   * Format transaction object with variance and computed fields
+   * Format transaction object with variance, reconciliation and computed fields
    */
-  formatTransactionResponse(tx) {
+  formatTransactionResponse(tx, actorRole = null) {
     const quotedTotalNum = Number(tx.quotedTotal);
     const finalSaleValueNum = Number(tx.finalSaleValue);
+    const quotedUnitPriceNum = Number(tx.quotedUnitPrice);
+    const finalUnitPriceNum = Number(tx.finalUnitPrice);
+    const quantityNum = Number(tx.quantity);
+    const estimatedWeightNum = Number(
+      tx.handover?.declaredWeightKg || tx.materialLot?.approximateTotalWeightKg || quantityNum
+    );
+
     const differenceFromQuote = Number((finalSaleValueNum - quotedTotalNum).toFixed(2));
     const variancePercent =
       quotedTotalNum > 0
         ? Number(((differenceFromQuote / quotedTotalNum) * 100).toFixed(2))
         : 0;
 
-    return {
+    const result = {
       ...tx,
       collectorProfileId: tx.collectorId,
       recyclerProfileId: tx.recyclerId,
+      agreedRate: quotedUnitPriceNum,
+      estimatedWeight: estimatedWeightNum,
+      estimatedValue: quotedTotalNum,
+      finalVerifiedWeight: quantityNum,
+      finalPayableAmount: finalSaleValueNum,
+      adjustmentAmount: differenceFromQuote,
+      adjustmentReason: tx.notes || (differenceFromQuote !== 0 ? 'Weight / Rate reconciliation adjustment' : null),
       differenceFromQuote,
       variancePercent,
       isPriceAdjusted: differenceFromQuote !== 0,
     };
+
+    // Contact privacy for Recycler or Citizen role: scrub collector phone & email
+    if ((actorRole === ROLES.RECYCLER || actorRole === ROLES.CITIZEN) && result.collector?.user) {
+      result.collector = {
+        ...result.collector,
+        user: {
+          id: result.collector.user.id,
+          name: result.collector.user.name,
+        },
+      };
+    }
+
+    return result;
   }
 
   /**
@@ -377,6 +427,7 @@ class TransactionService {
             photos: true,
           },
         },
+        buyerUser: { select: { id: true, name: true } },
         collector: { include: { user: true } },
         recycler: { include: { user: true } },
       },
@@ -387,14 +438,15 @@ class TransactionService {
     }
 
     const isCollector = transaction.collector.userId === actor.id;
-    const isRecycler = transaction.recycler.userId === actor.id;
+    const isRecycler = transaction.recycler && transaction.recycler.userId === actor.id;
+    const isCitizen = transaction.buyerUserId === actor.id;
     const isAdmin = actor.role === ROLES.ADMIN;
 
-    if (!isCollector && !isRecycler && !isAdmin) {
+    if (!isCollector && !isRecycler && !isCitizen && !isAdmin) {
       throw AppError.forbidden('You are not authorized to view this transaction');
     }
 
-    return this.formatTransactionResponse(transaction);
+    return this.formatTransactionResponse(transaction, actor.role);
   }
 
   /**
@@ -416,10 +468,11 @@ class TransactionService {
     }
 
     const isCollector = handover.collector.userId === actor.id;
-    const isRecycler = handover.recycler.userId === actor.id;
+    const isRecycler = handover.recycler && handover.recycler.userId === actor.id;
+    const isCitizen = handover.buyerUserId === actor.id;
     const isAdmin = actor.role === ROLES.ADMIN;
 
-    if (!isCollector && !isRecycler && !isAdmin) {
+    if (!isCollector && !isRecycler && !isCitizen && !isAdmin) {
       throw AppError.forbidden('You are not authorized to view transactions for this handover');
     }
 
@@ -429,6 +482,7 @@ class TransactionService {
         materialLot: true,
         quote: true,
         handover: true,
+        buyerUser: { select: { id: true, name: true } },
         collector: { include: { user: true } },
         recycler: { include: { user: true } },
       },
@@ -438,7 +492,7 @@ class TransactionService {
       return null;
     }
 
-    return this.formatTransactionResponse(transaction);
+    return this.formatTransactionResponse(transaction, actor.role);
   }
 
   /**
@@ -465,6 +519,8 @@ class TransactionService {
       });
       if (!recycler) return { transactions: [], total: 0, page, limit, totalPages: 0 };
       where.recyclerId = recycler.id;
+    } else if (actor.role === ROLES.CITIZEN) {
+      where.buyerUserId = actor.id;
     } else if (actor.role !== ROLES.ADMIN) {
       throw AppError.forbidden('Unauthorized role for transactions');
     }
@@ -502,7 +558,7 @@ class TransactionService {
     ]);
 
     return {
-      transactions: transactions.map((tx) => this.formatTransactionResponse(tx)),
+      transactions: transactions.map((tx) => this.formatTransactionResponse(tx, actor.role)),
       total,
       page,
       limit,

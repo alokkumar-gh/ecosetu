@@ -113,9 +113,19 @@ export function resolvePath(obj: any, path: string): string | null {
  */
 export const t = (
   key: string,
-  params?: Record<string, string | number>,
+  params?: Record<string, string | number> | string,
   defaultValue?: string
 ): string => {
+  let resolvedParams: Record<string, string | number> | undefined;
+  let resolvedDefault = defaultValue;
+
+  if (typeof params === 'string') {
+    resolvedDefault = params;
+    resolvedParams = undefined;
+  } else if (params && typeof params === 'object') {
+    resolvedParams = params;
+  }
+
   // 1. Try active language
   let text = resolvePath(LOCALES[activeLanguage], key);
 
@@ -126,8 +136,8 @@ export const t = (
 
   // 3. Fall back to defaultValue, or empty string if key is a dotted path, or key
   if (text === null) {
-    if (defaultValue !== undefined) {
-      text = defaultValue;
+    if (resolvedDefault !== undefined) {
+      text = resolvedDefault;
     } else if (key && key.includes('.')) {
       // Namespaced key like 'citizen.submit.registerItem'
       // Return empty string so `t('...') || 'Fallback'` evaluates right-hand fallback
@@ -138,8 +148,8 @@ export const t = (
   }
 
   // 4. Interpolate params if provided
-  if (text && params && typeof params === 'object') {
-    for (const [paramKey, paramVal] of Object.entries(params)) {
+  if (text && resolvedParams) {
+    for (const [paramKey, paramVal] of Object.entries(resolvedParams)) {
       text = text.replace(new RegExp(`\\{${paramKey}\\}`, 'g'), String(paramVal));
     }
   }

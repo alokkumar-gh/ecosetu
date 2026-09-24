@@ -81,8 +81,8 @@ export const SlideEwasteProblem: React.FC<SlideProps> = ({ width, active }) => {
           },
         ]}
       >
-        <Text style={styles.headlineText}>{t('auth.slide1Title')}</Text>
-        <Text style={styles.subtitleText}>{t('auth.slide1Subtitle')}</Text>
+        <Text style={styles.headlineText}>{t('onboarding.slide1Title')}</Text>
+        <Text style={styles.subtitleText}>{t('onboarding.slide1Subtitle')}</Text>
       </Animated.View>
     </View>
   );

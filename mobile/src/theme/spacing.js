@@ -29,6 +29,19 @@ export const spacing = Object.freeze({
   // ── Glass-specific ─────────────────────────────────────────────────────────
   glassBorderWidth: 1,         // Glass surface border width
   glassBorderWidthFocused: 1.5, // Focused/active state
+
+  // ── Touch Target Sizes (WCAG + Low-Literacy UX) ───────────────────────────
+  touchTargetMin: 48,      // WCAG minimum interactive target
+  touchTargetPrimary: 56,  // Primary action buttons (Next, Submit, Accept)
+  touchTargetHero: 64,     // Hero CTA (SELL MATERIAL, dominant primary action)
+
+  // ── Collector Screen Layout Constants ──────────────────────────────────────
+  screenHPadding: 16,         // Standard horizontal screen padding
+  cardGap: 12,                // Gap between cards in same section
+  sectionGap: 16,             // Gap between sections
+  quickActionHeight: 64,      // Quick action card minimum height
+  filterPillHeight: 44,       // Filter tab pill minimum height
+  bottomNavHeight: 64,        // Bottom navigation bar height
 });
 
 export default spacing;

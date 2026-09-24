@@ -10,7 +10,7 @@
  *   - Sign out
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 import { useNetwork } from '../../hooks/useNetwork';
@@ -26,23 +27,83 @@ import { TopAppBar } from '../../components/layout/TopAppBar';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { EcoSetuBackground } from '../../components/eco';
+import { recyclingService } from '../../services/recyclingService';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 
-const ACCEPTED_CATEGORIES = [
-  'Mobile Phones',
-  'Laptops & Computers',
-  'Circuit Boards (PCB)',
-  'Lithium-Ion Batteries',
-  'Cables & Adapters',
-  'Cathode Ray Tubes',
-];
+const getAuthStatusInfo = (status?: string | null) => {
+  switch (status) {
+    case 'AUTHORIZED':
+      return { label: 'Verified & Active', color: colors.primary };
+    case 'PROVISIONAL':
+      return { label: 'Provisional', color: colors.warning };
+    case 'PENDING':
+      return { label: 'Pending Verification', color: colors.warning };
+    case 'PENDING_REVIEW':
+      return { label: 'Pending Review', color: colors.warning };
+    case 'REJECTED':
+      return { label: 'Rejected', color: colors.error };
+    case 'SUSPENDED':
+      return { label: 'Suspended', color: colors.error };
+    case 'EXPIRED':
+      return { label: 'Expired', color: colors.error };
+    case 'REVOKED':
+      return { label: 'Revoked', color: colors.error };
+    case 'INACTIVE':
+      return { label: 'Inactive', color: colors.textSecondary };
+    default:
+      return status
+        ? { label: status, color: colors.textSecondary }
+        : { label: 'Pending verification', color: colors.textSecondary };
+  }
+};
+
+const formatValidDate = (dateStr?: string | null) => {
+  if (!dateStr) return 'Not specified';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return 'Not specified';
+    return d.toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  } catch {
+    return 'Not specified';
+  }
+};
 
 export const RecyclerProfileScreen: React.FC = () => {
   const { user, logout } = useAuth();
   const { isConnected } = useNetwork();
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [profile, setProfile] = useState<any | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
+
+  const loadProfile = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+    }
+    try {
+      const result = await recyclingService.getProfile();
+      if (result?.profile) {
+        setProfile(result.profile);
+      }
+    } catch {
+      // Non-fatal error handling: profile fallback from user context
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
 
   const handleLogout = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -62,6 +123,16 @@ export const RecyclerProfileScreen: React.FC = () => {
     ]);
   };
 
+  const authStatusInfo = getAuthStatusInfo(profile?.authorizationStatus);
+  const acceptedCategories: string[] =
+    Array.isArray(profile?.acceptedCategories) && profile.acceptedCategories.length > 0
+      ? profile.acceptedCategories
+      : [];
+
+  const serviceCoverage =
+    profile?.serviceArea ||
+    (profile?.serviceRadiusKm ? `${profile.serviceRadiusKm} km radius` : 'Not specified');
+
   return (
     <EcoSetuBackground>
       <TopAppBar
@@ -72,79 +143,109 @@ export const RecyclerProfileScreen: React.FC = () => {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => loadProfile(true)}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
       >
         {!isConnected && <OfflineBanner />}
 
-        {/* Facility Header Card */}
-        <View style={styles.headerCard}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarIcon}>🏭</Text>
+        {isLoading && !profile ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
-          <Text style={styles.facilityName} accessibilityRole="header">
-            {user?.name || 'Recycling Center'}
-          </Text>
-          <Text style={styles.facilityEmail}>{user?.email || 'facility@ecosetu.org'}</Text>
-
-          <View style={styles.badgeRow}>
-            <View style={styles.roleBadge}>
-              <Text style={styles.roleBadgeText}>Formal Recycler</Text>
-            </View>
-            <StatusBadge status="ACTIVE" />
-          </View>
-        </View>
-
-        {/* CPCB Authorization Details */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Regulatory & Compliance</Text>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>License No:</Text>
-            <Text style={styles.infoValue}>CPCB/EW/REG/2026/0488</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Auth Status:</Text>
-            <Text style={[styles.infoValue, { color: colors.primary }]}>Verified & Active</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Valid Until:</Text>
-            <Text style={styles.infoValue}>31 March 2028</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Daily Capacity:</Text>
-            <Text style={styles.infoValue}>5,000 kg / day</Text>
-          </View>
-        </View>
-
-        {/* Accepted Waste Streams */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Accepted E-Waste Categories</Text>
-          <View style={styles.chipContainer}>
-            {ACCEPTED_CATEGORIES.map((cat, idx) => (
-              <View key={idx} style={styles.streamChip}>
-                <Text style={styles.streamChipText}>✓ {cat}</Text>
+        ) : (
+          <>
+            {/* Facility Header Card */}
+            <View style={styles.headerCard}>
+              <View style={styles.avatarCircle}>
+                <Text style={styles.avatarIcon}>🏭</Text>
               </View>
-            ))}
-          </View>
-        </View>
+              <Text style={styles.facilityName} accessibilityRole="header">
+                {profile?.facilityName || user?.name || 'Recycling Center'}
+              </Text>
+              <Text style={styles.facilityEmail}>
+                {profile?.operationalEmail || profile?.user?.email || user?.email || '—'}
+              </Text>
 
-        {/* Sign Out Button */}
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={handleLogout}
-          disabled={isLoggingOut}
-          activeOpacity={0.8}
-        >
-          {isLoggingOut ? (
-            <ActivityIndicator size="small" color={colors.error} />
-          ) : (
-            <Text style={styles.logoutButtonText}>Sign Out</Text>
-          )}
-        </TouchableOpacity>
+              <View style={styles.badgeRow}>
+                <View style={styles.roleBadge}>
+                  <Text style={styles.roleBadgeText}>Formal Recycler</Text>
+                </View>
+                <StatusBadge status={profile?.user?.status || user?.status || 'ACTIVE'} />
+              </View>
+            </View>
 
-        <View style={{ height: spacing.spaceXl }} />
+            {/* CPCB / SPCB Authorization Details */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Regulatory & Compliance</Text>
+
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>License No:</Text>
+                <Text style={styles.infoValue}>
+                  {profile?.licenseNumber || 'Not provided'}
+                </Text>
+              </View>
+
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Auth Status:</Text>
+                <Text style={[styles.infoValue, { color: authStatusInfo.color }]}>
+                  {authStatusInfo.label}
+                </Text>
+              </View>
+
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Valid Until:</Text>
+                <Text style={styles.infoValue}>
+                  {formatValidDate(profile?.authorizationValidTill)}
+                </Text>
+              </View>
+
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Daily Capacity:</Text>
+                <Text style={styles.infoValue}>
+                  {serviceCoverage}
+                </Text>
+              </View>
+            </View>
+
+            {/* Accepted Waste Streams */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Accepted E-Waste Categories</Text>
+              {acceptedCategories.length > 0 ? (
+                <View style={styles.chipContainer}>
+                  {acceptedCategories.map((cat, idx) => (
+                    <View key={idx} style={styles.streamChip}>
+                      <Text style={styles.streamChipText}>✓ {cat}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.emptyCategoriesText}>Not specified</Text>
+              )}
+            </View>
+
+            {/* Sign Out Button */}
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={handleLogout}
+              disabled={isLoggingOut}
+              activeOpacity={0.8}
+            >
+              {isLoggingOut ? (
+                <ActivityIndicator size="small" color={colors.error} />
+              ) : (
+                <Text style={styles.logoutButtonText}>Sign Out</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={{ height: spacing.spaceXl }} />
+          </>
+        )}
       </ScrollView>
     </EcoSetuBackground>
   );
@@ -154,6 +255,11 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.spaceMd,
     paddingBottom: spacing.spaceXl + 20,
+  },
+  loadingContainer: {
+    paddingVertical: spacing.spaceXl * 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerCard: {
     backgroundColor: colors.glassSurface,
@@ -264,6 +370,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.accentMint,
     fontWeight: '600',
+  },
+  emptyCategoriesText: {
+    fontSize: typography.Body.fontSize,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+    paddingVertical: 4,
   },
   logoutButton: {
     borderWidth: 1,

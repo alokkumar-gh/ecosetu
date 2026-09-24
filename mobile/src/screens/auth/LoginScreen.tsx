@@ -135,8 +135,8 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.heroSubtitle}>
                 {t('auth.appSubtitle') || 'Electronic Waste Collection & Recycling'}
               </Text>
-              <Text style={styles.welcomeHeading}>Welcome Back</Text>
-              <Text style={styles.welcomeSubtext}>Same planet. A cleaner future.</Text>
+              <Text style={styles.welcomeHeading}>{t('auth.welcomeBack', 'Welcome Back')}</Text>
+              <Text style={styles.welcomeSubtext}>{t('auth.welcomeSubtext', 'Same planet. A cleaner future.')}</Text>
             </View>
 
             {/* Glass Authentication Card */}
@@ -249,7 +249,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 onPress={() => {}}
                 accessibilityRole="button"
               >
-                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                <Text style={styles.forgotPasswordText}>{t('auth.forgotPassword', 'Forgot Password?')}</Text>
               </TouchableOpacity>
 
               {/* 5. Primary Glowing Emerald CTA Button */}
@@ -306,19 +306,20 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
+
             {/* ── Compact Glass Security Indicators ─────────────────────────── */}
             <View style={styles.securityChipsRow}>
               <View style={styles.securityChip}>
                 <Text style={styles.securityCheck}>✓</Text>
-                <Text style={styles.securityLabel}>Secure</Text>
+                <Text style={styles.securityLabel}>{t('auth.security.secure', 'Secure')}</Text>
               </View>
               <View style={styles.securityChip}>
                 <Text style={styles.securityCheck}>✓</Text>
-                <Text style={styles.securityLabel}>Role-based</Text>
+                <Text style={styles.securityLabel}>{t('auth.security.roleBased', 'Role-based')}</Text>
               </View>
               <View style={styles.securityChip}>
                 <Text style={styles.securityCheck}>✓</Text>
-                <Text style={styles.securityLabel}>Traceable</Text>
+                <Text style={styles.securityLabel}>{t('auth.security.traceable', 'Traceable')}</Text>
               </View>
             </View>
 
@@ -659,6 +660,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
+
   securityChipsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

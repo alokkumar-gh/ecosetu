@@ -13,6 +13,7 @@
 
 import React, { memo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNetwork } from '../../hooks/useNetwork';
 import { useI18n } from '../../i18n';
 import { ReadAloudButton } from '../voice/ReadAloudButton';
@@ -21,12 +22,15 @@ import { spacing } from '../../theme/spacing';
 
 export interface SyncStatusBannerProps {
   showWhenAllSynced?: boolean;
+  showSyncingBanner?: boolean;
 }
 
-export const SyncStatusBanner: React.FC<SyncStatusBannerProps> = memo(({ showWhenAllSynced = false }) => {
+export const SyncStatusBanner: React.FC<SyncStatusBannerProps> = memo(({ showWhenAllSynced = false, showSyncingBanner = false }) => {
+  const insets = useSafeAreaInsets();
   const { isConnected, pendingActionsCount, failedActionsCount, conflictActionsCount, isSyncing, triggerSync } = useNetwork();
   const { t, language } = useI18n();
   const [localSyncing, setLocalSyncing] = useState(false);
+  const containerPaddingTop = { paddingTop: (insets?.top || 0) > 0 ? insets.top + 4 : (spacing.spaceSm || 10) };
 
   const handleSyncNow = async () => {
     if (!isConnected || isSyncing || localSyncing) return;
@@ -47,7 +51,7 @@ export const SyncStatusBanner: React.FC<SyncStatusBannerProps> = memo(({ showWhe
     }`;
 
     return (
-      <View style={[styles.container, styles.offlineContainer]} accessibilityRole="alert" accessibilityLiveRegion="polite">
+      <View style={[styles.container, styles.offlineContainer, containerPaddingTop]} accessibilityRole="alert" accessibilityLiveRegion="polite">
         <Text style={styles.stateIcon}>⚡</Text>
         <View style={styles.textContainer}>
           <Text style={[styles.title, styles.offlineTitle]}>{t('sync.offlineMode')}</Text>
@@ -70,7 +74,7 @@ export const SyncStatusBanner: React.FC<SyncStatusBannerProps> = memo(({ showWhe
     const textToRead = `${t('sync.conflict')}. ${t('sync.conflictReview')}`;
 
     return (
-      <View style={[styles.container, styles.conflictContainer]} accessibilityRole="alert" accessibilityLiveRegion="assertive">
+      <View style={[styles.container, styles.conflictContainer, containerPaddingTop]} accessibilityRole="alert" accessibilityLiveRegion="assertive">
         <Text style={styles.stateIcon}>⚠️</Text>
         <View style={styles.textContainer}>
           <Text style={[styles.title, styles.conflictTitle]}>{t('sync.conflict')}</Text>
@@ -92,7 +96,7 @@ export const SyncStatusBanner: React.FC<SyncStatusBannerProps> = memo(({ showWhe
     const textToRead = `${t('common.error')}. ${t('sync.syncFailed')}`;
 
     return (
-      <View style={[styles.container, styles.failedContainer]} accessibilityRole="alert" accessibilityLiveRegion="polite">
+      <View style={[styles.container, styles.failedContainer, containerPaddingTop]} accessibilityRole="alert" accessibilityLiveRegion="polite">
         <Text style={styles.stateIcon}>⚠️</Text>
         <View style={styles.textContainer}>
           <Text style={[styles.title, styles.failedTitle]}>{t('sync.syncFailed')}</Text>
@@ -123,10 +127,10 @@ export const SyncStatusBanner: React.FC<SyncStatusBannerProps> = memo(({ showWhe
     );
   }
 
-  // 4. Actively Syncing State
-  if (isSyncing || localSyncing) {
+  // 4. Actively Syncing State (silent background sync by default; banner only when explicitly requested)
+  if (showSyncingBanner && (isSyncing || localSyncing)) {
     return (
-      <View style={[styles.container, styles.syncingContainer]} accessibilityLiveRegion="polite">
+      <View style={[styles.container, styles.syncingContainer, containerPaddingTop]} accessibilityLiveRegion="polite">
         <ActivityIndicator size="small" color="#0EA5E9" style={styles.indicator} />
         <View style={styles.textContainer}>
           <Text style={[styles.title, styles.syncingTitle]}>{t('sync.syncing')}</Text>
@@ -145,7 +149,7 @@ export const SyncStatusBanner: React.FC<SyncStatusBannerProps> = memo(({ showWhe
     const textToRead = `${t('sync.pendingSync')}. ${pendingActionsCount} ${t('sync.pendingCount')}`;
 
     return (
-      <View style={[styles.container, styles.pendingContainer]} accessibilityLiveRegion="polite">
+      <View style={[styles.container, styles.pendingContainer, containerPaddingTop]} accessibilityLiveRegion="polite">
         <Text style={styles.stateIcon}>⏳</Text>
         <View style={styles.textContainer}>
           <Text style={[styles.title, styles.pendingTitle]}>{t('sync.pendingSync')}</Text>
@@ -175,7 +179,7 @@ export const SyncStatusBanner: React.FC<SyncStatusBannerProps> = memo(({ showWhe
   // 6. All Synced State (optional display)
   if (showWhenAllSynced) {
     return (
-      <View style={[styles.container, styles.syncedContainer]}>
+      <View style={[styles.container, styles.syncedContainer, containerPaddingTop]}>
         <Text style={styles.stateIcon}>✅</Text>
         <View style={styles.textContainer}>
           <Text style={[styles.title, styles.syncedTitle]}>{t('sync.allSynced')}</Text>

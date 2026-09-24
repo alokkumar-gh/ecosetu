@@ -1,7 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text } from 'react-native';
+import { Text, View, StyleSheet } from 'react-native';
 import { CollectorTabParamList, CollectorStackParamList } from './types';
 import { PlaceholderScreen } from '../components/common/PlaceholderScreen';
 import { CollectorDashboardScreen } from '../screens/collector/CollectorDashboardScreen';
@@ -16,8 +16,10 @@ import { CollectorPickupDetailScreen } from '../screens/collector/CollectorPicku
 import { CollectorRecyclerDetailScreen } from '../screens/collector/CollectorRecyclerDetailScreen';
 import { RecyclerFacilityDetailScreen } from '../screens/collector/RecyclerFacilityDetailScreen';
 import { CollectorMaterialCaptureScreen } from '../screens/collector/CollectorMaterialCaptureScreen';
+import { CollectorSellScreen } from '../screens/collector/CollectorSellScreen';
 import { CollectorCreateLotScreen } from '../screens/collector/CollectorCreateLotScreen';
 import { CollectorLotsScreen } from '../screens/collector/CollectorLotsScreen';
+import { CollectorDealsScreen } from '../screens/collector/CollectorDealsScreen';
 import { CollectorLotDetailScreen } from '../screens/collector/CollectorLotDetailScreen';
 import { CollectorPriceBoardScreen } from '../screens/collector/CollectorPriceBoardScreen';
 import { CollectorRecyclerMatchesScreen } from '../screens/collector/CollectorRecyclerMatchesScreen';
@@ -31,6 +33,16 @@ import { CollectorEarningsScreen } from '../screens/collector/CollectorEarningsS
 import { CollectorSafetyCenterScreen } from '../screens/collector/CollectorSafetyCenterScreen';
 import { CollectorSafetyDetailScreen } from '../screens/collector/CollectorSafetyDetailScreen';
 import { CollectorLotTraceScreen } from '../screens/collector/CollectorLotTraceScreen';
+import { CollectorPickupBatchesScreen } from '../screens/collector/CollectorPickupBatchesScreen';
+import { CollectorDemandScreen } from '../screens/collector/CollectorDemandScreen';
+import { CollectorDisputesScreen } from '../screens/collector/CollectorDisputesScreen';
+import { CollectorDisputeDetailScreen } from '../screens/collector/CollectorDisputeDetailScreen';
+import { RecyclerBatchDetailScreen } from '../screens/recycler/RecyclerBatchDetailScreen';
+import { PaymentMethodScreen } from '../screens/payment/PaymentMethodScreen';
+import { CashPaymentConfirmationScreen } from '../screens/payment/CashPaymentConfirmationScreen';
+import { PaymentResultScreen } from '../screens/payment/PaymentResultScreen';
+import { BillsScreen } from '../screens/billing/BillsScreen';
+import { BillDetailScreen } from '../screens/billing/BillDetailScreen';
 import { CollectorVoiceProvider } from '../context/CollectorVoiceContext';
 import { CollectorVoiceButton } from '../components/voice/CollectorVoiceButton';
 import { CollectorVoiceModal } from '../components/voice/CollectorVoiceModal';
@@ -113,6 +125,20 @@ const CollectorVerificationModal = ({ navigation }: any) => (
   />
 );
 
+const tabStyles = StyleSheet.create({
+  sellIcon: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(16,185,129,0.15)',
+    borderWidth: 1.5, borderColor: 'rgba(16,185,129,0.4)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  sellIconActive: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: '#10B981',
+    justifyContent: 'center', alignItems: 'center',
+  },
+});
+
 const CollectorTabs: React.FC = () => {
   const { t } = useI18n();
 
@@ -122,24 +148,25 @@ const CollectorTabs: React.FC = () => {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarInactiveTintColor: 'rgba(255,255,255,0.38)',
         tabBarStyle: {
-          backgroundColor: 'rgba(7, 30, 34, 0.94)',
-          borderTopColor: 'rgba(255, 255, 255, 0.12)',
+          backgroundColor: '#030C12',
+          borderTopColor: 'rgba(255,255,255,0.08)',
           borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 8,
-          paddingTop: 6,
-          elevation: 8,
-          shadowColor: '#000000',
-          shadowOffset: { width: 0, height: -3 },
-          shadowOpacity: 0.35,
-          shadowRadius: 8,
+          height: 68,
+          paddingBottom: 10,
+          paddingTop: 8,
+          elevation: 12,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.45,
+          shadowRadius: 12,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-          letterSpacing: 0.2,
+          fontSize: 10,
+          fontWeight: '800',
+          letterSpacing: 0.3,
+          marginTop: 2,
         },
       }}
     >
@@ -147,40 +174,53 @@ const CollectorTabs: React.FC = () => {
         name="CollectorHome"
         component={CollectorDashboardScreen}
         options={{
-          tabBarLabel: t('navigation.home') || 'Home',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>🏠</Text>,
+          tabBarLabel: t('navigation.home', 'Home'),
+          tabBarIcon: ({ color, focused }) => (
+            <Text style={{ color, fontSize: focused ? 22 : 20 }}>🏠</Text>
+          ),
         }}
       />
       <Tab.Screen
-        name="CollectorBrowse"
-        component={CollectorBrowseScreen}
+        name="CollectorSell"
+        component={CollectorSellScreen}
         options={{
-          tabBarLabel: t('navigation.requests') || 'Browse',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>🔍</Text>,
+          tabBarLabel: t('navigation.sell', 'Sell'),
+          tabBarActiveTintColor: '#071E22',
+          tabBarIcon: ({ focused }) => (
+            <View style={focused ? tabStyles.sellIconActive : tabStyles.sellIcon}>
+              <Text style={{ fontSize: 18, color: focused ? '#071E22' : '#10B981', fontWeight: '900' }}>+</Text>
+            </View>
+          ),
         }}
       />
       <Tab.Screen
-        name="CollectorPickups"
-        component={CollectorPickupsScreen}
+        name="CollectorDeals"
+        component={CollectorDealsScreen}
         options={{
-          tabBarLabel: t('navigation.pickups') || 'Pickups',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>🚚</Text>,
+          tabBarLabel: t('navigation.deals', 'Deals'),
+          tabBarIcon: ({ color, focused }) => (
+            <Text style={{ color, fontSize: focused ? 22 : 20 }}>🤝</Text>
+          ),
         }}
       />
       <Tab.Screen
-        name="CollectorConsign"
-        component={CollectorRecyclerDirectoryScreen}
+        name="CollectorEarnings"
+        component={CollectorEarningsScreen}
         options={{
-          tabBarLabel: t('collector.recyclers.title') || 'Recyclers',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>🏭</Text>,
+          tabBarLabel: t('navigation.money', 'Money'),
+          tabBarIcon: ({ color, focused }) => (
+            <Text style={{ color, fontSize: focused ? 19 : 17, fontWeight: '900' }}>₹</Text>
+          ),
         }}
       />
       <Tab.Screen
         name="CollectorProfile"
         component={CollectorProfileScreen}
         options={{
-          tabBarLabel: t('navigation.profile') || 'Profile',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>👤</Text>,
+          tabBarLabel: t('navigation.profile', 'Profile'),
+          tabBarIcon: ({ color, focused }) => (
+            <Text style={{ color, fontSize: focused ? 22 : 20 }}>👤</Text>
+          ),
         }}
       />
     </Tab.Navigator>
@@ -192,6 +232,14 @@ export const CollectorNavigator: React.FC = () => {
     <CollectorVoiceProvider>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="CollectorTabs" component={CollectorTabs} />
+        <Stack.Screen
+          name="CollectorBrowse"
+          component={CollectorBrowseScreen}
+        />
+        <Stack.Screen
+          name="CollectorPickups"
+          component={CollectorPickupsScreen}
+        />
         <Stack.Screen
           name="PickupDetail"
           component={CollectorPickupDetailScreen}
@@ -239,6 +287,10 @@ export const CollectorNavigator: React.FC = () => {
         <Stack.Screen
           name="CollectorMaterialCapture"
           component={CollectorMaterialCaptureScreen}
+        />
+        <Stack.Screen
+          name="CollectorSellFlow"
+          component={CollectorSellScreen}
         />
         <Stack.Screen
           name="CollectorCreateLot"
@@ -299,6 +351,46 @@ export const CollectorNavigator: React.FC = () => {
         <Stack.Screen
           name="CollectorLotTrace"
           component={CollectorLotTraceScreen}
+        />
+        <Stack.Screen
+          name="CollectorPickupBatches"
+          component={CollectorPickupBatchesScreen}
+        />
+        <Stack.Screen
+          name="CollectorDemand"
+          component={CollectorDemandScreen}
+        />
+        <Stack.Screen
+          name="CollectorDisputes"
+          component={CollectorDisputesScreen}
+        />
+        <Stack.Screen
+          name="CollectorDisputeDetail"
+          component={CollectorDisputeDetailScreen}
+        />
+        <Stack.Screen
+          name="RecyclerBatchDetail"
+          component={RecyclerBatchDetailScreen}
+        />
+        <Stack.Screen
+          name="PaymentMethod"
+          component={PaymentMethodScreen}
+        />
+        <Stack.Screen
+          name="CashPaymentConfirmation"
+          component={CashPaymentConfirmationScreen}
+        />
+        <Stack.Screen
+          name="PaymentResult"
+          component={PaymentResultScreen}
+        />
+        <Stack.Screen
+          name="CollectorBills"
+          component={BillsScreen}
+        />
+        <Stack.Screen
+          name="CollectorBillDetail"
+          component={BillDetailScreen}
         />
       </Stack.Navigator>
 

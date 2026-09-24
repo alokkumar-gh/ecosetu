@@ -7,11 +7,28 @@ import apiClient from './apiClient';
 import offlineStore from './offlineStore';
 import networkService from './networkService';
 
+export interface NegotiationEvent {
+  id: string;
+  actor: 'Collector' | 'Recycler' | 'Citizen' | 'Admin' | 'System';
+  actorName: string;
+  actionType: 'INITIAL_OFFER' | 'COLLECTOR_COUNTER' | 'RECYCLER_REVISION' | 'CITIZEN_REVISION' | 'ACCEPTED' | 'REJECTED' | 'CANCELLED';
+  rate?: number | null;
+  unit?: string | null;
+  quantity?: number | null;
+  total?: number | null;
+  timestamp: string;
+  notes?: string | null;
+  status?: string;
+}
+
 export interface RecyclerQuote {
   id: string;
   referenceNumber: string;
   materialLotId: string;
-  recyclerId: string;
+  recyclerId?: string | null;
+  buyerUserId?: string | null;
+  buyerRole?: string | null;
+  isConsumerOffer?: boolean;
   category: string;
   subcategory?: string | null;
   quotedUnitPrice: number;
@@ -30,6 +47,34 @@ export interface RecyclerQuote {
   rejectedAt?: string | null;
   isExpired?: boolean;
   createdAt: string;
+  negotiationTimeline?: NegotiationEvent[];
+  buyerUser?: {
+    id: string;
+    name: string;
+    phone?: string | null;
+  };
+  materialLot?: {
+    id: string;
+    referenceNumber: string;
+    category: string;
+    subcategory?: string | null;
+    approximateTotalWeightKg?: number | null;
+    status: string;
+    condition?: string;
+    description?: string | null;
+    askingPrice?: number | null;
+    photos?: Array<{ id: string; photoUrl: string }>;
+    collector?: {
+      id: string;
+      city?: string | null;
+      serviceArea?: string | null;
+      state?: string | null;
+      user?: {
+        id: string;
+        name: string;
+      };
+    };
+  };
   recycler?: {
     id: string;
     facilityName: string;
@@ -88,8 +133,8 @@ class MobileQuoteService {
     if (isOnline) {
       try {
         const response = await apiClient.get(`/material-lots/${lotId}/quotes`);
-        if (response.data && response.data.success) {
-          const result = response.data.data;
+        const result = response?.data || response;
+        if (result) {
           await offlineStore.cacheLotQuotes(lotId, result);
           return {
             ...result,
@@ -124,7 +169,7 @@ class MobileQuoteService {
    */
   async getQuoteById(quoteId: string): Promise<RecyclerQuote> {
     const response = await apiClient.get(`/quotes/${quoteId}`);
-    return response.data.data;
+    return response?.data?.data || response?.data || response;
   }
 
   /**
@@ -136,7 +181,48 @@ class MobileQuoteService {
     }
 
     const response = await apiClient.post('/quotes', payload);
-    return response.data.data;
+    return response?.data?.data || response?.data || response;
+  }
+
+  /**
+   * Citizen submits a purchase offer for a reuse lot
+   */
+  async submitCitizenOffer(payload: {
+    materialLotId: string;
+    offeredPrice: number;
+    notes?: string;
+    validDays?: number;
+  }): Promise<RecyclerQuote> {
+    if (!networkService.isOnline()) {
+      throw new Error('Connect to the internet to submit a purchase offer.');
+    }
+
+    const validUntilDate = new Date();
+    validUntilDate.setDate(validUntilDate.getDate() + (payload.validDays || 7));
+
+    const body = {
+      materialLotId: payload.materialLotId,
+      quotedUnitPrice: payload.offeredPrice,
+      unit: 'PER_LOT',
+      quotedQuantity: 1,
+      validUntil: validUntilDate.toISOString(),
+      notes: payload.notes || 'Citizen purchase offer for circular reuse.',
+    };
+
+    const response = await apiClient.post('/quotes', body);
+    return response?.data?.data || response?.data || response;
+  }
+
+  /**
+   * Get all purchase offers / deals submitted by authenticated Citizen
+   */
+  async getCitizenQuotes(params?: { status?: string }): Promise<RecyclerQuote[]> {
+    const response = await apiClient.get('/quotes/citizen', { params });
+    const payload = response?.data !== undefined ? response.data : response;
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.quotes)) return payload.quotes;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
   }
 
   /**
@@ -148,7 +234,7 @@ class MobileQuoteService {
     }
 
     const response = await apiClient.post(`/quotes/${quoteId}/accept`);
-    return response.data.data;
+    return response?.data?.data || response?.data || response;
   }
 
   /**
@@ -160,7 +246,7 @@ class MobileQuoteService {
     }
 
     const response = await apiClient.post(`/quotes/${quoteId}/reject`, { reason });
-    return response.data.data;
+    return response?.data?.data || response?.data || response;
   }
 
   /**
@@ -172,7 +258,133 @@ class MobileQuoteService {
     }
 
     const response = await apiClient.post(`/quotes/${quoteId}/cancel`, { reason });
-    return response.data.data;
+    return response?.data?.data || response?.data || response;
+  }
+
+  /**
+   * Counter-offer or revise quote (Collector or Recycler)
+   */
+  async counterQuote(quoteId: string, counterUnitPrice: number, notes?: string): Promise<RecyclerQuote> {
+    if (!networkService.isOnline()) {
+      throw new Error('Connect to internet to submit counter-offer.');
+    }
+
+    const response = await apiClient.post(`/quotes/${quoteId}/counter`, {
+      counterUnitPrice,
+      notes,
+    });
+    return response?.data?.data || response?.data || response;
+  }
+
+  /**
+   * Parse negotiation timeline from quote notes and status
+   */
+  parseNegotiationTimeline(quote: RecyclerQuote): NegotiationEvent[] {
+    if (quote.negotiationTimeline && quote.negotiationTimeline.length > 0) {
+      return quote.negotiationTimeline;
+    }
+
+    const events: NegotiationEvent[] = [];
+    const unit = quote.unit === 'PER_KG' ? 'kg' : (quote.unit || 'kg');
+
+    let initialEventAdded = false;
+    if (quote.notes) {
+      const lines = quote.notes.split('\n');
+      lines.forEach((line, index) => {
+        const match = line.match(/^\[(Collector|Recycler|Admin)\s+(?:Offer|Counter)\s+@\s+₹([\d.]+)\/([a-zA-Z_]+)(?::\s*([^()]*?))?\s*(?:\(([^)]+)\))?\]$/);
+        if (match) {
+          const actor = match[1] as any;
+          const rate = parseFloat(match[2]);
+          const matchedUnit = match[3] === 'PER_KG' ? 'kg' : match[3];
+          const noteText = match[4] ? match[4].trim() : null;
+          const timeStr = match[5] ? match[5].trim() : quote.createdAt;
+
+          const isInitial = index === 0 && (line.includes('Offer') || actor === 'Recycler');
+          if (isInitial && !initialEventAdded) {
+            initialEventAdded = true;
+            events.push({
+              id: `${quote.id}-initial`,
+              actor: 'Recycler',
+              actorName: quote.recycler?.facilityName || 'Recycler',
+              actionType: 'INITIAL_OFFER',
+              rate,
+              unit: matchedUnit,
+              quantity: quote.quotedQuantity || null,
+              total: quote.quotedQuantity ? Math.round(rate * quote.quotedQuantity * 100) / 100 : null,
+              timestamp: timeStr,
+              notes: noteText,
+              status: quote.status,
+            });
+          } else {
+            events.push({
+              id: `${quote.id}-counter-${index}`,
+              actor,
+              actorName: actor === 'Collector' ? 'Collector' : (quote.recycler?.facilityName || 'Recycler'),
+              actionType: actor === 'Collector' ? 'COLLECTOR_COUNTER' : 'RECYCLER_REVISION',
+              rate,
+              unit: matchedUnit,
+              quantity: quote.quotedQuantity || null,
+              total: quote.quotedQuantity ? Math.round(rate * quote.quotedQuantity * 100) / 100 : null,
+              timestamp: timeStr,
+              notes: noteText,
+              status: 'SENT',
+            });
+          }
+        }
+      });
+    }
+
+    if (!initialEventAdded) {
+      events.unshift({
+        id: `${quote.id}-initial`,
+        actor: 'Recycler',
+        actorName: quote.recycler?.facilityName || 'Recycler',
+        actionType: 'INITIAL_OFFER',
+        rate: quote.quotedUnitPrice,
+        unit,
+        quantity: quote.quotedQuantity || null,
+        total: quote.quotedTotal || (quote.quotedUnitPrice * (quote.quotedQuantity || 1)),
+        timestamp: quote.createdAt,
+        notes: quote.notes ? quote.notes.split('\n')[0] : null,
+        status: quote.status,
+      });
+    }
+
+    if (quote.status === 'ACCEPTED') {
+      events.push({
+        id: `${quote.id}-accepted`,
+        actor: 'Collector',
+        actorName: 'Collector',
+        actionType: 'ACCEPTED',
+        rate: quote.quotedUnitPrice,
+        unit,
+        total: quote.quotedTotal || null,
+        timestamp: quote.acceptedAt || quote.createdAt,
+        status: 'ACCEPTED',
+      });
+    } else if (quote.status === 'REJECTED') {
+      events.push({
+        id: `${quote.id}-rejected`,
+        actor: 'Collector',
+        actorName: 'Collector',
+        actionType: 'REJECTED',
+        notes: quote.rejectionReason,
+        timestamp: quote.rejectedAt || quote.createdAt,
+        status: 'REJECTED',
+      });
+    } else if (quote.status === 'CANCELLED') {
+      events.push({
+        id: `${quote.id}-cancelled`,
+        actor: 'System',
+        actorName: 'Platform',
+        actionType: 'CANCELLED',
+        notes: quote.cancellationReason === 'COMPETING_QUOTE_ACCEPTED' ? 'Another competing quote was accepted' : quote.cancellationReason,
+        timestamp: quote.createdAt,
+        status: 'CANCELLED',
+      });
+    }
+
+    return events;
   }
 
   /**

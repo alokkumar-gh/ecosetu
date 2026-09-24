@@ -104,6 +104,7 @@ class HandoverService {
       where: { id: data.quoteId },
       include: {
         recycler: { include: { user: true } },
+        buyerUser: { select: { id: true, name: true, status: true } },
       },
     });
 
@@ -118,14 +119,15 @@ class HandoverService {
       );
     }
 
-    // 3b. Strict Recycler Authorization Check
-    // Verify quoting recycler facility has not been suspended, expired, rejected, deactivated, or made inactive
-    if (
-      quote.recycler.user?.status !== USER_STATUS.ACTIVE ||
-      quote.recycler.isActive === false ||
-      !['AUTHORIZED', 'PROVISIONAL'].includes(quote.recycler.authorizationStatus)
-    ) {
-      throw AppError.badRequest('Handover cannot be created because the quoting recycler facility is no longer active and authorized');
+    // 3b. Strict Recycler Authorization Check (Channel B only)
+    if (!quote.isConsumerOffer && quote.recycler) {
+      if (
+        quote.recycler.user?.status !== USER_STATUS.ACTIVE ||
+        quote.recycler.isActive === false ||
+        !['AUTHORIZED', 'PROVISIONAL'].includes(quote.recycler.authorizationStatus)
+      ) {
+        throw AppError.badRequest('Handover cannot be created because the quoting recycler facility is no longer active and authorized');
+      }
     }
 
     // 4. Validate Quote matches Material Lot
@@ -133,12 +135,13 @@ class HandoverService {
       throw AppError.badRequest('Quote does not belong to the specified material lot');
     }
 
-    // 5. Authorization Check: Actor must be the Lot Collector, the Quoting Recycler, or Admin
+    // 5. Authorization Check: Actor must be the Lot Collector, the Quoting Recycler, Citizen Buyer, or Admin
     const isCollectorOwner = lot.collector.userId === actor.id;
-    const isRecyclerParty = quote.recycler.userId === actor.id;
+    const isRecyclerParty = quote.recycler && quote.recycler.userId === actor.id;
+    const isCitizenBuyer = quote.buyerUserId === actor.id;
     const isAdmin = actor.role === ROLES.ADMIN;
 
-    if (!isCollectorOwner && !isRecyclerParty && !isAdmin) {
+    if (!isCollectorOwner && !isRecyclerParty && !isCitizenBuyer && !isAdmin) {
       throw AppError.forbidden('You do not have permission to initiate a handover for this lot');
     }
 
@@ -150,6 +153,11 @@ class HandoverService {
     // Recycler-specific check: recycler can only initiate handover for their own accepted quote
     if (actor.role === ROLES.RECYCLER && !isRecyclerParty) {
       throw AppError.forbidden('Recycler cannot initiate handover for another facility quote');
+    }
+
+    // Citizen-specific check: citizen can only initiate handover for their own accepted quote
+    if (actor.role === ROLES.CITIZEN && !isCitizenBuyer) {
+      throw AppError.forbidden('Citizen cannot initiate handover for another user purchase offer');
     }
 
     // 6. Weight Validation
@@ -223,9 +231,12 @@ class HandoverService {
           quoteId: quote.id,
           collectorId: lot.collectorId,
           recyclerId: quote.recyclerId,
+          buyerUserId: quote.buyerUserId,
+          buyerRole: quote.buyerRole || (quote.isConsumerOffer ? ROLES.CITIZEN : null),
           status: HANDOVER_STATUS.PENDING_COLLECTOR,
           declaredWeightKg: declaredWeight,
           handoverWeightKg: confirmedWeight,
+          batchId: data.batchId || null,
           handoverTimestamp: new Date(), // Server authoritative timestamp
           latitude,
           longitude,
@@ -240,6 +251,7 @@ class HandoverService {
         include: {
           materialLot: true,
           quote: true,
+          buyerUser: { select: { id: true, name: true, status: true } },
           collector: { include: { user: { select: { id: true, name: true, status: true } } } },
           recycler: { include: { user: { select: { id: true, name: true, status: true } } } },
           photos: true,
@@ -274,16 +286,21 @@ class HandoverService {
     });
 
     // 12. Notify Counterparty
-    const notifyTargetUserId = isCollectorOwner ? quote.recycler.userId : lot.collector.userId;
+    const notifyTargetUserId = isCollectorOwner
+      ? (quote.isConsumerOffer ? quote.buyerUserId : quote.recycler?.userId)
+      : lot.collector.userId;
+
     try {
-      await notificationService.createNotification({
-        userId: notifyTargetUserId,
-        type: 'HANDOVER_CREATED',
-        title: 'Digital Handover Initiated',
-        message: `Handover ${handover.referenceNumber} has been initiated for lot ${lot.referenceNumber}`,
-        referenceType: 'handover_records',
-        referenceId: handover.id,
-      });
+      if (notifyTargetUserId) {
+        await notificationService.createNotification({
+          userId: notifyTargetUserId,
+          type: 'HANDOVER_CREATED',
+          title: 'Digital Handover Initiated',
+          message: `Handover ${handover.referenceNumber} has been initiated for lot ${lot.referenceNumber}`,
+          referenceType: 'handover_records',
+          referenceId: handover.id,
+        });
+      }
     } catch (notifErr) {
       logger.warn(`Failed to dispatch handover creation notification: ${notifErr.message}`);
     }
@@ -437,20 +454,23 @@ class HandoverService {
       });
     }
 
-    // Notification to Recycler
+    // Notification to Buyer (Recycler or Citizen)
     try {
-      await notificationService.createNotification({
-        userId: handover.recycler.userId,
-        type: isBothConfirmed ? 'HANDOVER_CONFIRMED' : 'HANDOVER_COLLECTOR_CONFIRMED',
-        title: isBothConfirmed ? 'Handover Fully Confirmed' : 'Collector Confirmed Handover',
-        message: isBothConfirmed
-          ? `Handover ${handover.referenceNumber} has been confirmed by both parties.`
-          : `Collector confirmed handover ${handover.referenceNumber}. Please verify receipt.`,
-        referenceType: 'handover_records',
-        referenceId: handover.id,
-      });
+      const targetUserId = handover.recycler?.userId || handover.buyerUserId;
+      if (targetUserId) {
+        await notificationService.createNotification({
+          userId: targetUserId,
+          type: isBothConfirmed ? 'HANDOVER_CONFIRMED' : 'HANDOVER_COLLECTOR_CONFIRMED',
+          title: isBothConfirmed ? 'Handover Fully Confirmed' : 'Collector Confirmed Handover',
+          message: isBothConfirmed
+            ? `Handover ${handover.referenceNumber} has been confirmed by both parties.`
+            : `Collector confirmed handover ${handover.referenceNumber}. Please verify receipt.`,
+          referenceType: 'handover_records',
+          referenceId: handover.id,
+        });
+      }
     } catch (notifErr) {
-      logger.warn(`Failed to notify recycler: ${notifErr.message}`);
+      logger.warn(`Failed to notify buyer: ${notifErr.message}`);
     }
 
     logger.info(`[HandoverService] Collector confirmed handover ${handover.referenceNumber}. Status: ${newStatus}`);
@@ -483,8 +503,12 @@ class HandoverService {
     }
 
     // Tenancy Check
-    if (handover.recycler.userId !== actor.id && actor.role !== ROLES.ADMIN) {
-      throw AppError.forbidden('You can only confirm handovers assigned to your recycling facility');
+    const isRecyclerParty = handover.recycler && handover.recycler.userId === actor.id;
+    const isCitizenParty = handover.buyerUserId === actor.id;
+    const isAdmin = actor.role === ROLES.ADMIN;
+
+    if (!isRecyclerParty && !isCitizenParty && !isAdmin) {
+      throw AppError.forbidden('You can only confirm handovers assigned to your account');
     }
 
     // Status check
@@ -495,7 +519,7 @@ class HandoverService {
       throw AppError.badRequest('Cannot confirm a cancelled handover');
     }
     if (handover.recyclerConfirmedAt != null) {
-      throw AppError.badRequest('Recycler has already confirmed this handover');
+      throw AppError.badRequest('Buyer/Recycler has already confirmed this handover');
     }
 
     // Actual / measured weight update by recycler if provided
@@ -520,11 +544,12 @@ class HandoverService {
           status: newStatus,
           finalConfirmedAt: isBothConfirmed ? now : null,
           handoverWeightKg: updatedWeight,
-          notes: data.notes ? (handover.notes ? `${handover.notes}\nRecycler: ${data.notes}` : data.notes) : handover.notes,
+          notes: data.notes ? (handover.notes ? `${handover.notes}\nBuyer: ${data.notes}` : data.notes) : handover.notes,
         },
         include: {
           materialLot: true,
           quote: true,
+          buyerUser: { select: { id: true, name: true } },
           collector: { include: { user: { select: { id: true, name: true } } } },
           recycler: { include: { user: { select: { id: true, name: true } } } },
           photos: true,
@@ -535,7 +560,7 @@ class HandoverService {
     // Audit Log
     await auditService.logAction({
       actorId: actor.id,
-      action: 'HANDOVER_RECYCLER_CONFIRMED',
+      action: isCitizenParty ? 'HANDOVER_CITIZEN_CONFIRMED' : 'HANDOVER_RECYCLER_CONFIRMED',
       entityType: 'handover_records',
       entityId: handover.id,
       details: {
@@ -563,10 +588,10 @@ class HandoverService {
       await notificationService.createNotification({
         userId: handover.collector.userId,
         type: isBothConfirmed ? 'HANDOVER_CONFIRMED' : 'HANDOVER_RECYCLER_CONFIRMED',
-        title: isBothConfirmed ? 'Handover Fully Confirmed' : 'Recycler Confirmed Receipt',
+        title: isBothConfirmed ? 'Handover Fully Confirmed' : 'Buyer Confirmed Receipt',
         message: isBothConfirmed
           ? `Handover ${handover.referenceNumber} has been confirmed by both parties.`
-          : `Recycler confirmed receipt for handover ${handover.referenceNumber}.`,
+          : `Buyer confirmed receipt for handover ${handover.referenceNumber}.`,
         referenceType: 'handover_records',
         referenceId: handover.id,
       });
@@ -574,7 +599,7 @@ class HandoverService {
       logger.warn(`Failed to notify collector: ${notifErr.message}`);
     }
 
-    logger.info(`[HandoverService] Recycler confirmed handover ${handover.referenceNumber}. Status: ${newStatus}`);
+    logger.info(`[HandoverService] Buyer confirmed handover ${handover.referenceNumber}. Status: ${newStatus}`);
     return updated;
   }
 
@@ -598,10 +623,11 @@ class HandoverService {
     }
 
     const isCollector = handover.collector.userId === actor.id;
-    const isRecycler = handover.recycler.userId === actor.id;
+    const isRecycler = handover.recycler && handover.recycler.userId === actor.id;
+    const isCitizen = handover.buyerUserId === actor.id;
     const isAdmin = actor.role === ROLES.ADMIN;
 
-    if (!isCollector && !isRecycler && !isAdmin) {
+    if (!isCollector && !isRecycler && !isCitizen && !isAdmin) {
       throw AppError.forbidden('You do not have permission to attach photos to this handover');
     }
 
@@ -668,6 +694,7 @@ class HandoverService {
       include: {
         materialLot: true,
         quote: true,
+        buyerUser: { select: { id: true, name: true } },
         collector: {
           select: {
             id: true,
@@ -699,10 +726,11 @@ class HandoverService {
     }
 
     const isCollector = handover.collector.userId === actor.id;
-    const isRecycler = handover.recycler.userId === actor.id;
+    const isRecycler = handover.recycler && handover.recycler.userId === actor.id;
+    const isCitizen = handover.buyerUserId === actor.id;
     const isAdmin = actor.role === ROLES.ADMIN;
 
-    if (!isCollector && !isRecycler && !isAdmin) {
+    if (!isCollector && !isRecycler && !isCitizen && !isAdmin) {
       throw AppError.forbidden('You do not have permission to view this handover record');
     }
 
@@ -733,6 +761,23 @@ class HandoverService {
       }
     }
 
+    const buyerInfo = handover.buyerUser
+      ? {
+          id: handover.buyerUser.id,
+          name: handover.buyerUser.name || 'Citizen Buyer',
+          type: 'CITIZEN',
+        }
+      : handover.recycler
+      ? {
+          id: handover.recycler.id,
+          facilityName: handover.recycler.facilityName,
+          authorizationStatus: handover.recycler.authorizationStatus,
+          city: handover.recycler.city,
+          state: handover.recycler.state,
+          type: 'RECYCLER',
+        }
+      : null;
+
     return {
       title: 'ECOSETU DIGITAL HANDOVER RECORD',
       referenceNumber: handover.referenceNumber,
@@ -753,13 +798,16 @@ class HandoverService {
         city: handover.collector.city,
         state: handover.collector.state,
       },
-      recycler: {
-        id: handover.recycler.id,
-        facilityName: handover.recycler.facilityName,
-        authorizationStatus: handover.recycler.authorizationStatus,
-        city: handover.recycler.city,
-        state: handover.recycler.state,
-      },
+      buyer: buyerInfo,
+      recycler: handover.recycler
+        ? {
+            id: handover.recycler.id,
+            facilityName: handover.recycler.facilityName,
+            authorizationStatus: handover.recycler.authorizationStatus,
+            city: handover.recycler.city,
+            state: handover.recycler.state,
+          }
+        : null,
       handoverTimestamp: handover.handoverTimestamp,
       location: {
         status: handover.locationAvailable ? 'GPS_CAPTURED' : 'GPS_UNAVAILABLE',
@@ -772,7 +820,7 @@ class HandoverService {
           confirmed: handover.collectorConfirmedAt != null,
           timestamp: handover.collectorConfirmedAt,
         },
-        recycler: {
+        buyer: {
           confirmed: handover.recyclerConfirmedAt != null,
           timestamp: handover.recyclerConfirmedAt,
         },
@@ -786,7 +834,7 @@ class HandoverService {
         capturedAt: p.capturedAt,
       })),
       notes: handover.notes,
-      complianceDisclaimer: 'This record confirms the digital material handover between collector and authorized recycler. It does NOT confirm financial settlement, payment disbursement, or recycling completion.',
+      complianceDisclaimer: 'This record confirms the digital material handover between collector and buyer. It does NOT confirm financial settlement, payment disbursement, or recycling completion.',
       traceabilityBasis: 'Immutable economic transfer milestone recorded in EcoSetu traceability registry.',
     };
   }
@@ -817,6 +865,7 @@ class HandoverService {
       orderBy: { createdAt: 'desc' },
       include: {
         quote: true,
+        buyerUser: { select: { id: true, name: true } },
         recycler: {
           select: {
             id: true,
@@ -861,6 +910,7 @@ class HandoverService {
         include: {
           materialLot: { select: { id: true, referenceNumber: true, category: true, subcategory: true } },
           quote: { select: { id: true, referenceNumber: true, quotedUnitPrice: true, unit: true, quotedTotal: true } },
+          buyerUser: { select: { id: true, name: true } },
           recycler: { select: { id: true, facilityName: true, city: true, state: true } },
           photos: { select: { id: true, photoUrl: true, caption: true } },
         },
@@ -908,6 +958,61 @@ class HandoverService {
         orderBy: { createdAt: 'desc' },
         include: {
           materialLot: { select: { id: true, referenceNumber: true, category: true, subcategory: true } },
+          quote: { select: { id: true, referenceNumber: true, quotedUnitPrice: true, unit: true, quotedTotal: true } },
+          collector: { select: { id: true, city: true, state: true, user: { select: { name: true } } } },
+          photos: { select: { id: true, photoUrl: true, caption: true } },
+        },
+      }),
+      prisma.handoverRecord.count({ where }),
+    ]);
+
+    return {
+      handovers,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Citizen queries their purchase handover history
+   * @param {object} actor - Authenticated citizen
+   * @param {object} [query] - Filters and pagination
+   * @returns {Promise<object>}
+   */
+  async getCitizenHandovers(actor, query = {}) {
+    actor = await this.resolveActor(actor);
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const where = { buyerUserId: actor.id };
+    if (query.status) {
+      where.status = query.status;
+    }
+    if (query.materialLotId) {
+      where.materialLotId = query.materialLotId;
+    }
+
+    const [handovers, total] = await Promise.all([
+      prisma.handoverRecord.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          materialLot: {
+            select: {
+              id: true,
+              referenceNumber: true,
+              category: true,
+              subcategory: true,
+              photos: true,
+            },
+          },
           quote: { select: { id: true, referenceNumber: true, quotedUnitPrice: true, unit: true, quotedTotal: true } },
           collector: { select: { id: true, city: true, state: true, user: { select: { name: true } } } },
           photos: { select: { id: true, photoUrl: true, caption: true } },

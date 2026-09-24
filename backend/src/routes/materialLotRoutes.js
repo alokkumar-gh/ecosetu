@@ -30,20 +30,36 @@ router.post(
   (req, res, next) => materialLotController.createLot(req, res, next)
 );
 
-// List material lots (Collector own, Admin all)
+// List material lots (Collector own, Recycler marketplace, Citizen reuse marketplace, Admin all)
 router.get(
   '/',
   authenticate,
-  authorize(ROLES.INFORMAL_COLLECTOR, ROLES.ADMIN),
+  authorize(ROLES.INFORMAL_COLLECTOR, ROLES.RECYCLER, ROLES.CITIZEN, ROLES.ADMIN),
   validate(materialLotValidators.listMaterialLots),
   (req, res, next) => materialLotController.listLots(req, res, next)
 );
 
-// Get single material lot by ID (Collector own, Admin all)
+// Get marketplace dashboard overview metrics (Collector or Recycler)
+router.get(
+  '/marketplace/overview',
+  authenticate,
+  authorize(ROLES.INFORMAL_COLLECTOR, ROLES.RECYCLER, ROLES.ADMIN),
+  (req, res, next) => materialLotController.getMarketplaceOverview(req, res, next)
+);
+
+// Get factual market statistics for material category
+router.get(
+  '/marketplace/market-stats',
+  authenticate,
+  authorize(ROLES.INFORMAL_COLLECTOR, ROLES.RECYCLER, ROLES.CITIZEN, ROLES.ADMIN),
+  (req, res, next) => materialLotController.getMarketStats(req, res, next)
+);
+
+// Get single material lot by ID (Collector own, Recycler marketplace, Citizen reuse item, Admin all)
 router.get(
   '/:id',
   authenticate,
-  authorize(ROLES.INFORMAL_COLLECTOR, ROLES.ADMIN),
+  authorize(ROLES.INFORMAL_COLLECTOR, ROLES.RECYCLER, ROLES.CITIZEN, ROLES.ADMIN),
   validate(materialLotValidators.getMaterialLotById),
   (req, res, next) => materialLotController.getLotById(req, res, next)
 );

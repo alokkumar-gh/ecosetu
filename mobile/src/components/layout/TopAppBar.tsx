@@ -5,7 +5,6 @@
 
 import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -26,24 +25,21 @@ export const TopAppBar: React.FC<TopAppBarProps> = memo(({
   title,
   subtitle,
   roleBadge,
-  showBack = false,
+  showBack,
   onBack,
   unreadNotificationsCount = 0,
   onNotificationsPress,
   showLanguageSelector = false,
 }) => {
-  const insets = useSafeAreaInsets();
+  const shouldShowBack = showBack !== undefined ? showBack : Boolean(onBack);
 
   return (
     <View
-      style={[
-        styles.container,
-        { paddingTop: insets.top, height: 58 + insets.top },
-      ]}
+      style={styles.container}
       accessibilityRole="header"
     >
       <View style={styles.leftSection}>
-        {showBack && (
+        {shouldShowBack && (
           <TouchableOpacity
             style={styles.iconButton}
             onPress={onBack}
@@ -104,7 +100,7 @@ TopAppBar.displayName = 'TopAppBar';
 
 const styles = StyleSheet.create({
   container: {
-    height: 60,
+    minHeight: 56,
     backgroundColor: 'rgba(7, 30, 34, 0.88)',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.12)',
@@ -112,6 +108,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.spaceMd,
+    paddingVertical: spacing.spaceXs,
     elevation: 2,
   },
   leftSection: {
@@ -143,6 +140,8 @@ const styles = StyleSheet.create({
   iconButton: {
     width: 44,
     height: 44,
+    minWidth: 44,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -166,8 +165,8 @@ const styles = StyleSheet.create({
   },
   notificationBadge: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 6,
+    right: 6,
     backgroundColor: colors.error,
     borderRadius: 8,
     minWidth: 16,

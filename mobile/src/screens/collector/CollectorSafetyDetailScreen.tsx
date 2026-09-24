@@ -11,14 +11,14 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
-  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { TopAppBar } from '../../components/layout/TopAppBar';
+import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import {
   getSafetyTopicById,
   generateSafetySpeechText,
-  getTopicColorTheme,
   SafetyTopic,
 } from '../../data/safetyGuidance';
 import voiceService, { AnnouncementPriority } from '../../services/voiceService';
@@ -32,13 +32,11 @@ export const CollectorSafetyDetailScreen: React.FC = () => {
   const topicId = route.params?.topicId || 'SAFE-BATTERIES';
   const topic: SafetyTopic =
     getSafetyTopicById(topicId) || getSafetyTopicById('SAFE-BATTERIES')!;
-  const colorTheme = getTopicColorTheme(topic.id);
 
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   useEffect(() => {
     return () => {
-      // Clean up TTS when leaving screen
       voiceService.stop();
     };
   }, []);
@@ -76,300 +74,254 @@ export const CollectorSafetyDetailScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header with Back Button */}
-        <View style={styles.header}>
+    <EcoSetuBackground>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <TopAppBar
+          title={localizedTitle}
+          subtitle={topic.category}
+          showBack={true}
+          onBack={() => navigation.goBack()}
+        />
+
+        <ScrollView
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Hero Card */}
+          <View style={styles.heroCard}>
+            <View style={styles.heroIconWrap}>
+              <Text style={styles.heroIcon}>{topic.icon}</Text>
+            </View>
+            <View style={styles.heroTextWrap}>
+              <Text style={styles.heroTitle}>{localizedTitle}</Text>
+              <Text style={styles.heroSubtitle}>{localizedSubtitle}</Text>
+            </View>
+          </View>
+
+          {/* Audio TTS Action Button */}
           <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            style={[
+              styles.speechButton,
+              isSpeaking && styles.speechButtonActive,
+            ]}
+            onPress={handleSpeak}
+            activeOpacity={0.85}
             accessibilityRole="button"
-            accessibilityLabel="Go back to Safety Center"
+            accessibilityLabel={
+              isSpeaking
+                ? 'Stop speaking safety guide'
+                : 'Listen to this safety guide in spoken audio'
+            }
           >
-            <Text style={styles.backArrow}>←</Text>
+            <View style={styles.speechIconWrap}>
+              <Text style={styles.speechIcon}>{isSpeaking ? '⏹️' : '🔊'}</Text>
+            </View>
+            <View style={styles.speechTextContainer}>
+              <Text style={styles.speechTitle}>
+                {isSpeaking
+                  ? 'Speaking Safety Guide...'
+                  : t('safety.speakGuide') || 'LISTEN TO SAFETY GUIDE'}
+              </Text>
+              <Text style={styles.speechSub}>
+                {isSpeaking
+                  ? 'Tap to stop voice playback'
+                  : 'Clear spoken instructions in ' + language.toUpperCase()}
+              </Text>
+            </View>
           </TouchableOpacity>
-          <View style={styles.headerTextWrap}>
-            <Text style={styles.headerCategoryBadge}>{topic.category}</Text>
-            <Text style={styles.headerScreenTitle} numberOfLines={1}>
-              {localizedTitle}
-            </Text>
+
+          {/* Warning Banner */}
+          <View style={styles.warningBanner}>
+            <Text style={styles.warningBannerIcon}>⚠️</Text>
+            <Text style={styles.warningBannerText}>{localizedWarning}</Text>
           </View>
-        </View>
 
-        {/* Hero Pictorial Illustration Card */}
-        <View
-          style={[
-            styles.heroCard,
-            {
-              backgroundColor: colorTheme.background,
-              borderColor: colorTheme.border,
-            },
-          ]}
-        >
-          <View style={styles.heroIconWrap}>
-            <Text style={styles.heroIcon}>{topic.icon}</Text>
-          </View>
-          <Text style={styles.heroTitle}>{localizedTitle}</Text>
-          <Text style={styles.heroSubtitle}>{localizedSubtitle}</Text>
-        </View>
-
-        {/* Audio TTS Action Button Prominent */}
-        <TouchableOpacity
-          style={[
-            styles.speechButton,
-            isSpeaking && styles.speechButtonActive,
-          ]}
-          onPress={handleSpeak}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel={
-            isSpeaking
-              ? 'Stop speaking safety guide'
-              : 'Listen to this safety guide in spoken audio'
-          }
-        >
-          <Text style={styles.speechIcon}>{isSpeaking ? '⏹️' : '🔊'}</Text>
-          <View style={styles.speechTextContainer}>
-            <Text style={styles.speechTitle}>
-              {isSpeaking
-                ? 'Speaking Safety Guide...'
-                : t('safety.speakGuide') || 'SPEAK THIS SAFETY GUIDE'}
-            </Text>
-            <Text style={styles.speechSub}>
-              {isSpeaking
-                ? 'Tap here to stop voice playback'
-                : 'Listen to clear audio in ' + language.toUpperCase()}
-            </Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Warning Banner */}
-        <View style={styles.warningBanner}>
-          <Text style={styles.warningBannerIcon}>⚠️</Text>
-          <Text style={styles.warningBannerText}>{localizedWarning}</Text>
-        </View>
-
-        {/* Section: Why Dangerous */}
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionHeaderIcon}>⚠️</Text>
-            <Text style={styles.sectionTitle}>
-              {t('safety.whyDangerous') || 'WHY IT IS DANGEROUS'}
-            </Text>
-          </View>
-          <Text style={styles.sectionBodyText}>{localizedWhyDangerous}</Text>
-        </View>
-
-        {/* Section: DON'T (Unsafe Practices) */}
-        <View style={[styles.sectionCard, styles.dontCard]}>
-          <View style={styles.sectionHeaderRow}>
-            <View style={styles.dontHeaderBadge}>
-              <Text style={styles.dontBadgeIcon}>❌</Text>
-              <Text style={styles.dontBadgeText}>
-                {t('safety.dontTitle') || 'DO NOT (Unsafe Practices)'}
+          {/* Section: Why Dangerous */}
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionHeaderIcon}>⚠️</Text>
+              <Text style={styles.sectionTitle}>
+                {t('safety.whyDangerous') || 'WHY IT IS DANGEROUS'}
               </Text>
             </View>
+            <Text style={styles.sectionBodyText}>{localizedWhyDangerous}</Text>
           </View>
-          {localizedDont.map((rule, idx) => (
-            <View key={`dont-${idx}`} style={styles.ruleRow}>
-              <View style={styles.dontIndexBadge}>
-                <Text style={styles.dontIndexNumber}>{idx + 1}</Text>
-              </View>
-              <Text style={styles.dontRuleText}>{rule}</Text>
-            </View>
-          ))}
-        </View>
 
-        {/* Section: DO (Safe Practices) */}
-        <View style={[styles.sectionCard, styles.doCard]}>
-          <View style={styles.sectionHeaderRow}>
-            <View style={styles.doHeaderBadge}>
-              <Text style={styles.doBadgeIcon}>✅</Text>
-              <Text style={styles.doBadgeText}>
-                {t('safety.doTitle') || 'DO (Safe Practices)'}
-              </Text>
+          {/* Section: DON'T (Unsafe Practices) */}
+          <View style={[styles.sectionCard, styles.dontCard]}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={styles.dontHeaderBadge}>
+                <Text style={styles.dontBadgeIcon}>❌</Text>
+                <Text style={styles.dontBadgeText}>
+                  {t('safety.dontTitle') || 'DO NOT (Unsafe Practices)'}
+                </Text>
+              </View>
             </View>
+            {localizedDont.map((rule, idx) => (
+              <View key={`dont-${idx}`} style={styles.ruleRow}>
+                <View style={styles.dontIndexBadge}>
+                  <Text style={styles.dontIndexNumber}>{idx + 1}</Text>
+                </View>
+                <Text style={styles.dontRuleText}>{rule}</Text>
+              </View>
+            ))}
           </View>
-          {localizedDo.map((rule, idx) => (
-            <View key={`do-${idx}`} style={styles.ruleRow}>
-              <View style={styles.doIndexBadge}>
-                <Text style={styles.doIndexNumber}>{idx + 1}</Text>
+
+          {/* Section: DO (Safe Practices) */}
+          <View style={[styles.sectionCard, styles.doCard]}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={styles.doHeaderBadge}>
+                <Text style={styles.doBadgeIcon}>✅</Text>
+                <Text style={styles.doBadgeText}>
+                  {t('safety.doTitle') || 'DO (Safe Practices)'}
+                </Text>
               </View>
-              <Text style={styles.doRuleText}>{rule}</Text>
             </View>
-          ))}
-        </View>
+            {localizedDo.map((rule, idx) => (
+              <View key={`do-${idx}`} style={styles.ruleRow}>
+                <View style={styles.doIndexBadge}>
+                  <Text style={styles.doIndexNumber}>{idx + 1}</Text>
+                </View>
+                <Text style={styles.doRuleText}>{rule}</Text>
+              </View>
+            ))}
+          </View>
 
-        {/* First Aid / Health Notice (Non-medical, common sense safety) */}
-        <View style={styles.healthNotice}>
-          <Text style={styles.healthNoticeIcon}>🩺</Text>
-          <Text style={styles.healthNoticeText}>
-            Stop handling the material and seek appropriate professional help if
-            you are injured or feel unwell.
-          </Text>
-        </View>
+          {/* First Aid / Health Notice */}
+          <View style={styles.healthNotice}>
+            <Text style={styles.healthNoticeIcon}>🩺</Text>
+            <Text style={styles.healthNoticeText}>
+              Stop handling the material and seek appropriate professional help if
+              you are injured or feel unwell.
+            </Text>
+          </View>
 
-        {/* Statutory Educational Disclaimer */}
-        <View style={styles.statutoryCard}>
-          <Text style={styles.statutoryText}>
-            {t('safety.disclaimer') ||
-              'Safety guidance is informational. Follow applicable local rules and authorized recycler instructions.'}
-          </Text>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+          {/* Educational Disclaimer */}
+          <View style={styles.statutoryCard}>
+            <Text style={styles.statutoryText}>
+              {t('safety.disclaimer') ||
+                'Safety guidance is informational. Follow applicable local rules and authorized recycler instructions.'}
+            </Text>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </EcoSetuBackground>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f8fafc',
   },
   container: {
     padding: 16,
-    paddingBottom: 36,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  backButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  backArrow: {
-    fontSize: 22,
-    color: '#0f172a',
-    fontWeight: 'bold',
-  },
-  headerTextWrap: {
-    flex: 1,
-  },
-  headerCategoryBadge: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#0284c7',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  headerScreenTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0f172a',
+    paddingBottom: 40,
   },
   heroCard: {
-    borderRadius: 20,
-    padding: 20,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-    borderWidth: 1.5,
+    backgroundColor: 'rgba(16, 42, 46, 0.75)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(34, 211, 238, 0.25)',
+    padding: 16,
+    marginBottom: 12,
   },
   heroIconWrap: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: 'rgba(34, 211, 238, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(34, 211, 238, 0.3)',
     justifyContent: 'center',
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+    alignItems: 'center',
+    marginRight: 14,
   },
   heroIcon: {
-    fontSize: 48,
+    fontSize: 26,
+  },
+  heroTextWrap: {
+    flex: 1,
   },
   heroTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#0f172a',
-    textAlign: 'center',
-    marginBottom: 4,
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 3,
   },
   heroSubtitle: {
     fontSize: 13,
-    color: '#475569',
-    textAlign: 'center',
-    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.6)',
   },
   speechButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0284c7',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 16,
-    minHeight: 56,
-    shadowColor: '#0284c7',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 4,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
   },
   speechButtonActive: {
-    backgroundColor: '#d97706',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: '#ef4444',
+  },
+  speechIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   speechIcon: {
-    fontSize: 28,
-    marginRight: 14,
+    fontSize: 20,
   },
   speechTextContainer: {
     flex: 1,
   },
   speechTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     color: '#ffffff',
-    letterSpacing: 0.5,
+    marginBottom: 2,
   },
   speechSub: {
-    fontSize: 12,
-    color: '#e0f2fe',
-    marginTop: 2,
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontWeight: '500',
   },
   warningBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff1f2',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
     borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
-    borderWidth: 1.5,
-    borderColor: '#fecdd3',
+    padding: 12,
+    marginBottom: 14,
   },
   warningBannerIcon: {
-    fontSize: 24,
-    marginRight: 12,
+    fontSize: 16,
+    marginRight: 8,
   },
   warningBannerText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#be123c',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fca5a5',
     flex: 1,
-    lineHeight: 18,
+    lineHeight: 16,
   },
   sectionCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(16, 42, 46, 0.65)',
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     padding: 16,
-    marginBottom: 16,
-    borderWidth: 1.5,
-    borderColor: '#e2e8f0',
+    marginBottom: 12,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -377,102 +329,99 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sectionHeaderIcon: {
-    fontSize: 18,
+    fontSize: 16,
     marginRight: 8,
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '800',
-    color: '#334155',
+    color: 'rgba(255, 255, 255, 0.6)',
     letterSpacing: 0.5,
   },
   sectionBodyText: {
     fontSize: 13,
-    color: '#334155',
-    lineHeight: 20,
-    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.8)',
+    lineHeight: 19,
   },
   dontCard: {
-    backgroundColor: '#fffbfa',
-    borderColor: '#fca5a5',
+    borderColor: 'rgba(239, 68, 68, 0.25)',
   },
   dontHeaderBadge: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   dontBadgeIcon: {
-    fontSize: 18,
-    marginRight: 8,
+    fontSize: 14,
+    marginRight: 6,
   },
   dontBadgeText: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#991b1b',
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#f87171',
+    letterSpacing: 0.3,
   },
   dontIndexBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#fee2e2',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
     borderWidth: 1,
-    borderColor: '#ef4444',
-    alignItems: 'center',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
     justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 10,
     marginTop: 1,
   },
   dontIndexNumber: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
-    color: '#991b1b',
+    color: '#f87171',
   },
   dontRuleText: {
     fontSize: 13,
-    color: '#7f1d1d',
+    color: 'rgba(255, 255, 255, 0.85)',
     flex: 1,
-    lineHeight: 19,
-    fontWeight: '600',
+    lineHeight: 18,
   },
   doCard: {
-    backgroundColor: '#f0fdf4',
-    borderColor: '#86efac',
+    borderColor: 'rgba(16, 185, 129, 0.25)',
   },
   doHeaderBadge: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   doBadgeIcon: {
-    fontSize: 18,
-    marginRight: 8,
+    fontSize: 14,
+    marginRight: 6,
   },
   doBadgeText: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#166534',
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#34d399',
+    letterSpacing: 0.3,
   },
   doIndexBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#dcfce7',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
     borderWidth: 1,
-    borderColor: '#22c55e',
-    alignItems: 'center',
+    borderColor: 'rgba(16, 185, 129, 0.4)',
     justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 10,
     marginTop: 1,
   },
   doIndexNumber: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
-    color: '#166534',
+    color: '#34d399',
   },
   doRuleText: {
     fontSize: 13,
-    color: '#14532d',
+    color: 'rgba(255, 255, 255, 0.85)',
     flex: 1,
-    lineHeight: 19,
-    fontWeight: '600',
+    lineHeight: 18,
   },
   ruleRow: {
     flexDirection: 'row',
@@ -481,39 +430,35 @@ const styles = StyleSheet.create({
   },
   healthNotice: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f1f5f9',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 12,
     padding: 12,
-    marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    marginBottom: 10,
   },
   healthNoticeIcon: {
-    fontSize: 20,
-    marginRight: 10,
+    fontSize: 16,
+    marginRight: 8,
+    marginTop: 1,
   },
   healthNoticeText: {
-    fontSize: 12,
-    color: '#475569',
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.6)',
     flex: 1,
     lineHeight: 16,
-    fontWeight: '500',
   },
   statutoryCard: {
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 8,
+    padding: 10,
   },
   statutoryText: {
-    fontSize: 11,
-    color: '#64748b',
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.4)',
+    lineHeight: 14,
     textAlign: 'center',
-    lineHeight: 16,
-    fontStyle: 'italic',
   },
 });
 

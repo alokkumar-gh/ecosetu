@@ -25,34 +25,24 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  SafeAreaView,
   ActivityIndicator,
   RefreshControl,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useI18n } from '../../i18n';
 import { useNetwork } from '../../hooks/useNetwork';
 import { TopAppBar } from '../../components/layout/TopAppBar';
-import { EcoSetuBackground } from '../../components/eco';
+import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { colors } from '../../theme/colors';
-import { spacing } from '../../theme/spacing';
 import {
   priceService,
   PriceRecord,
   PriceBoardData,
   PriceHistoryResponse,
-  PricePeriodTrend,
 } from '../../services/priceService';
 import { voiceService } from '../../services/voiceService';
-import { MATERIAL_TAXONOMY, MaterialCategoryDef } from '../../config/materialTaxonomy';
-
-const space = {
-  xs: spacing.spaceXs,
-  sm: spacing.spaceSm,
-  md: spacing.spaceMd,
-  lg: spacing.spaceLg,
-  xl: spacing.spaceXl,
-};
+import { MATERIAL_TAXONOMY } from '../../config/materialTaxonomy';
 
 interface CollectorPriceBoardScreenProps {
   navigation?: any;
@@ -73,7 +63,7 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
   const [selectedCategory, setSelectedCategory] = useState<string>(
     route?.params?.preselectedCategory || 'ALL'
   );
-  const [selectedLocation, setSelectedLocation] = useState<string>(
+  const [selectedLocation] = useState<string>(
     route?.params?.preselectedLocation || 'ALL'
   );
 
@@ -252,12 +242,14 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
       <View style={styles.priceCard}>
         <View style={styles.cardHeader}>
           <View style={styles.categoryInfo}>
-            <Text style={styles.categorySymbol}>{symbol}</Text>
+            <View style={styles.symbolBadge}>
+              <Text style={styles.categorySymbol}>{symbol}</Text>
+            </View>
             <View style={styles.categoryTextCol}>
-              <Text style={styles.categoryTitle}>{categoryName}</Text>
-              {item.subcategory && (
-                <Text style={styles.subcategorySubtitle}>{item.subcategory}</Text>
-              )}
+              <Text style={styles.categoryTitle} numberOfLines={1}>{categoryName}</Text>
+              {item.subcategory ? (
+                <Text style={styles.subcategorySubtitle} numberOfLines={1}>{item.subcategory}</Text>
+              ) : null}
             </View>
           </View>
 
@@ -268,7 +260,7 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
             accessibilityLabel={`${t('priceBoard.speakPrice') || 'Speak Price'} ${categoryName}`}
             activeOpacity={0.7}
           >
-            <Text style={styles.speakButtonText}>
+            <Text style={[styles.speakButtonText, isSpeakingThis && styles.speakButtonTextActive]}>
               {isSpeakingThis ? '🔊 ...' : '🔊 ' + (t('priceBoard.speakPriceButton') || 'Speak')}
             </Text>
           </TouchableOpacity>
@@ -279,18 +271,18 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
             {hasRange ? (
               <View>
                 <Text style={styles.priceRangeLabel}>{t('priceBoard.marketRange') || 'Market Range'}</Text>
-                <Text style={styles.priceRangeText}>
-                  ₹{item.marketRangeLow} – ₹{item.marketRangeHigh}
+                <View style={styles.priceValueRow}>
+                  <Text style={styles.priceRangeText}>₹{item.marketRangeLow} – ₹{item.marketRangeHigh}</Text>
                   <Text style={styles.unitText}> {renderUnitLabel(item.unit)}</Text>
-                </Text>
+                </View>
               </View>
             ) : (
               <View>
                 <Text style={styles.priceRangeLabel}>{t('priceBoard.buyingPrice') || 'Buying Price'}</Text>
-                <Text style={styles.priceValueText}>
-                  ₹{item.buyingPrice}
+                <View style={styles.priceValueRow}>
+                  <Text style={styles.priceValueText}>₹{item.buyingPrice}</Text>
                   <Text style={styles.unitText}> {renderUnitLabel(item.unit)}</Text>
-                </Text>
+                </View>
               </View>
             )}
           </View>
@@ -323,7 +315,7 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
     if (isHistoryLoading) {
       return (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color="#10B981" />
           <Text style={styles.loadingText}>{t('common.loading') || 'Loading historical data...'}</Text>
         </View>
       );
@@ -337,11 +329,12 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
     return (
       <ScrollView
         contentContainerStyle={styles.historyScrollContent}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={onRefresh}
-            tintColor={colors.primary}
+            tintColor="#10B981"
           />
         }
       >
@@ -406,7 +399,7 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
               accessibilityRole="button"
               accessibilityLabel={t('priceBoard.speakTrendButton') || 'Speak Trend'}
             >
-              <Text style={styles.speakButtonText}>
+              <Text style={[styles.speakButtonText, speakingId === 'TREND' && styles.speakButtonTextActive]}>
                 {speakingId === 'TREND' ? '🔊 ...' : t('priceBoard.speakTrendButton') || '🔊 Speak Trend'}
               </Text>
             </TouchableOpacity>
@@ -446,44 +439,42 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
               <Text style={styles.trendMetricLabel}>{t('priceBoard.latestAverage') || 'Latest Avg'}</Text>
               <Text style={styles.trendMetricValue}>
                 {trends?.latestPeriodAverage !== null ? `₹${trends?.latestPeriodAverage}` : '—'}
-                <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}> / kg</Text>
+                <Text style={styles.metricUnitSmall}> / kg</Text>
               </Text>
             </View>
 
             <View style={styles.trendMetricCol}>
-              <Text style={styles.trendMetricLabel}>{t('priceBoard.previousAverage') || 'Prev Avg'}</Text>
-              <Text style={styles.trendMetricValue}>
-                {trends?.previousPeriodAverage !== null ? `₹${trends?.previousPeriodAverage}` : '—'}
-                <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}> / kg</Text>
+              <Text style={styles.trendMetricLabel}>{t('priceBoard.priceChange') || 'Change'}</Text>
+              <Text
+                style={[
+                  styles.trendMetricValue,
+                  trends?.trendDirection === 'UP' && { color: '#34d399' },
+                  trends?.trendDirection === 'DOWN' && { color: '#f87171' },
+                ]}
+              >
+                {trends?.absoluteChange !== null
+                  ? `${trends?.absoluteChange && trends.absoluteChange > 0 ? '+' : ''}₹${trends?.absoluteChange}`
+                  : '—'}
               </Text>
-            </View>
-
-            <View style={styles.trendMetricCol}>
-              <Text style={styles.trendMetricLabel}>{t('priceBoard.totalObservations') || 'Data Points'}</Text>
-              <Text style={styles.trendMetricValue}>{trends?.totalObservations ?? 0}</Text>
             </View>
           </View>
 
-          {/* Strict Non-Prediction Methodology Disclosure (SIH-PRICE-013) */}
+          {/* Historical Methodology Disclaimer */}
           <View style={styles.methodologyBox}>
-            <Text style={styles.methodologyBadge}>
-              ℹ️ {t('priceBoard.methodologyLabel') || 'HISTORICAL TREND'}
-            </Text>
             <Text style={styles.methodologyText}>
-              {t('priceBoard.methodologyNotice') ||
-                'Based on actual observed market prices. This is not a future price forecast or guarantee.'}
+              ℹ️ {t('priceBoard.methodologyNotice') ||
+                'Observed historical averages calculated from settled marketplace transactions. Not a forward price forecast.'}
             </Text>
           </View>
         </View>
 
-        {/* Lightweight Visual Chart Breakdown (SIH-PRICE-014) */}
+        {/* Chart Breakdown Section */}
         <View style={styles.chartSection}>
           <Text style={styles.chartTitle}>{t('priceBoard.chartTitle') || 'Observed Price History'}</Text>
 
           {periods.length === 0 ? (
-            /* Explicit empty / insufficient-data state (SIH-PRICE-011, SIH-PRICE-013) */
             <View style={styles.insufficientCard}>
-              <Text style={{ fontSize: 36, marginBottom: space.sm }}>📊</Text>
+              <Text style={{ fontSize: 36, marginBottom: 8 }}>📊</Text>
               <Text style={styles.insufficientTitle}>
                 {t('priceBoard.insufficientDataTitle') || 'Not Enough Historical Data'}
               </Text>
@@ -503,7 +494,6 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
                     <Text style={styles.periodAvgPrice}>₹{p.averagePrice} / kg</Text>
                   </View>
 
-                  {/* Proportional visual bar */}
                   <View style={styles.barTrack}>
                     <View style={[styles.barFill, { width: `${fillPct}%` }]} />
                   </View>
@@ -528,205 +518,207 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <EcoSetuBackground />
-      <TopAppBar
-        title={t('priceBoard.title') || 'Price Board'}
-        subtitle={
-          activeTab === 'CURRENT'
-            ? t('priceBoard.subtitle') || 'Current scrap buying rates'
-            : t('priceBoard.historySubtitle') || 'Observed scrap buying rates over time'
-        }
-        showBack={true}
-        onBack={() => navigation?.goBack()}
-      />
+    <EcoSetuBackground>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <TopAppBar
+          title={t('priceBoard.title') || 'Price Board'}
+          subtitle={
+            activeTab === 'CURRENT'
+              ? t('priceBoard.subtitle') || 'Current scrap buying rates'
+              : t('priceBoard.historySubtitle') || 'Observed scrap buying rates over time'
+          }
+          showBack={true}
+          onBack={() => navigation?.goBack()}
+        />
 
-      {/* Segmented Tab Switcher: Current Rates vs Price History */}
-      <View style={styles.segmentContainer}>
-        <TouchableOpacity
-          style={[styles.segmentBtn, activeTab === 'CURRENT' && styles.segmentBtnActive]}
-          onPress={() => setActiveTab('CURRENT')}
-          activeOpacity={0.8}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: activeTab === 'CURRENT' }}
-        >
-          <Text style={[styles.segmentText, activeTab === 'CURRENT' && styles.segmentTextActive]}>
-            📊 {t('priceBoard.tabCurrent') || 'Current Rates'}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.segmentBtn, activeTab === 'HISTORY' && styles.segmentBtnActive]}
-          onPress={() => setActiveTab('HISTORY')}
-          activeOpacity={0.8}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: activeTab === 'HISTORY' }}
-        >
-          <Text style={[styles.segmentText, activeTab === 'HISTORY' && styles.segmentTextActive]}>
-            📈 {t('priceBoard.tabHistory') || 'Price History'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Horizontal Category Filter */}
-      <View style={styles.filterSection}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryScroll}
-        >
-          {categoryKeys.map((catKey) => {
-            const isSelected = selectedCategory === catKey;
-            const config = catKey === 'ALL' ? null : MATERIAL_TAXONOMY[catKey];
-            const name = catKey === 'ALL'
-              ? (t('priceBoard.allCategories') || 'All Categories')
-              : config
-              ? (t(config.i18nKey as any) || config.defaultName)
-              : catKey;
-            const symbol = catKey === 'ALL' ? '🌐' : config?.symbol || '📦';
-
-            return (
-              <TouchableOpacity
-                key={catKey}
-                style={[styles.categoryChip, isSelected && styles.categoryChipSelected]}
-                onPress={() => setSelectedCategory(catKey)}
-                activeOpacity={0.7}
-                accessibilityRole="button"
-                accessibilityLabel={name}
-              >
-                <Text style={styles.chipSymbol}>{symbol}</Text>
-                <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-                  {name}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {/* Main View Router */}
-      {activeTab === 'HISTORY' ? (
-        renderHistoryView()
-      ) : (
-        /* CURRENT RATES VIEW */
-        <View style={{ flex: 1 }}>
-          {/* Offline Stale Warning Banner (SIH-PRICE-002) */}
-          {priceData.isStale && (
-            <View style={styles.staleBanner}>
-              <Text style={styles.staleBannerText}>
-                ⚠️ {t('priceBoard.staleDataBanner') || 'Price data is more than 24 hours old'}.{' '}
-                {t('priceBoard.staleDataWarning') || 'Please refresh when online.'}
-              </Text>
-            </View>
-          )}
-
-          {/* Cached Data (Non-stale) Banner */}
-          {!isConnected && !priceData.isStale && priceData.isCached && (
-            <View style={styles.cachedBanner}>
-              <Text style={styles.cachedBannerText}>
-                📱 {t('priceBoard.offlineBanner') || 'You are offline. Showing last known prices.'}
-              </Text>
-            </View>
-          )}
-
-          {/* Location Bar / Info */}
-          <View style={styles.locationBar}>
-            <Text style={styles.locationBarText}>
-              📍 {t('priceBoard.location') || 'Location'}: {selectedLocation === 'ALL' ? 'All India (National Baseline)' : selectedLocation}
+        {/* Segmented Tab Switcher: Current Rates vs Price History */}
+        <View style={styles.segmentContainer}>
+          <TouchableOpacity
+            style={[styles.segmentBtn, activeTab === 'CURRENT' && styles.segmentBtnActive]}
+            onPress={() => setActiveTab('CURRENT')}
+            activeOpacity={0.8}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activeTab === 'CURRENT' }}
+          >
+            <Text style={[styles.segmentText, activeTab === 'CURRENT' && styles.segmentTextActive]}>
+              📊 {t('priceBoard.tabCurrent') || 'Current Rates'}
             </Text>
-            {isConnected && !priceData.isCached && (
-              <View style={styles.liveBadge}>
-                <Text style={styles.liveBadgeText}>🟢 {t('priceBoard.freshDataLabel') || 'Live'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.segmentBtn, activeTab === 'HISTORY' && styles.segmentBtnActive]}
+            onPress={() => setActiveTab('HISTORY')}
+            activeOpacity={0.8}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activeTab === 'HISTORY' }}
+          >
+            <Text style={[styles.segmentText, activeTab === 'HISTORY' && styles.segmentTextActive]}>
+              📈 {t('priceBoard.tabHistory') || 'Price History'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Horizontal Category Filter */}
+        <View style={styles.filterSection}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryScroll}
+          >
+            {categoryKeys.map((catKey) => {
+              const isSelected = selectedCategory === catKey;
+              const config = catKey === 'ALL' ? null : MATERIAL_TAXONOMY[catKey];
+              const name = catKey === 'ALL'
+                ? (t('priceBoard.allCategories') || 'All')
+                : config
+                ? (t(config.i18nKey as any) || config.defaultName)
+                : catKey;
+              const symbol = catKey === 'ALL' ? '🌐' : config?.symbol || '📦';
+
+              return (
+                <TouchableOpacity
+                  key={catKey}
+                  style={[styles.categoryChip, isSelected && styles.categoryChipSelected]}
+                  onPress={() => setSelectedCategory(catKey)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={name}
+                >
+                  <Text style={styles.chipSymbol}>{symbol}</Text>
+                  <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
+                    {name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* Main View Router */}
+        {activeTab === 'HISTORY' ? (
+          renderHistoryView()
+        ) : (
+          /* CURRENT RATES VIEW */
+          <View style={{ flex: 1 }}>
+            {/* Offline Stale Warning Banner (SIH-PRICE-002) */}
+            {priceData.isStale && (
+              <View style={styles.staleBanner}>
+                <Text style={styles.staleBannerText}>
+                  ⚠️ {t('priceBoard.staleDataBanner') || 'Price data is more than 24 hours old'}.{' '}
+                  {t('priceBoard.staleDataWarning') || 'Please refresh when online.'}
+                </Text>
               </View>
             )}
-          </View>
 
-          {/* Rates List / State Display */}
-          {isLoading ? (
-            <View style={styles.centerContainer}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.loadingText}>{t('common.loading') || 'Loading rates...'}</Text>
+            {/* Cached Data (Non-stale) Banner */}
+            {!isConnected && !priceData.isStale && priceData.isCached && (
+              <View style={styles.cachedBanner}>
+                <Text style={styles.cachedBannerText}>
+                  📱 {t('priceBoard.offlineBanner') || 'You are offline. Showing last known prices.'}
+                </Text>
+              </View>
+            )}
+
+            {/* Location Bar / Info */}
+            <View style={styles.locationBar}>
+              <Text style={styles.locationBarText}>
+                📍 {t('priceBoard.location') || 'Location'}: {selectedLocation === 'ALL' ? 'All India (National Baseline)' : selectedLocation}
+              </Text>
+              {isConnected && !priceData.isCached && (
+                <View style={styles.liveBadge}>
+                  <Text style={styles.liveBadgeText}>🟢 {t('priceBoard.freshDataLabel') || 'Live'}</Text>
+                </View>
+              )}
             </View>
-          ) : priceData.prices.length === 0 ? (
-            <ScrollView
-              contentContainerStyle={styles.emptyContainer}
-              refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-            >
-              <Text style={styles.emptyIcon}>📊</Text>
-              <Text style={styles.emptyTitle}>
-                {t('priceBoard.noDataTitle') || 'No Price Data Available'}
-              </Text>
-              <Text style={styles.emptyMessage}>
-                {t('priceBoard.noDataMessage') ||
-                  'Price information will appear when verified market data is available.'}
-              </Text>
 
-              <TouchableOpacity
-                style={styles.emptySpeakButton}
-                onPress={handleSpeakEmpty}
-                accessibilityRole="button"
-                accessibilityLabel={t('priceBoard.speakPrice') || 'Speak'}
-                activeOpacity={0.7}
+            {/* Rates List / State Display */}
+            {isLoading ? (
+              <View style={styles.centerContainer}>
+                <ActivityIndicator size="large" color="#10B981" />
+                <Text style={styles.loadingText}>{t('common.loading') || 'Loading rates...'}</Text>
+              </View>
+            ) : priceData.prices.length === 0 ? (
+              <ScrollView
+                contentContainerStyle={styles.emptyContainer}
+                showsVerticalScrollIndicator={false}
+                refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#10B981" />}
               >
-                <Text style={styles.emptySpeakButtonText}>
-                  🔊 {t('priceBoard.speakPrice') || 'Speak Announcement'}
+                <Text style={styles.emptyIcon}>📊</Text>
+                <Text style={styles.emptyTitle}>
+                  {t('priceBoard.noDataTitle') || 'No Price Data Available'}
                 </Text>
-              </TouchableOpacity>
+                <Text style={styles.emptyMessage}>
+                  {t('priceBoard.noDataMessage') ||
+                    'Price information will appear when verified market data is available.'}
+                </Text>
 
-              <TouchableOpacity
-                style={styles.refreshButton}
-                onPress={onRefresh}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.refreshButtonText}>
-                  🔄 {t('priceBoard.refreshPrices') || 'Refresh Prices'}
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
-          ) : (
-            <FlatList
-              data={priceData.prices}
-              keyExtractor={(item) => item.id}
-              renderItem={renderPriceCard}
-              contentContainerStyle={styles.listContent}
-              refreshControl={
-                <RefreshControl
-                  refreshing={isRefreshing}
-                  onRefresh={onRefresh}
-                  tintColor={colors.primary}
-                />
-              }
-            />
-          )}
-        </View>
-      )}
-    </SafeAreaView>
+                <TouchableOpacity
+                  style={styles.emptySpeakButton}
+                  onPress={handleSpeakEmpty}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('priceBoard.speakPrice') || 'Speak'}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.emptySpeakButtonText}>
+                    🔊 {t('priceBoard.speakPrice') || 'Speak Announcement'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.refreshButton}
+                  onPress={onRefresh}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.refreshButtonText}>
+                    🔄 {t('priceBoard.refreshPrices') || 'Refresh Prices'}
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+            ) : (
+              <FlatList
+                data={priceData.prices}
+                keyExtractor={(item) => item.id}
+                renderItem={renderPriceCard}
+                contentContainerStyle={styles.listContent}
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={isRefreshing}
+                    onRefresh={onRefresh}
+                    tintColor="#10B981"
+                  />
+                }
+              />
+            )}
+          </View>
+        )}
+      </SafeAreaView>
+    </EcoSetuBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: '#041316',
   },
   segmentContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    marginHorizontal: space.md,
-    marginTop: space.sm,
-    marginBottom: space.xs,
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 6,
+    borderRadius: 14,
     padding: 4,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   segmentBtn: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 9,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 10,
   },
   segmentBtnActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#10B981',
   },
   segmentText: {
     fontSize: 13,
@@ -734,28 +726,28 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.7)',
   },
   segmentTextActive: {
-    color: '#041316',
-    fontWeight: '700',
+    color: '#030C12',
+    fontWeight: '800',
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: space.xl,
+    padding: 24,
   },
   loadingText: {
-    marginTop: space.md,
+    marginTop: 12,
     color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 14,
   },
   staleBanner: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    borderColor: '#ef4444',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: 'rgba(239, 68, 68, 0.5)',
     borderWidth: 1,
-    marginHorizontal: space.md,
-    marginTop: space.sm,
-    padding: space.sm,
-    borderRadius: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 10,
   },
   staleBannerText: {
     color: '#fca5a5',
@@ -765,12 +757,12 @@ const styles = StyleSheet.create({
   },
   cachedBanner: {
     backgroundColor: 'rgba(234, 179, 8, 0.15)',
-    borderColor: '#eab308',
+    borderColor: 'rgba(234, 179, 8, 0.4)',
     borderWidth: 1,
-    marginHorizontal: space.md,
-    marginTop: space.sm,
-    padding: space.sm,
-    borderRadius: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 10,
   },
   cachedBannerText: {
     color: '#fde047',
@@ -779,30 +771,29 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   filterSection: {
-    paddingVertical: space.sm,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   categoryScroll: {
-    paddingHorizontal: space.md,
-    gap: space.xs,
+    paddingHorizontal: 16,
+    gap: 8,
   },
   categoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: space.md,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
-    marginRight: 6,
-    minHeight: 48,
+    minHeight: 38,
     justifyContent: 'center',
   },
   categoryChipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: '#10B981',
+    borderColor: '#10B981',
   },
   chipSymbol: {
     fontSize: 14,
@@ -814,16 +805,16 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   chipTextSelected: {
-    color: '#041316',
-    fontWeight: '700',
+    color: '#030C12',
+    fontWeight: '800',
   },
   locationBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: space.md,
-    paddingVertical: space.xs,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
   },
   locationBarText: {
     fontSize: 12,
@@ -832,202 +823,213 @@ const styles = StyleSheet.create({
   liveBadge: {
     backgroundColor: 'rgba(34, 197, 94, 0.15)',
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
+    paddingVertical: 3,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(34, 197, 94, 0.3)',
   },
   liveBadgeText: {
     fontSize: 10,
     color: '#4ade80',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   listContent: {
-    padding: space.md,
-    paddingBottom: space.xl * 2,
+    padding: 16,
+    paddingBottom: 40,
   },
   priceCard: {
-    backgroundColor: 'rgba(16, 42, 46, 0.75)',
-    borderRadius: 12,
+    backgroundColor: 'rgba(16, 42, 46, 0.65)',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    padding: space.md,
-    marginBottom: space.md,
+    borderColor: 'rgba(34, 211, 238, 0.18)',
+    padding: 16,
+    marginBottom: 12,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: space.sm,
+    marginBottom: 12,
   },
   categoryInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    marginRight: 10,
+  },
+  symbolBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(34, 211, 238, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(34, 211, 238, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
   },
   categorySymbol: {
-    fontSize: 28,
-    marginRight: space.sm,
+    fontSize: 20,
   },
   categoryTextCol: {
     flex: 1,
   },
   categoryTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#ffffff',
   },
   subcategorySubtitle: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
-    marginTop: 1,
+    color: 'rgba(255, 255, 255, 0.55)',
+    marginTop: 2,
   },
   speakButton: {
-    backgroundColor: 'rgba(0, 201, 167, 0.15)',
-    borderColor: colors.primary,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: 'rgba(16, 185, 129, 0.4)',
     borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 24,
-    minHeight: 48,
-    minWidth: 48,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 18,
+    minHeight: 34,
     justifyContent: 'center',
     alignItems: 'center',
   },
   speakButtonActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#10B981',
+    borderColor: '#10B981',
   },
   speakButtonText: {
-    color: colors.primary,
-    fontSize: 13,
+    color: '#10B981',
+    fontSize: 12,
     fontWeight: '700',
+  },
+  speakButtonTextActive: {
+    color: '#030C12',
   },
   priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    marginVertical: space.xs,
-    paddingVertical: space.xs,
+    marginVertical: 4,
+    paddingVertical: 8,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(255, 255, 255, 0.07)',
   },
   priceContainer: {
     flex: 1,
   },
+  priceValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
   priceRangeLabel: {
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.45)',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 2,
+    fontWeight: '700',
   },
   priceRangeText: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     color: '#34d399',
   },
   priceValueText: {
     fontSize: 22,
-    fontWeight: '800',
+    fontWeight: '900',
     color: '#34d399',
   },
   unitText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.65)',
   },
   sourceBadge: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   sourceBadgeText: {
     fontSize: 11,
     color: 'rgba(255, 255, 255, 0.8)',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: space.sm,
+    marginTop: 8,
   },
   footerMetaText: {
     fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.5)',
+    color: 'rgba(255, 255, 255, 0.45)',
   },
   emptyContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    padding: space.xl,
+    justifyContent: 'center',
+    padding: 32,
+    marginTop: 40,
   },
   emptyIcon: {
     fontSize: 48,
-    marginBottom: space.md,
+    marginBottom: 16,
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#ffffff',
     textAlign: 'center',
-    marginBottom: space.sm,
+    marginBottom: 8,
   },
   emptyMessage: {
-    fontSize: 14,
+    fontSize: 13,
     color: 'rgba(255, 255, 255, 0.6)',
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: space.xl,
+    lineHeight: 18,
+    marginBottom: 20,
   },
   emptySpeakButton: {
-    backgroundColor: 'rgba(0, 201, 167, 0.15)',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: '#10B981',
     borderWidth: 1,
-    borderColor: colors.primary,
-    paddingHorizontal: space.lg,
-    paddingVertical: space.sm,
-    borderRadius: 24,
-    minHeight: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: space.md,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginBottom: 12,
   },
   emptySpeakButtonText: {
-    color: colors.primary,
-    fontSize: 14,
+    color: '#10B981',
+    fontSize: 13,
     fontWeight: '700',
   },
   refreshButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    paddingHorizontal: space.lg,
-    paddingVertical: space.sm,
-    borderRadius: 24,
-    minHeight: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   refreshButtonText: {
-    color: '#ffffff',
+    color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 13,
     fontWeight: '600',
   },
-
-  // ── HISTORY STYLES ──
   historyScrollContent: {
-    padding: space.md,
-    paddingBottom: space.xl * 2,
+    padding: 16,
+    paddingBottom: 40,
   },
   periodToggleRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: space.md,
+    alignItems: 'center',
+    marginBottom: 14,
   },
   periodLabel: {
-    color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.7)',
     fontWeight: '600',
   },
   periodBtnGroup: {
@@ -1037,77 +1039,72 @@ const styles = StyleSheet.create({
     padding: 3,
   },
   periodBtn: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 8,
-    minHeight: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   periodBtnActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#10B981',
   },
   periodBtnText: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: 'rgba(255, 255, 255, 0.6)',
     fontWeight: '600',
   },
   periodBtnTextActive: {
-    color: '#041316',
-    fontWeight: '700',
+    color: '#030C12',
+    fontWeight: '800',
   },
   trendSummaryCard: {
-    backgroundColor: 'rgba(16, 42, 46, 0.85)',
-    borderRadius: 14,
-    padding: space.md,
+    backgroundColor: 'rgba(16, 42, 46, 0.7)',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(52, 211, 153, 0.3)',
-    marginBottom: space.md,
+    borderColor: 'rgba(34, 211, 238, 0.2)',
+    padding: 16,
+    marginBottom: 16,
   },
   trendHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: space.sm,
+    marginBottom: 12,
   },
   trendCardTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#ffffff',
   },
   trendCardSubtitle: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: 'rgba(255, 255, 255, 0.55)',
     marginTop: 2,
   },
   trendBadgeRow: {
-    marginVertical: space.xs,
+    marginBottom: 14,
   },
   trendBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 8,
     alignSelf: 'flex-start',
   },
   trendBadgeUp: {
-    backgroundColor: 'rgba(34, 197, 94, 0.2)',
+    backgroundColor: 'rgba(52, 211, 153, 0.15)',
+    borderColor: 'rgba(52, 211, 153, 0.4)',
     borderWidth: 1,
-    borderColor: '#22c55e',
   },
   trendBadgeDown: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    backgroundColor: 'rgba(248, 113, 113, 0.15)',
+    borderColor: 'rgba(248, 113, 113, 0.4)',
     borderWidth: 1,
-    borderColor: '#ef4444',
   },
   trendBadgeStable: {
-    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+    backgroundColor: 'rgba(148, 163, 184, 0.15)',
+    borderColor: 'rgba(148, 163, 184, 0.4)',
     borderWidth: 1,
-    borderColor: '#3b82f6',
   },
   trendBadgeInsufficient: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   trendBadgeText: {
     fontSize: 12,
@@ -1116,76 +1113,89 @@ const styles = StyleSheet.create({
   },
   trendMetricsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    borderRadius: 10,
-    padding: space.sm,
-    marginVertical: space.sm,
+    gap: 12,
+    marginBottom: 14,
   },
   trendMetricCol: {
     flex: 1,
-    alignItems: 'center',
-  },
-  trendMetricLabel: {
-    fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.5)',
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  trendMetricValue: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#34d399',
-  },
-  methodologyBox: {
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 8,
-    padding: space.xs + 2,
-    marginTop: space.xs,
-  },
-  methodologyBadge: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#FBBF24',
-    marginBottom: 2,
-  },
-  methodologyText: {
-    fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.6)',
-    lineHeight: 14,
-  },
-  chartSection: {
-    backgroundColor: 'rgba(16, 42, 46, 0.65)',
-    borderRadius: 14,
-    padding: space.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: 12,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
+  trendMetricLabel: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  trendMetricValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+  metricUnitSmall: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.5)',
+  },
+  methodologyBox: {
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    padding: 10,
+    borderRadius: 8,
+  },
+  methodologyText: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.45)',
+    lineHeight: 15,
+  },
+  chartSection: {
+    backgroundColor: 'rgba(16, 42, 46, 0.7)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(34, 211, 238, 0.2)',
+    padding: 16,
+  },
   chartTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 14,
+  },
+  insufficientCard: {
+    alignItems: 'center',
+    padding: 24,
+  },
+  insufficientTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: '#ffffff',
-    marginBottom: space.sm,
+    marginBottom: 6,
+  },
+  insufficientMessage: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.5)',
+    textAlign: 'center',
+    lineHeight: 16,
   },
   chartRow: {
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    borderRadius: 10,
-    padding: space.sm,
-    marginBottom: space.sm,
+    marginBottom: 16,
   },
   chartRowHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: 6,
   },
   periodNameText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#ffffff',
   },
   periodAvgPrice: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
     color: '#34d399',
   },
@@ -1194,44 +1204,24 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 4,
     overflow: 'hidden',
-    marginVertical: 4,
+    marginBottom: 4,
   },
   barFill: {
     height: '100%',
-    backgroundColor: colors.primary,
+    backgroundColor: '#10B981',
     borderRadius: 4,
   },
   chartRowFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 4,
   },
   minMaxText: {
-    fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.45)',
   },
   observationCountText: {
-    fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.5)',
-  },
-  insufficientCard: {
-    padding: space.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  insufficientTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#ffffff',
-    textAlign: 'center',
-    marginBottom: space.xs,
-  },
-  insufficientMessage: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
-    textAlign: 'center',
-    lineHeight: 18,
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.45)',
   },
 });
 

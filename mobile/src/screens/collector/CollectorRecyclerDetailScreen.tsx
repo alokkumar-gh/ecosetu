@@ -65,7 +65,7 @@ export const CollectorRecyclerDetailScreen: React.FC<Props> = ({ navigation, rou
     try {
       setIsLoading(true);
       setErrorMessage(null);
-      const res = await recyclerDirectoryService.getRecyclerDetail(recyclerId);
+      const res = await recyclerDirectoryService.getRecyclerDetail(recyclerId, undefined, lotId);
       setRecycler(res.recycler);
       setIsOfflineCached(Boolean(res.isOfflineCached));
       setIsStale(Boolean(res.isStale));
@@ -78,7 +78,7 @@ export const CollectorRecyclerDetailScreen: React.FC<Props> = ({ navigation, rou
     } finally {
       setIsLoading(false);
     }
-  }, [recyclerId, recycler, t]);
+  }, [recyclerId, recycler, lotId, t]);
 
   useEffect(() => {
     loadDetails();
@@ -495,7 +495,7 @@ export const CollectorRecyclerDetailScreen: React.FC<Props> = ({ navigation, rou
                   📞 {t('recyclerDirectory.contactFacility') || 'Contact Facility'}
                 </Text>
 
-                {phone || email || contactName ? (
+                {phone || email ? (
                   <>
                     {Boolean(contactName) && (
                       <View style={styles.infoRow}>
@@ -550,7 +550,11 @@ export const CollectorRecyclerDetailScreen: React.FC<Props> = ({ navigation, rou
                 ) : (
                   <View style={styles.contactUnavailableBox}>
                     <Text style={styles.contactUnavailableText}>
-                      ℹ️ {t('recyclerDirectory.contactUnavailable') || 'Contact information unavailable'}
+                      🔒 {t('recyclerDirectory.contactLocked') || 'Contact details are privacy-protected'}
+                    </Text>
+                    <Text style={styles.contactUnavailableSubtext}>
+                      {t('recyclerDirectory.contactLockedDesc') ||
+                        'Direct phone and email contact are unlocked once you have an active quote or business interaction with this facility.'}
                     </Text>
                   </View>
                 )}
@@ -959,6 +963,11 @@ const styles = StyleSheet.create({
   contactUnavailableText: {
     color: '#94A3B8',
     fontSize: 13,
+  },
+  contactUnavailableSubtext: {
+    color: '#64748B',
+    fontSize: 12,
+    marginTop: 4,
   },
   primaryActionBtn: {
     backgroundColor: colors.primary || '#14B8A6',

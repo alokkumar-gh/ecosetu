@@ -14,6 +14,24 @@ class ApiClient {
     this._baseUrl = API_CONFIG.DEFAULT_BASE_URL;
     this._refreshPromise = null;
     this._onAuthExpiredListeners = new Set();
+    this._inFlightRequests = new Map();
+    this._cache = new Map();
+  }
+
+  /**
+   * Clear cache for specific endpoint or all cached responses
+   * @param {string} [prefix]
+   */
+  clearCache(prefix = null) {
+    if (!prefix) {
+      this._cache.clear();
+      return;
+    }
+    for (const key of this._cache.keys()) {
+      if (key.includes(prefix)) {
+        this._cache.delete(key);
+      }
+    }
   }
 
   /**
@@ -208,105 +226,159 @@ class ApiClient {
       skipAuth = false,
       _isRetry = false,
       _fallbackAttempted = false,
+      cacheTtlMs = 0,
+      forceRefresh = false,
+      params = null,
     } = options;
 
-    const fullUrl = endpoint.startsWith('http') ? endpoint : `${this._baseUrl}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
-
-    const requestHeaders = {
-      Accept: 'application/json',
-      ...headers,
-    };
-
-    // Attach Bearer token if not explicitly skipped
-    if (!skipAuth && !requestHeaders.Authorization) {
-      const token = await storage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
-      if (token) {
-        requestHeaders.Authorization = `Bearer ${token}`;
+    let targetEndpoint = endpoint;
+    if (params && typeof params === 'object') {
+      const searchParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, val]) => {
+        if (val !== undefined && val !== null) {
+          searchParams.append(key, String(val));
+        }
+      });
+      const queryStr = searchParams.toString();
+      if (queryStr) {
+        targetEndpoint += (targetEndpoint.includes('?') ? '&' : '?') + queryStr;
       }
     }
 
-    const fetchOptions = {
-      method,
-      headers: requestHeaders,
-    };
+    const fullUrl = targetEndpoint.startsWith('http') ? targetEndpoint : `${this._baseUrl}${targetEndpoint.startsWith('/') ? '' : '/'}${targetEndpoint}`;
+    const isGet = method.toUpperCase() === 'GET';
+    const cacheKey = `${method}:${fullUrl}`;
 
-    // Serialize body unless already FormData or string
-    if (body !== null && body !== undefined) {
-      if (typeof FormData !== 'undefined' && body instanceof FormData) {
-        fetchOptions.body = body;
-        // Let fetch set Content-Type with multipart boundary
-        delete requestHeaders['Content-Type'];
-      } else if (typeof body === 'string') {
-        fetchOptions.body = body;
-        if (!requestHeaders['Content-Type']) {
-          requestHeaders['Content-Type'] = 'application/json';
+    // 1. Check TTL cache for GET requests
+    if (isGet && !forceRefresh && cacheTtlMs > 0) {
+      const cached = this._cache.get(cacheKey);
+      if (cached && Date.now() < cached.expiresAt) {
+        return cached.data;
+      }
+    }
+
+    // 2. Single-flight deduplication for concurrent identical GET requests
+    if (isGet && !_isRetry && this._inFlightRequests.has(cacheKey)) {
+      return this._inFlightRequests.get(cacheKey);
+    }
+
+    const executeRequest = async () => {
+      const requestHeaders = {
+        Accept: 'application/json',
+        ...headers,
+      };
+
+      // Attach Bearer token if not explicitly skipped
+      if (!skipAuth && !requestHeaders.Authorization) {
+        const token = await storage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+        if (token) {
+          requestHeaders.Authorization = `Bearer ${token}`;
         }
+      }
+
+      const fetchOptions = {
+        method,
+        headers: requestHeaders,
+      };
+
+      // Serialize body unless already FormData or string
+      if (body !== null && body !== undefined) {
+        if (typeof FormData !== 'undefined' && body instanceof FormData) {
+          fetchOptions.body = body;
+          delete requestHeaders['Content-Type'];
+        } else if (typeof body === 'string') {
+          fetchOptions.body = body;
+          if (!requestHeaders['Content-Type']) {
+            requestHeaders['Content-Type'] = 'application/json';
+          }
+        } else {
+          fetchOptions.body = JSON.stringify(body);
+          if (!requestHeaders['Content-Type']) {
+            requestHeaders['Content-Type'] = 'application/json';
+          }
+        }
+      }
+
+      let response;
+      try {
+        response = await this._fetchWithTimeout(fullUrl, fetchOptions, timeoutMs);
+      } catch (error) {
+        if (!endpoint.startsWith('http') && !_fallbackAttempted) {
+          const fallbackRes = await this._tryFallbackBases(endpoint, options);
+          if (fallbackRes) return fallbackRes;
+        }
+        throw error;
+      }
+
+      // Parse response
+      let responseData = null;
+      const contentType = response.headers?.get ? response.headers.get('content-type') : '';
+      if (contentType && contentType.includes('application/json')) {
+        responseData = await response.json().catch(() => null);
       } else {
-        fetchOptions.body = JSON.stringify(body);
-        if (!requestHeaders['Content-Type']) {
-          requestHeaders['Content-Type'] = 'application/json';
+        const text = await response.text().catch(() => '');
+        try {
+          responseData = JSON.parse(text);
+        } catch {
+          responseData = { text };
         }
       }
-    }
 
-    let response;
-    try {
-      response = await this._fetchWithTimeout(fullUrl, fetchOptions, timeoutMs);
-    } catch (error) {
-      // If network fails on relative path and fallback not attempted, try fallback bases
-      if (!endpoint.startsWith('http') && !_fallbackAttempted) {
+      // If 404 on undeployed endpoint on current baseUrl, try fallback candidates
+      if (response.status === 404 && !endpoint.startsWith('http') && !_fallbackAttempted) {
         const fallbackRes = await this._tryFallbackBases(endpoint, options);
         if (fallbackRes) return fallbackRes;
       }
-      throw error;
-    }
 
-    // Parse response
-    let responseData = null;
-    const contentType = response.headers?.get ? response.headers.get('content-type') : '';
-    if (contentType && contentType.includes('application/json')) {
-      responseData = await response.json().catch(() => null);
-    } else {
-      const text = await response.text().catch(() => '');
-      try {
-        responseData = JSON.parse(text);
-      } catch {
-        responseData = { text };
-      }
-    }
-
-    // If 404 on undeployed endpoint on current baseUrl, try fallback candidates
-    if (response.status === 404 && !endpoint.startsWith('http') && !_fallbackAttempted) {
-      const fallbackRes = await this._tryFallbackBases(endpoint, options);
-      if (fallbackRes) return fallbackRes;
-    }
-
-    // Handle 401 Unauthorized (Token Expiration)
-    if (response.status === 401 && !_isRetry && !skipAuth) {
-      try {
-        const newAccessToken = await this._handleTokenRefresh();
-        if (newAccessToken) {
-          // Retry original request once with refreshed access token
-          return this.request(endpoint, {
-            ...options,
-            _isRetry: true,
-            headers: {
-              ...headers,
-              Authorization: `Bearer ${newAccessToken}`,
-            },
-          });
+      // Handle 401 Unauthorized (Token Expiration)
+      if (response.status === 401 && !_isRetry && !skipAuth) {
+        try {
+          const newAccessToken = await this._handleTokenRefresh();
+          if (newAccessToken) {
+            return this.request(endpoint, {
+              ...options,
+              _isRetry: true,
+              headers: {
+                ...headers,
+                Authorization: `Bearer ${newAccessToken}`,
+              },
+            });
+          }
+        } catch (refreshErr) {
+          throw AppError.fromResponse(responseData, 401);
         }
-      } catch (refreshErr) {
-        throw AppError.fromResponse(responseData, 401);
       }
+
+      // Handle non-2xx HTTP errors
+      if (!response.ok) {
+        throw AppError.fromResponse(responseData, response.status);
+      }
+
+      // Cache successful GET response if TTL requested
+      if (isGet && cacheTtlMs > 0) {
+        this._cache.set(cacheKey, {
+          data: responseData,
+          expiresAt: Date.now() + cacheTtlMs,
+        });
+      }
+
+      // Invalidate cache on mutations
+      if (!isGet) {
+        this.clearCache(endpoint.split('?')[0]);
+      }
+
+      return responseData;
+    };
+
+    if (isGet && !_isRetry) {
+      const promise = executeRequest().finally(() => {
+        this._inFlightRequests.delete(cacheKey);
+      });
+      this._inFlightRequests.set(cacheKey, promise);
+      return promise;
     }
 
-    // Handle non-2xx HTTP errors
-    if (!response.ok) {
-      throw AppError.fromResponse(responseData, response.status);
-    }
-
-    return responseData;
+    return executeRequest();
   }
 
   get(endpoint, options = {}) {

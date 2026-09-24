@@ -19,6 +19,9 @@ export interface CreateLotPayload {
   condition?: string;
   sourceType?: string;
   status?: string;
+  listingPurpose?: 'RECYCLING' | 'REUSE' | 'REPAIR_REUSE';
+  askingPrice?: number | null;
+  priceUnit?: string | null;
   collectionLat?: number | null;
   collectionLng?: number | null;
   collectionAccuracy?: number | null;
@@ -34,6 +37,9 @@ export interface MaterialLotItem {
   clientReferenceId?: string;
   collectorId: string;
   status: string;
+  listingPurpose?: 'RECYCLING' | 'REUSE' | 'REPAIR_REUSE';
+  askingPrice?: number | null;
+  priceUnit?: string | null;
   category: string;
   subcategory?: string;
   description?: string;
@@ -49,6 +55,17 @@ export interface MaterialLotItem {
   collectionTimestamp?: string | null;
   createdAt: string;
   updatedAt: string;
+  collector?: {
+    id: string;
+    city?: string | null;
+    serviceArea?: string | null;
+    state?: string | null;
+    user?: {
+      id: string;
+      name: string;
+      phone?: string | null;
+    };
+  };
   photos?: Array<{
     id: string;
     photoUrl: string;
@@ -207,6 +224,61 @@ class MaterialLotService {
   }
 
   /**
+   * Discover available reusable items for Citizen Consumer Marketplace
+   */
+  async getConsumerMarketplaceLots(query: {
+    category?: string;
+    condition?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    search?: string;
+    sortBy?: string;
+    page?: number;
+    limit?: number;
+    forceRefresh?: boolean;
+  } = {}): Promise<{ lots: MaterialLotItem[]; total: number; page: number; totalPages: number }> {
+    const isOnline = networkService.isConnected();
+    const page = query.page || 1;
+    const limit = query.limit || 20;
+
+    if (isOnline) {
+      try {
+        const queryParams = new URLSearchParams();
+        queryParams.append('page', String(page));
+        queryParams.append('limit', String(limit));
+        if (query.category) queryParams.append('category', query.category);
+        if (query.condition) queryParams.append('condition', query.condition);
+        if (query.minPrice !== undefined && query.minPrice !== null) queryParams.append('minPrice', String(query.minPrice));
+        if (query.maxPrice !== undefined && query.maxPrice !== null) queryParams.append('maxPrice', String(query.maxPrice));
+        if (query.search) queryParams.append('search', query.search);
+        if (query.sortBy) queryParams.append('sortBy', query.sortBy);
+
+        const response: any = await apiClient.get(`/material-lots?${queryParams.toString()}`, {
+          cacheTtlMs: query.forceRefresh ? 0 : 30000,
+          forceRefresh: Boolean(query.forceRefresh),
+        });
+
+        const data = response.data || response;
+        return {
+          lots: data.lots || [],
+          total: data.total || 0,
+          page: data.page || page,
+          totalPages: data.totalPages || 1,
+        };
+      } catch (err: any) {
+        console.warn('[MaterialLotService] getConsumerMarketplaceLots online failed:', err.message);
+      }
+    }
+
+    return {
+      lots: [],
+      total: 0,
+      page,
+      totalPages: 1,
+    };
+  }
+
+  /**
    * Get single lot details by ID
    */
   async getLotById(lotId: string): Promise<MaterialLotItem> {
@@ -292,6 +364,129 @@ class MaterialLotService {
     throw new Error('Lot not found in local store to update');
   }
 
+  /**
+   * Get marketplace overview metrics for Collector or Recycler (Phase 3)
+   */
+  async getMarketplaceOverview(): Promise<CollectorMarketplaceOverview | RecyclerMarketplaceOverview> {
+    const isOnline = networkService.isConnected();
+    if (isOnline) {
+      try {
+        const response: any = await apiClient.request('/material-lots/marketplace/overview', {
+          method: 'GET',
+        });
+        const data = response.data || response;
+        if (data) {
+          return data;
+        }
+      } catch (err: any) {
+        console.warn('[MaterialLotService] Failed to fetch marketplace overview online:', err.message);
+      }
+    }
+
+    // Default offline fallback
+    return {
+      role: 'INFORMAL_COLLECTOR',
+      metrics: {
+        activeListings: 0,
+        offersReceived: 0,
+        activeNegotiations: 0,
+        acceptedDeals: 0,
+        completedSales: 0,
+      },
+      recentListings: [],
+    };
+  }
+
+  /**
+   * Get factual market statistics for a material category
+   */
+  async getMarketStats(category: string, subcategory?: string): Promise<MaterialMarketStats> {
+    const isOnline = networkService.isConnected();
+    if (isOnline) {
+      try {
+        let url = `/material-lots/marketplace/market-stats?category=${encodeURIComponent(category)}`;
+        if (subcategory) url += `&subcategory=${encodeURIComponent(subcategory)}`;
+        const response: any = await apiClient.request(url, {
+          method: 'GET',
+        });
+        return response.data || response;
+      } catch (err: any) {
+        console.warn('[MaterialLotService] Failed to fetch market stats online:', err.message);
+      }
+    }
+
+    return {
+      category,
+      subcategory: subcategory || null,
+      availableLotsCount: 0,
+      activeBuyerOffersCount: 0,
+      recentCompletedSalesCount: 0,
+      activeRecyclerRatesCount: 0,
+      verifiedPriceStandard: null,
+      latestTransactionRate: null,
+    };
+  }
+}
+
+export interface CollectorMarketplaceOverview {
+  role: 'INFORMAL_COLLECTOR';
+  metrics: {
+    activeListings: number;
+    offersReceived: number;
+    activeNegotiations: number;
+    acceptedDeals: number;
+    completedSales: number;
+  };
+  recentListings: Array<{
+    id: string;
+    referenceNumber: string;
+    category: string;
+    subcategory?: string | null;
+    weightKg?: number | null;
+    status: string;
+    offerCount: number;
+    latestOffer?: {
+      rate: number;
+      unit: string;
+      timestamp: string;
+    } | null;
+    updatedAt: string;
+    createdAt: string;
+  }>;
+}
+
+export interface RecyclerMarketplaceOverview {
+  role: 'RECYCLER';
+  metrics: {
+    availableLots: number;
+    nearbyLots: number;
+    newToday: number;
+    myActiveOffers: number;
+  };
+  categoryBreakdown: Array<{
+    category: string;
+    count: number;
+  }>;
+}
+
+export interface MaterialMarketStats {
+  category: string;
+  subcategory?: string | null;
+  availableLotsCount: number;
+  activeBuyerOffersCount: number;
+  recentCompletedSalesCount: number;
+  activeRecyclerRatesCount: number;
+  verifiedPriceStandard?: {
+    buyingPrice: number;
+    unit: string;
+    sourceLabel: string;
+    effectiveDate: string;
+  } | null;
+  latestTransactionRate?: {
+    rate: number;
+    unit: string;
+    timestamp: string;
+  } | null;
 }
 
 export const materialLotService = new MaterialLotService();

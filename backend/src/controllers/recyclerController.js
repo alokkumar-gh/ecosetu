@@ -37,7 +37,7 @@ class RecyclerController {
    */
   async listRecyclers(req, res, next) {
     try {
-      const result = await recyclerService.listVerifiedRecyclers(req.query);
+      const result = await recyclerService.listVerifiedRecyclers(req.query, req.user);
       return sendSuccess(res, result, 200);
     } catch (err) {
       next(err);
@@ -53,6 +53,8 @@ class RecyclerController {
       const recycler = await recyclerService.getRecyclerById(req.params.id, {
         lat: req.query.lat,
         lng: req.query.lng,
+        lotId: req.query.lotId,
+        requester: req.user,
       });
       return sendSuccess(res, { recycler }, 200);
     } catch (err) {

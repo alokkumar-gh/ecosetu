@@ -27,10 +27,27 @@ import { storage } from '../utils/storage.js';
 
 const AsyncStorage = storage;
 
-const CACHE_KEY = '@ecosetu_notifications';
-const COUNT_CACHE_KEY = '@ecosetu_notifications_unread_count';
-
 class NotificationService {
+  async _getCacheKey() {
+    try {
+      const user = await AsyncStorage.getItem('@ecosetu_user');
+      const userId = user?.id || user?._id || 'default';
+      return `@ecosetu_notifications_${userId}`;
+    } catch {
+      return '@ecosetu_notifications_default';
+    }
+  }
+
+  async _getCountCacheKey() {
+    try {
+      const user = await AsyncStorage.getItem('@ecosetu_user');
+      const userId = user?.id || user?._id || 'default';
+      return `@ecosetu_notifications_unread_count_${userId}`;
+    } catch {
+      return '@ecosetu_notifications_unread_count_default';
+    }
+  }
+
   /**
    * List notifications for the authenticated user.
    * Falls back to the local cache when offline.
@@ -50,8 +67,9 @@ class NotificationService {
 
         // Persist to cache (first page, no filter = primary cache)
         if (!params.page || params.page === 1) {
+          const key = await this._getCacheKey();
           await AsyncStorage.setItem(
-            CACHE_KEY,
+            key,
             JSON.stringify({ notifications, cachedAt: Date.now() }),
           );
         }
@@ -69,10 +87,12 @@ class NotificationService {
 
   async _getCachedNotifications() {
     try {
-      const raw = await AsyncStorage.getItem(CACHE_KEY);
+      const key = await this._getCacheKey();
+      const raw = await AsyncStorage.getItem(key);
       if (!raw) return { notifications: [], pagination: null, fromCache: true };
-      const { notifications } = JSON.parse(raw);
-      return { notifications: notifications || [], pagination: null, fromCache: true };
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      const notifications = parsed?.notifications || parsed || [];
+      return { notifications, pagination: null, fromCache: true };
     } catch {
       return { notifications: [], pagination: null, fromCache: true };
     }
@@ -89,7 +109,8 @@ class NotificationService {
       try {
         const response = await apiClient.get('/notifications/count');
         const count = response.data?.unreadCount ?? 0;
-        await AsyncStorage.setItem(COUNT_CACHE_KEY, String(count));
+        const key = await this._getCountCacheKey();
+        await AsyncStorage.setItem(key, String(count));
         return count;
       } catch (err) {
         if (err.isNetworkError) {
@@ -103,7 +124,8 @@ class NotificationService {
 
   async _getCachedCount() {
     try {
-      const raw = await AsyncStorage.getItem(COUNT_CACHE_KEY);
+      const key = await this._getCountCacheKey();
+      const raw = await AsyncStorage.getItem(key);
       return raw !== null ? parseInt(raw, 10) : null;
     } catch {
       return null;
@@ -128,13 +150,14 @@ class NotificationService {
 
     // Reconcile local cache to maintain cache consistency
     try {
-      const raw = await AsyncStorage.getItem(CACHE_KEY);
+      const cacheKey = await this._getCacheKey();
+      const raw = await AsyncStorage.getItem(cacheKey);
       if (raw) {
         const { notifications, cachedAt } = JSON.parse(raw);
         const updated = (notifications || []).map((n) =>
           n.id === notificationId ? { ...n, isRead: true } : n
         );
-        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ notifications: updated, cachedAt }));
+        await AsyncStorage.setItem(cacheKey, JSON.stringify({ notifications: updated, cachedAt }));
       }
     } catch {}
 
@@ -157,13 +180,15 @@ class NotificationService {
 
     // Reconcile local cache to maintain cache consistency
     try {
-      const raw = await AsyncStorage.getItem(CACHE_KEY);
+      const cacheKey = await this._getCacheKey();
+      const countKey = await this._getCountCacheKey();
+      const raw = await AsyncStorage.getItem(cacheKey);
       if (raw) {
         const { notifications, cachedAt } = JSON.parse(raw);
         const updated = (notifications || []).map((n) => ({ ...n, isRead: true }));
-        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ notifications: updated, cachedAt }));
+        await AsyncStorage.setItem(cacheKey, JSON.stringify({ notifications: updated, cachedAt }));
       }
-      await AsyncStorage.setItem(COUNT_CACHE_KEY, '0');
+      await AsyncStorage.setItem(countKey, '0');
     } catch {}
 
     return response.data || { count: 0 };
@@ -175,8 +200,10 @@ class NotificationService {
    */
   async clearCache() {
     try {
-      await AsyncStorage.removeItem(CACHE_KEY);
-      await AsyncStorage.removeItem(COUNT_CACHE_KEY);
+      const cacheKey = await this._getCacheKey();
+      const countKey = await this._getCountCacheKey();
+      await AsyncStorage.removeItem(cacheKey);
+      await AsyncStorage.removeItem(countKey);
     } catch {}
   }
 

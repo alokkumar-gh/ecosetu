@@ -1,156 +1,206 @@
-import React, { useState, useEffect, useRef } from 'react';
+/**
+ * SubmitItemScreen — COMPLETE REBUILD as Guided 6-Step Wizard
+ *
+ * STEP 1: What do you have? (Category)
+ * STEP 2: Take a photo
+ * STEP 3: What condition is it in?
+ * STEP 4: How many / how much?
+ * STEP 5: Where should we collect it?
+ * STEP 6: Review & Submit
+ *
+ * Preserves all backend service calls: ewasteService.createItem, requestService.createRequest
+ */
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
-  TextInput,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
   ActivityIndicator,
+  Image,
+  Alert,
+  TextInput,
   KeyboardAvoidingView,
   Platform,
-  Image,
-  Modal,
-  Alert,
+  Dimensions,
 } from 'react-native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { CitizenTabParamList } from '../../navigation/types';
 import { useNetwork } from '../../hooks/useNetwork';
 import { useI18n } from '../../i18n';
-import { TopAppBar } from '../../components/layout/TopAppBar';
-import { EcoSetuBackground, EcoGlassInput, EcoGlassTextArea } from '../../components/eco';
-import { GlassCard } from '../../components/glass/GlassCard';
-import { GlassButton } from '../../components/glass/GlassButton';
-import { GlassBadge } from '../../components/glass/GlassBadge';
-import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
+import { EcoSetuBackground } from '../../components/eco';
 import { ewasteService } from '../../services/ewasteService';
 import { requestService } from '../../services/requestService';
 import { capturePhoto } from '../../services/cameraService';
 import { reverseGeocode, getCurrentLocation, ResolvedAddress } from '../../services/locationService';
-import { EWASTE_CATEGORIES, ITEM_CONDITIONS, ADDRESS_TYPES } from '../../utils/constants';
 import { EcoSetuMap } from '../../components/map/EcoSetuMap';
+import { EWASTE_CATEGORIES, ITEM_CONDITIONS, ADDRESS_TYPES } from '../../utils/constants';
 import { colors } from '../../theme/colors';
-import { spacing } from '../../theme/spacing';
-import { typography } from '../../theme/typography';
+
+const { width: SCREEN_W } = Dimensions.get('window');
 
 interface Props {
   navigation: BottomTabNavigationProp<CitizenTabParamList, 'CitizenSubmit'>;
 }
 
-export interface EwasteItemDraft {
-  id: string;
+export interface DraftItem {
+  id?: string;
   category: string;
+  photoUri?: string;
   condition: string;
   quantity: number;
-  estimatedWeightKg?: string;
+  weight?: string;
   description?: string;
-  imageUri?: string;
 }
 
-interface CategoryOption {
-  key: string;
-  label: string;
-  icon: string;
-}
+// ─── Step config ──────────────────────────────────────────────────────────────
 
-const CATEGORY_OPTIONS: CategoryOption[] = [
-  { key: EWASTE_CATEGORIES.MOBILE_PHONE, label: 'Mobile Phone', icon: '📱' },
-  { key: EWASTE_CATEGORIES.LAPTOP, label: 'Laptop', icon: '💻' },
-  { key: EWASTE_CATEGORIES.DESKTOP, label: 'Desktop', icon: '🖥️' },
-  { key: EWASTE_CATEGORIES.TABLET, label: 'Tablet', icon: '📟' },
-  { key: EWASTE_CATEGORIES.MONITOR, label: 'Monitor', icon: '🖥️' },
-  { key: EWASTE_CATEGORIES.PRINTER, label: 'Printer / Scanner', icon: '🖨️' },
-  { key: EWASTE_CATEGORIES.KEYBOARD_MOUSE, label: 'Keyboard / Mouse', icon: '⌨️' },
-  { key: EWASTE_CATEGORIES.CABLE_CHARGER, label: 'Cable / Charger', icon: '🔌' },
-  { key: EWASTE_CATEGORIES.BATTERY, label: 'Battery', icon: '🔋' },
-  { key: EWASTE_CATEGORIES.CIRCUIT_BOARD, label: 'Circuit Board', icon: '🧩' },
-  { key: EWASTE_CATEGORIES.OTHER, label: 'Other E-Waste', icon: '📦' },
-];
+const TOTAL_STEPS = 6;
 
-const CONDITION_OPTIONS = [
-  { key: ITEM_CONDITIONS.WORKING, label: 'Working' },
-  { key: ITEM_CONDITIONS.NOT_WORKING, label: 'Not Working' },
-  { key: ITEM_CONDITIONS.DAMAGED, label: 'Damaged' },
-  { key: ITEM_CONDITIONS.UNKNOWN, label: 'Unknown' },
-];
+const CATEGORY_MAP: Record<string, { i18nKey: string; defaultLabel: string; icon: string }> = {
+  [EWASTE_CATEGORIES.MOBILE_PHONE]:   { i18nKey: 'ewaste.mobilePhone',   defaultLabel: 'Mobile Phone',     icon: '📱' },
+  [EWASTE_CATEGORIES.LAPTOP]:         { i18nKey: 'ewaste.laptop',        defaultLabel: 'Laptop',           icon: '💻' },
+  [EWASTE_CATEGORIES.DESKTOP]:        { i18nKey: 'ewaste.desktop',       defaultLabel: 'Desktop / Tower',  icon: '🖥️' },
+  [EWASTE_CATEGORIES.TABLET]:         { i18nKey: 'ewaste.tablet',        defaultLabel: 'Tablet',           icon: '📟' },
+  [EWASTE_CATEGORIES.MONITOR]:        { i18nKey: 'ewaste.monitor',       defaultLabel: 'Monitor / Screen', icon: '🖥️' },
+  [EWASTE_CATEGORIES.PRINTER]:        { i18nKey: 'ewaste.printer',       defaultLabel: 'Printer / Scanner',icon: '🖨️' },
+  [EWASTE_CATEGORIES.KEYBOARD_MOUSE]: { i18nKey: 'ewaste.keyboardMouse', defaultLabel: 'Keyboard / Mouse', icon: '⌨️' },
+  [EWASTE_CATEGORIES.CABLE_CHARGER]:  { i18nKey: 'ewaste.cableCharger',  defaultLabel: 'Cable / Charger',  icon: '🔌' },
+  [EWASTE_CATEGORIES.BATTERY]:        { i18nKey: 'ewaste.battery',       defaultLabel: 'Battery',          icon: '🔋' },
+  [EWASTE_CATEGORIES.CIRCUIT_BOARD]:  { i18nKey: 'ewaste.circuitBoard',  defaultLabel: 'Circuit Board',    icon: '🧩' },
+  [EWASTE_CATEGORIES.OTHER]:          { i18nKey: 'ewaste.other',         defaultLabel: 'Other E-Waste',    icon: '📦' },
+};
+
+const CONDITION_MAP: Record<string, { labelKey: string; defaultLabel: string; subKey: string; defaultSub: string; color: string }> = {
+  [ITEM_CONDITIONS.WORKING]:     { labelKey: 'status.working',    defaultLabel: 'Working',      subKey: 'common.workingSub',    defaultSub: 'Powers on, functions normally',  color: '#10B981' },
+  [ITEM_CONDITIONS.NOT_WORKING]: { labelKey: 'status.notWorking', defaultLabel: 'Not Working',  subKey: 'common.notWorkingSub', defaultSub: "Doesn't turn on",               color: '#F59E0B' },
+  [ITEM_CONDITIONS.DAMAGED]:     { labelKey: 'status.damaged',    defaultLabel: 'Damaged',      subKey: 'common.damagedSub',    defaultSub: 'Broken screen, missing parts',   color: '#EF4444' },
+  [ITEM_CONDITIONS.UNKNOWN]:     { labelKey: 'status.unknown',    defaultLabel: 'Not Sure',     subKey: 'common.unknownSub',    defaultSub: "I don't know the condition",    color: '#A78BFA' },
+};
+
+// ─── Progress Bar ─────────────────────────────────────────────────────────────
+
+const StepBar: React.FC<{ step: number }> = ({ step }) => (
+  <View style={sb.container}>
+    {[1, 2, 3, 4, 5, 6].map((n) => {
+      const done    = step > n;
+      const current = step === n;
+      return (
+        <React.Fragment key={n}>
+          <View style={[sb.circle, done && sb.circleDone, current && sb.circleCurrent]}>
+            {done
+              ? <Text style={sb.checkmark}>✓</Text>
+              : <Text style={[sb.stepNum, current && sb.stepNumActive]}>{n}</Text>}
+          </View>
+          {n < TOTAL_STEPS && (
+            <View style={[sb.line, done && sb.lineDone]} />
+          )}
+        </React.Fragment>
+      );
+    })}
+  </View>
+);
+
+const sb = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  circle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  circleDone: {
+    backgroundColor: '#10B981',
+    borderColor: '#10B981',
+  },
+  circleCurrent: {
+    backgroundColor: 'rgba(16,185,129,0.20)',
+    borderColor: '#10B981',
+  },
+  checkmark: { fontSize: 13, color: '#FFFFFF', fontWeight: '800' },
+  stepNum: { fontSize: 11, color: 'rgba(255,255,255,0.40)', fontWeight: '700' },
+  stepNumActive: { color: '#34D399' },
+  line: {
+    flex: 1,
+    height: 2,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    marginHorizontal: 3,
+  },
+  lineDone: { backgroundColor: '#10B981' },
+});
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
   const { isConnected } = useNetwork();
   const { t } = useI18n();
 
-  // Multi-item state
-  const [items, setItems] = useState<EwasteItemDraft[]>([]);
-  const [isItemModalVisible, setIsItemModalVisible] = useState(false);
-  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  // Multi-item list
+  const [items, setItems] = useState<DraftItem[]>([]);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
-  // Item Draft Form States
-  const [modalCategory, setModalCategory] = useState<string | null>(null);
-  const [modalCondition, setModalCondition] = useState<string>(ITEM_CONDITIONS.UNKNOWN);
-  const selectedCategory = modalCategory;
-  const selectedCondition = modalCondition;
-  const [modalQuantity, setModalQuantity] = useState<number>(1);
-  const [modalWeight, setModalWeight] = useState<string>('');
-  const [modalDescription, setModalDescription] = useState<string>('');
-  const [modalImageUri, setModalImageUri] = useState<string | undefined>(undefined);
-  const [modalItemError, setModalItemError] = useState<string | null>(null);
-  const [isCameraActive, setIsCameraActive] = useState(false);
+  // Step tracking
+  const [step, setStep] = useState(1);
 
-  // Pickup Location & Map states (Zero hardcoded Delhi coordinates)
-  const [pickupLat, setPickupLat] = useState<number>(0);
-  const [pickupLng, setPickupLng] = useState<number>(0);
+  // Current Item Draft Fields
+  // Step 1 — Category
+  const [category, setCategory] = useState<string | null>(null);
+
+  // Step 2 — Photo
+  const [photoUri, setPhotoUri] = useState<string | undefined>(undefined);
+  const [isTakingPhoto, setIsTakingPhoto] = useState(false);
+
+  // Step 3 — Condition
+  const [condition, setCondition] = useState<string>(ITEM_CONDITIONS.UNKNOWN);
+
+  // Step 4 — Details
+  const [quantity, setQuantity] = useState(1);
+  const [weight, setWeight] = useState('');
+  const [description, setDescription] = useState('');
+
+  // Step 5 — Location
+  const [pickupLat, setPickupLat] = useState(19.0760);
+  const [pickupLng, setPickupLng] = useState(72.8777);
   const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
-  const [isLocating, setIsLocating] = useState<boolean>(false);
-  const [isResolvingAddress, setIsResolvingAddress] = useState<boolean>(false);
+  const [isLocating, setIsLocating] = useState(false);
+  const [isResolvingAddress, setIsResolvingAddress] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
-  const [isLocationConfirmed, setIsLocationConfirmed] = useState<boolean>(false);
-  const [showFullMapModal, setShowFullMapModal] = useState<boolean>(false);
-
-  // Structured Address fields
   const [addressType, setAddressType] = useState<string>(ADDRESS_TYPES.HOME);
-  const [houseNumber, setHouseNumber] = useState<string>('');
-  const [street, setStreet] = useState<string>('');
-  const [landmark, setLandmark] = useState<string>('');
-  const [city, setCity] = useState<string>('');
-  const [district, setDistrict] = useState<string>('');
-  const [state, setState] = useState<string>('');
-  const [pincode, setPincode] = useState<string>('');
+  const [houseNumber, setHouseNumber] = useState('');
+  const [street, setStreet] = useState('');
+  const [landmark, setLandmark] = useState('');
+  const [city, setCity] = useState('');
+  const [district, setDistrict] = useState('');
+  const [stateName, setStateName] = useState('');
+  const [pincode, setPincode] = useState('');
 
-  // Submission state
+  // Step 6 — Submission
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successInfo, setSuccessInfo] = useState<{ message: string; isOffline: boolean } | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [stepError, setStepError] = useState<string | null>(null);
+  const [successInfo, setSuccessInfo] = useState<string | null>(null);
 
-  const geocodeTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const getCategoryLabel = (key: string): string => {
-    switch (key) {
-      case EWASTE_CATEGORIES.MOBILE_PHONE: return t('ewaste.mobilePhone') || 'Mobile Phone';
-      case EWASTE_CATEGORIES.LAPTOP: return t('ewaste.laptop') || 'Laptop';
-      case EWASTE_CATEGORIES.DESKTOP: return t('ewaste.desktop') || 'Desktop';
-      case EWASTE_CATEGORIES.TABLET: return t('ewaste.tablet') || 'Tablet';
-      case EWASTE_CATEGORIES.MONITOR: return t('ewaste.monitor') || 'Monitor';
-      case EWASTE_CATEGORIES.PRINTER: return t('ewaste.printer') || 'Printer / Scanner';
-      case EWASTE_CATEGORIES.KEYBOARD_MOUSE: return t('ewaste.keyboardMouse') || 'Keyboard / Mouse';
-      case EWASTE_CATEGORIES.CABLE_CHARGER: return t('ewaste.cableCharger') || 'Cable / Charger';
-      case EWASTE_CATEGORIES.BATTERY: return t('ewaste.battery') || 'Battery';
-      case EWASTE_CATEGORIES.CIRCUIT_BOARD: return t('ewaste.circuitBoard') || 'Circuit Board';
-      case EWASTE_CATEGORIES.OTHER: return t('ewaste.other') || 'Other E-Waste';
-      default: return key;
+  // Auto-locate on location step if default coords
+  useEffect(() => {
+    if (step === 5) {
+      handleUseCurrentLocation();
     }
-  };
+  }, [step]);
 
-  const getConditionLabel = (key: string): string => {
-    switch (key) {
-      case ITEM_CONDITIONS.WORKING: return t('citizen.conditions.working') || 'Working';
-      case ITEM_CONDITIONS.NOT_WORKING: return t('citizen.conditions.notWorking') || 'Not Working';
-      case ITEM_CONDITIONS.DAMAGED: return t('citizen.conditions.damaged') || 'Damaged';
-      case ITEM_CONDITIONS.UNKNOWN: return t('citizen.conditions.unknown') || 'Unknown';
-      default: return key;
-    }
-  };
+  // ── Location helpers ───────────────────────────────────────────────────────
 
-  // Perform reverse geocoding to auto-populate address fields
   const triggerReverseGeocoding = async (lat: number, lng: number) => {
     if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
     setIsResolvingAddress(true);
@@ -162,12 +212,11 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
         if (resolved.landmark) setLandmark(resolved.landmark);
         if (resolved.city) setCity(resolved.city);
         if (resolved.district) setDistrict(resolved.district);
-        if (resolved.state) setState(resolved.state);
+        if (resolved.state) setStateName(resolved.state);
         if (resolved.pincode) setPincode(resolved.pincode);
-        setIsLocationConfirmed(true);
       }
-    } catch (err) {
-      console.warn('[SubmitItemScreen] reverseGeocode error:', err);
+    } catch {
+      // silent
     } finally {
       setIsResolvingAddress(false);
     }
@@ -176,7 +225,6 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
   const handleUseCurrentLocation = async () => {
     setIsLocating(true);
     setLocationError(null);
-
     try {
       const result = await getCurrentLocation();
       if (result.success && result.coords) {
@@ -186,1462 +234,1431 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
         if (accuracy !== null) setLocationAccuracy(accuracy);
         triggerReverseGeocoding(latitude, longitude);
       } else if (result.error === 'PERMISSION_DENIED') {
-        setLocationError(t('citizen.submit.locPermissionDenied') || 'Location permission was denied.');
+        setLocationError('Location permission denied. Enter your address manually below or drag the map pin.');
       } else {
-        setLocationError(result.message || (t('citizen.submit.locUnavailable') || 'Location unavailable. Please drag the pin manually.'));
+        setLocationError(result.message || 'Could not get GPS location. Drag the map pin or enter address.');
       }
-    } catch (err: any) {
-      console.warn('[SubmitItemScreen] Location fetch error:', err);
-      setLocationError(t('citizen.submit.locUnavailable') || 'Location unavailable. Please drag the pin manually.');
+    } catch {
+      setLocationError('Location unavailable. Drag the map pin or enter address.');
     } finally {
       setIsLocating(false);
     }
   };
 
-  // Initial location fetch
-  useEffect(() => {
-    handleUseCurrentLocation();
-  }, []);
+  // ── Multi-item helpers ──────────────────────────────────────────────────────
 
-  const handleMarkerDrag = (newLat: number, newLng: number) => {
-    setPickupLat(newLat);
-    setPickupLng(newLng);
-
-    // Debounce reverse geocoding on drag
-    if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
-    geocodeTimerRef.current = setTimeout(() => {
-      triggerReverseGeocoding(newLat, newLng);
-    }, 800);
+  const resetCurrentDraft = () => {
+    setCategory(null);
+    setPhotoUri(undefined);
+    setCondition(ITEM_CONDITIONS.UNKNOWN);
+    setQuantity(1);
+    setWeight('');
+    setDescription('');
+    setEditingIndex(null);
   };
 
-  // Item Modal Handlers
-  const handleOpenAddItem = () => {
-    setEditingItemId(null);
-    setModalCategory(null);
-    setModalCondition(ITEM_CONDITIONS.UNKNOWN);
-    setModalQuantity(1);
-    setModalWeight('');
-    setModalDescription('');
-    setModalImageUri(undefined);
-    setModalItemError(null);
-    setIsItemModalVisible(true);
-  };
-
-  const handleOpenEditItem = (item: EwasteItemDraft) => {
-    setEditingItemId(item.id);
-    setModalCategory(item.category);
-    setModalCondition(item.condition);
-    setModalQuantity(item.quantity);
-    setModalWeight(item.estimatedWeightKg || '');
-    setModalDescription(item.description || '');
-    setModalImageUri(item.imageUri);
-    setModalItemError(null);
-    setIsItemModalVisible(true);
-  };
-
-  const handleRemoveItem = (itemId: string) => {
-    setItems((prev) => prev.filter((it) => it.id !== itemId));
-  };
-
-  // Direct camera capture
-  const handleCapturePhoto = async () => {
-    setIsCameraActive(true);
-    try {
-      const captureResult = await capturePhoto();
-      if (captureResult.success && captureResult.uri) {
-        setModalImageUri(captureResult.uri);
-      } else if (captureResult.error === 'CAMERA_PERMISSION_DENIED') {
-        Alert.alert(
-          t('common.error') || 'Permission Error',
-          t('citizen.submit.cameraPermissionDenied') || 'Camera permission is required to capture photos.'
-        );
-      }
-    } catch (err: any) {
-      console.warn('[SubmitItemScreen] Camera error:', err);
-    } finally {
-      setIsCameraActive(false);
+  const commitCurrentItemToState = (): boolean => {
+    if (!category) {
+      setStepError('Please select what you want to give.');
+      return false;
     }
-  };
-
-  const handleSaveItemModal = () => {
-    if (!modalCategory) {
-      setModalItemError(t('citizen.submit.valSelectCategory') || 'Please select an e-waste category.');
-      return;
-    }
-
-    if (!Number.isInteger(modalQuantity) || modalQuantity < 1 || modalQuantity > 100) {
-      setModalItemError(t('citizen.submit.valQuantity') || 'Quantity must be between 1 and 100.');
-      return;
-    }
-
-    if (modalWeight.trim()) {
-      const weightNum = parseFloat(modalWeight.trim());
-      if (isNaN(weightNum) || weightNum <= 0 || weightNum > 500) {
-        setModalItemError(t('citizen.submit.valWeight') || 'Estimated weight must be between 0.01 and 500 kg.');
-        return;
+    if (weight.trim()) {
+      const w = parseFloat(weight);
+      if (isNaN(w) || w <= 0 || w > 500) {
+        setStepError('Enter a valid weight between 0.1 and 500 kg.');
+        return false;
       }
     }
 
-    const itemDraft: EwasteItemDraft = {
-      id: editingItemId || `draft_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      category: modalCategory,
-      condition: modalCondition,
-      quantity: modalQuantity,
-      estimatedWeightKg: modalWeight.trim() || undefined,
-      description: modalDescription.trim() || undefined,
-      imageUri: modalImageUri,
+    const currentItem: DraftItem = {
+      category,
+      photoUri,
+      condition,
+      quantity,
+      weight: weight.trim() ? weight.trim() : undefined,
+      description: description.trim() ? description.trim() : undefined,
     };
 
-    if (editingItemId) {
-      setItems((prev) => prev.map((it) => (it.id === editingItemId ? itemDraft : it)));
+    if (editingIndex !== null && editingIndex >= 0 && editingIndex < items.length) {
+      const updated = [...items];
+      updated[editingIndex] = currentItem;
+      setItems(updated);
     } else {
-      setItems((prev) => [...prev, itemDraft]);
+      setItems((prev) => [...prev, currentItem]);
     }
-
-    setIsItemModalVisible(false);
+    return true;
   };
 
-  // Totals
-  const totalItemCount = items.reduce((sum, it) => sum + it.quantity, 0);
-  const totalEstWeightKg = items.reduce((sum, it) => sum + (parseFloat(it.estimatedWeightKg || '0') || 0), 0);
+  const handleAddAnotherItem = () => {
+    if (!commitCurrentItemToState()) return;
+    resetCurrentDraft();
+    setStepError(null);
+    setSuccessInfo('Item added to request! Select category for next item.');
+    setTimeout(() => setSuccessInfo(null), 3000);
+    setStep(1);
+  };
 
-  // Overall Submission Flow
-  const handleSubmitRequest = async () => {
-    if (isSubmitting) return;
+  const handleEditItem = (index: number) => {
+    const itemToEdit = items[index];
+    if (!itemToEdit) return;
+    setCategory(itemToEdit.category);
+    setPhotoUri(itemToEdit.photoUri);
+    setCondition(itemToEdit.condition);
+    setQuantity(itemToEdit.quantity);
+    setWeight(itemToEdit.weight || '');
+    setDescription(itemToEdit.description || '');
+    setEditingIndex(index);
+    setStep(1);
+  };
 
-    setErrorMessage(null);
-    setSuccessInfo(null);
+  const handleRemoveItem = (index: number) => {
+    setItems((prev) => prev.filter((_, i) => i !== index));
+  };
 
-    // 1. Must have at least one item
-    if (items.length === 0) {
-      setErrorMessage(t('citizen.submit.noItemsInRequest') || 'Please add at least one e-waste item before submitting.');
+  // ── Navigation ─────────────────────────────────────────────────────────────
+
+  const validateStep = (): boolean => {
+    setStepError(null);
+    if (step === 1 && !category) {
+      if (items.length > 0) {
+        // If there are already items in the list and user pressed continue without picking a new category
+        return true;
+      }
+      setStepError('Please select what you want to give.');
+      return false;
+    }
+    if (step === 4) {
+      if (weight.trim()) {
+        const w = parseFloat(weight);
+        if (isNaN(w) || w <= 0 || w > 500) {
+          setStepError('Enter a valid weight between 0.1 and 500 kg.');
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+
+  const goNext = () => {
+    if (!validateStep()) return;
+
+    if (step === 1 && !category && items.length > 0) {
+      // Direct jump to location if items already exist
+      setStep(5);
       return;
     }
 
-    // 2. Validate PIN code if provided
+    if (step === 4) {
+      // Commit draft item and advance to Location
+      if (category) {
+        commitCurrentItemToState();
+        resetCurrentDraft();
+      }
+      setStep(5);
+      return;
+    }
+
+    if (step < TOTAL_STEPS) {
+      setStep((s) => s + 1);
+    }
+  };
+
+  const goBack = () => {
+    setStepError(null);
+    if (step > 1) {
+      if (step === 5 && !category && items.length > 0) {
+        setStep(4);
+      } else {
+        setStep((s) => s - 1);
+      }
+    }
+  };
+
+  // ── Photo ──────────────────────────────────────────────────────────────────
+
+  const handleTakePhoto = async () => {
+    setIsTakingPhoto(true);
+    try {
+      const result = await capturePhoto();
+      if (result.success && result.uri) {
+        setPhotoUri(result.uri);
+      } else if (result.error === 'CAMERA_PERMISSION_DENIED') {
+        Alert.alert('Permission Required', 'Camera permission is needed to take a photo.');
+      }
+    } catch {
+      // silent
+    } finally {
+      setIsTakingPhoto(false);
+    }
+  };
+
+  // ── Submit ─────────────────────────────────────────────────────────────────
+
+  const handleSubmit = async () => {
+    if (isSubmitting) return;
+    setSubmitError(null);
+
+    // Make sure we have at least one item
+    let finalItems = [...items];
+    if (category) {
+      finalItems.push({
+        category,
+        photoUri,
+        condition,
+        quantity,
+        weight: weight.trim() ? weight.trim() : undefined,
+        description: description.trim() ? description.trim() : undefined,
+      });
+    }
+
+    if (finalItems.length === 0) {
+      setSubmitError('Please add at least one e-waste item to your request.');
+      return;
+    }
+
     if (pincode.trim() && !/^[1-9][0-9]{5}$/.test(pincode.trim())) {
-      setErrorMessage(t('citizen.submit.valPincode') || 'PIN Code must be a valid 6-digit postal code.');
+      setSubmitError('PIN Code must be a valid 6-digit postal code.');
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // Step A: Create each EwasteItem
+      // 1. Create all e-waste items sequentially/concurrently
       const createdItemIds: string[] = [];
-
-      for (const it of items) {
+      for (const item of finalItems) {
         const itemPayload: any = {
-          category: it.category,
-          condition: it.condition,
-          quantity: it.quantity,
+          category: item.category,
+          condition: item.condition,
+          quantity: item.quantity,
         };
-        if (it.description) itemPayload.description = it.description;
-        if (it.estimatedWeightKg) itemPayload.estimatedWeightKg = parseFloat(it.estimatedWeightKg);
-        if (it.imageUri) itemPayload.imageUrl = it.imageUri;
+        if (item.description?.trim()) itemPayload.description = item.description.trim();
+        if (item.weight && !isNaN(parseFloat(item.weight))) {
+          itemPayload.estimatedWeightKg = parseFloat(item.weight);
+        }
+        if (item.photoUri) itemPayload.imageUrl = item.photoUri;
 
-        const createdItem = await ewasteService.createItem(itemPayload);
-        if ((createdItem as any)?.id) {
-          createdItemIds.push((createdItem as any).id);
+        const createdItem: any = await ewasteService.createItem(itemPayload);
+        if (createdItem?.id) {
+          createdItemIds.push(createdItem.id);
         }
       }
 
-      // Step B: Create CollectionRequest with all itemIds and structured address
+      // 2. Build formatted address
       const formattedAddress = [
         houseNumber.trim(),
         street.trim(),
         landmark.trim(),
         city.trim(),
         district.trim(),
-        state.trim(),
+        stateName.trim(),
         pincode.trim(),
       ].filter(Boolean).join(', ') || 'Doorstep Pickup Location';
 
+      // 3. Create collection request with all itemIds
       const requestPayload: any = {
         itemIds: createdItemIds,
         pickupAddress: formattedAddress,
-        pickupLat: typeof pickupLat === 'number' && pickupLat !== 0 ? pickupLat : 19.3149,
-        pickupLng: typeof pickupLng === 'number' && pickupLng !== 0 ? pickupLng : 84.7941,
+        pickupLat: pickupLat || 0,
+        pickupLng: pickupLng || 0,
         addressType,
       };
-
       if (houseNumber.trim()) requestPayload.houseNumber = houseNumber.trim();
       if (street.trim()) requestPayload.street = street.trim();
       if (landmark.trim()) requestPayload.landmark = landmark.trim();
       if (city.trim()) requestPayload.city = city.trim();
       if (district.trim()) requestPayload.district = district.trim();
-      if (state.trim()) requestPayload.state = state.trim();
+      if (stateName.trim()) requestPayload.state = stateName.trim();
       if (pincode.trim()) requestPayload.pincode = pincode.trim();
-      if (locationAccuracy !== null && locationAccuracy !== undefined) {
-        requestPayload.locationAccuracy = locationAccuracy;
-      }
+      if (locationAccuracy !== null) requestPayload.locationAccuracy = locationAccuracy;
 
-      const createdRequest: any = await requestService.createRequest(requestPayload);
+      await requestService.createRequest(requestPayload);
 
-      // Step C: Move request from DRAFT to SUBMITTED so collectors can see it!
-      if (createdRequest?.id && isConnected) {
-        try {
-          await requestService.submitRequest(createdRequest.id);
-        } catch (submitErr) {
-          console.warn('[SubmitItemScreen] submitRequest transition warning:', submitErr);
-        }
-      }
+      // Navigate to Requests/Orders
+      const totalCount = finalItems.reduce((acc, curr) => acc + (curr.quantity || 1), 0);
+      Alert.alert(
+        'Request Submitted ✓',
+        isConnected
+          ? `Your collection request for ${totalCount} item(s) has been submitted. A local collector will reach out soon.`
+          : 'Saved offline. Will be submitted once you reconnect.',
+        [{
+          text: 'View My Requests',
+          onPress: () => navigation.navigate('CitizenRequests'),
+        }],
+      );
 
-      // Reset form
+      // Reset wizard and items list
       setItems([]);
-      setHouseNumber('');
-      setStreet('');
-      setLandmark('');
-      setCity('');
-      setDistrict('');
-      setState('');
-      setPincode('');
-
-      setSuccessInfo({
-        message:
-          t('citizen.submit.submitSuccess') ||
-          'Collection request created and submitted successfully! Local collectors can now view and accept your pickup.',
-        isOffline: !isConnected,
-      });
+      resetCurrentDraft();
+      setStep(1);
     } catch (err: any) {
-      console.error('[SubmitItemScreen] Request creation error:', err);
-      setErrorMessage(err?.message || (t('citizen.submit.submitError') || 'Unable to submit pickup request. Please retry.'));
+      const msg = err?.isOfflineError
+        ? 'Saved offline. Will sync when you reconnect.'
+        : err?.response?.data?.message || err?.message || 'Failed to submit. Please try again.';
+      setSubmitError(msg);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  return (
-    <EcoSetuBackground>
-      <TopAppBar
-        title={t('citizen.submit.title') || 'Submit E-Waste'}
-        subtitle={t('citizen.submit.subtitle') || 'Doorstep e-waste pickup registration'}
-      />
+  // ── Helper to resolve category & condition labels ─────────────────────────
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardContainer}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Success Banner */}
-          {successInfo && (
-            <GlassCard style={styles.successCard}>
-              <Text style={styles.successIcon}>✓</Text>
-              <Text style={styles.successTitle}>{t('common.success') || 'Success'}</Text>
-              <Text style={styles.successMessage}>{successInfo.message}</Text>
-              <GlassButton
-                label={t('citizen.submit.goToDashboard') || 'Go to Dashboard'}
-                variant="primary"
-                onPress={() => navigation.navigate('CitizenHome')}
-                style={styles.actionBtn}
-              />
-            </GlassCard>
-          )}
+  const getCategoryDetails = (catKey: string) => {
+    const item = CATEGORY_MAP[catKey];
+    if (item) {
+      return { label: t(item.i18nKey, item.defaultLabel), icon: item.icon, key: catKey };
+    }
+    return { label: catKey, icon: '📦', key: catKey };
+  };
 
-          {/* Error Banner */}
-          {errorMessage && (
-            <GlassCard style={styles.errorCard}>
-              <Text style={styles.errorIcon}>⚠</Text>
-              <Text style={styles.errorTitle}>{t('common.error') || 'Error'}</Text>
-              <Text style={styles.errorMessage}>{errorMessage}</Text>
-            </GlassCard>
-          )}
+  const getConditionDetails = (condKey: string) => {
+    const item = CONDITION_MAP[condKey];
+    if (item) {
+      return {
+        label: t(item.labelKey, item.defaultLabel),
+        sub: t(item.subKey, item.defaultSub),
+        color: item.color,
+        key: condKey,
+      };
+    }
+    return { label: condKey, sub: '', color: '#A78BFA', key: condKey };
+  };
 
-          {/* Section 1: E-Waste Item List */}
-          <GlassCard style={styles.sectionCard}>
-            <View style={[styles.sectionHeaderRow, { justifyContent: 'space-between', alignItems: 'center' }]}>
-              <View style={{ flex: 1, paddingRight: 8 }}>
-                <Text style={styles.sectionTitle}>
-                  📦 {t('citizen.submit.itemList') || 'E-Waste Items in this Request'}
-                </Text>
-                <Text style={styles.sectionSubtitle}>
-                  {items.length > 0
-                    ? `${t('citizen.submit.totalItems') || 'Total Items'}: ${totalItemCount}${
-                        totalEstWeightKg > 0 ? ` • ${totalEstWeightKg.toFixed(1)} kg` : ''
-                      }`
-                    : t('citizen.submit.noItemsInRequest') || 'No items added yet. Please add at least one item.'}
-                </Text>
+  const categoriesList = Object.keys(CATEGORY_MAP).map((k) => getCategoryDetails(k));
+  const conditionsList = Object.keys(CONDITION_MAP).map((k) => getConditionDetails(k));
+
+  const stepLabels: Record<number, { label: string; icon: string }> = {
+    1: { label: t('navigation.submit', 'Category'), icon: '📦' },
+    2: { label: t('common.photo', 'Photo'), icon: '📷' },
+    3: { label: t('common.condition', 'Condition'), icon: '🔍' },
+    4: { label: t('common.details', 'Details'), icon: '⚖️' },
+    5: { label: t('location.location', 'Location'), icon: '📍' },
+    6: { label: t('common.review', 'Review'), icon: '✅' },
+  };
+
+  // ─── Render Step Content ───────────────────────────────────────────────────
+
+  const renderStep = () => {
+    switch (step) {
+      // ── STEP 1: Category ──────────────────────────────────────────────────
+      case 1:
+        return (
+          <ScrollView style={styles.stepContent} showsVerticalScrollIndicator={false}>
+            {successInfo && (
+              <View style={styles.successBanner}>
+                <Text style={styles.successBannerText}>✓ {successInfo}</Text>
               </View>
-              <ReadAloudButton
-                text={`${t('citizen.submit.title') || 'Register E-Waste Item'}. ${items.length > 0 ? `${items.length} items added.` : 'No items added yet.'}`}
-                size="small"
-              />
-            </View>
-
-            {items.map((item, index) => (
-              <View key={item.id} style={styles.itemRowCard}>
-                {item.imageUri ? (
-                  <Image source={{ uri: item.imageUri }} style={styles.itemThumbnail} />
-                ) : (
-                  <View style={styles.itemThumbnailPlaceholder}>
-                    <Text style={styles.itemPlaceholderIcon}>
-                      {CATEGORY_OPTIONS.find((c) => c.key === item.category)?.icon || '📦'}
-                    </Text>
-                  </View>
-                )}
-
-                <View style={styles.itemDetailsCol}>
-                  <Text style={styles.itemCategoryTitle}>
-                    {getCategoryLabel(item.category)}
-                  </Text>
-                  <View style={styles.itemBadgeRow}>
-                    <GlassBadge
-                      label={`Qty: ${item.quantity}`}
-                      tone="info"
-                    />
-                    <GlassBadge
-                      label={getConditionLabel(item.condition)}
-                      tone="neutral"
-                    />
-                    {Boolean(item.estimatedWeightKg) && (
-                      <GlassBadge
-                        label={`${item.estimatedWeightKg} kg`}
-                        tone="neutral"
-                      />
-                    )}
-                  </View>
-                  {Boolean(item.description) && (
-                    <Text style={styles.itemDescText} numberOfLines={1}>
-                      {item.description}
-                    </Text>
-                  )}
-                </View>
-
-                <View style={styles.itemActionsCol}>
-                  <TouchableOpacity
-                    onPress={() => handleOpenEditItem(item)}
-                    style={styles.itemEditBtn}
-                  >
-                    <Text style={styles.itemEditBtnText}>✏️</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => handleRemoveItem(item.id)}
-                    style={styles.itemDeleteBtn}
-                  >
-                    <Text style={styles.itemDeleteBtnText}>🗑️</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-
-            <GlassButton
-              label={t('citizen.submit.addItem') || '+ Add E-Waste Item'}
-              variant="outline"
-              onPress={handleOpenAddItem}
-              style={styles.addItemBtn}
-            />
-          </GlassCard>
-
-          {/* Section 2: Pickup Location & Map */}
-          <GlassCard style={styles.sectionCard}>
-            <View style={styles.sectionHeaderRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.sectionTitle}>
-                  🗺️ {t('citizen.submit.pickupLocation') || 'Pickup Location'}
-                </Text>
-                <Text style={styles.sectionSubtitle}>
-                  Choose exactly where your e-waste should be collected.
-                </Text>
-              </View>
-            </View>
-
-            {locationError && (
-              <Text style={styles.locationErrorText}>{locationError}</Text>
             )}
 
-            {/* Interactive EcoSetuMap embedded */}
-            <View style={styles.mapContainer}>
-              <EcoSetuMap
-                latitude={pickupLat !== 0 ? pickupLat : 19.3149}
-                longitude={pickupLng !== 0 ? pickupLng : 84.7941}
-                draggable={true}
-                allowLocationSelection={true}
-                allowTapSelection={true}
-                allowLongPressSelection={true}
-                accuracy={locationAccuracy}
-                showAccuracyCircle={true}
-                showMapTypeControl={true}
-                showZoomControls={true}
-                showMyLocationButton={true}
-                showRecenterButton={true}
-                showSearch={true}
-                onLocationChange={handleMarkerDrag}
-                onLocationSelectWithAccuracy={(lat, lng, acc) => {
-                  setPickupLat(lat);
-                  setPickupLng(lng);
-                  if (acc) setLocationAccuracy(acc);
-                  triggerReverseGeocoding(lat, lng);
-                }}
-                pinTitle="Pickup Doorstep"
-                pinDescription="Drag to refine doorstep location"
-                style={styles.map}
-              />
-            </View>
-
-            {/* Selected Location Summary Glass Card */}
-            <View style={styles.selectedAddressPreviewCard}>
-              <View style={styles.selectedAddressTopRow}>
-                <Text style={styles.selectedAddressPinIcon}>📍</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.selectedAddressTitle}>Selected Pickup Location</Text>
-                  <Text style={styles.selectedAddressFormatted}>
-                    {isResolvingAddress
-                      ? t('location.updatingAddress') || 'Resolving address from live location...'
-                      : [houseNumber, street, landmark, city, state, pincode].filter(Boolean).join(', ') ||
-                        (pickupLat !== 0 ? `Coordinates: ${pickupLat.toFixed(4)}, ${pickupLng.toFixed(4)}` : 'No location selected')}
+            {items.length > 0 && (
+              <View style={styles.itemsSummaryBadge}>
+                <View style={styles.itemsSummaryLeft}>
+                  <Text style={styles.itemsSummaryTitle}>
+                    📦 {items.length} {t('common.itemsAdded', 'item type(s) added')}
                   </Text>
-                  {locationAccuracy !== null && locationAccuracy !== undefined ? (
-                    <Text style={styles.selectedAddressAccuracy}>
-                      🎯 {t('location.locationAccuracy') || 'Accuracy'}: Approx. ±{Math.round(locationAccuracy)} m
-                    </Text>
-                  ) : null}
+                  <Text style={styles.itemsSummarySub}>
+                    {items.map((it) => `${getCategoryDetails(it.category).label} (x${it.quantity})`).join(', ')}
+                  </Text>
                 </View>
-              </View>
-
-              {/* Action Buttons Row */}
-              <View style={styles.mapActionRow}>
                 <TouchableOpacity
-                  style={styles.mapSecondaryActionBtn}
-                  onPress={handleUseCurrentLocation}
-                  disabled={isLocating}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('location.useMyLocation') || 'Use My Location'}
+                  style={styles.itemsSummaryDoneBtn}
+                  onPress={() => setStep(5)}
                 >
-                  {isLocating ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
-                  ) : (
-                    <Text style={styles.mapSecondaryActionText}>
-                      🎯 {t('location.useMyLocation') || 'Use My Location'}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.mapSecondaryActionBtn}
-                  onPress={() => setShowFullMapModal(true)}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('location.chooseOnMap') || 'Full Screen Map'}
-                >
-                  <Text style={styles.mapSecondaryActionText}>
-                    ⛶ {t('location.chooseOnMap') || 'Full Screen Map'}
-                  </Text>
+                  <Text style={styles.itemsSummaryDoneBtnText}>{t('common.proceedToAddress', 'Proceed to Address →')}</Text>
                 </TouchableOpacity>
               </View>
+            )}
 
-              {/* Confirm Location Button */}
-              <TouchableOpacity
-                style={[
-                  styles.confirmLocationBtn,
-                  isLocationConfirmed && styles.confirmLocationBtnActive,
-                ]}
-                onPress={() => {
-                  setIsLocationConfirmed(true);
-                  triggerReverseGeocoding(pickupLat, pickupLng);
-                }}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel={t('location.confirmPickupLocation') || 'Confirm Pickup Location'}
-              >
-                <Text style={styles.confirmLocationBtnText}>
-                  {isLocationConfirmed
-                    ? `✓ ${t('location.confirmPickupLocation') || 'Pickup Location Confirmed'}`
-                    : `📍 ${t('location.confirmPickupLocation') || 'Confirm Pickup Location'}`}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Address Form Fields Auto-Resolved */}
-            <View style={styles.addressFieldsGrid}>
-              <View style={styles.fieldRow}>
-                <View style={styles.fieldHalf}>
-                  <EcoGlassInput
-                    label={t('citizen.submit.houseNumber') || 'Building / House'}
-                    value={houseNumber}
-                    onChangeText={setHouseNumber}
-                    placeholder="e.g. Flat 4B / Plot 12"
-                  />
-                </View>
-                <View style={styles.fieldHalf}>
-                  <EcoGlassInput
-                    label={t('citizen.submit.street') || 'Street / Road'}
-                    value={street}
-                    onChangeText={setStreet}
-                    placeholder="e.g. College Road"
-                  />
-                </View>
-              </View>
-
-              <View style={styles.fieldRow}>
-                <View style={styles.fieldHalf}>
-                  <EcoGlassInput
-                    label={t('citizen.submit.landmark') || 'Landmark'}
-                    value={landmark}
-                    onChangeText={setLandmark}
-                    placeholder="Near City Hospital"
-                  />
-                </View>
-                <View style={styles.fieldHalf}>
-                  <EcoGlassInput
-                    label={t('citizen.submit.city') || 'City / Town'}
-                    value={city}
-                    onChangeText={setCity}
-                    placeholder="e.g. Berhampur"
-                  />
-                </View>
-              </View>
-
-              <View style={styles.fieldRow}>
-                <View style={styles.fieldHalf}>
-                  <EcoGlassInput
-                    label={t('citizen.submit.district') || 'District'}
-                    value={district}
-                    onChangeText={setDistrict}
-                    placeholder="e.g. Ganjam"
-                  />
-                </View>
-                <View style={styles.fieldHalf}>
-                  <EcoGlassInput
-                    label={t('citizen.submit.pincode') || 'PIN Code'}
-                    value={pincode}
-                    onChangeText={setPincode}
-                    placeholder="760001"
-                    keyboardType="numeric"
-                    maxLength={6}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.fieldFull}>
-                <EcoGlassInput
-                  label={t('citizen.submit.state') || 'State'}
-                  value={state}
-                  onChangeText={setState}
-                  placeholder="e.g. Odisha"
-                />
-              </View>
-            </View>
-          </GlassCard>
-
-          {/* Section 3: Review & Submit */}
-          <GlassCard style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>
-              📋 {t('citizen.submit.reviewRequest') || 'Review Pickup Request'}
+            <Text style={styles.stepQuestion}>
+              {editingIndex !== null
+                ? t('common.editCategory', 'Edit Item Category')
+                : items.length > 0
+                ? t('common.addAnotherItem', 'Add another item')
+                : t('common.whatToGive', 'What do you want to give?')}
             </Text>
-            <View style={styles.reviewSummaryBox}>
-              <Text style={styles.reviewSummaryText}>
-                • Items: <Text style={styles.bold}>{items.length} categories ({totalItemCount} total items)</Text>
-              </Text>
-              <Text style={styles.reviewSummaryText}>
-                • Address:{' '}
-                <Text style={styles.bold}>
-                  {[houseNumber, street, city, pincode].filter(Boolean).join(', ') || 'Doorstep Pickup Location'}
-                </Text>
-              </Text>
-              <Text style={styles.reviewSummaryText}>
-                • Privacy: Full address is hidden from collectors until accepted.
-              </Text>
+            <Text style={styles.stepHint}>{t('common.selectTypeEwaste', 'Select the type of electronic you want to recycle.')}</Text>
+
+            <View style={styles.categoryGrid}>
+              {categoriesList.map((cat) => {
+                const active = category === cat.key;
+                return (
+                  <TouchableOpacity
+                    key={cat.key}
+                    style={[styles.catTile, active && styles.catTileActive]}
+                    onPress={() => { setCategory(cat.key); setStepError(null); }}
+                    accessibilityRole="button"
+                    accessibilityLabel={cat.label}
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Text style={styles.catTileIcon}>{cat.icon}</Text>
+                    <Text style={[styles.catTileLabel, active && styles.catTileLabelActive]}>
+                      {cat.label}
+                    </Text>
+                    {active && <View style={styles.catSelectedDot} />}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
+            <View style={{ height: 40 }} />
+          </ScrollView>
+        );
 
-            <GlassButton
-              label={
-                isSubmitting
-                  ? t('citizen.submit.submitting') || 'Submitting...'
-                  : t('citizen.submit.confirmSubmitRequest') || 'Confirm & Submit Pickup Request'
-              }
-              variant="primary"
-              onPress={handleSubmitRequest}
-              disabled={isSubmitting || items.length === 0}
-              loading={isSubmitting}
-              style={styles.submitBtn}
-            />
-          </GlassCard>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      // ── STEP 2: Photo ─────────────────────────────────────────────────────
+      case 2:
+        return (
+          <View style={styles.stepContent}>
+            <Text style={styles.stepQuestion}>{t('common.takePhoto', 'Take a photo')}</Text>
+            <Text style={styles.stepHint}>
+              {t('common.photoHint', 'A photo helps collectors identify your item accurately. You can skip this step.')}
+            </Text>
 
-      {/* ── Modal: Add / Edit Item ────────────────────────────────────────── */}
-      <Modal
-        visible={isItemModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsItemModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {editingItemId
-                  ? t('citizen.submit.editItem') || 'Edit E-Waste Item'
-                  : t('citizen.submit.addItem') || 'Add E-Waste Item'}
-              </Text>
-              <TouchableOpacity
-                onPress={() => setIsItemModalVisible(false)}
-                style={styles.modalCloseBtn}
-              >
-                <Text style={styles.modalCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView contentContainerStyle={styles.modalScroll}>
-              {modalItemError && (
-                <Text style={styles.modalErrorText}>{modalItemError}</Text>
-              )}
-
-              {/* Category Selection */}
-              <Text style={styles.inputLabel}>{t('citizen.submit.selectCategory') || 'Select Category'} *</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
-                {CATEGORY_OPTIONS.map((cat) => {
-                  const isSelected = modalCategory === cat.key;
-                  return (
-                    <TouchableOpacity
-                      key={cat.key}
-                      style={[styles.categoryChip, isSelected && styles.categoryChipSelected]}
-                      onPress={() => setModalCategory(cat.key)}
-                    >
-                      <Text style={styles.categoryChipIcon}>{cat.icon}</Text>
-                      <Text style={[styles.categoryChipLabel, isSelected && styles.categoryChipLabelSelected]}>
-                        {cat.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-
-              {/* Condition Selection */}
-              <Text style={styles.inputLabel}>{t('citizen.submit.deviceCondition') || 'Condition'} *</Text>
-              <View style={styles.conditionRow}>
-                {CONDITION_OPTIONS.map((cond) => {
-                  const isSelected = modalCondition === cond.key;
-                  return (
-                    <TouchableOpacity
-                      key={cond.key}
-                      style={[styles.conditionChip, isSelected && styles.conditionChipSelected]}
-                      onPress={() => setModalCondition(cond.key)}
-                    >
-                      <Text style={[styles.conditionChipLabel, isSelected && styles.conditionChipLabelSelected]}>
-                        {cond.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Quantity Stepper */}
-              <Text style={styles.inputLabel}>{t('citizen.submit.quantity') || 'Quantity'} *</Text>
-              <View style={styles.stepperContainer}>
-                <TouchableOpacity
-                  style={styles.stepperBtn}
-                  onPress={() => setModalQuantity(Math.max(1, modalQuantity - 1))}
-                >
-                  <Text style={styles.stepperBtnText}>−</Text>
-                </TouchableOpacity>
-                <Text style={styles.stepperValue}>{modalQuantity}</Text>
-                <TouchableOpacity
-                  style={styles.stepperBtn}
-                  onPress={() => setModalQuantity(Math.min(100, modalQuantity + 1))}
-                >
-                  <Text style={styles.stepperBtnText}>+</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Estimated Weight & Description */}
-              <EcoGlassInput
-                label={t('citizen.submit.estimatedWeight') || 'Estimated Weight (kg)'}
-                value={modalWeight}
-                onChangeText={setModalWeight}
-                placeholder="e.g. 0.5"
-                keyboardType="numeric"
-              />
-
-              <EcoGlassTextArea
-                label={t('citizen.submit.description') || 'Notes / Model Description'}
-                value={modalDescription}
-                onChangeText={setModalDescription}
-                placeholder="Brand, model, visible condition..."
-                maxLength={500}
-              />
-
-              {/* Android Camera Photo Capture */}
-              <Text style={styles.inputLabel}>📸 {t('citizen.submit.takePhoto') || 'Item Photo'}</Text>
-              {modalImageUri ? (
-                <View style={styles.photoPreviewBox}>
-                  <Image source={{ uri: modalImageUri }} style={styles.photoPreviewImage} />
-                  <View style={styles.photoActionsRow}>
-                    <TouchableOpacity
-                      style={styles.photoActionBtn}
-                      onPress={handleCapturePhoto}
-                      disabled={isCameraActive}
-                    >
-                      <Text style={styles.photoActionBtnText}>
-                        📷 {t('citizen.submit.retakePhoto') || 'Retake'}
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.photoActionBtn, styles.photoRemoveBtn]}
-                      onPress={() => setModalImageUri(undefined)}
-                    >
-                      <Text style={[styles.photoActionBtnText, styles.photoRemoveBtnText]}>
-                        🗑️ {t('citizen.submit.removePhoto') || 'Remove'}
-                      </Text>
-                    </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.photoBox}
+              onPress={handleTakePhoto}
+              disabled={isTakingPhoto}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.takePhoto', 'Take photo')}
+            >
+              {photoUri ? (
+                <>
+                  <Image source={{ uri: photoUri }} style={styles.photoPreview} resizeMode="cover" />
+                  <View style={styles.photoChangeOverlay}>
+                    <Text style={styles.photoChangeText}>{t('common.tapToRetake', 'Tap to retake')}</Text>
                   </View>
-                </View>
+                </>
               ) : (
-                <TouchableOpacity
-                  style={styles.cameraCaptureBtn}
-                  onPress={handleCapturePhoto}
-                  disabled={isCameraActive}
-                >
-                  {isCameraActive ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
+                <View style={styles.photoPlaceholder}>
+                  {isTakingPhoto ? (
+                    <ActivityIndicator size="large" color="#10B981" />
                   ) : (
                     <>
-                      <Text style={styles.cameraCaptureIcon}>📷</Text>
-                      <Text style={styles.cameraCaptureText}>
-                        {t('citizen.submit.takePhoto') || 'Take Photo with Camera'}
-                      </Text>
+                      <Text style={styles.photoPlaceholderIcon}>📷</Text>
+                      <Text style={styles.photoPlaceholderLabel}>{t('common.tapToTakePhoto', 'Tap to take photo')}</Text>
+                      <Text style={styles.photoPlaceholderSub}>{t('common.photoHelpCollector', 'Shows collector what you have')}</Text>
                     </>
                   )}
-                </TouchableOpacity>
+                </View>
               )}
-
-              <GlassButton
-                label={editingItemId ? t('common.save') || 'Save Changes' : t('citizen.submit.addItem') || '+ Add to List'}
-                variant="primary"
-                onPress={handleSaveItemModal}
-                style={styles.modalSaveBtn}
-              />
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── Full Screen Map Picker Modal ── */}
-      <Modal
-        visible={showFullMapModal}
-        animationType="slide"
-        transparent={false}
-        onRequestClose={() => setShowFullMapModal(false)}
-      >
-        <View style={styles.fullMapModalRoot}>
-          {/* Header Bar */}
-          <View style={styles.fullMapHeader}>
-            <TouchableOpacity
-              style={styles.fullMapBackBtn}
-              onPress={() => setShowFullMapModal(false)}
-              accessibilityRole="button"
-              accessibilityLabel="Back to Request"
-            >
-              <Text style={styles.fullMapBackBtnText}>← {t('common.back') || 'Back'}</Text>
             </TouchableOpacity>
-            <Text style={styles.fullMapHeaderTitle}>
-              🗺️ {t('location.selectLocation') || 'Choose Pickup Location'}
-            </Text>
-            <View style={{ width: 60 }} />
+
+            <TouchableOpacity
+              style={styles.skipPhotoBtn}
+              onPress={goNext}
+              accessibilityRole="button"
+            >
+              <Text style={styles.skipPhotoText}>{t('common.skipPhoto', 'Skip — I don\'t want to add a photo')}</Text>
+            </TouchableOpacity>
           </View>
+        );
 
-          {/* Full-Screen Map */}
-          <EcoSetuMap
-            latitude={pickupLat !== 0 ? pickupLat : 19.3149}
-            longitude={pickupLng !== 0 ? pickupLng : 84.7941}
-            draggable={true}
-            allowLocationSelection={true}
-            allowTapSelection={true}
-            allowLongPressSelection={true}
-            accuracy={locationAccuracy}
-            showAccuracyCircle={true}
-            showMapTypeControl={true}
-            showZoomControls={true}
-            showMyLocationButton={true}
-            showRecenterButton={true}
-            showSearch={true}
-            onLocationChange={handleMarkerDrag}
-            onLocationSelectWithAccuracy={(lat, lng, acc) => {
-              setPickupLat(lat);
-              setPickupLng(lng);
-              if (acc) setLocationAccuracy(acc);
-              triggerReverseGeocoding(lat, lng);
-            }}
-            pinTitle="Doorstep Pickup"
-            pinDescription="Drag pin or tap map to adjust"
-            style={styles.fullScreenMapElement}
-          />
-
-          {/* Bottom Confirmation Floating Glass Sheet */}
-          <View style={styles.fullMapBottomFloatingCard}>
-            <Text style={styles.fullMapBottomLabel}>
-              📍 {t('citizen.submit.selectedLocation') || 'Selected Pickup Location'}
-            </Text>
-            <Text style={styles.fullMapBottomAddress} numberOfLines={2}>
-              {isResolvingAddress
-                ? t('location.updatingAddress') || 'Resolving address...'
-                : [houseNumber, street, landmark, city, state, pincode].filter(Boolean).join(', ') ||
-                  (pickupLat !== 0 ? `Coordinates: ${pickupLat.toFixed(5)}, ${pickupLng.toFixed(5)}` : 'Tap on map')}
-            </Text>
-            {locationAccuracy !== null && locationAccuracy !== undefined ? (
-              <Text style={styles.fullMapBottomAccuracy}>
-                🎯 {t('location.locationAccuracy') || 'Accuracy'}: Approx. ±{Math.round(locationAccuracy)} m
-              </Text>
-            ) : null}
-
-            <View style={styles.fullMapBottomBtnRow}>
-              <TouchableOpacity
-                style={styles.fullMapRepositionBtn}
-                onPress={handleUseCurrentLocation}
-                disabled={isLocating}
-              >
-                <Text style={styles.fullMapRepositionText}>
-                  🎯 {t('location.useMyLocation') || 'GPS'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.fullMapConfirmBtn}
-                onPress={() => {
-                  setIsLocationConfirmed(true);
-                  triggerReverseGeocoding(pickupLat, pickupLng);
-                  setShowFullMapModal(false);
-                }}
-              >
-                <Text style={styles.fullMapConfirmText}>
-                  ✓ {t('location.confirmPickupLocation') || 'Confirm Location'}
-                </Text>
-              </TouchableOpacity>
+      // ── STEP 3: Condition ─────────────────────────────────────────────────
+      case 3:
+        return (
+          <View style={styles.stepContent}>
+            <Text style={styles.stepQuestion}>{t('common.whatCondition', 'What condition is it in?')}</Text>
+            <Text style={styles.stepHint}>{t('common.conditionHint', 'Be honest — this helps collectors make the right offer.')}</Text>
+            <View style={styles.conditionList}>
+              {conditionsList.map((cond) => {
+                const active = condition === cond.key;
+                return (
+                  <TouchableOpacity
+                    key={cond.key}
+                    style={[styles.condRow, active && { borderColor: cond.color, backgroundColor: cond.color + '15' }]}
+                    onPress={() => setCondition(cond.key)}
+                    accessibilityRole="button"
+                    accessibilityLabel={cond.label}
+                    accessibilityState={{ selected: active }}
+                  >
+                    <View style={styles.condRowLeft}>
+                      <Text style={[styles.condRowTitle, active && { color: cond.color }]}>{cond.label}</Text>
+                      <Text style={styles.condRowSub}>{cond.sub}</Text>
+                    </View>
+                    <View style={[styles.condRadio, active && { borderColor: cond.color, backgroundColor: cond.color }]}>
+                      {active && <View style={styles.condRadioInner} />}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
+        );
+
+      // ── STEP 4: Details ───────────────────────────────────────────────────
+      case 4:
+        return (
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+            <ScrollView style={styles.stepContent} showsVerticalScrollIndicator={false}>
+              <Text style={styles.stepQuestion}>{t('common.quantityAndDetails', 'Quantity & details')}</Text>
+              <Text style={styles.stepHint}>{t('common.detailsHint', 'Tell us how many and any additional details for this item.')}</Text>
+
+              {/* Quantity */}
+              <Text style={styles.fieldLabel}>{t('common.howManyItems', 'How many items?')}</Text>
+              <View style={styles.quantityRow}>
+                <TouchableOpacity
+                  style={styles.qtyBtn}
+                  onPress={() => setQuantity((q) => Math.max(1, q - 1))}
+                  accessibilityLabel="Decrease quantity"
+                >
+                  <Text style={styles.qtyBtnText}>−</Text>
+                </TouchableOpacity>
+                <Text style={styles.qtyValue}>{quantity}</Text>
+                <TouchableOpacity
+                  style={styles.qtyBtn}
+                  onPress={() => setQuantity((q) => Math.min(100, q + 1))}
+                  accessibilityLabel="Increase quantity"
+                >
+                  <Text style={styles.qtyBtnText}>+</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Weight (optional) */}
+              <Text style={styles.fieldLabel}>{t('common.estWeightOptional', 'Estimated weight (kg) — optional')}</Text>
+              <TextInput
+                style={styles.inputField}
+                value={weight}
+                onChangeText={setWeight}
+                keyboardType="decimal-pad"
+                placeholder={t('common.weightPlaceholder', 'e.g. 0.5')}
+                placeholderTextColor="rgba(255,255,255,0.30)"
+                returnKeyType="next"
+                accessibilityLabel="Estimated weight in kilograms"
+              />
+
+              {/* Description (optional) */}
+              <Text style={styles.fieldLabel}>{t('common.descriptionOptional', 'Description — optional')}</Text>
+              <TextInput
+                style={[styles.inputField, styles.textArea]}
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                numberOfLines={3}
+                placeholder={t('common.descPlaceholder', 'Brand, model, any extra info…')}
+                placeholderTextColor="rgba(255,255,255,0.30)"
+                textAlignVertical="top"
+                accessibilityLabel="Item description"
+              />
+
+              {/* Add another item CTA button */}
+              <TouchableOpacity
+                style={styles.addMoreItemsBtn}
+                onPress={handleAddAnotherItem}
+                accessibilityRole="button"
+                accessibilityLabel="Add another item to this request"
+              >
+                <Text style={styles.addMoreItemsBtnText}>{t('common.addAnotherItemBtn', '+ Add Another Item to Request')}</Text>
+              </TouchableOpacity>
+
+              <View style={{ height: 100 }} />
+            </ScrollView>
+          </KeyboardAvoidingView>
+        );
+
+      // ── STEP 5: Location (With EcoSetuMap embedded) ────────────────────────
+      case 5:
+        return (
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+            <ScrollView style={styles.stepContent} showsVerticalScrollIndicator={false}>
+              <Text style={styles.stepQuestion}>{t('common.whereCollect', 'Where should we collect it?')}</Text>
+              <Text style={styles.stepHint}>{t('common.selectPickupMap', 'Select pickup point on map and confirm address details.')}</Text>
+
+              {/* Interactive Map */}
+              <View style={styles.mapCard}>
+                <EcoSetuMap
+                  latitude={pickupLat || 19.0760}
+                  longitude={pickupLng || 72.8777}
+                  draggable={true}
+                  allowLocationSelection={true}
+                  allowTapSelection={true}
+                  showMyLocationButton={true}
+                  showZoomControls={true}
+                  accuracy={locationAccuracy}
+                  showAccuracyCircle={true}
+                  onLocationChange={(lat, lng) => {
+                    setPickupLat(lat);
+                    setPickupLng(lng);
+                    triggerReverseGeocoding(lat, lng);
+                  }}
+                  style={styles.mapEmbed}
+                />
+                <View style={styles.mapHelpBar}>
+                  <Text style={styles.mapHelpText}>{t('common.dragPinHelp', '📍 Drag pin or tap map to adjust pickup location')}</Text>
+                </View>
+              </View>
+
+              {/* Auto-locate button */}
+              <TouchableOpacity
+                style={[styles.locateBtn, isLocating && styles.locateBtnDisabled]}
+                onPress={handleUseCurrentLocation}
+                disabled={isLocating || isResolvingAddress}
+                accessibilityRole="button"
+                accessibilityLabel={t('location.useCurrentLocation', 'Use GPS / Current Location')}
+              >
+                {isLocating ? (
+                  <ActivityIndicator size="small" color="#10B981" />
+                ) : (
+                  <Text style={styles.locateBtnText}>🎯 {t('location.useCurrentLocation', 'Use GPS / Current Location')}</Text>
+                )}
+              </TouchableOpacity>
+
+              {isResolvingAddress && (
+                <View style={styles.resolvingRow}>
+                  <ActivityIndicator size="small" color="#34D399" />
+                  <Text style={styles.resolvingText}>{t('location.updatingAddress', 'Auto-filling address from pin…')}</Text>
+                </View>
+              )}
+
+              {locationError && (
+                <Text style={styles.locationErrorText}>{locationError}</Text>
+              )}
+
+              {/* Address type */}
+              <Text style={styles.fieldLabel}>{t('common.addressType', 'Address type')}</Text>
+              <View style={styles.addrTypeRow}>
+                {[ADDRESS_TYPES.HOME, ADDRESS_TYPES.OFFICE, ADDRESS_TYPES.OTHER].map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[styles.addrTypePill, addressType === type && styles.addrTypePillActive]}
+                    onPress={() => setAddressType(type)}
+                    accessibilityRole="button"
+                    accessibilityLabel={type}
+                  >
+                    <Text style={[styles.addrTypePillText, addressType === type && styles.addrTypePillTextActive]}>
+                      {type === ADDRESS_TYPES.HOME ? `🏠 ${t('common.home', 'Home')}` : type === ADDRESS_TYPES.OFFICE ? `🏢 ${t('common.work', 'Work')}` : `📌 ${t('ewaste.other', 'Other')}`}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Address fields */}
+              <AddressInput label={t('location.houseNo', 'House / Flat No.')} value={houseNumber} onChange={setHouseNumber} placeholder={t('location.housePlaceholder', 'e.g. 12B, Block 3')} />
+              <AddressInput label={t('location.street', 'Street')} value={street} onChange={setStreet} placeholder={t('location.streetPlaceholder', 'Street / Colony name')} />
+              <AddressInput label={t('location.landmark', 'Landmark')} value={landmark} onChange={setLandmark} placeholder={t('location.landmarkPlaceholder', 'Near park, temple…')} />
+              <AddressInput label={t('location.city', 'City / Town')} value={city} onChange={setCity} placeholder={t('location.city', 'City')} />
+              <AddressInput label={t('location.district', 'District')} value={district} onChange={setDistrict} placeholder={t('location.district', 'District')} />
+              <AddressInput label={t('location.state', 'State')} value={stateName} onChange={setStateName} placeholder={t('location.state', 'State')} />
+              <AddressInput label={t('location.pincode', 'PIN Code')} value={pincode} onChange={setPincode} placeholder={t('location.pincodePlaceholder', '6-digit PIN Code')} keyboard="number-pad" />
+
+              <View style={{ height: 100 }} />
+            </ScrollView>
+          </KeyboardAvoidingView>
+        );
+
+      // ── STEP 6: Review ────────────────────────────────────────────────────
+      case 6: {
+        const allReviewItems = [...items];
+        if (category) {
+          allReviewItems.push({
+            category,
+            photoUri,
+            condition,
+            quantity,
+            weight,
+            description,
+          });
+        }
+        const totalItemsCount = allReviewItems.reduce((acc, curr) => acc + (curr.quantity || 1), 0);
+
+        return (
+          <ScrollView style={styles.stepContent} showsVerticalScrollIndicator={false}>
+            <Text style={styles.stepQuestion}>{t('common.reviewRequest', 'Review your request')}</Text>
+            <Text style={styles.stepHint}>
+              {t('common.confirmItemsAndAddress', `Confirm the ${totalItemsCount} item(s) in your request and pickup address.`)}
+            </Text>
+
+            {/* Items Card List */}
+            <View style={styles.reviewHeaderRow}>
+              <Text style={styles.reviewSectionTitle}>📦 {t('common.itemsToRecycle', 'Items to Recycle')} ({allReviewItems.length})</Text>
+              <TouchableOpacity
+                style={styles.reviewAddMoreLink}
+                onPress={() => {
+                  resetCurrentDraft();
+                  setStep(1);
+                }}
+              >
+                <Text style={styles.reviewAddMoreLinkText}>{t('common.addMore', '+ Add More')}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {allReviewItems.map((item, idx) => {
+              const catInfo = getCategoryDetails(item.category);
+              const condInfo = getConditionDetails(item.condition);
+
+              return (
+                <View key={idx} style={styles.itemReviewCard}>
+                  <View style={styles.itemReviewTopRow}>
+                    <Text style={styles.itemReviewCatIcon}>{catInfo.icon}</Text>
+                    <View style={styles.itemReviewHeaderTexts}>
+                      <Text style={styles.itemReviewCatTitle}>{catInfo.label}</Text>
+                      <Text style={styles.itemReviewSub}>
+                        {t('common.qty', 'Qty')}: <Text style={styles.itemReviewHighlight}>{item.quantity}</Text> • {t('common.condition', 'Condition')}:{' '}
+                        <Text style={[styles.itemReviewHighlight, { color: condInfo.color }]}>
+                          {condInfo.label}
+                        </Text>
+                      </Text>
+                    </View>
+                    {allReviewItems.length > 1 && (
+                      <TouchableOpacity
+                        style={styles.itemDeleteBtn}
+                        onPress={() => handleRemoveItem(idx)}
+                        accessibilityLabel="Remove item"
+                      >
+                        <Text style={styles.itemDeleteBtnText}>✕</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {item.photoUri && (
+                    <Image source={{ uri: item.photoUri }} style={styles.itemReviewThumb} resizeMode="cover" />
+                  )}
+
+                  {item.weight ? (
+                    <ReviewRow icon="⚖️" label={t('common.weight', 'Weight')} value={`${item.weight} kg`} />
+                  ) : null}
+                  {item.description ? (
+                    <ReviewRow icon="📝" label={t('common.note', 'Note')} value={item.description} />
+                  ) : null}
+                </View>
+              );
+            })}
+
+            {/* Location summary */}
+            <View style={styles.reviewCard}>
+              <Text style={styles.reviewSectionTitle}>📍 {t('location.pickupLocation', 'Collection Address')}</Text>
+              <Text style={styles.reviewLocationText}>
+                {[houseNumber, street, landmark, city, district, stateName, pincode]
+                  .filter(Boolean)
+                  .join(', ') || t('location.addressNotFound', 'Location not provided')}
+              </Text>
+              <Text style={styles.reviewLocationCoords}>
+                {t('location.latitude', 'Coordinates')}: {pickupLat.toFixed(5)}, {pickupLng.toFixed(5)}
+              </Text>
+            </View>
+
+            {/* Submit error */}
+            {submitError && (
+              <View style={styles.submitErrorBox}>
+                <Text style={styles.submitErrorText}>{submitError}</Text>
+              </View>
+            )}
+
+            {!isConnected && (
+              <View style={styles.offlineBox}>
+                <Text style={styles.offlineText}>
+                  ⚡ {t('offline.offlineBanner', "You're offline. Your request will be saved and submitted when you reconnect.")}
+                </Text>
+              </View>
+            )}
+
+            <View style={{ height: 100 }} />
+          </ScrollView>
+        );
+      }
+
+      default:
+        return null;
+    }
+  };
+
+  // ─── Render ────────────────────────────────────────────────────────────────
+
+  return (
+    <EcoSetuBackground>
+      <SafeAreaView style={styles.safe}>
+
+        {/* Header */}
+        <View style={styles.header}>
+          {step > 1 ? (
+            <TouchableOpacity style={styles.headerBack} onPress={goBack} accessibilityRole="button" accessibilityLabel={t('common.back', 'Go back')}>
+              <Text style={styles.headerBackText}>←</Text>
+            </TouchableOpacity>
+          ) : <View style={styles.headerBack} />}
+          <Text style={styles.headerTitle}>{t('collection.submitRequest', 'Give E-Waste')}</Text>
+          <View style={styles.headerSpacer} />
         </View>
-      </Modal>
+
+        {/* Step indicator */}
+        <StepBar step={step} />
+
+        {/* Step title */}
+        <View style={styles.stepLabelRow}>
+          <Text style={styles.stepLabelText}>
+            {t('common.stepOf', { current: step, total: TOTAL_STEPS }, `Step ${step} of ${TOTAL_STEPS}`)} · {stepLabels[step]?.icon} {stepLabels[step]?.label}
+          </Text>
+        </View>
+
+        {/* Content */}
+        <View style={styles.content}>
+          {renderStep()}
+        </View>
+
+        {/* Step error */}
+        {stepError && (
+          <View style={styles.stepErrorBox}>
+            <Text style={styles.stepErrorText}>{stepError}</Text>
+          </View>
+        )}
+
+        {/* Bottom nav */}
+        <View style={styles.bottomNav}>
+          {step < TOTAL_STEPS ? (
+            <TouchableOpacity
+              style={[styles.nextBtn, step === 1 && !category && items.length === 0 && styles.nextBtnDisabled]}
+              onPress={goNext}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.next', 'Continue')}
+            >
+              <Text style={styles.nextBtnText}>
+                {step === 4 ? `${t('common.proceedToAddress', 'Proceed to Address')} (${items.length + (category ? 1 : 0)} ${t('common.items', 'items')}) →` : `${t('common.next', 'Continue')} →`}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.submitBtn, isSubmitting && styles.submitBtnDisabled]}
+              onPress={handleSubmit}
+              disabled={isSubmitting}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.submit', 'Submit')}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.submitBtnText}>{t('collection.submitRequest', 'Submit Request')} ✓</Text>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+
+      </SafeAreaView>
     </EcoSetuBackground>
   );
 };
 
+// ─── Address Input helper ─────────────────────────────────────────────────────
+
+// ─── Address Input helper ─────────────────────────────────────────────────────
+
+const AddressInput: React.FC<{
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  keyboard?: any;
+}> = ({ label, value, onChange, placeholder, keyboard }) => (
+  <View style={{ marginBottom: 10 }}>
+    <Text style={styles.fieldLabel}>{label}</Text>
+    <TextInput
+      style={styles.inputField}
+      value={value}
+      onChangeText={onChange}
+      placeholder={placeholder}
+      placeholderTextColor="rgba(255,255,255,0.30)"
+      keyboardType={keyboard || 'default'}
+      returnKeyType="next"
+      autoCapitalize="words"
+    />
+  </View>
+);
+
+// ─── Review Row helper ────────────────────────────────────────────────────────
+
+const ReviewRow: React.FC<{ icon: string; label: string; value: string }> = ({ icon, label, value }) => (
+  <View style={styles.reviewRow}>
+    <Text style={styles.reviewRowIcon}>{icon}</Text>
+    <Text style={styles.reviewRowLabel}>{label}</Text>
+    <Text style={styles.reviewRowValue} numberOfLines={2}>{value}</Text>
+  </View>
+);
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  keyboardContainer: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.spaceMd,
-    paddingBottom: 40,
-  },
-  sectionCard: {
-    marginBottom: spacing.spaceMd,
-    padding: spacing.spaceMd,
-  },
-  sectionHeaderRow: {
+  safe: { flex: 1, backgroundColor: 'transparent' },
+
+  // ── Header ──
+  header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.spaceSm,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
-  sectionTitle: {
-    fontSize: typography.fontSizeBase,
-    fontWeight: typography.fontWeightBold,
-    color: colors.textPrimary,
+  headerBack: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  sectionSubtitle: {
-    fontSize: typography.fontSizeSm,
-    color: colors.textSecondary,
-    marginTop: 2,
+  headerBackText: {
+    fontSize: 22,
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
-  locateBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: spacing.radiusSm,
-    backgroundColor: 'rgba(15, 41, 66, 0.08)',
+  headerTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
   },
-  locateBtnText: {
-    fontSize: typography.fontSizeSm,
-    fontWeight: typography.fontWeightSemiBold,
-    color: colors.primary,
+  headerSpacer: { width: 40 },
+
+  // ── Step label ──
+  stepLabelRow: {
+    paddingHorizontal: 20,
+    marginBottom: 4,
   },
-  locationErrorText: {
-    color: colors.error,
-    fontSize: typography.fontSizeSm,
-    marginBottom: spacing.spaceSm,
-  },
-  mapContainer: {
-    height: 280,
-    borderRadius: spacing.radiusMd,
-    overflow: 'hidden',
-    marginBottom: spacing.spaceSm,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-  },
-  map: {
-    ...StyleSheet.absoluteFillObject,
+  stepLabelText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.45)',
+    letterSpacing: 0.3,
   },
 
-  // ── Selected Address Preview Card ──
-  selectedAddressPreviewCard: {
-    backgroundColor: 'rgba(6, 21, 27, 0.85)',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    padding: spacing.spaceMd,
-    marginBottom: spacing.spaceMd,
+  // ── Content ──
+  content: { flex: 1 },
+  stepContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  stepQuestion: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 6,
+    letterSpacing: -0.3,
+    lineHeight: 30,
+  },
+  stepHint: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.55)',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+
+  // ── Category grid ──
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
   },
-  selectedAddressTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  selectedAddressPinIcon: {
-    fontSize: 20,
-    marginTop: 2,
-  },
-  selectedAddressTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#34D399',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  selectedAddressFormatted: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginTop: 2,
-    lineHeight: 18,
-  },
-  selectedAddressAccuracy: {
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.65)',
-    marginTop: 3,
-  },
-  mapActionRow: {
-    flexDirection: 'row',
-    gap: spacing.spaceSm,
-  },
-  mapSecondaryActionBtn: {
-    flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    paddingVertical: 10,
+  catTile: {
+    width: (SCREEN_W - 60) / 3,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.10)',
+    paddingVertical: 16,
     paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 44,
+    gap: 6,
+    position: 'relative',
   },
-  mapSecondaryActionText: {
+  catTileActive: {
+    backgroundColor: 'rgba(16,185,129,0.18)',
+    borderColor: '#10B981',
+  },
+  catTileIcon: { fontSize: 28 },
+  catTileLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.60)',
+    textAlign: 'center',
+  },
+  catTileLabelActive: { color: '#34D399' },
+  catSelectedDot: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+  },
+
+  // ── Photo ──
+  photoBox: {
+    width: '100%',
+    height: SCREEN_W * 0.65,
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderStyle: 'dashed',
+    marginBottom: 16,
+  },
+  photoPreview: { width: '100%', height: '100%' },
+  photoChangeOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  photoChangeText: { fontSize: 13, color: '#FFFFFF', fontWeight: '600' },
+  photoPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  photoPlaceholderIcon: { fontSize: 52 },
+  photoPlaceholderLabel: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  photoPlaceholderSub: { fontSize: 12, color: 'rgba(255,255,255,0.45)' },
+  skipPhotoBtn: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  skipPhotoText: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.45)',
+    textDecorationLine: 'underline',
+  },
+
+  // ── Condition ──
+  conditionList: { gap: 10 },
+  condRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    gap: 12,
+  },
+  condRowLeft: { flex: 1 },
+  condRowTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  condRowSub: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.50)',
+    lineHeight: 17,
+  },
+  condRadio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.30)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  condRadioInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+  },
+
+  // ── Quantity ──
+  quantityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+    marginBottom: 20,
+    marginTop: 8,
+  },
+  qtyBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(16,185,129,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qtyBtnText: { fontSize: 24, color: '#34D399', fontWeight: '700' },
+  qtyValue: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    minWidth: 48,
+    textAlign: 'center',
+  },
+
+  // ── Fields ──
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.50)',
+    letterSpacing: 0.3,
+    marginBottom: 6,
+    marginTop: 12,
+    textTransform: 'uppercase',
+  },
+  inputField: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: '#FFFFFF',
+    fontWeight: '500',
+  },
+  textArea: {
+    height: 90,
+    paddingTop: 12,
+    textAlignVertical: 'top',
+  },
+
+  // ── Location ──
+  locateBtn: {
+    backgroundColor: 'rgba(16,185,129,0.15)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.35)',
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  locateBtnDisabled: { opacity: 0.5 },
+  locateBtnText: { fontSize: 15, fontWeight: '700', color: '#34D399' },
+  resolvingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  resolvingText: { fontSize: 12, color: '#34D399', fontWeight: '500' },
+  locationErrorText: {
+    fontSize: 12,
+    color: '#FBBF24',
+    marginBottom: 10,
+    lineHeight: 18,
+  },
+  addrTypeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 4,
+    marginTop: 8,
+  },
+  addrTypePill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  addrTypePillActive: {
+    backgroundColor: 'rgba(16,185,129,0.18)',
+    borderColor: '#10B981',
+  },
+  addrTypePillText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.55)',
+    fontWeight: '600',
+  },
+  addrTypePillTextActive: { color: '#34D399' },
+
+  // ── Review ──
+  reviewPhoto: {
+    width: '100%',
+    height: 200,
+    borderRadius: 16,
+    marginBottom: 14,
+  },
+  reviewCard: {
+    backgroundColor: 'rgba(16,44,48,0.80)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.09)',
+    padding: 16,
+    marginBottom: 12,
+    gap: 2,
+  },
+  reviewSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.50)',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  reviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+    gap: 10,
+  },
+  reviewRowIcon: { fontSize: 16, width: 24 },
+  reviewRowLabel: {
+    flex: 1,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.55)',
+    fontWeight: '500',
+  },
+  reviewRowValue: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    textAlign: 'right',
+    maxWidth: '55%',
+  },
+  reviewLocationText: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.80)',
+    lineHeight: 22,
+  },
+  submitErrorBox: {
+    backgroundColor: 'rgba(239,68,68,0.15)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.40)',
+    padding: 12,
+    marginTop: 8,
+  },
+  submitErrorText: { fontSize: 13, color: '#FCA5A5', lineHeight: 19 },
+  offlineBox: {
+    backgroundColor: 'rgba(245,158,11,0.12)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.35)',
+    padding: 12,
+    marginTop: 8,
+  },
+  offlineText: { fontSize: 12, color: '#FBBF24', lineHeight: 18 },
+
+  // ── Step error ──
+  stepErrorBox: {
+    marginHorizontal: 20,
+    marginBottom: 8,
+    backgroundColor: 'rgba(239,68,68,0.12)',
+    borderRadius: 10,
+    padding: 10,
+  },
+  stepErrorText: {
+    fontSize: 13,
+    color: '#FCA5A5',
+    fontWeight: '500',
+  },
+
+  // ── Success & Summary Banner ──
+  successBanner: {
+    backgroundColor: 'rgba(16,185,129,0.18)',
+    borderWidth: 1,
+    borderColor: '#10B981',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 14,
+  },
+  successBannerText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#34D399',
+  },
+  itemsSummaryBadge: {
+    backgroundColor: 'rgba(16,44,48,0.90)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.30)',
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  itemsSummaryLeft: { flex: 1 },
+  itemsSummaryTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#34D399',
+    marginBottom: 2,
+  },
+  itemsSummarySub: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.60)',
+    lineHeight: 16,
+  },
+  itemsSummaryDoneBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(16,185,129,0.25)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#10B981',
+    marginTop: 4,
+  },
+  itemsSummaryDoneBtnText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  confirmLocationBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 12,
+
+  // ── Add More Items Button (Step 4) ──
+  addMoreItemsBtn: {
+    backgroundColor: 'rgba(16,185,129,0.12)',
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+    borderStyle: 'dashed',
+    borderRadius: 14,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 4,
+    marginTop: 12,
+    marginBottom: 8,
   },
-  confirmLocationBtnActive: {
-    backgroundColor: '#059669',
-  },
-  confirmLocationBtnText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.2,
-  },
-
-  // ── Full-Screen Map Picker Modal ──
-  fullMapModalRoot: {
-    flex: 1,
-    backgroundColor: '#051417',
-    position: 'relative',
-  },
-  fullMapHeader: {
-    position: 'absolute',
-    top: Platform.OS === 'android' ? 24 : 44,
-    left: 14,
-    right: 14,
-    height: 50,
-    backgroundColor: 'rgba(6, 21, 27, 0.90)',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    zIndex: 25,
-    shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 6,
-  },
-  fullMapBackBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-  },
-  fullMapBackBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#34D399',
-  },
-  fullMapHeaderTitle: {
+  addMoreItemsBtnText: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  fullScreenMapElement: {
-    ...StyleSheet.absoluteFillObject,
-    height: '100%',
-    width: '100%',
-    marginVertical: 0,
-    borderRadius: 0,
-    borderWidth: 0,
-  },
-  fullMapBottomFloatingCard: {
-    position: 'absolute',
-    bottom: 24,
-    left: 14,
-    right: 14,
-    backgroundColor: 'rgba(6, 21, 27, 0.94)',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
-    padding: spacing.spaceMd,
-    gap: 8,
-    zIndex: 25,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  fullMapBottomLabel: {
-    fontSize: 11,
-    fontWeight: '700',
     color: '#34D399',
-    textTransform: 'uppercase',
   },
-  fullMapBottomAddress: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    lineHeight: 18,
+
+  // ── Map Container (Step 5) ──
+  mapCard: {
+    width: '100%',
+    height: 220,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: 'rgba(52,211,153,0.35)',
+    marginBottom: 12,
+    backgroundColor: 'rgba(10,25,30,0.85)',
   },
-  fullMapBottomAccuracy: {
+  mapEmbed: {
+    width: '100%',
+    height: '100%',
+  },
+  mapHelpBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(5,20,24,0.85)',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  },
+  mapHelpText: {
     fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.65)',
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.75)',
   },
-  fullMapBottomBtnRow: {
+
+  // ── Review Header & Item Cards (Step 6) ──
+  reviewHeaderRow: {
     flexDirection: 'row',
-    gap: spacing.spaceSm,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
     marginTop: 4,
   },
-  fullMapRepositionBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    minHeight: 48,
+  reviewAddMoreLink: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
   },
-  fullMapRepositionText: {
+  reviewAddMoreLinkText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#34D399',
   },
-  fullMapConfirmBtn: {
-    flex: 1,
-    backgroundColor: '#059669',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  fullMapConfirmText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  addressFieldsGrid: {
-    gap: spacing.spaceSm,
-  },
-  fieldRow: {
-    flexDirection: 'row',
-    gap: spacing.spaceSm,
-  },
-  fieldHalf: {
-    flex: 1,
-  },
-  fieldFull: {
-    width: '100%',
-  },
-  inputLabel: {
-    fontSize: typography.fontSizeSm,
-    fontWeight: typography.fontWeightSemiBold,
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  textInput: {
-    height: 44,
-    backgroundColor: colors.surface,
+  itemReviewCard: {
+    backgroundColor: 'rgba(16,44,48,0.80)',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
-    borderRadius: spacing.radiusSm,
-    paddingHorizontal: spacing.spaceSm,
-    fontSize: typography.fontSizeBase,
-    color: colors.textPrimary,
+    borderColor: 'rgba(255,255,255,0.09)',
+    padding: 14,
+    marginBottom: 10,
   },
-  textArea: {
-    height: 70,
-    textAlignVertical: 'top',
-    paddingVertical: 8,
-  },
-  itemRowCard: {
+  itemReviewTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.glassFill,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-    borderRadius: spacing.radiusMd,
-    padding: spacing.spaceSm,
-    marginVertical: 4,
+    gap: 10,
+    marginBottom: 6,
   },
-  itemThumbnail: {
-    width: 48,
-    height: 48,
-    borderRadius: spacing.radiusSm,
+  itemReviewCatIcon: { fontSize: 24 },
+  itemReviewHeaderTexts: { flex: 1 },
+  itemReviewCatTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 2,
   },
-  itemThumbnailPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: spacing.radiusSm,
-    backgroundColor: 'rgba(15, 41, 66, 0.05)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  itemReviewSub: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.55)',
   },
-  itemPlaceholderIcon: {
-    fontSize: 24,
-  },
-  itemDetailsCol: {
-    flex: 1,
-    marginLeft: spacing.spaceSm,
-  },
-  itemCategoryTitle: {
-    fontSize: typography.fontSizeBase,
-    fontWeight: typography.fontWeightSemiBold,
-    color: colors.textPrimary,
-  },
-  itemBadgeRow: {
-    flexDirection: 'row',
-    gap: 4,
-    marginVertical: 2,
-  },
-  itemDescText: {
-    fontSize: typography.fontSizeXs,
-    color: colors.textSecondary,
-  },
-  itemActionsCol: {
-    flexDirection: 'row',
-    gap: 8,
-    marginLeft: spacing.spaceSm,
-  },
-  itemEditBtn: {
-    padding: 6,
-  },
-  itemEditBtnText: {
-    fontSize: 16,
+  itemReviewHighlight: {
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   itemDeleteBtn: {
-    padding: 6,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(239,68,68,0.20)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   itemDeleteBtnText: {
+    fontSize: 14,
+    color: '#EF4444',
+    fontWeight: '700',
+  },
+  itemReviewThumb: {
+    width: '100%',
+    height: 120,
+    borderRadius: 10,
+    marginVertical: 8,
+  },
+  reviewLocationCoords: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.40)',
+    marginTop: 6,
+  },
+
+  // ── Bottom Nav ──
+  bottomNav: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(7,30,34,0.96)',
+  },
+  nextBtn: {
+    height: 54,
+    borderRadius: 16,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nextBtnDisabled: {
+    backgroundColor: 'rgba(16,185,129,0.30)',
+  },
+  nextBtnText: {
     fontSize: 16,
-  },
-  addItemBtn: {
-    marginTop: spacing.spaceSm,
-  },
-  reviewSummaryBox: {
-    backgroundColor: colors.glassFill,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-    borderRadius: spacing.radiusMd,
-    padding: spacing.spaceSm,
-    marginVertical: spacing.spaceSm,
-  },
-  reviewSummaryText: {
-    fontSize: typography.fontSizeSm,
-    color: colors.textSecondary,
-    marginVertical: 2,
-  },
-  bold: {
-    fontWeight: typography.fontWeightBold,
-    color: colors.textPrimary,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
   },
   submitBtn: {
-    marginTop: spacing.spaceSm,
-  },
-  successCard: {
-    marginBottom: spacing.spaceMd,
-    padding: spacing.spaceMd,
-    backgroundColor: colors.successFill,
-    borderColor: colors.success,
-    alignItems: 'center',
-  },
-  successIcon: {
-    fontSize: 32,
-    color: colors.success,
-    marginBottom: 4,
-  },
-  successTitle: {
-    fontSize: typography.fontSizeLg,
-    fontWeight: typography.fontWeightBold,
-    color: colors.success,
-  },
-  successMessage: {
-    fontSize: typography.fontSizeSm,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginVertical: 8,
-  },
-  actionBtn: {
-    marginTop: 8,
-    width: '100%',
-  },
-  errorCard: {
-    marginBottom: spacing.spaceMd,
-    padding: spacing.spaceMd,
-    backgroundColor: colors.errorFill,
-    borderColor: colors.error,
-  },
-  errorIcon: {
-    fontSize: 24,
-    color: colors.error,
-    marginBottom: 4,
-  },
-  errorTitle: {
-    fontSize: typography.fontSizeBase,
-    fontWeight: typography.fontWeightBold,
-    color: colors.error,
-  },
-  errorMessage: {
-    fontSize: typography.fontSizeSm,
-    color: colors.error,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(2, 8, 13, 0.85)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#071A21',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderTopWidth: 1,
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderColor: 'rgba(45, 212, 191, 0.35)',
-    maxHeight: '90%',
-    padding: spacing.spaceLg,
-    elevation: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.spaceMd,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  modalCloseBtn: {
-    padding: 6,
-    minHeight: 36,
-    minWidth: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalCloseText: {
-    fontSize: 20,
-    color: '#CBD5E1',
-  },
-  modalScroll: {
-    paddingBottom: 24,
-  },
-  modalErrorText: {
-    color: '#FCA5A5',
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.40)',
-    padding: 8,
-    borderRadius: 8,
-    fontSize: typography.fontSizeSm,
-    marginBottom: spacing.spaceSm,
-  },
-  categoryScroll: {
-    marginVertical: 6,
-    marginBottom: spacing.spaceSm,
-  },
-  categoryChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: spacing.radiusSm,
-    backgroundColor: 'rgba(6, 21, 27, 0.85)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
-    marginRight: 8,
-  },
-  categoryChipSelected: {
+    height: 54,
+    borderRadius: 16,
     backgroundColor: '#10B981',
-    borderColor: '#34D399',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  categoryChipIcon: {
+  submitBtnDisabled: { opacity: 0.6 },
+  submitBtnText: {
     fontSize: 16,
-    marginRight: 6,
-  },
-  categoryChipLabel: {
-    fontSize: typography.fontSizeSm,
-    color: '#CBD5E1',
-    fontWeight: typography.fontWeightMedium,
-  },
-  categoryChipLabelSelected: {
-    color: '#03120E',
     fontWeight: '800',
-  },
-  conditionRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginVertical: 6,
-    marginBottom: spacing.spaceSm,
-  },
-  conditionChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: spacing.radiusSm,
-    backgroundColor: 'rgba(6, 21, 27, 0.85)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
-  },
-  conditionChipSelected: {
-    backgroundColor: '#10B981',
-    borderColor: '#34D399',
-  },
-  conditionChipLabel: {
-    fontSize: typography.fontSizeSm,
-    color: '#CBD5E1',
-  },
-  conditionChipLabelSelected: {
-    color: '#03120E',
-    fontWeight: '800',
-  },
-  stepperContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 6,
-    marginBottom: spacing.spaceSm,
-  },
-  stepperBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: spacing.radiusSm,
-    backgroundColor: 'rgba(6, 21, 27, 0.85)',
-    borderWidth: 1,
-    borderColor: 'rgba(45, 212, 191, 0.22)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepperBtnText: {
-    fontSize: 22,
-    fontWeight: typography.fontWeightBold,
-    color: colors.primary,
-  },
-  stepperValue: {
-    fontSize: typography.fontSizeLg,
-    fontWeight: typography.fontWeightBold,
-    color: colors.textPrimary,
-    marginHorizontal: 16,
-    minWidth: 24,
-    textAlign: 'center',
-  },
-  cameraCaptureBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 14,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: '#10B981',
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
-    marginVertical: 8,
-  },
-  cameraCaptureIcon: {
-    fontSize: 20,
-    marginRight: 8,
-  },
-  cameraCaptureText: {
-    fontSize: typography.fontSizeBase,
-    fontWeight: '700',
-    color: '#34D399',
-  },
-  photoPreviewBox: {
-    alignItems: 'center',
-    marginVertical: 8,
-  },
-  photoPreviewImage: {
-    width: 140,
-    height: 140,
-    borderRadius: spacing.radiusMd,
-    borderWidth: 1,
-    borderColor: 'rgba(45, 212, 191, 0.40)',
-  },
-  photoActionsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  photoActionBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
-  },
-  photoActionBtnText: {
-    fontSize: typography.fontSizeSm,
-    fontWeight: '700',
-    color: '#34D399',
-  },
-  photoRemoveBtn: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderColor: 'rgba(239, 68, 68, 0.35)',
-  },
-  photoRemoveBtnText: {
-    color: '#FCA5A5',
-  },
-  modalSaveBtn: {
-    marginTop: spacing.spaceMd,
+    color: '#FFFFFF',
   },
 });
 

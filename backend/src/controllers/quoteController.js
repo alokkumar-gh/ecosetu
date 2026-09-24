@@ -83,9 +83,35 @@ class QuoteController {
     }
   }
 
+  async counterQuote(req, res, next) {
+    try {
+      const quote = await quoteService.counterQuote(req.user, req.params.id, req.body, req.ip);
+      res.status(200).json({
+        success: true,
+        message: 'Counter-offer submitted successfully',
+        data: quote,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async getRecyclerQuotes(req, res, next) {
     try {
       const result = await quoteService.getRecyclerQuotes(req.user, req.query);
+      res.status(200).json({
+        success: true,
+        data: result.quotes,
+        pagination: result.pagination,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getCitizenQuotes(req, res, next) {
+    try {
+      const result = await quoteService.getCitizenQuotes(req.user, req.query);
       res.status(200).json({
         success: true,
         data: result.quotes,

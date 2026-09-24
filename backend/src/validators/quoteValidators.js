@@ -15,17 +15,17 @@ const createQuote = Joi.object({
     'any.required': 'quotedUnitPrice is required',
   }),
   unit: Joi.string()
-    .valid(...Object.values(PRICE_UNITS))
+    .valid(...Object.values(PRICE_UNITS), 'TOTAL', 'total', 'item', 'ITEM', 'piece', 'PIECE', 'kg', 'KG')
     .default(PRICE_UNITS.PER_KG),
   currency: Joi.string().max(10).default('INR'),
   quotedQuantity: Joi.number().positive().optional().messages({
     'number.positive': 'quotedQuantity must be strictly positive',
   }),
-  validUntil: Joi.date().iso().greater('now').required().messages({
+  validUntil: Joi.date().iso().greater('now').optional().messages({
     'date.format': 'validUntil must be an ISO date format',
     'date.greater': 'validUntil must be in the future',
-    'any.required': 'validUntil date is required',
   }),
+  validDays: Joi.number().integer().min(1).max(30).optional(),
   notes: Joi.string().max(1000).allow('', null).optional(),
 });
 
@@ -49,10 +49,20 @@ const lotQuotesQuery = Joi.object({
   limit: Joi.number().integer().min(1).max(100).default(20),
 });
 
+const counterQuote = Joi.object({
+  counterUnitPrice: Joi.number().positive().required().messages({
+    'number.base': 'counterUnitPrice must be a number',
+    'number.positive': 'counterUnitPrice must be strictly positive',
+    'any.required': 'counterUnitPrice is required',
+  }),
+  notes: Joi.string().max(1000).allow('', null).optional(),
+});
+
 module.exports = {
   createQuote,
   rejectQuote,
   cancelQuote,
+  counterQuote,
   listQuotesQuery,
   lotQuotesQuery,
 };

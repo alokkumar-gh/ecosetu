@@ -24,6 +24,120 @@ class QuoteService {
   }
 
   /**
+   * Helper: Parse structured negotiation timeline from quote notes and lifecycle timestamps
+   * @param {object} quote
+   * @returns {Array<object>}
+   */
+  parseNegotiationTimeline(quote) {
+    const events = [];
+    if (!quote) return events;
+
+    const unit = quote.unit === 'PER_KG' ? 'kg' : (quote.unit || 'item');
+
+    let initialEventAdded = false;
+    if (quote.notes) {
+      const lines = quote.notes.split('\n');
+      lines.forEach((line, index) => {
+        const match = line.match(/^\[(Collector|Recycler|Citizen|Admin)\s+(?:Offer|Counter)\s+@\s+₹([\d.]+)\/([a-zA-Z_]+)(?::\s*([^()]*?))?\s*(?:\(([^)]+)\))?\]$/);
+        if (match) {
+          const actor = match[1];
+          const rate = parseFloat(match[2]);
+          const matchedUnit = match[3] === 'PER_KG' ? 'kg' : match[3];
+          const noteText = match[4] ? match[4].trim() : null;
+          const timeStr = match[5] ? match[5].trim() : quote.createdAt;
+
+          const isInitial = index === 0 && (line.includes('Offer') || actor === 'Recycler' || actor === 'Citizen');
+          if (isInitial && !initialEventAdded) {
+            initialEventAdded = true;
+            events.push({
+              id: `${quote.id}-initial`,
+              actor: actor === 'Citizen' ? 'Citizen' : 'Recycler',
+              actorName: actor === 'Citizen' ? (quote.buyerUser?.name || 'Citizen') : (quote.recycler?.facilityName || 'Recycler'),
+              actionType: 'INITIAL_OFFER',
+              rate,
+              unit: matchedUnit,
+              quantity: quote.quotedQuantity ? Number(quote.quotedQuantity) : null,
+              total: quote.quotedQuantity ? Math.round(rate * Number(quote.quotedQuantity) * 100) / 100 : null,
+              timestamp: timeStr,
+              notes: noteText,
+              status: quote.status,
+            });
+          } else {
+            events.push({
+              id: `${quote.id}-counter-${index}`,
+              actor,
+              actorName: actor === 'Collector' ? 'Collector' : (actor === 'Citizen' ? (quote.buyerUser?.name || 'Citizen') : (quote.recycler?.facilityName || 'Recycler')),
+              actionType: actor === 'Collector' ? 'COLLECTOR_COUNTER' : (actor === 'Citizen' ? 'CITIZEN_REVISION' : 'RECYCLER_REVISION'),
+              rate,
+              unit: matchedUnit,
+              quantity: quote.quotedQuantity ? Number(quote.quotedQuantity) : null,
+              total: quote.quotedQuantity ? Math.round(rate * Number(quote.quotedQuantity) * 100) / 100 : null,
+              timestamp: timeStr,
+              notes: noteText,
+              status: 'SENT',
+            });
+          }
+        }
+      });
+    }
+
+    if (!initialEventAdded) {
+      const initialActor = quote.isConsumerOffer ? 'Citizen' : 'Recycler';
+      const initialActorName = quote.isConsumerOffer ? (quote.buyerUser?.name || 'Citizen') : (quote.recycler?.facilityName || 'Recycler');
+      events.unshift({
+        id: `${quote.id}-initial`,
+        actor: initialActor,
+        actorName: initialActorName,
+        actionType: 'INITIAL_OFFER',
+        rate: Number(quote.quotedUnitPrice),
+        unit,
+        quantity: quote.quotedQuantity ? Number(quote.quotedQuantity) : null,
+        total: quote.quotedTotal ? Number(quote.quotedTotal) : null,
+        timestamp: quote.createdAt,
+        notes: quote.notes ? quote.notes.split('\n')[0] : null,
+        status: quote.status,
+      });
+    }
+
+    // 3. Final outcome event if decided
+    if (quote.status === 'ACCEPTED') {
+      events.push({
+        id: `${quote.id}-accepted`,
+        actor: 'Collector',
+        actorName: 'Collector',
+        actionType: 'ACCEPTED',
+        rate: Number(quote.quotedUnitPrice),
+        unit,
+        total: quote.quotedTotal ? Number(quote.quotedTotal) : null,
+        timestamp: quote.acceptedAt || quote.updatedAt,
+        status: 'ACCEPTED',
+      });
+    } else if (quote.status === 'REJECTED') {
+      events.push({
+        id: `${quote.id}-rejected`,
+        actor: 'Collector',
+        actorName: 'Collector',
+        actionType: 'REJECTED',
+        notes: quote.rejectionReason,
+        timestamp: quote.rejectedAt || quote.updatedAt,
+        status: 'REJECTED',
+      });
+    } else if (quote.status === 'CANCELLED') {
+      events.push({
+        id: `${quote.id}-cancelled`,
+        actor: 'System',
+        actorName: 'Platform',
+        actionType: 'CANCELLED',
+        notes: quote.cancellationReason === 'COMPETING_QUOTE_ACCEPTED' ? 'Another competing quote was accepted' : quote.cancellationReason,
+        timestamp: quote.updatedAt,
+        status: 'CANCELLED',
+      });
+    }
+
+    return events;
+  }
+
+  /**
    * Helper: Get recycler profile or throw
    * @param {string} userId - User UUID
    * @returns {Promise<object>}
@@ -47,7 +161,8 @@ class QuoteService {
    * @returns {Promise<object>}
    */
   async createQuote(user, quoteData, ipAddress = null) {
-    let recyclerProfile;
+    let recyclerProfile = null;
+    const isCitizen = user.role === ROLES.CITIZEN;
 
     if (user.role === ROLES.RECYCLER) {
       recyclerProfile = await this.getRecyclerProfileOrThrow(user.id);
@@ -59,27 +174,27 @@ class QuoteService {
       ) {
         throw AppError.forbidden('Only verified and authorized recyclers can issue quotes');
       }
+    } else if (user.role === ROLES.CITIZEN) {
+      // Citizens are direct consumers placing purchase offers
     } else if (user.role === ROLES.ADMIN) {
-
-      if (!quoteData.recyclerId) {
-        throw AppError.badRequest('recyclerId is required when Admin creates a quote');
-      }
-      recyclerProfile = await prisma.recyclerProfile.findUnique({
-        where: { id: quoteData.recyclerId },
-        include: { user: true },
-      });
-      if (!recyclerProfile) {
-        throw AppError.notFound('Target recycler profile not found');
-      }
-      if (
-        recyclerProfile.user?.status !== 'ACTIVE' ||
-        recyclerProfile.isActive === false ||
-        !['AUTHORIZED', 'PROVISIONAL'].includes(recyclerProfile.authorizationStatus)
-      ) {
-        throw AppError.badRequest('Target recycler facility is not active and authorized');
+      if (quoteData.recyclerId) {
+        recyclerProfile = await prisma.recyclerProfile.findUnique({
+          where: { id: quoteData.recyclerId },
+          include: { user: true },
+        });
+        if (!recyclerProfile) {
+          throw AppError.notFound('Target recycler profile not found');
+        }
+        if (
+          recyclerProfile.user?.status !== 'ACTIVE' ||
+          recyclerProfile.isActive === false ||
+          !['AUTHORIZED', 'PROVISIONAL'].includes(recyclerProfile.authorizationStatus)
+        ) {
+          throw AppError.badRequest('Target recycler facility is not active and authorized');
+        }
       }
     } else {
-      throw AppError.forbidden('Only authorized recyclers and administrators can create quotes');
+      throw AppError.forbidden('Only authorized recyclers, citizens, and administrators can create quotes');
     }
 
     // Retrieve material lot
@@ -102,23 +217,42 @@ class QuoteService {
       throw AppError.badRequest(`Cannot create quote: Material lot is already in status ${lot.status}`);
     }
 
-    // Material category compatibility check
-    if (!recyclerProfile.acceptedCategories || !recyclerProfile.acceptedCategories.includes(lot.category)) {
-      throw AppError.badRequest(`Recycler does not accept material category ${lot.category}`);
-    }
+    // Role-specific lot listing purpose validation
+    if (isCitizen) {
+      if (!['REUSE', 'REPAIR_REUSE'].includes(lot.listingPurpose)) {
+        throw AppError.badRequest('Citizens can only make purchase offers on items listed for reuse or repair');
+      }
+      // Check if citizen already has an active quote for this lot
+      const existingCitizenQuote = await prisma.quote.findFirst({
+        where: {
+          materialLotId: lot.id,
+          buyerUserId: user.id,
+          status: { in: [QUOTE_STATUS.SENT, QUOTE_STATUS.VIEWED] },
+          validUntil: { gt: new Date() },
+        },
+      });
+      if (existingCitizenQuote) {
+        throw AppError.badRequest('You already have an active purchase offer for this item');
+      }
+    } else if (user.role === ROLES.RECYCLER) {
+      // Material category compatibility check for recyclers
+      if (!recyclerProfile.acceptedCategories || !recyclerProfile.acceptedCategories.includes(lot.category)) {
+        throw AppError.badRequest(`Recycler does not accept material category ${lot.category}`);
+      }
 
-    // Check if recycler already has an active quote for this lot
-    const existingActiveQuote = await prisma.quote.findFirst({
-      where: {
-        materialLotId: lot.id,
-        recyclerId: recyclerProfile.id,
-        status: { in: [QUOTE_STATUS.SENT, QUOTE_STATUS.VIEWED] },
-        validUntil: { gt: new Date() },
-      },
-    });
+      // Check if recycler already has an active quote for this lot
+      const existingActiveQuote = await prisma.quote.findFirst({
+        where: {
+          materialLotId: lot.id,
+          recyclerId: recyclerProfile.id,
+          status: { in: [QUOTE_STATUS.SENT, QUOTE_STATUS.VIEWED] },
+          validUntil: { gt: new Date() },
+        },
+      });
 
-    if (existingActiveQuote) {
-      throw AppError.badRequest('You already have an active quote for this material lot');
+      if (existingActiveQuote) {
+        throw AppError.badRequest('You already have an active quote for this material lot');
+      }
     }
 
     // Validate and compute quantities
@@ -138,17 +272,30 @@ class QuoteService {
     const quotedTotal = Math.round(unitPrice * quantity * 100) / 100;
     const referenceNumber = this.generateReferenceNumber();
 
+    const unitLabel = isCitizen ? (quoteData.unit || 'item') : ((quoteData.unit || 'PER_KG') === 'PER_KG' ? 'kg' : (quoteData.unit || 'kg'));
+    const actorName = isCitizen ? 'Citizen' : 'Recycler';
+    const formattedInitialNotes = `[${actorName} Offer @ ₹${unitPrice}/${unitLabel}${quoteData.notes ? `: ${quoteData.notes}` : ''} (${new Date().toISOString()})]`;
+
     // Atomic creation
     const createdQuote = await prisma.$transaction(async (tx) => {
       const quote = await tx.quote.create({
         data: {
           referenceNumber,
           materialLotId: lot.id,
-          recyclerId: recyclerProfile.id,
+          recyclerId: recyclerProfile ? recyclerProfile.id : null,
+          buyerUserId: isCitizen ? user.id : null,
+          buyerRole: isCitizen ? ROLES.CITIZEN : (user.role === ROLES.RECYCLER ? ROLES.RECYCLER : null),
+          isConsumerOffer: isCitizen,
           category: lot.category,
           subcategory: lot.subcategory || null,
           quotedUnitPrice: unitPrice,
-          unit: quoteData.unit || 'PER_KG',
+          unit: ['PER_UNIT', 'item', 'ITEM'].includes(quoteData.unit)
+            ? 'PER_UNIT'
+            : ['PER_LOT', 'TOTAL', 'total'].includes(quoteData.unit)
+            ? 'PER_LOT'
+            : isCitizen
+            ? 'PER_LOT'
+            : 'PER_KG',
           currency: quoteData.currency || 'INR',
           quotedQuantity: quantity,
           quotedTotal,
@@ -157,11 +304,17 @@ class QuoteService {
           validUntil: quoteData.validUntil
             ? new Date(quoteData.validUntil)
             : new Date(Date.now() + (Number(quoteData.validDays) || 7) * 86400000),
-          notes: quoteData.notes || null,
+          notes: formattedInitialNotes,
           createdById: user.id,
         },
         include: {
           materialLot: true,
+          buyerUser: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
           recycler: {
             select: {
               id: true,
@@ -186,13 +339,14 @@ class QuoteService {
       await auditService.logAction(
         {
           actorId: user.id,
-          action: 'QUOTE_CREATED',
+          action: isCitizen ? 'CITIZEN_PURCHASE_OFFER_CREATED' : 'QUOTE_CREATED',
           entityType: 'quotes',
           entityId: quote.id,
           details: {
             referenceNumber,
             lotId: lot.id,
-            recyclerId: recyclerProfile.id,
+            buyerUserId: isCitizen ? user.id : null,
+            recyclerId: recyclerProfile ? recyclerProfile.id : null,
             quotedUnitPrice: unitPrice,
             quotedTotal,
           },
@@ -207,11 +361,15 @@ class QuoteService {
     // Send resilient notification to collector
     try {
       if (lot.collector?.userId) {
+        const notifTitle = isCitizen ? 'New Citizen Purchase Offer Received' : 'New Recycler Quote Received';
+        const senderName = isCitizen ? (user.name || 'A Citizen') : (recyclerProfile?.facilityName || 'Recycler');
+        const notifMessage = `${senderName} offered ₹${unitPrice}/${unitLabel} for ${lot.subcategory || lot.category} (${lot.referenceNumber})`;
+
         await notificationService.createNotification({
           userId: lot.collector.userId,
-          type: 'QUOTE_RECEIVED',
-          title: 'New Recycler Quote Received',
-          message: `Recycler ${recyclerProfile.facilityName} offered ₹${unitPrice}/${quoteData.unit || 'kg'} for lot ${lot.referenceNumber}`,
+          type: isCitizen ? 'CITIZEN_OFFER_RECEIVED' : 'QUOTE_RECEIVED',
+          title: notifTitle,
+          message: notifMessage,
           referenceType: 'quotes',
           referenceId: createdQuote.id,
         });
@@ -220,7 +378,7 @@ class QuoteService {
       logger.warn(`Failed to dispatch quote notification: ${notifErr.message}`);
     }
 
-    logger.info(`[QuoteService] Quote ${referenceNumber} created for lot ${lot.referenceNumber} by recycler ${recyclerProfile.facilityName}`);
+    logger.info(`[QuoteService] Offer ${referenceNumber} created for lot ${lot.referenceNumber} by ${isCitizen ? 'citizen ' + user.id : 'recycler ' + recyclerProfile?.facilityName}`);
     return createdQuote;
   }
 
@@ -269,6 +427,12 @@ class QuoteService {
       where,
       orderBy: { createdAt: 'desc' },
       include: {
+        buyerUser: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         recycler: {
           select: {
             id: true,
@@ -298,6 +462,7 @@ class QuoteService {
         ...q,
         status: currentStatus,
         isExpired: new Date(q.validUntil) < now,
+        negotiationTimeline: this.parseNegotiationTimeline(q),
       };
     });
 
@@ -342,6 +507,14 @@ class QuoteService {
         materialLot: {
           include: {
             collector: { include: { user: true } },
+            photos: true,
+          },
+        },
+        buyerUser: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
           },
         },
         recycler: {
@@ -358,10 +531,11 @@ class QuoteService {
 
     // Authorization check
     const isCollectorOwner = quote.materialLot.collector.userId === user.id;
-    const isRecyclerOwner = quote.recycler.userId === user.id;
+    const isRecyclerOwner = quote.recycler && quote.recycler.userId === user.id;
+    const isCitizenOwner = quote.buyerUserId === user.id;
     const isAdmin = user.role === ROLES.ADMIN;
 
-    if (!isCollectorOwner && !isRecyclerOwner && !isAdmin) {
+    if (!isCollectorOwner && !isRecyclerOwner && !isCitizenOwner && !isAdmin) {
       throw AppError.forbidden('You do not have permission to view this quote');
     }
 
@@ -386,11 +560,14 @@ class QuoteService {
       });
     }
 
-    return quote;
+    return {
+      ...quote,
+      negotiationTimeline: this.parseNegotiationTimeline(quote),
+    };
   }
 
   /**
-   * Collector accepts a quote
+   * Collector accepts a quote or citizen purchase offer
    * @param {object} user - Authenticated collector
    * @param {string} quoteId - Quote UUID
    * @param {string} [ipAddress]
@@ -405,6 +582,7 @@ class QuoteService {
             collector: true,
           },
         },
+        buyerUser: true,
         recycler: {
           include: {
             user: true,
@@ -417,9 +595,13 @@ class QuoteService {
       throw AppError.notFound('Quote not found');
     }
 
-    // Collector ownership check
-    if (quote.materialLot.collector.userId !== user.id) {
-      throw AppError.forbidden('You can only accept quotes for your own material lots');
+    // Authorization check: Collector or Citizen Buyer (for consumer offer)
+    const isCollectorOwner = quote.materialLot?.collector?.userId === user.id;
+    const isCitizenBuyer = quote.isConsumerOffer && quote.buyerUserId === user.id;
+    const isAdmin = user.role === ROLES.ADMIN;
+
+    if (!isCollectorOwner && !isCitizenBuyer && !isAdmin) {
+      throw AppError.forbidden('You are not authorized to accept this quote / offer');
     }
 
     // Status pre-acceptance check
@@ -436,15 +618,16 @@ class QuoteService {
       throw AppError.badRequest('This quote has expired and can no longer be accepted');
     }
 
-    // Verify recycler remains eligible
-    if (
-      quote.recycler.user?.status !== 'ACTIVE' ||
-      quote.recycler.isActive === false ||
-      !['AUTHORIZED', 'PROVISIONAL'].includes(quote.recycler.authorizationStatus)
-    ) {
-      throw AppError.badRequest('The quoting recycler is no longer authorized or verified');
+    // Verify recycler remains eligible (if recycler quote)
+    if (!quote.isConsumerOffer && quote.recycler) {
+      if (
+        quote.recycler.user?.status !== 'ACTIVE' ||
+        quote.recycler.isActive === false ||
+        !['AUTHORIZED', 'PROVISIONAL'].includes(quote.recycler.authorizationStatus)
+      ) {
+        throw AppError.badRequest('The quoting recycler is no longer authorized or verified');
+      }
     }
-
 
     // Execute atomic acceptance & competing quote cancellation
     const acceptedQuote = await prisma.$transaction(async (tx) => {
@@ -480,12 +663,13 @@ class QuoteService {
       await auditService.logAction(
         {
           actorId: user.id,
-          action: 'QUOTE_ACCEPTED',
+          action: quote.isConsumerOffer ? 'CITIZEN_PURCHASE_OFFER_ACCEPTED' : 'QUOTE_ACCEPTED',
           entityType: 'quotes',
           entityId: quote.id,
           details: {
             referenceNumber: quote.referenceNumber,
             materialLotId: quote.materialLotId,
+            buyerUserId: quote.buyerUserId,
             recyclerId: quote.recyclerId,
             quotedTotal: Number(quote.quotedTotal),
             competingCancelledCount: competingCancel.count,
@@ -498,18 +682,21 @@ class QuoteService {
       return updated;
     });
 
-    // Notify winning recycler
+    // Notify winning buyer (Citizen or Recycler)
     try {
-      await notificationService.createNotification({
-        userId: quote.recycler.userId,
-        type: 'QUOTE_ACCEPTED',
-        title: 'Quote Accepted by Collector!',
-        message: `Collector accepted your quote ${quote.referenceNumber} for lot ${quote.materialLot.referenceNumber}`,
-        referenceType: 'quotes',
-        referenceId: quote.id,
-      });
+      const winnerUserId = quote.isConsumerOffer ? quote.buyerUserId : quote.recycler?.userId;
+      if (winnerUserId) {
+        await notificationService.createNotification({
+          userId: winnerUserId,
+          type: 'QUOTE_ACCEPTED',
+          title: quote.isConsumerOffer ? 'Purchase Offer Accepted by Collector!' : 'Quote Accepted by Collector!',
+          message: `Collector accepted your offer ${quote.referenceNumber} for ${quote.materialLot.referenceNumber}`,
+          referenceType: 'quotes',
+          referenceId: quote.id,
+        });
+      }
     } catch (notifErr) {
-      logger.warn(`Failed to notify recycler of quote acceptance: ${notifErr.message}`);
+      logger.warn(`Failed to notify winner of quote acceptance: ${notifErr.message}`);
     }
 
     logger.info(`[QuoteService] Quote ${quote.referenceNumber} ACCEPTED by collector ${user.id}. Competing quotes cancelled.`);
@@ -517,7 +704,7 @@ class QuoteService {
   }
 
   /**
-   * Collector rejects a quote
+   * Collector rejects a quote or citizen purchase offer
    * @param {object} user - Authenticated collector
    * @param {string} quoteId - Quote UUID
    * @param {string} [reason] - Rejection reason
@@ -533,6 +720,7 @@ class QuoteService {
             collector: true,
           },
         },
+        buyerUser: true,
         recycler: true,
       },
     });
@@ -574,16 +762,19 @@ class QuoteService {
     });
 
     try {
-      await notificationService.createNotification({
-        userId: quote.recycler.userId,
-        type: 'QUOTE_REJECTED',
-        title: 'Quote Declined',
-        message: `Collector declined your quote ${quote.referenceNumber}`,
-        referenceType: 'quotes',
-        referenceId: quote.id,
-      });
+      const recipientUserId = quote.isConsumerOffer ? quote.buyerUserId : quote.recycler?.userId;
+      if (recipientUserId) {
+        await notificationService.createNotification({
+          userId: recipientUserId,
+          type: 'QUOTE_REJECTED',
+          title: 'Offer Declined',
+          message: `Collector declined your offer ${quote.referenceNumber}`,
+          referenceType: 'quotes',
+          referenceId: quote.id,
+        });
+      }
     } catch (notifErr) {
-      logger.warn(`Failed to notify recycler of rejection: ${notifErr.message}`);
+      logger.warn(`Failed to notify recipient of rejection: ${notifErr.message}`);
     }
 
     logger.info(`[QuoteService] Quote ${quote.referenceNumber} REJECTED by collector. Reason: ${rejectionReasonText}`);
@@ -591,8 +782,147 @@ class QuoteService {
   }
 
   /**
-   * Recycler cancels their own open quote
-   * @param {object} user - Authenticated recycler
+   * Propose a counter-offer or revision on an active quote (Collector, Recycler, or Citizen)
+   * @param {object} user - Authenticated actor (Collector, Recycler, or Citizen)
+   * @param {string} quoteId - Quote UUID
+   * @param {object} counterData - { counterUnitPrice, notes }
+   * @param {string} [ipAddress]
+   * @returns {Promise<object>}
+   */
+  async counterQuote(user, quoteId, counterData, ipAddress = null) {
+    const quote = await prisma.quote.findUnique({
+      where: { id: quoteId },
+      include: {
+        materialLot: {
+          include: {
+            collector: { include: { user: true } },
+          },
+        },
+        buyerUser: true,
+        recycler: {
+          include: {
+            user: true,
+          },
+        },
+      },
+    });
+
+    if (!quote) {
+      throw AppError.notFound('Quote not found');
+    }
+
+    const isCollector = quote.materialLot.collector.userId === user.id;
+    const isRecycler = quote.recycler && quote.recycler.userId === user.id;
+    const isCitizen = quote.buyerUserId === user.id;
+    const isAdmin = user.role === ROLES.ADMIN;
+
+    if (!isCollector && !isRecycler && !isCitizen && !isAdmin) {
+      throw AppError.forbidden('You do not have permission to negotiate this quote');
+    }
+
+    if (![QUOTE_STATUS.SENT, QUOTE_STATUS.VIEWED].includes(quote.status)) {
+      throw AppError.badRequest(`Cannot counter-offer a quote with status ${quote.status}`);
+    }
+
+    if (new Date() > new Date(quote.validUntil)) {
+      throw AppError.badRequest('Cannot counter-offer an expired quote');
+    }
+
+    const newUnitPrice = Number(counterData.counterUnitPrice);
+    if (isNaN(newUnitPrice) || newUnitPrice <= 0) {
+      throw AppError.badRequest('Counter unit price must be strictly positive');
+    }
+
+    const quantity = Number(quote.quotedQuantity) || 1;
+    const newTotal = Math.round(newUnitPrice * quantity * 100) / 100;
+    const actorLabel = isCollector ? 'Collector' : (isCitizen ? 'Citizen' : (isRecycler ? 'Recycler' : 'Admin'));
+    const unitLabel = quote.unit === 'PER_KG' ? 'kg' : (quote.unit || 'item');
+    const noteEntry = `[${actorLabel} Counter @ ₹${newUnitPrice}/${unitLabel}${counterData.notes ? `: ${counterData.notes}` : ''} (${new Date().toISOString()})]`;
+    const updatedNotes = quote.notes ? `${quote.notes}\n${noteEntry}` : noteEntry;
+
+    const updatedQuote = await prisma.$transaction(async (tx) => {
+      const q = await tx.quote.update({
+        where: { id: quote.id },
+        data: {
+          quotedUnitPrice: newUnitPrice,
+          quotedTotal: newTotal,
+          notes: updatedNotes,
+          status: QUOTE_STATUS.SENT,
+          viewedAt: null, // Reset viewed status for new counter
+        },
+        include: {
+          materialLot: true,
+          buyerUser: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          recycler: {
+            select: {
+              id: true,
+              facilityName: true,
+              authorizationStatus: true,
+              city: true,
+              state: true,
+              pickupAvailable: true,
+            },
+          },
+        },
+      });
+
+      await auditService.logAction(
+        {
+          actorId: user.id,
+          action: 'QUOTE_COUNTERED',
+          entityType: 'quotes',
+          entityId: quote.id,
+          details: {
+            referenceNumber: quote.referenceNumber,
+            actor: actorLabel,
+            oldUnitPrice: quote.quotedUnitPrice,
+            newUnitPrice,
+            oldTotal: quote.quotedTotal,
+            newTotal,
+          },
+          ipAddress,
+        },
+        tx
+      );
+
+      return q;
+    });
+
+    // Notify opposite party
+    try {
+      let recipientUserId = null;
+      if (isCollector) {
+        recipientUserId = quote.isConsumerOffer ? quote.buyerUserId : quote.recycler?.userId;
+      } else {
+        recipientUserId = quote.materialLot.collector.userId;
+      }
+
+      if (recipientUserId) {
+        await notificationService.createNotification({
+          userId: recipientUserId,
+          type: 'QUOTE_COUNTERED',
+          title: `Counter-Offer Received (${actorLabel})`,
+          message: `${actorLabel} proposed ₹${newUnitPrice}/${unitLabel} for lot ${quote.materialLot.referenceNumber}`,
+          referenceType: 'quotes',
+          referenceId: quote.id,
+        });
+      }
+    } catch (notifErr) {
+      logger.warn(`Failed to dispatch counter-offer notification: ${notifErr.message}`);
+    }
+
+    logger.info(`[QuoteService] Quote ${quote.referenceNumber} countered by ${actorLabel} to ₹${newUnitPrice}`);
+    return updatedQuote;
+  }
+
+  /**
+   * Recycler or Citizen cancels their own open quote
+   * @param {object} user - Authenticated recycler or citizen
    * @param {string} quoteId - Quote UUID
    * @param {string} [reason]
    * @param {string} [ipAddress]
@@ -601,22 +931,25 @@ class QuoteService {
   async cancelQuote(user, quoteId, reason = null, ipAddress = null) {
     const quote = await prisma.quote.findUnique({
       where: { id: quoteId },
-      include: { recycler: true },
+      include: { recycler: true, buyerUser: true },
     });
 
     if (!quote) {
       throw AppError.notFound('Quote not found');
     }
 
-    if (user.role === ROLES.RECYCLER && quote.recycler.userId !== user.id) {
+    if (user.role === ROLES.RECYCLER && quote.recycler?.userId !== user.id) {
       throw AppError.forbidden('You can only cancel your own quotes');
+    }
+    if (user.role === ROLES.CITIZEN && quote.buyerUserId !== user.id) {
+      throw AppError.forbidden('You can only cancel your own purchase offers');
     }
 
     if (![QUOTE_STATUS.SENT, QUOTE_STATUS.VIEWED].includes(quote.status)) {
       throw AppError.badRequest(`Cannot cancel quote with status ${quote.status}`);
     }
 
-    const cancellationReasonText = reason || 'CANCELLED_BY_RECYCLER';
+    const cancellationReasonText = reason || (user.role === ROLES.CITIZEN ? 'CANCELLED_BY_CITIZEN' : 'CANCELLED_BY_RECYCLER');
 
     const cancelledQuote = await prisma.quote.update({
       where: { id: quote.id },
@@ -673,6 +1006,64 @@ class QuoteService {
               subcategory: true,
               approximateTotalWeightKg: true,
               status: true,
+            },
+          },
+        },
+      }),
+      prisma.quote.count({ where }),
+    ]);
+
+    return {
+      quotes,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Citizen lists their own purchase offers (active and past)
+   * @param {object} user - Authenticated citizen
+   * @param {object} [query] - Filters and pagination
+   * @returns {Promise<object>}
+   */
+  async getCitizenQuotes(user, query = {}) {
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const where = { buyerUserId: user.id };
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    const [quotes, total] = await Promise.all([
+      prisma.quote.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          materialLot: {
+            include: {
+              photos: true,
+              collector: {
+                select: {
+                  id: true,
+                  city: true,
+                  serviceArea: true,
+                  state: true,
+                  user: {
+                    select: {
+                      id: true,
+                      name: true,
+                    },
+                  },
+                },
+              },
             },
           },
         },

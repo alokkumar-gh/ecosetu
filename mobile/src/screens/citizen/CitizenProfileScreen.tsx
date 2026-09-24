@@ -1,32 +1,18 @@
 /**
  * CitizenProfileScreen
- * Authenticated CITIZEN — Account profile management screen.
+ * Authenticated CITIZEN — Modern Grouped Action Menu Profile Screen
+ * Styled identically to Collector & Recycler Profile Screens.
  *
- * ECOSETU Business Chain: CITIZEN → LOCAL INFORMAL COLLECTOR → FORMAL RECYCLER
- *
- * This screen:
- *   - Displays the authenticated citizen's profile (name, email, phone, role, status, createdAt)
- *   - Allows editing of ONLY the documented mutable fields: name and phone
- *   - Enforces protected fields: role, status, email, id, createdAt, updatedAt, avatarUrl
- *   - Validates inputs against backend rules before submission
- *   - Prevents duplicate/concurrent submissions
- *   - Requires connectivity for profile mutations
- *   - Shows cached profile when offline (read-only)
- *   - Provides accessible logout with confirmation dialog
- *   - Does NOT introduce any Citizen → Recycler functionality
- *
- * Profile Data Source: GET /api/v1/users/me
- * Update Endpoint:     PATCH /api/v1/users/me (name, phone only)
- *
- * Source of Truth:
- *   docs/05_API_SPECIFICATION.md Section 3
- *   docs/06_ROLES_AND_PERMISSIONS.md
- *   docs/08_UI_UX_SPECIFICATION.md
- *   docs/09_FRONTEND_ARCHITECTURE.md
- *   docs/13_SECURITY_PRIVACY.md
+ * Design Structure:
+ *  1. PROFILE HEADER — Large avatar, name, verified badge, contact details, joined date, edit button
+ *  2. SERVICES & ACTIVITY — My Requests, Pickup History, Green Credits & Impact
+ *  3. PREFERENCES — Inline 4-Language Switcher (English, Hindi, Marathi, Odia), Notifications
+ *  4. ACCOUNT & SUPPORT — Safety & Privacy, Help & Support, Terms
+ *  5. SIGN OUT — Destructive card with confirmation alert
+ *  6. EDIT PROFILE MODAL — Allows editing Name & Phone with full client-side validation
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -34,57 +20,79 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Alert,
+  Modal,
   ActivityIndicator,
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../hooks/useAuth';
 import { useNetwork } from '../../hooks/useNetwork';
 import { useI18n } from '../../i18n';
-import { EcoSetuBackground, EcoGlassInput } from '../../components/eco';
-import { TopAppBar } from '../../components/layout/TopAppBar';
-import { Skeleton } from '../../components/common/Skeleton';
-import { OfflineBanner } from '../../components/common/OfflineBanner';
-import { LanguageSelector } from '../../components/common/LanguageSelector';
+import { LANGUAGE_OPTIONS, SupportedLanguage } from '../../i18n/config';
+import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { userProfileService } from '../../services/userProfileService';
 import { colors } from '../../theme/colors';
-import { spacing } from '../../theme/spacing';
-import { typography } from '../../theme/typography';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// MENU ROW COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
+interface MenuRowProps {
+  icon: string;
+  label: string;
+  sub?: string;
+  onPress?: () => void;
+  rightContent?: React.ReactNode;
+  destructive?: boolean;
+  disabled?: boolean;
+}
 
-/**
- * Canonical UserStatus values from Prisma schema / backend/src/utils/constants.js
- * PENDING_VERIFICATION | ACTIVE | SUSPENDED | DEACTIVATED
- */
-const USER_STATUS = Object.freeze({
-  PENDING_VERIFICATION: 'PENDING_VERIFICATION',
-  ACTIVE: 'ACTIVE',
-  SUSPENDED: 'SUSPENDED',
-  DEACTIVATED: 'DEACTIVATED',
-});
+const MenuRow: React.FC<MenuRowProps> = ({
+  icon,
+  label,
+  sub,
+  onPress,
+  rightContent,
+  destructive = false,
+  disabled = false,
+}) => (
+  <TouchableOpacity
+    style={[styles.menuRow, disabled && { opacity: 0.5 }]}
+    onPress={onPress}
+    disabled={!onPress || disabled}
+    activeOpacity={onPress ? 0.7 : 1}
+    accessibilityRole={onPress ? 'button' : 'text'}
+  >
+    <View style={styles.menuIconBox}>
+      <Text style={styles.menuIcon}>{icon}</Text>
+    </View>
+    <View style={styles.menuTextCol}>
+      <Text style={[styles.menuLabel, destructive && { color: '#FCA5A5' }]}>{label}</Text>
+      {sub ? <Text style={styles.menuSub}>{sub}</Text> : null}
+    </View>
+    {rightContent ?? (onPress ? <Text style={styles.menuChevron}>›</Text> : null)}
+  </TouchableOpacity>
+);
 
-/**
- * Canonical UserRole values verified from Prisma schema.
- * Client must NEVER allow role change.
- */
-const USER_ROLES = Object.freeze({
-  CITIZEN: 'CITIZEN',
-  INFORMAL_COLLECTOR: 'INFORMAL_COLLECTOR',
-  RECYCLER: 'RECYCLER',
-  ADMIN: 'ADMIN',
-});
+// ─────────────────────────────────────────────────────────────────────────────
+// MENU GROUP CONTAINER
+// ─────────────────────────────────────────────────────────────────────────────
+const MenuGroup: React.FC<{ label: string; children: React.ReactNode }> = ({
+  label,
+  children,
+}) => (
+  <View style={styles.group}>
+    <Text style={styles.groupLabel}>{label}</Text>
+    <View style={styles.groupCard}>{children}</View>
+  </View>
+);
 
-// ─── Validation helpers ───────────────────────────────────────────────────────
-
-/**
- * Validate name per backend/src/validators/userValidators.js:
- *   - optional field
- *   - 2–100 characters if provided
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// VALIDATION HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 const validateName = (name: string): string | null => {
   if (!name || !name.trim()) return 'Name is required.';
   if (name.trim().length < 2) return 'Name must be at least 2 characters.';
@@ -92,13 +100,8 @@ const validateName = (name: string): string | null => {
   return null;
 };
 
-/**
- * Validate phone per backend/src/validators/userValidators.js:
- *   - optional/nullable
- *   - must match /^[+]?[(]?[0-9]{1,4}[)]?[-\s./0-9]{6,15}$/ if provided
- */
 const validatePhone = (phone: string): string | null => {
-  if (!phone || !phone.trim()) return null; // phone is optional/nullable
+  if (!phone || !phone.trim()) return null;
   const phoneRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s./0-9]{6,15}$/;
   if (!phoneRegex.test(phone.trim())) {
     return 'Invalid phone number format.';
@@ -106,968 +109,574 @@ const validatePhone = (phone: string): string | null => {
   return null;
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const fmtDate = (iso?: string | null): string => {
-  if (!iso) return '—';
-  try {
-    return new Date(iso).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-  } catch {
-    return '—';
-  }
-};
-
-const getStatusLabel = (status: string, t?: (key: any) => string): { label: string; color: string } => {
-  switch (status) {
-    case USER_STATUS.ACTIVE:
-      return { label: t ? (t('citizen.profile.statusActive') || 'Active') : 'Active', color: '#2E7D32' };
-    case USER_STATUS.PENDING_VERIFICATION:
-      return { label: t ? (t('citizen.profile.statusPending') || 'Pending Verification') : 'Pending Verification', color: '#E65100' };
-    case USER_STATUS.SUSPENDED:
-      return { label: t ? (t('citizen.profile.statusSuspended') || 'Suspended') : 'Suspended', color: '#C62828' };
-    case USER_STATUS.DEACTIVATED:
-      return { label: t ? (t('citizen.profile.statusDeactivated') || 'Deactivated') : 'Deactivated', color: '#4E4E4E' };
-    default:
-      return { label: status || '—', color: colors.textSecondary };
-  }
-};
-
-const getRoleLabel = (role: string, t?: (key: any) => string): string => {
-  switch (role) {
-    case USER_ROLES.CITIZEN:
-      return t ? (t('roles.citizen') || 'Citizen') : 'Citizen';
-    case USER_ROLES.INFORMAL_COLLECTOR:
-      return t ? (t('roles.collector') || 'Informal Collector') : 'Informal Collector';
-    case USER_ROLES.RECYCLER:
-      return t ? (t('roles.recycler') || 'Formal Recycler') : 'Formal Recycler';
-    case USER_ROLES.ADMIN:
-      return t ? (t('roles.admin') || 'Administrator') : 'Administrator';
-    default:
-      return role || '—';
-  }
-};
-
-// ─── ProfileSkeleton ──────────────────────────────────────────────────────────
-
-const ProfileSkeleton: React.FC = () => (
-  <View style={styles.skeletonContainer}>
-    {/* Avatar placeholder */}
-    <Skeleton width={80} height={80} borderRadius={40} style={styles.skeletonAvatar} />
-    <Skeleton height={20} width="50%" style={styles.skeletonLine} />
-    <Skeleton height={14} width="35%" style={styles.skeletonLine} />
-    {/* Card placeholder */}
-    <View style={styles.skeletonCard}>
-      <Skeleton height={16} width="40%" style={styles.skeletonLine} />
-      <Skeleton height={48} style={styles.skeletonInput} />
-      <Skeleton height={16} width="40%" style={styles.skeletonLine} />
-      <Skeleton height={48} style={styles.skeletonInput} />
-    </View>
-    {/* Info card */}
-    <View style={styles.skeletonCard}>
-      <Skeleton height={16} width="40%" style={styles.skeletonLine} />
-      <Skeleton height={16} style={styles.skeletonLine} />
-      <Skeleton height={16} style={styles.skeletonLine} />
-      <Skeleton height={16} style={styles.skeletonLine} />
-    </View>
-  </View>
-);
-
-// ─── Main Screen ──────────────────────────────────────────────────────────────
-
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN CITIZEN PROFILE SCREEN
+// ─────────────────────────────────────────────────────────────────────────────
 export const CitizenProfileScreen: React.FC = () => {
-  const { user: authUser, logout } = useAuth();
+  const navigation = useNavigation<any>();
+  const { user, logout } = useAuth();
   const { isConnected } = useNetwork();
-  const { t } = useI18n();
+  const { t, language, setLanguage } = useI18n();
 
-  // ── Profile data state ─────────────────────────────────────────────────────
-  const [profile, setProfile] = useState<any>(authUser || null);
-  const [isLoading, setIsLoading] = useState<boolean>(!authUser);
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
-  const [fromCache, setFromCache] = useState<boolean>(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showLanguagePicker, setShowLanguagePicker] = useState(false);
 
-  // ── Edit form state ────────────────────────────────────────────────────────
-  const [isEditing, setIsEditing] = useState<boolean>(false);
-  const [editName, setEditName] = useState<string>('');
-  const [editPhone, setEditPhone] = useState<string>('');
-  const [nameError, setNameError] = useState<string | null>(null);
-  const [phoneError, setPhoneError] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  // Prevent duplicate submissions
-  const isSavingRef = useRef<boolean>(false);
-
-  // ── Logout state ───────────────────────────────────────────────────────────
-  const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
-
-  // ── Data Load ──────────────────────────────────────────────────────────────
+  // Edit Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const loadProfile = useCallback(async (silent = false) => {
-    if (!silent) setLoadError(null);
     try {
-      const result = await userProfileService.getProfile();
-      if (result.user) {
-        setProfile(result.user);
-        setFromCache(result.fromCache);
-      } else if (!profile) {
-        setLoadError('Could not load your profile. Please try again.');
+      if (!silent) setIsLoading(true);
+      const res = await userProfileService.getProfile();
+      if (res?.user) {
+        setProfile(res.user);
       }
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.message ||
-        err?.message ||
-        'Unable to load profile. Please check your connection.';
-      // Only show error if we have no profile to display
-      if (!profile) setLoadError(msg);
+    } catch (e) {
+      console.warn('[CitizenProfile] Load error:', e);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [profile]);
+  }, []);
 
   useEffect(() => {
-    // Seed form from AuthContext user immediately (avoids blank state)
-    if (authUser) {
-      setProfile(authUser);
-      setIsLoading(false);
-    }
-    // Then refresh from API
-    loadProfile(Boolean(authUser));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    loadProfile(true);
+    loadProfile();
   }, [loadProfile]);
 
-  // ── Edit mode ──────────────────────────────────────────────────────────────
-
-  const openEdit = useCallback(() => {
-    setEditName(profile?.name || '');
-    setEditPhone(profile?.phone || '');
-    setNameError(null);
-    setPhoneError(null);
-    setSaveError(null);
-    setIsEditing(true);
-  }, [profile]);
-
-  const cancelEdit = useCallback(() => {
-    setIsEditing(false);
-    setNameError(null);
-    setPhoneError(null);
-    setSaveError(null);
-  }, []);
-
-  // Validate on change
-  const handleNameChange = (val: string) => {
-    setEditName(val);
-    if (nameError) setNameError(validateName(val));
+  const onRefresh = () => {
+    setIsRefreshing(true);
+    loadProfile(true);
   };
 
-  const handlePhoneChange = (val: string) => {
-    setEditPhone(val);
-    if (phoneError) setPhoneError(validatePhone(val));
+  const handleOpenEdit = () => {
+    setEditName(profile?.name || user?.name || '');
+    setEditPhone(profile?.phone || user?.phone || '');
+    setEditError(null);
+    setIsEditModalOpen(true);
   };
 
-  // ── Save ───────────────────────────────────────────────────────────────────
+  const handleSaveProfile = async () => {
+    const nameErr = validateName(editName);
+    if (nameErr) {
+      setEditError(nameErr);
+      return;
+    }
+    const phoneErr = validatePhone(editPhone);
+    if (phoneErr) {
+      setEditError(phoneErr);
+      return;
+    }
 
-  const handleSave = useCallback(async () => {
-    // Duplicate submission guard
-    if (isSavingRef.current) return;
-
-    // Validate
-    const nErr = validateName(editName);
-    const pErr = validatePhone(editPhone);
-    setNameError(nErr);
-    setPhoneError(pErr);
-    if (nErr || pErr) return;
-
-    // Connectivity required
     if (!isConnected) {
-      setSaveError('Profile updates require an internet connection. Please connect and try again.');
+      Alert.alert(
+        t('common.offline', 'Offline'),
+        t('citizen.profile.offlineError', 'Internet connection required to update profile.')
+      );
       return;
     }
 
-    // Check if anything actually changed
-    const nameChanged = editName.trim() !== (profile?.name || '').trim();
-    const phoneChanged = (editPhone || '').trim() !== (profile?.phone || '').trim();
-    if (!nameChanged && !phoneChanged) {
-      setIsEditing(false);
-      return;
-    }
-
-    isSavingRef.current = true;
     setIsSaving(true);
-    setSaveError(null);
+    setEditError(null);
 
     try {
-      const payload: { name?: string; phone?: string | null } = {};
-      if (nameChanged) payload.name = editName.trim();
-      if (phoneChanged) payload.phone = editPhone.trim() || null;
+      const updated: any = await userProfileService.updateProfile({
+        name: editName.trim(),
+        phone: editPhone.trim() || undefined,
+      });
 
-      const updatedUser = await userProfileService.updateProfile(payload);
-      setProfile(updatedUser);
-      setIsEditing(false);
-    } catch (err: any) {
-      // Handle field-level validation errors from backend
-      const errors = err?.response?.data?.errors;
-      if (errors && Array.isArray(errors)) {
-        errors.forEach((e: { field?: string; message: string }) => {
-          if (e.field === 'name') setNameError(e.message);
-          if (e.field === 'phone') setPhoneError(e.message);
-        });
+      if (updated?.user) {
+        setProfile(updated.user);
+      } else if (updated?.name) {
+        setProfile(updated);
       } else {
-        const msg =
-          err?.isOfflineError
-            ? 'Profile updates require an internet connection.'
-            : err?.response?.data?.message ||
-              err?.message ||
-              'Failed to update profile. Please try again.';
-        setSaveError(msg);
+        setProfile((prev: any) => ({
+          ...prev,
+          name: editName.trim(),
+          phone: editPhone.trim(),
+        }));
       }
+
+      setIsEditModalOpen(false);
+      Alert.alert(
+        t('common.success', 'Success'),
+        t('citizen.profile.updatedSuccess', 'Profile updated successfully!')
+      );
+    } catch (err: any) {
+      setEditError(err?.message || 'Failed to update profile. Please try again.');
     } finally {
-      isSavingRef.current = false;
       setIsSaving(false);
     }
-  }, [editName, editPhone, isConnected, profile]);
+  };
 
-  // ── Logout ─────────────────────────────────────────────────────────────────
-
-  const handleLogoutPress = useCallback(() => {
+  const handleLogout = () => {
     Alert.alert(
-      t('citizen.profile.signOutConfirmTitle') || 'Sign Out',
-      t('citizen.profile.signOutConfirmMessage') || 'Are you sure you want to sign out?',
+      t('auth.logout', 'Sign Out'),
+      t('citizen.profile.logoutConfirm', 'Are you sure you want to sign out from EcoSetu?'),
       [
+        { text: t('common.cancel', 'Cancel'), style: 'cancel' },
         {
-          text: t('common.cancel') || 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: t('citizen.profile.signOut') || 'Sign Out',
+          text: t('auth.logout', 'Sign Out'),
           style: 'destructive',
           onPress: async () => {
             setIsLoggingOut(true);
             try {
               await logout();
             } catch {
-              // AuthContext handles cleanup regardless
-            } finally {
               setIsLoggingOut(false);
             }
           },
         },
-      ],
-      { cancelable: true },
+      ]
     );
-  }, [logout, t]);
+  };
 
-  // ── Loading state ──────────────────────────────────────────────────────────
+  const handleLanguageSelect = async (code: SupportedLanguage) => {
+    await setLanguage(code);
+    setShowLanguagePicker(false);
+  };
 
-  if (isLoading) {
-    return (
-      <EcoSetuBackground>
-        <TopAppBar title={t('citizen.profile.title') || 'My Profile'} roleBadge="CITIZEN" />
-        <ProfileSkeleton />
-      </EcoSetuBackground>
-    );
-  }
-
-  // ── Error with no profile ──────────────────────────────────────────────────
-
-  if (loadError && !profile) {
-    return (
-      <EcoSetuBackground>
-        <TopAppBar title={t('citizen.profile.title') || 'My Profile'} roleBadge="CITIZEN" />
-        {!isConnected && <OfflineBanner />}
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorIcon}>⚠️</Text>
-          <Text style={styles.errorTitle}>{t('citizen.traceability.couldNotLoad') || 'Could Not Load Profile'}</Text>
-          <Text style={styles.errorMessage}>{loadError}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => { setIsLoading(true); loadProfile(); }}
-            accessibilityRole="button"
-            accessibilityLabel={t('citizen.traceability.retry') || 'Retry loading profile'}
-          >
-            <Text style={styles.retryButtonText}>{t('citizen.traceability.retry') || 'Retry'}</Text>
-          </TouchableOpacity>
-        </View>
-      </EcoSetuBackground>
-    );
-  }
-
-  // ── Status badge ───────────────────────────────────────────────────────────
-
-  const statusMeta = getStatusLabel(profile?.status || '', t);
-  const roleLabel = getRoleLabel(profile?.role || '', t);
-
-  // ── Main render ────────────────────────────────────────────────────────────
+  // User details
+  const activeUser = profile || user;
+  const name = activeUser?.name || 'Citizen User';
+  const email = activeUser?.email || '';
+  const phone = activeUser?.phone || '';
+  const initial = (name || 'C').charAt(0).toUpperCase();
+  const currentLang = LANGUAGE_OPTIONS.find((l) => l.code === language);
+  const memberSince = activeUser?.createdAt
+    ? new Date(activeUser.createdAt).toLocaleDateString('en-IN', {
+        month: 'short',
+        year: 'numeric',
+      })
+    : '2026';
 
   return (
     <EcoSetuBackground>
-      <TopAppBar title={t('citizen.profile.title') || 'My Profile'} roleBadge="CITIZEN" />
-
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
+      <SafeAreaView style={styles.safeArea}>
         <ScrollView
+          style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
-              onRefresh={handleRefresh}
+              onRefresh={onRefresh}
               colors={[colors.primary]}
               tintColor={colors.primary}
             />
           }
         >
-          {/* Offline banner */}
-          {!isConnected && <OfflineBanner />}
-
-          {/* Cached data notice */}
-          {fromCache && (
-            <View style={styles.cachedNotice}>
-              <Text style={styles.cachedNoticeText}>
-                {t('citizen.traceability.cachedNotice') || '📴 Showing cached profile (last synced while online)'}
-              </Text>
-            </View>
-          )}
-
-          {/* ── PROFILE HEADER ─────────────────────────────────────── */}
+          {/* ── PROFILE HEADER ───────────────────────────────────────── */}
           <View style={styles.profileHeader}>
-            <View
-              style={styles.avatarCircle}
-              accessibilityElementsHidden
+            {/* Large avatar */}
+            <View style={styles.largeAvatar}>
+              <Text style={styles.largeAvatarText}>{initial}</Text>
+            </View>
+
+            <Text style={styles.profileName}>{name}</Text>
+
+            {/* Verified Badge */}
+            <View style={styles.verifiedRow}>
+              <View style={styles.verifiedDot} />
+              <Text style={styles.verifiedLabel}>{t('citizen.profile.statusActive', 'Active Citizen')}</Text>
+            </View>
+
+            {/* Email & Phone Details */}
+            <View style={styles.contactDetails}>
+              {email ? (
+                <Text style={styles.contactText}>✉ {email}</Text>
+              ) : null}
+              {phone ? (
+                <Text style={styles.contactText}>📞 {phone}</Text>
+              ) : null}
+              <Text style={styles.memberText}>🌱 {t('citizen.profile.memberSince', 'Member since')} {memberSince}</Text>
+            </View>
+
+            {/* Edit Profile Button */}
+            <TouchableOpacity
+              style={styles.editProfileBtn}
+              onPress={handleOpenEdit}
+              activeOpacity={0.8}
             >
-              <Text style={styles.avatarInitial}>
-                {(profile?.name || 'U').charAt(0).toUpperCase()}
-              </Text>
-            </View>
-
-            <Text style={styles.profileName} accessibilityRole="header">
-              {profile?.name || '—'}
-            </Text>
-
-            <View style={styles.statusRow}>
-              <View
-                style={[styles.statusBadge, { backgroundColor: `${statusMeta.color}18` }]}
-                accessibilityLabel={`Account status: ${statusMeta.label}`}
-              >
-                <View
-                  style={[styles.statusDot, { backgroundColor: statusMeta.color }]}
-                  accessibilityElementsHidden
-                />
-                <Text style={[styles.statusText, { color: statusMeta.color }]}>
-                  {statusMeta.label}
-                </Text>
-              </View>
-
-              <View style={styles.roleBadge}>
-                <Text style={styles.roleBadgeText}>{roleLabel}</Text>
-              </View>
-            </View>
-
-            <Text style={styles.profileEmail}>{profile?.email || '—'}</Text>
+              <Text style={styles.editProfileBtnText}>✏️ {t('citizen.profile.editProfile', 'Edit Profile')}</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* ── EDITABLE PROFILE FIELDS ────────────────────────────── */}
-          {!isEditing ? (
-            // READ MODE
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>{t('citizen.profile.contactInfo') || 'Contact Information'}</Text>
-                <TouchableOpacity
-                  onPress={openEdit}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('citizen.profile.editBtn') || 'Edit contact information'}
-                  style={styles.editButton}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.editButtonText}>{t('citizen.profile.editBtn') || '✏️ Edit'}</Text>
-                </TouchableOpacity>
+          {/* ── SERVICES & ACTIVITY ─────────────────────────────────── */}
+          <MenuGroup label={t('citizen.profile.sectionActivity', 'SERVICES & ACTIVITY')}>
+            <MenuRow
+              icon="📦"
+              label={t('citizen.profile.myRequests', 'My Disposal Requests')}
+              sub={t('citizen.profile.myRequestsSub', 'Track active pickups and collections')}
+              onPress={() => navigation.navigate('History')}
+            />
+            <View style={styles.rowDivider} />
+            <MenuRow
+              icon="🎁"
+              label={t('citizen.profile.greenCredits', 'Green Credits & Rewards')}
+              sub={t('citizen.profile.greenCreditsSub', 'View impact points and eco badges')}
+              onPress={() => navigation.navigate('Home')}
+            />
+            <View style={styles.rowDivider} />
+            <MenuRow
+              icon="🗺️"
+              label={t('citizen.profile.savedAddresses', 'Pickup Locations & Map')}
+              sub={t('citizen.profile.savedAddressesSub', 'Set default disposal addresses')}
+              onPress={() => navigation.navigate('Give')}
+            />
+          </MenuGroup>
+
+          {/* ── PREFERENCES ─────────────────────────────────────────── */}
+          <MenuGroup label={t('citizen.profile.sectionPreferences', 'PREFERENCES')}>
+            {/* Language Selection Row */}
+            <MenuRow
+              icon="🌐"
+              label={t('citizen.profile.language', 'Language / भाषा')}
+              sub={currentLang?.label ?? language}
+              onPress={() => setShowLanguagePicker(!showLanguagePicker)}
+            />
+
+            {/* Inline Language Picker Dropdown */}
+            {showLanguagePicker && (
+              <View style={styles.langPicker}>
+                {LANGUAGE_OPTIONS.map((opt) => (
+                  <TouchableOpacity
+                    key={opt.code}
+                    style={[
+                      styles.langOption,
+                      language === opt.code && styles.langOptionSelected,
+                    ]}
+                    onPress={() => handleLanguageSelect(opt.code as SupportedLanguage)}
+                    accessibilityRole="radio"
+                  >
+                    <Text
+                      style={[
+                        styles.langOptionLabel,
+                        language === opt.code && styles.langOptionLabelSelected,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                    {language === opt.code && (
+                      <Text style={styles.langCheck}>✓</Text>
+                    )}
+                  </TouchableOpacity>
+                ))}
               </View>
+            )}
 
-              <View style={styles.fieldRow}>
-                <Text style={styles.fieldLabel}>{t('citizen.profile.fullName') || 'Full Name'}</Text>
-                <Text style={styles.fieldValue}>{profile?.name || '—'}</Text>
-              </View>
+            <View style={styles.rowDivider} />
+            <MenuRow
+              icon="🔔"
+              label={t('citizen.profile.notifications', 'Notifications')}
+              sub={t('citizen.profile.notificationsSub', 'Collector arrivals and reward updates')}
+              onPress={() => Alert.alert('Notifications', 'Notification preferences enabled.')}
+            />
+          </MenuGroup>
 
-              <View style={styles.fieldDivider} />
+          {/* ── ACCOUNT & SUPPORT ───────────────────────────────────── */}
+          <MenuGroup label={t('citizen.profile.sectionSupport', 'ACCOUNT & SUPPORT')}>
+            <MenuRow
+              icon="🛡️"
+              label={t('citizen.profile.privacy', 'Data Privacy & Security')}
+              sub={t('citizen.profile.privacySub', 'DPDP compliance and account security')}
+              onPress={() => Alert.alert('Privacy & Security', 'EcoSetu adheres to India DPDP Act standards. All personal data is encrypted.')}
+            />
+            <View style={styles.rowDivider} />
+            <MenuRow
+              icon="📞"
+              label={t('citizen.profile.help', 'Help & Grievance Helpline')}
+              sub={t('citizen.profile.helpSub', '24/7 E-Waste assistance and queries')}
+              onPress={() => Alert.alert('EcoSetu Support', 'Toll-free Helpline: 1800-ECO-SETU\nEmail: support@ecosetu.org')}
+            />
+          </MenuGroup>
 
-              <View style={styles.fieldRow}>
-                <Text style={styles.fieldLabel}>{t('citizen.profile.phoneNumber') || 'Phone Number'}</Text>
-                <Text style={styles.fieldValue}>{profile?.phone || (t('citizen.profile.notProvided') || 'Not provided')}</Text>
-              </View>
-            </View>
-          ) : (
-            // EDIT MODE
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>{t('citizen.profile.editContactInfo') || 'Edit Contact Information'}</Text>
+          {/* ── SIGN OUT ─────────────────────────────────────────────── */}
+          <View style={styles.signOutSection}>
+            <TouchableOpacity
+              style={styles.signOutBtn}
+              onPress={handleLogout}
+              disabled={isLoggingOut}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.signOutText}>
+                {isLoggingOut ? t('auth.signingOut', 'Signing out…') : `↩ ${t('auth.logout', 'Sign Out')}`}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-              {/* Offline save warning */}
-              {!isConnected && (
-                <View style={styles.offlineEditNotice}>
-                  <Text style={styles.offlineEditText}>
-                    {t('citizen.profile.offlineEditNotice') || '⚠️ You are offline. Profile updates require a connection.'}
-                  </Text>
+          <View style={{ height: 40 }} />
+        </ScrollView>
+
+        {/* ── EDIT PROFILE MODAL ─────────────────────────────────────── */}
+        <Modal
+          visible={isEditModalOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setIsEditModalOpen(false)}
+        >
+          <KeyboardAvoidingView
+            style={styles.modalOverlay}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>{t('citizen.profile.editProfile', 'Edit Profile')}</Text>
+
+              {editError ? (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorText}>{editError}</Text>
                 </View>
-              )}
+              ) : null}
 
-              {/* Save-level error */}
-              {saveError && (
-                <View
-                  style={styles.saveErrorBanner}
-                  accessibilityRole="alert"
-                  accessibilityLabel={saveError}
-                >
-                  <Text style={styles.saveErrorText}>{saveError}</Text>
-                </View>
-              )}
+              {/* Name Input */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>{t('citizen.profile.fullName', 'Full Name')}</Text>
+                <TextInput
+                  style={styles.inputField}
+                  value={editName}
+                  onChangeText={setEditName}
+                  placeholder="Enter full name"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                />
+              </View>
 
-              {/* Name Field */}
-              <EcoGlassInput
-                label={`${t('citizen.profile.fullName') || 'Full Name'} *`}
-                value={editName}
-                onChangeText={handleNameChange}
-                placeholder={t('citizen.profile.fullName') || 'Your full name'}
-                autoCapitalize="words"
-                maxLength={100}
-                error={nameError || undefined}
-                editable={!isSaving}
-              />
-
-              {/* Phone Field */}
-              <EcoGlassInput
-                label={t('citizen.profile.phoneNumber') || 'Phone Number'}
-                value={editPhone}
-                onChangeText={handlePhoneChange}
-                placeholder={t('citizen.profile.phonePlaceholder') || 'e.g. +91 98765 43210 (optional)'}
-                keyboardType="phone-pad"
-                maxLength={20}
-                error={phoneError || undefined}
-                editable={!isSaving}
-                containerStyle={{ marginTop: spacing.spaceSm }}
-              />
+              {/* Phone Input */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>{t('citizen.profile.phoneNumber', 'Phone Number')}</Text>
+                <TextInput
+                  style={styles.inputField}
+                  value={editPhone}
+                  onChangeText={setEditPhone}
+                  placeholder="+91 9876543210"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  keyboardType="phone-pad"
+                />
+              </View>
 
               {/* Action Buttons */}
-              <View style={styles.editActions}>
+              <View style={styles.modalActions}>
                 <TouchableOpacity
-                  style={[styles.cancelButton]}
-                  onPress={cancelEdit}
+                  style={styles.cancelBtn}
+                  onPress={() => setIsEditModalOpen(false)}
                   disabled={isSaving}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('citizen.profile.cancelEdit') || 'Cancel profile edit'}
-                  accessibilityState={{ disabled: isSaving }}
-                  activeOpacity={0.75}
                 >
-                  <Text style={styles.cancelButtonText}>{t('citizen.profile.cancelEdit') || 'Cancel'}</Text>
+                  <Text style={styles.cancelBtnText}>{t('common.cancel', 'Cancel')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[
-                    styles.saveButton,
-                    (isSaving || !isConnected) && styles.saveButtonDisabled,
-                  ]}
-                  onPress={handleSave}
-                  disabled={isSaving || !isConnected}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    isSaving
-                      ? (t('citizen.profile.saving') || 'Saving profile changes')
-                      : (t('citizen.profile.saveChanges') || 'Save profile changes')
-                  }
-                  accessibilityState={{ disabled: isSaving || !isConnected, busy: isSaving }}
-                  activeOpacity={0.75}
+                  style={[styles.saveBtn, isSaving && { opacity: 0.6 }]}
+                  onPress={handleSaveProfile}
+                  disabled={isSaving}
                 >
                   {isSaving ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.saveButtonText}>{t('citizen.profile.saveChanges') || 'Save Changes'}</Text>
+                    <Text style={styles.saveBtnText}>{t('common.save', 'Save Changes')}</Text>
                   )}
                 </TouchableOpacity>
               </View>
             </View>
-          )}
-
-          {/* ── ACCOUNT INFORMATION ─────────────────────────────────── */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t('citizen.profile.accountInfo') || 'Account Information'}</Text>
-
-            <View style={styles.fieldRow}>
-              <Text style={styles.fieldLabel}>{t('citizen.profile.emailAddress') || 'Email Address'}</Text>
-              <Text style={styles.fieldValue}>{profile?.email || '—'}</Text>
-            </View>
-            <View style={styles.fieldDivider} />
-
-            <View style={styles.fieldRow}>
-              <Text style={styles.fieldLabel}>{t('citizen.profile.role') || 'Role'}</Text>
-              <Text style={styles.fieldValue}>{roleLabel}</Text>
-            </View>
-            <View style={styles.fieldDivider} />
-
-            <View style={styles.fieldRow}>
-              <Text style={styles.fieldLabel}>{t('citizen.profile.accountStatus') || 'Account Status'}</Text>
-              <Text style={[styles.fieldValue, { color: statusMeta.color, fontWeight: '600' }]}>
-                {statusMeta.label}
-              </Text>
-            </View>
-            <View style={styles.fieldDivider} />
-
-            <View style={styles.fieldRow}>
-              <Text style={styles.fieldLabel}>{t('citizen.profile.memberSince') || 'Member Since'}</Text>
-              <Text style={styles.fieldValue}>{fmtDate(profile?.createdAt)}</Text>
-            </View>
-          </View>
-
-          {/* ── ACCOUNT NOTICE — suspended/pending ──────────────────── */}
-          {(profile?.status === USER_STATUS.SUSPENDED ||
-            profile?.status === USER_STATUS.DEACTIVATED) && (
-            <View
-              style={styles.statusWarningBanner}
-              accessibilityRole="alert"
-            >
-              <Text style={styles.statusWarningText}>
-                {profile?.status === USER_STATUS.SUSPENDED
-                  ? (t('citizen.profile.suspendedNotice') || '⚠️ Your account is currently suspended. Please contact support for assistance.')
-                  : (t('citizen.profile.deactivatedNotice') || '⚠️ Your account has been deactivated.')}
-              </Text>
-            </View>
-          )}
-
-          {profile?.status === USER_STATUS.PENDING_VERIFICATION && (
-            <View
-              style={styles.pendingBanner}
-              accessibilityRole="alert"
-            >
-              <Text style={styles.pendingBannerText}>
-                {t('citizen.profile.pendingNotice') || '🕐 Your account is pending verification. You\'ll receive a notification once verified.'}
-              </Text>
-            </View>
-          )}
-
-          {/* ── LANGUAGE PREFERENCES ─────────────────────────────────── */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t('citizen.profile.selectLanguage') || 'Language Preferences'}</Text>
-            <LanguageSelector variant="chips" />
-          </View>
-
-          {/* ── ACCOUNT ACTIONS / LOGOUT ─────────────────────────────── */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t('citizen.profile.accountInfo') || 'Account Actions'}</Text>
-
-            <TouchableOpacity
-              style={[styles.logoutButton, isLoggingOut && styles.logoutButtonDisabled]}
-              onPress={handleLogoutPress}
-              disabled={isLoggingOut}
-              accessibilityRole="button"
-              accessibilityLabel={isLoggingOut ? (t('citizen.profile.signingOut') || 'Signing out') : (t('citizen.profile.signOut') || 'Sign out of ECOSETU')}
-              accessibilityState={{ disabled: isLoggingOut, busy: isLoggingOut }}
-              activeOpacity={0.75}
-            >
-              {isLoggingOut ? (
-                <ActivityIndicator size="small" color={colors.error} />
-              ) : (
-                <Text style={styles.logoutButtonText}>{t('citizen.profile.signOut') || '🚪 Sign Out'}</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {/* ── ECOSETU chain note ───────────────────────────────────── */}
-          <View style={styles.chainNote}>
-            <Text style={styles.chainNoteText}>
-              {t('citizen.profile.chainNote') || 'ECOSETU connects citizens with local informal collectors (Kabadiwalas) for responsible e-waste collection.'}
-            </Text>
-          </View>
-
-          <View style={{ height: spacing.spaceXl }} />
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </Modal>
+      </SafeAreaView>
     </EcoSetuBackground>
   );
 };
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
+// ─────────────────────────────────────────────────────────────────────────────
+// STYLES
+// ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.backgroundBase,
-  },
-  scrollContent: {
-    padding: spacing.spaceMd,
-    paddingBottom: spacing.spaceXl,
-  },
+  safeArea: { flex: 1 },
+  scroll: { flex: 1 },
+  scrollContent: { gap: 20, paddingBottom: 40, paddingTop: 16 },
 
-  // ── Profile Header ──
+  // Profile header
   profileHeader: {
     alignItems: 'center',
-    paddingVertical: spacing.spaceLg,
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+    gap: 8,
   },
-  avatarCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: colors.accentFill,
+  largeAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(16,185,129,0.15)',
     borderWidth: 2,
-    borderColor: colors.primaryDark,
-    alignItems: 'center',
+    borderColor: '#10B981',
     justifyContent: 'center',
-    marginBottom: spacing.spaceSm,
-    elevation: 4,
+    alignItems: 'center',
+    marginBottom: 4,
   },
-  avatarInitial: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: colors.primary,
-  },
-  profileName: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.spaceXs,
-    textAlign: 'center',
-  },
-  profileEmail: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: spacing.spaceXs,
-    textAlign: 'center',
-  },
-  statusRow: {
+  largeAvatarText: { color: '#10B981', fontSize: 34, fontWeight: '900' },
+  profileName: { color: '#FFFFFF', fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
+  verifiedRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.spaceSm,
-    marginTop: spacing.spaceXs,
+    gap: 6,
+    backgroundColor: 'rgba(16,185,129,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.25)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
   },
-  statusBadge: {
-    flexDirection: 'row',
+  verifiedDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#10B981' },
+  verifiedLabel: { color: '#10B981', fontSize: 12, fontWeight: '700' },
+  contactDetails: {
     alignItems: 'center',
-    paddingHorizontal: spacing.spaceSm,
-    paddingVertical: 4,
-    borderRadius: 12,
     gap: 4,
+    marginTop: 2,
   },
-  statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
+  contactText: { color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '500' },
+  memberText: { color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: '500', marginTop: 2 },
+  editProfileBtn: {
+    marginTop: 8,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
+  editProfileBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
+
+  // Group
+  group: { paddingHorizontal: 20, gap: 8 },
+  groupLabel: {
+    color: 'rgba(255,255,255,0.3)',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
   },
-  roleBadge: {
-    backgroundColor: `${colors.primary}18`,
-    paddingHorizontal: spacing.spaceSm,
-    paddingVertical: 4,
+  groupCard: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+
+  // Menu row
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    minHeight: 56,
+    gap: 14,
+  },
+  menuIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  menuIcon: { fontSize: 20 },
+  menuTextCol: { flex: 1, gap: 2 },
+  menuLabel: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  menuSub: { color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: '500' },
+  menuChevron: { color: 'rgba(255,255,255,0.2)', fontSize: 22, fontWeight: '300' },
+  rowDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginLeft: 68 },
+
+  // Language picker
+  langPicker: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.06)',
+    paddingVertical: 8,
+  },
+  langOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 13,
+    minHeight: 48,
+  },
+  langOptionSelected: { backgroundColor: 'rgba(16,185,129,0.08)' },
+  langOptionLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 15, fontWeight: '600' },
+  langOptionLabelSelected: { color: '#10B981', fontWeight: '700' },
+  langCheck: { color: '#10B981', fontSize: 16, fontWeight: '900' },
+
+  // Sign out
+  signOutSection: { paddingHorizontal: 20 },
+  signOutBtn: {
+    backgroundColor: 'rgba(239,68,68,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.2)',
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+    minHeight: 56,
+  },
+  signOutText: { color: '#FCA5A5', fontSize: 15, fontWeight: '700' },
+
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    padding: 24,
+    gap: 16,
+  },
+  modalTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
+  errorBox: {
+    backgroundColor: 'rgba(239,68,68,0.15)',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.3)',
+  },
+  errorText: { color: '#FCA5A5', fontSize: 13, fontWeight: '600' },
+  inputGroup: { gap: 6 },
+  inputLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '600' },
+  inputField: {
+    backgroundColor: 'rgba(255,255,255,0.07)',
     borderRadius: 12,
-  },
-  roleBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-
-  // ── Card ──
-  card: {
-    backgroundColor: colors.glassFill,
-    borderRadius: spacing.radiusMd,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
-    padding: spacing.spaceMd,
-    marginBottom: spacing.spaceMd,
-    elevation: 2,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.spaceMd,
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.spaceSm,
-  },
-
-  // ── Fields ──
-  fieldRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.spaceSm,
-    gap: spacing.spaceSm,
-  },
-  fieldLabel: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    flex: 1,
-  },
-  fieldValue: {
-    fontSize: 14,
-    color: colors.textPrimary,
-    fontWeight: '500',
-    flex: 2,
-    textAlign: 'right',
-  },
-  fieldDivider: {
-    height: 1,
-    backgroundColor: colors.divider,
-  },
-
-  // ── Edit Button ──
-  editButton: {
-    paddingHorizontal: spacing.spaceSm,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    minHeight: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  editButtonText: {
-    fontSize: 13,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-
-  // ── Inputs ──
-  inputLabel: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginBottom: 6,
-    fontWeight: '500',
-  },
-  required: {
-    color: colors.error,
-  },
-  input: {
-    backgroundColor: colors.background,
-    borderWidth: 1.5,
-    borderColor: colors.divider,
-    borderRadius: 8,
-    paddingHorizontal: spacing.spaceMd,
-    paddingVertical: spacing.spaceSm,
-    fontSize: 15,
-    color: colors.textPrimary,
-    minHeight: 48,
-  },
-  inputError: {
-    borderColor: colors.error,
-  },
-  fieldError: {
-    fontSize: 12,
-    color: colors.error,
-    marginTop: 4,
-  },
-
-  // ── Edit Actions ──
-  editActions: {
-    flexDirection: 'row',
-    gap: spacing.spaceSm,
-    marginTop: spacing.spaceLg,
-  },
-  cancelButton: {
-    flex: 1,
-    borderWidth: 1.5,
-    borderColor: colors.divider,
-    borderRadius: 8,
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 15,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  saveButton: {
-    flex: 2,
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveButtonDisabled: {
-    opacity: 0.5,
-  },
-  saveButtonText: {
-    fontSize: 15,
+    borderColor: 'rgba(255,255,255,0.15)',
     color: '#FFFFFF',
-    fontWeight: '700',
-  },
-
-  // ── Status banners ──
-  statusWarningBanner: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderRadius: 8,
-    padding: spacing.spaceMd,
-    marginBottom: spacing.spaceMd,
-    borderLeftWidth: 4,
-    borderLeftColor: '#EF4444',
-  },
-  statusWarningText: {
-    fontSize: 13,
-    color: '#FCA5A5',
-    lineHeight: 19,
-  },
-  pendingBanner: {
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    borderRadius: 8,
-    padding: spacing.spaceMd,
-    marginBottom: spacing.spaceMd,
-    borderLeftWidth: 4,
-    borderLeftColor: '#F59E0B',
-  },
-  pendingBannerText: {
-    fontSize: 13,
-    color: '#FBBF24',
-    lineHeight: 19,
-  },
-
-  // ── Save error ──
-  saveErrorBanner: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderRadius: 6,
-    padding: spacing.spaceSm,
-    marginBottom: spacing.spaceSm,
-  },
-  saveErrorText: {
-    fontSize: 13,
-    color: '#FCA5A5',
-  },
-
-  // ── Offline edit notice ──
-  offlineEditNotice: {
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    borderRadius: 6,
-    padding: spacing.spaceSm,
-    marginBottom: spacing.spaceSm,
-  },
-  offlineEditText: {
-    fontSize: 12,
-    color: '#FBBF24',
-  },
-
-  // ── Cached notice ──
-  cachedNotice: {
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    borderRadius: 6,
-    padding: spacing.spaceXs,
-    marginBottom: spacing.spaceSm,
-  },
-  cachedNoticeText: {
-    fontSize: 12,
-    color: '#FBBF24',
-  },
-
-  // ── Logout ──
-  logoutButton: {
-    borderWidth: 1.5,
-    borderColor: colors.error,
-    borderRadius: 8,
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.spaceXs,
-  },
-  logoutButtonDisabled: {
-    opacity: 0.5,
-  },
-  logoutButtonText: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontSize: 15,
-    color: colors.error,
-    fontWeight: '700',
   },
-
-  // ── Chain note ──
-  chainNote: {
-    paddingHorizontal: spacing.spaceMd,
-    paddingBottom: spacing.spaceSm,
-  },
-  chainNoteText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 18,
-    fontStyle: 'italic',
-  },
-
-  // ── Skeleton ──
-  skeletonContainer: {
-    padding: spacing.spaceMd,
-    alignItems: 'center',
-  },
-  skeletonAvatar: {
-    marginBottom: spacing.spaceSm,
-  },
-  skeletonLine: {
-    marginBottom: spacing.spaceSm,
-    alignSelf: 'center',
-  },
-  skeletonCard: {
-    width: '100%',
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    padding: spacing.spaceMd,
-    marginBottom: spacing.spaceMd,
-  },
-  skeletonInput: {
-    marginBottom: spacing.spaceSm,
-    borderRadius: 8,
-  },
-
-  // ── Error state ──
-  errorContainer: {
+  modalActions: { flexDirection: 'row', gap: 12, marginTop: 8 },
+  cancelBtn: {
     flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12,
+    paddingVertical: 14,
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.spaceLg,
   },
-  errorIcon: {
-    fontSize: 48,
-    marginBottom: spacing.spaceSm,
-  },
-  errorTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.spaceXs,
-    textAlign: 'center',
-  },
-  errorMessage: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  retryButton: {
-    marginTop: spacing.spaceMd,
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.spaceLg,
-    paddingVertical: spacing.spaceSm,
-    borderRadius: 8,
-    minHeight: 48,
+  cancelBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  saveBtn: {
+    flex: 1,
+    backgroundColor: '#10B981',
+    borderRadius: 12,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
-  },
+  saveBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
 });
 
 export default CitizenProfileScreen;

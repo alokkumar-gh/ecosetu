@@ -20,6 +20,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { useI18n } from '../../i18n';
 import transactionService, { TransactionRecord } from '../../services/transactionService';
 import voiceService from '../../services/voiceService';
+import { ReportProblemModal } from '../../components/dispute/ReportProblemModal';
 
 export const CollectorTransactionDetailScreen: React.FC = () => {
   const { language } = useI18n();
@@ -31,6 +32,7 @@ export const CollectorTransactionDetailScreen: React.FC = () => {
   const [transaction, setTransaction] = useState<TransactionRecord | null>(passedTx || null);
   const [loading, setLoading] = useState(!passedTx);
   const [modalVisible, setModalVisible] = useState(false);
+  const [problemModalVisible, setProblemModalVisible] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [newStatus, setNewStatus] = useState<'PAID' | 'PARTIALLY_PAID' | 'PENDING'>('PAID');
   const [newAmountPaid, setNewAmountPaid] = useState('');
@@ -217,6 +219,60 @@ export const CollectorTransactionDetailScreen: React.FC = () => {
         </View>
       </View>
 
+      {/* Realized Economic Margin Card (Factual Only) */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Realized Transaction Economics</Text>
+        <View style={styles.tableRow}>
+          <Text style={styles.tableLabel}>Sale Value:</Text>
+          <Text style={styles.tableValue}>₹{finalSaleValue.toFixed(2)}</Text>
+        </View>
+        <View style={styles.tableRow}>
+          <Text style={styles.tableLabel}>Recorded Acquisition Cost:</Text>
+          <Text style={styles.tableValue}>
+            {(transaction as any).acquisitionCost !== undefined && (transaction as any).acquisitionCost !== null
+              ? `₹${Number((transaction as any).acquisitionCost).toFixed(2)}`
+              : 'Not recorded'}
+          </Text>
+        </View>
+        <View style={styles.tableRow}>
+          <Text style={styles.tableLabel}>Recorded Transport Cost:</Text>
+          <Text style={styles.tableValue}>
+            {(transaction as any).transportCost !== undefined && (transaction as any).transportCost !== null
+              ? `₹${Number((transaction as any).transportCost).toFixed(2)}`
+              : 'Not recorded'}
+          </Text>
+        </View>
+        <View style={styles.tableRow}>
+          <Text style={styles.tableLabel}>Recorded Other Costs:</Text>
+          <Text style={styles.tableValue}>
+            {(transaction as any).otherCosts !== undefined && (transaction as any).otherCosts !== null
+              ? `₹${Number((transaction as any).otherCosts).toFixed(2)}`
+              : 'Not recorded'}
+          </Text>
+        </View>
+
+        {/* Margin Display */}
+        <View style={styles.marginContainer}>
+          {(transaction as any).acquisitionCost !== undefined && (transaction as any).acquisitionCost !== null ? (
+            <View style={styles.marginRow}>
+              <Text style={styles.marginLabel}>Realized Margin:</Text>
+              <Text style={styles.marginValue}>
+                ₹{(
+                  finalSaleValue -
+                  Number((transaction as any).acquisitionCost || 0) -
+                  Number((transaction as any).transportCost || 0) -
+                  Number((transaction as any).otherCosts || 0)
+                ).toFixed(2)}
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.marginUnavailableText}>
+              ℹ️ Margin unavailable — required cost data not recorded.
+            </Text>
+          )}
+        </View>
+      </View>
+
       {/* Payment Settlement Status Card */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Payment Breakdown</Text>
@@ -259,19 +315,38 @@ export const CollectorTransactionDetailScreen: React.FC = () => {
           </Text>
         </View>
 
-        {/* Update Payment Button if balance pending */}
-        {transaction.paymentStatus !== 'PAID' && (
+        {/* Payment Actions based on state */}
+        {transaction.paymentStatus !== 'PAID' ? (
           <TouchableOpacity
             style={styles.updateStatusButton}
             onPress={() => {
-              setNewStatus('PAID');
-              setNewAmountPaid(String(finalSaleValue));
-              setModalVisible(true);
+              navigation.navigate('PaymentMethod', {
+                transactionId: transaction.id,
+                transaction,
+              });
             }}
           >
-            <Text style={styles.updateStatusButtonText}>Update Payment Status</Text>
+            <Text style={styles.updateStatusButtonText}>💳 Complete Payment / Confirm</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.updateStatusButton, { backgroundColor: '#15803d' }]}
+            onPress={() => {
+              navigation.navigate('CollectorBillDetail', {
+                transactionId: transaction.id,
+              });
+            }}
+          >
+            <Text style={styles.updateStatusButtonText}>📄 View Official Bill / Receipt</Text>
           </TouchableOpacity>
         )}
+
+        <TouchableOpacity
+          style={styles.disputeButton}
+          onPress={() => setProblemModalVisible(true)}
+        >
+          <Text style={styles.disputeButtonText}>🚨 Dispute Payment / Report Issue</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Provenance & Lifecycle Chain Card */}
@@ -302,6 +377,29 @@ export const CollectorTransactionDetailScreen: React.FC = () => {
           <Text style={styles.chainValueHighlight}>
             {transaction.referenceNumber} (RECORDED)
           </Text>
+        </View>
+        <View style={styles.chainItem}>
+          <Text style={styles.chainLabel}>5. Official Bill / Receipt:</Text>
+          {transaction.paymentStatus === 'PAID' ? (
+            <TouchableOpacity
+              onPress={() =>
+                navigation.navigate('CollectorBillDetail', {
+                  transactionId: transaction.id,
+                })
+              }
+            >
+              <Text
+                style={[
+                  styles.chainValueHighlight,
+                  { color: '#16a34a', textDecorationLine: 'underline' },
+                ]}
+              >
+                View Canonical Bill ➔
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={styles.chainValue}>Pending Payment Confirmation</Text>
+          )}
         </View>
       </View>
 
@@ -393,6 +491,20 @@ export const CollectorTransactionDetailScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      <ReportProblemModal
+        visible={problemModalVisible}
+        onClose={() => setProblemModalVisible(false)}
+        materialLotId={transaction.materialLotId}
+        quoteId={transaction.quoteId}
+        handoverId={transaction.handoverId}
+        transactionId={transaction.id}
+        initialDisputeType="PAYMENT_DISPUTE"
+        amount={Number(transaction.finalSaleValue)}
+        onDisputeCreated={() => {
+          navigation?.navigate('CollectorDisputes');
+        }}
+      />
     </ScrollView>
   );
 };
@@ -612,6 +724,36 @@ const styles = StyleSheet.create({
   diffNegative: {
     color: '#b91c1c',
   },
+  marginContainer: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  marginRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#f0fdf4',
+    padding: 10,
+    borderRadius: 8,
+  },
+  marginLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#15803d',
+  },
+  marginValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#15803d',
+  },
+  marginUnavailableText: {
+    fontSize: 12,
+    color: '#64748b',
+    fontStyle: 'italic',
+    lineHeight: 16,
+  },
   disclaimerBox: {
     marginTop: 12,
     backgroundColor: '#f8fafc',
@@ -635,6 +777,20 @@ const styles = StyleSheet.create({
   updateStatusButtonText: {
     color: '#ffffff',
     fontWeight: '600',
+    fontSize: 14,
+  },
+  disputeButton: {
+    marginTop: 10,
+    backgroundColor: '#fff1f2',
+    borderWidth: 1.5,
+    borderColor: '#f43f5e',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  disputeButtonText: {
+    color: '#e11d48',
+    fontWeight: '700',
     fontSize: 14,
   },
   chainItem: {

@@ -26,7 +26,7 @@ export const EcoCarouselControls: React.FC<EcoCarouselControlsProps> = ({
           onPress={onGetStarted}
           style={styles.getStartedButton}
         >
-          <Text style={styles.getStartedText}>{t('auth.slide6Cta') || t('auth.getStarted')}</Text>
+          <Text style={styles.getStartedText}>{t('onboarding.slide6Cta', 'Get Started') || t('onboarding.getStarted', 'Get Started')}</Text>
           <Text style={styles.arrowIcon}>→</Text>
         </TouchableOpacity>
       </View>
@@ -41,7 +41,7 @@ export const EcoCarouselControls: React.FC<EcoCarouselControlsProps> = ({
         onPress={onSkip}
         style={styles.skipButton}
       >
-        <Text style={styles.skipText}>{t('auth.skip')}</Text>
+        <Text style={styles.skipText}>{t('onboarding.skip', 'Skip')}</Text>
       </TouchableOpacity>
 
       {/* Next Button */}

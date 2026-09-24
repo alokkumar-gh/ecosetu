@@ -13,8 +13,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useI18n } from '../../i18n';
 import { EcoSetuBackground } from '../../components/eco';

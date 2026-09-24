@@ -13,6 +13,7 @@ const CACHE_COLLECTOR_RECYCLERS = '@ecosetu_collector_recyclers';
 const CACHE_RECYCLER_CONSIGNMENTS = '@ecosetu_recycler_consignments';
 const CACHE_COLLECTOR_CONSIGNMENTS = '@ecosetu_collector_consignments';
 const CACHE_RECYCLER_RECORDS = '@ecosetu_recycler_records';
+const CACHE_RECYCLER_PROFILE = '@ecosetu_recycler_profile';
 
 async function _readCache(key) {
   try {
@@ -32,6 +33,35 @@ async function _writeCache(key, data) {
 }
 
 class RecyclingService {
+  /**
+   * Get authenticated formal recycler's own profile.
+   * Endpoint: GET /api/v1/recyclers/profile
+   * Scoped to authenticated recycler on backend.
+   * Offline-first with AsyncStorage cache (@ecosetu_recycler_profile).
+   *
+   * @returns {Promise<{ profile: Object|null, fromCache: boolean }>}
+   */
+  async getProfile() {
+    if (networkService.isConnected()) {
+      try {
+        const response = await apiClient.get('/recyclers/profile');
+        const profile = response.data?.profile || response.data;
+        if (profile) {
+          await _writeCache(CACHE_RECYCLER_PROFILE, profile);
+        }
+        return { profile, fromCache: false };
+      } catch (err) {
+        if (err.isNetworkError) {
+          const cached = await _readCache(CACHE_RECYCLER_PROFILE);
+          return { profile: cached, fromCache: true };
+        }
+        throw err;
+      }
+    }
+    const cached = await _readCache(CACHE_RECYCLER_PROFILE);
+    return { profile: cached, fromCache: true };
+  }
+
   /**
    * List all verified formal recyclers (for collectors discovering facilities / consignments)
    * Endpoint: GET /api/v1/recyclers
@@ -545,6 +575,7 @@ export {
   CACHE_RECYCLER_CONSIGNMENTS,
   CACHE_COLLECTOR_CONSIGNMENTS,
   CACHE_RECYCLER_RECORDS,
+  CACHE_RECYCLER_PROFILE,
 };
 export const recyclingService = new RecyclingService();
 export default recyclingService;

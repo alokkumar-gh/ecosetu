@@ -132,13 +132,114 @@ class RecyclerService {
    * @param {object|string} [params] - Optional query parameters or category string
    * @returns {Promise<object>} List of recyclers and pagination metadata
    */
-  async listVerifiedRecyclers(params = {}) {
+  /**
+   * Check if an informal collector is authorized to access a recycler's private contact details
+   * SIH-RECY-006: Recycler Contact Privacy Gate
+   *
+   * Access is granted ONLY IF an authorized business interaction exists:
+   * 1. A specified lot owned by collector has an interaction with this recycler (Quote, Handover, Transaction) or is beyond DRAFT with an active quote/interaction.
+   * 2. If no lotId specified, collector has at least one active/historical Quote, Handover, Transaction, or Consignment with this recycler.
+   * 3. If a lotId is explicitly provided but does NOT belong to this collector, access is strictly forbidden (403).
+   *
+   * @param {string} collectorUserId - Authenticated collector User UUID
+   * @param {string} recyclerProfileId - Target RecyclerProfile UUID
+   * @param {object} [options] - { lotId?: string }
+   * @returns {Promise<boolean>}
+   */
+  async canCollectorAccessRecyclerContact(collectorUserId, recyclerProfileId, options = {}) {
+    const { lotId } = options;
+
+    if (lotId) {
+      const lot = await prisma.materialLot.findUnique({
+        where: { id: lotId },
+        include: {
+          collector: {
+            select: { userId: true },
+          },
+          quotes: {
+            where: { recyclerId: recyclerProfileId },
+            select: { id: true, status: true },
+          },
+          handovers: {
+            where: { recyclerId: recyclerProfileId },
+            select: { id: true, status: true },
+          },
+          transactions: {
+            where: { recyclerId: recyclerProfileId },
+            select: { id: true, transactionStatus: true },
+          },
+        },
+      });
+
+      if (!lot) {
+        throw AppError.notFound('Material lot not found');
+      }
+
+      if (lot.collector?.userId !== collectorUserId) {
+        throw AppError.forbidden('Cannot access contact using another collector\'s material lot');
+      }
+
+      const hasQuotes = Array.isArray(lot.quotes) && lot.quotes.length > 0;
+      const hasHandovers = Array.isArray(lot.handovers) && lot.handovers.length > 0;
+      const hasTransactions = Array.isArray(lot.transactions) && lot.transactions.length > 0;
+
+      // Eligible interaction: lot has quote with this recycler, or handover/transaction, or lot is beyond DRAFT and negotiated with this recycler
+      if (hasQuotes || hasHandovers || hasTransactions) {
+        return true;
+      }
+
+      return false;
+    }
+
+    // General interaction check (no specific lotId provided)
+    const [quoteCount, handoverCount, transactionCount, consignmentCount] = await Promise.all([
+      prisma.quote.count({
+        where: {
+          recyclerId: recyclerProfileId,
+          materialLot: {
+            collector: { userId: collectorUserId },
+          },
+        },
+      }),
+      prisma.handoverRecord.count({
+        where: {
+          recyclerId: recyclerProfileId,
+          collector: { userId: collectorUserId },
+        },
+      }),
+      prisma.transactionRecord.count({
+        where: {
+          recyclerId: recyclerProfileId,
+          collector: { userId: collectorUserId },
+        },
+      }),
+      prisma.consignment.count({
+        where: {
+          recyclerId: recyclerProfileId,
+          collector: { userId: collectorUserId },
+        },
+      }),
+    ]);
+
+    return (quoteCount > 0 || handoverCount > 0 || transactionCount > 0 || consignmentCount > 0);
+  }
+
+  /**
+   * List all verified recyclers with optional filters (category, authorizationStatus, pickup, search, location)
+   * Enforces SIH-RECY-006: Recycler private phone/email are omitted for directory browsing
+   * @param {object|string} params - Query filters or category string
+   * @param {object} [requester] - Authenticated user context
+   * @returns {Promise<object>} { recyclers, pagination }
+   */
+  async listVerifiedRecyclers(params = {}, requester = null) {
     let options = {};
     if (typeof params === 'string') {
       options = { category: params };
     } else if (params && typeof params === 'object') {
       options = params;
     }
+
+    const isAdmin = requester && requester.role === ROLES.ADMIN;
 
     const where = {
       user: {
@@ -257,6 +358,14 @@ class RecyclerService {
         expiryDate: rate.expiryDate,
       }));
 
+      const operationalPhone = isAdmin ? (r.operationalPhone || (r.user ? r.user.phone : null)) : null;
+      const operationalEmail = isAdmin ? (r.operationalEmail || (r.user ? r.user.email : null)) : null;
+      const sanitizedUser = r.user
+        ? (isAdmin
+            ? r.user
+            : { id: r.user.id, name: r.user.name })
+        : null;
+
       return {
         id: r.id,
         facilityName: r.facilityName,
@@ -279,8 +388,8 @@ class RecyclerService {
         serviceArea: r.serviceArea,
         serviceRadiusKm: r.serviceRadiusKm ? parseFloat(r.serviceRadiusKm.toString()) : null,
         authorizationStatus: r.authorizationStatus,
-        operationalPhone: r.operationalPhone || (r.user ? r.user.phone : null),
-        operationalEmail: r.operationalEmail || (r.user ? r.user.email : null),
+        operationalPhone,
+        operationalEmail,
         isActive: r.isActive,
         createdAt: r.createdAt,
         updatedAt: r.updatedAt,
@@ -288,7 +397,8 @@ class RecyclerService {
         hasActiveRates: activeRates.length > 0,
         activeRatesCount: activeRates.length,
         activeRates,
-        user: r.user,
+        user: sanitizedUser,
+        canAccessContact: Boolean(isAdmin),
       };
     });
 
@@ -305,11 +415,13 @@ class RecyclerService {
 
   /**
    * Get single recycler facility details with active offered rates and contact info
+   * Enforces SIH-RECY-006: Recycler Contact Privacy Gate
    * @param {string} id - RecyclerProfile UUID
-   * @param {object} [options] - Optional coordinates { lat, lng }
-   * @returns {Promise<object>} Full recycler details
+   * @param {object} [options] - Optional coordinates & context { lat, lng, requester, lotId }
+   * @returns {Promise<object>} Full recycler details (privacy-gated)
    */
   async getRecyclerById(id, options = {}) {
+    const { lat, lng, requester, lotId } = options;
     const now = new Date();
     const profile = await prisma.recyclerProfile.findUnique({
       where: { id },
@@ -333,8 +445,20 @@ class RecyclerService {
       throw AppError.notFound('Recycler facility not found');
     }
 
-    const userLat = options.lat != null ? parseFloat(options.lat) : null;
-    const userLng = options.lng != null ? parseFloat(options.lng) : null;
+    // Determine contact access authorization
+    let canAccessContact = false;
+    if (requester) {
+      if (requester.role === ROLES.ADMIN) {
+        canAccessContact = true;
+      } else if (requester.role === ROLES.RECYCLER && profile.userId === requester.id) {
+        canAccessContact = true;
+      } else if (requester.role === ROLES.INFORMAL_COLLECTOR) {
+        canAccessContact = await this.canCollectorAccessRecyclerContact(requester.id, id, { lotId });
+      }
+    }
+
+    const userLat = lat != null ? parseFloat(lat) : null;
+    const userLng = lng != null ? parseFloat(lng) : null;
     const facLat = profile.facilityLat ? parseFloat(profile.facilityLat.toString()) : null;
     const facLng = profile.facilityLng ? parseFloat(profile.facilityLng.toString()) : null;
     const distanceKm = calculateHaversineDistanceKm(userLat, userLng, facLat, facLng);
@@ -354,6 +478,24 @@ class RecyclerService {
       effectiveDate: r.effectiveDate,
       expiryDate: r.expiryDate,
     }));
+
+    const operationalPhone = canAccessContact ? (profile.operationalPhone || (profile.user ? profile.user.phone : null)) : null;
+    const operationalEmail = canAccessContact ? (profile.operationalEmail || (profile.user ? profile.user.email : null)) : null;
+
+    const contact = {
+      name: profile.user ? profile.user.name : null,
+      email: operationalEmail,
+      phone: operationalPhone,
+      isLocked: !canAccessContact,
+      canAccessContact,
+      ...(!canAccessContact ? { accessRequirement: 'INTERACTION_REQUIRED' } : {}),
+    };
+
+    const sanitizedUser = profile.user
+      ? (canAccessContact
+          ? profile.user
+          : { id: profile.user.id, name: profile.user.name, role: profile.user.role, status: profile.user.status })
+      : null;
 
     return {
       id: profile.id,
@@ -377,8 +519,8 @@ class RecyclerService {
       serviceArea: profile.serviceArea,
       serviceRadiusKm: profile.serviceRadiusKm ? parseFloat(profile.serviceRadiusKm.toString()) : null,
       authorizationStatus: profile.authorizationStatus,
-      operationalPhone: profile.operationalPhone || (profile.user ? profile.user.phone : null),
-      operationalEmail: profile.operationalEmail || (profile.user ? profile.user.email : null),
+      operationalPhone,
+      operationalEmail,
       verifiedAt: profile.verifiedAt || null,
       verifiedBy: profile.verifiedBy || null,
       verificationNotes: profile.verificationNotes || null,
@@ -389,12 +531,9 @@ class RecyclerService {
       hasActiveRates: activeOfferedRates.length > 0,
       activeRatesCount: activeOfferedRates.length,
       offeredRates: activeOfferedRates,
-      contact: {
-        name: profile.user ? profile.user.name : null,
-        email: profile.operationalEmail || (profile.user ? profile.user.email : null),
-        phone: profile.operationalPhone || (profile.user ? profile.user.phone : null),
-      },
-      user: profile.user,
+      contact: contact,
+      user: sanitizedUser,
+      canAccessContact,
     };
   }
 

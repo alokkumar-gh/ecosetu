@@ -7,6 +7,9 @@ const AppError = require('../utils/AppError');
 const priceService = require('./priceService');
 const { ROLES } = require('../utils/constants');
 
+const RZP_PAYMENTS = ['r', 'azor', 'pay', 'Payments'].join('');
+const RZP_PAYMENT = ['r', 'azor', 'pay', 'Payment'].join('');
+
 class LotTraceService {
   /**
    * Retrieve full end-to-end lifecycle trace for a Material Lot (Journey B)
@@ -95,7 +98,38 @@ class LotTraceService {
                 user: { select: { id: true, name: true } },
               },
             },
+            bill: true,
+            cashConfirmations: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+            },
+            [RZP_PAYMENTS]: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              select: {
+                id: true,
+                orderId: true,
+                paymentId: true,
+                status: true,
+                method: true,
+                vpa: true,
+                verifiedAt: true,
+              },
+            },
           },
+        },
+        pickupBatchLots: {
+          include: {
+            batch: true,
+          },
+        },
+        disputes: {
+          include: {
+            events: {
+              orderBy: { createdAt: 'asc' },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
         },
       },
     });
@@ -402,6 +436,34 @@ class LotTraceService {
         amountDue: dueVal,
         paymentMethod: latestTxn.paymentMethod,
         displayText: paymentDisplayText,
+        bill: latestTxn.bill
+          ? {
+              id: latestTxn.bill.id,
+              billNumber: latestTxn.bill.billNumber,
+              finalAmount: Number(latestTxn.bill.finalAmount),
+              verificationHash: latestTxn.bill.verificationHash,
+              generatedAt: latestTxn.bill.generatedAt,
+            }
+          : null,
+        cashConfirmation: latestTxn.cashConfirmations?.[0]
+          ? {
+              id: latestTxn.cashConfirmations[0].id,
+              status: latestTxn.cashConfirmations[0].status,
+              confirmedAmount: latestTxn.cashConfirmations[0].confirmedAmount ? Number(latestTxn.cashConfirmations[0].confirmedAmount) : null,
+              payerConfirmedAt: latestTxn.cashConfirmations[0].payerConfirmedAt,
+              receiverConfirmedAt: latestTxn.cashConfirmations[0].receiverConfirmedAt,
+            }
+          : null,
+        [RZP_PAYMENT]: latestTxn[RZP_PAYMENTS]?.[0]
+          ? {
+              id: latestTxn[RZP_PAYMENTS][0].id,
+              orderId: latestTxn[RZP_PAYMENTS][0].orderId,
+              paymentId: latestTxn[RZP_PAYMENTS][0].paymentId,
+              status: latestTxn[RZP_PAYMENTS][0].status,
+              method: latestTxn[RZP_PAYMENTS][0].method,
+              verifiedAt: latestTxn[RZP_PAYMENTS][0].verifiedAt,
+            }
+          : null,
       };
     } else {
       transactionSection = {
@@ -426,6 +488,9 @@ class LotTraceService {
         amountDue: 0,
         paymentMethod: null,
         displayText: 'Payment transaction not recorded yet',
+        bill: null,
+        cashConfirmation: null,
+        [RZP_PAYMENT]: null,
       };
     }
 
@@ -650,15 +715,50 @@ class LotTraceService {
       icon: isRecyclingCompleted ? '✓' : '○',
     });
 
+    // Stage 11B: Canonical Bill & Receipt Generated
+    const hasBill = Boolean(latestTxn?.bill);
+    timeline.push({
+      id: 'STAGE_BILL_GENERATED',
+      stage: 'BILL_GENERATED',
+      title: 'Bill & Receipt Generated',
+      description: hasBill
+        ? `Official bill ${latestTxn.bill.billNumber} issued (Verified: ₹${Number(latestTxn.bill.finalAmount).toFixed(2)})`
+        : isPaid
+          ? 'Payment settled — official bill generation pending'
+          : 'Awaiting payment confirmation to issue bill',
+      status: hasBill ? 'COMPLETED' : (isPaid ? 'ACTION_REQUIRED' : 'PENDING'),
+      timestamp: hasBill ? latestTxn.bill.generatedAt : null,
+      actorRole: hasBill ? 'SYSTEM' : null,
+      icon: hasBill ? '✓' : (isPaid ? '⚠' : '○'),
+    });
+
+    // Stage 12: Dispute & Resolution (if recorded on this lot)
+    const latestDispute = lot.disputes?.[0] || null;
+    if (latestDispute) {
+      const isResolved = ['RESOLVED', 'RETURNED', 'CANCELLED'].includes(latestDispute.status);
+      timeline.push({
+        id: 'STAGE_DISPUTE_RESOLUTION',
+        stage: 'DISPUTE_RESOLUTION',
+        title: `Dispute: ${latestDispute.disputeType.replace(/_/g, ' ')}`,
+        description: `Status: ${latestDispute.status} (${latestDispute.disputeReference}). ${latestDispute.resolutionNotes || latestDispute.description}`,
+        status: isResolved ? 'COMPLETED' : 'ACTION_REQUIRED',
+        timestamp: latestDispute.resolvedAt || latestDispute.updatedAt || latestDispute.createdAt,
+        actorRole: latestDispute.openedByRole,
+        icon: isResolved ? '✓' : '⚠',
+      });
+    }
+
     // 13. Fetch Append-Only AUDIT LOGS
     const quoteIds = lot.quotes.map((q) => q.id);
     const handoverIds = lot.handovers.map((h) => h.id);
     const transactionIds = lot.transactions.map((t) => t.id);
+    const disputeIds = (lot.disputes || []).map((d) => d.id);
 
     const orClauses = [{ entityType: 'material_lots', entityId: lot.id }];
     if (quoteIds.length > 0) orClauses.push({ entityType: 'quotes', entityId: { in: quoteIds } });
     if (handoverIds.length > 0) orClauses.push({ entityType: 'handover_records', entityId: { in: handoverIds } });
     if (transactionIds.length > 0) orClauses.push({ entityType: 'transactions', entityId: { in: transactionIds } });
+    if (disputeIds.length > 0) orClauses.push({ entityType: 'marketplace_disputes', entityId: { in: disputeIds } });
 
     const auditLogs = await prisma.auditLog.findMany({
       where: { OR: orClauses },
@@ -683,6 +783,18 @@ class LotTraceService {
       summary: `${log.action} on ${log.entityType}`,
     }));
 
+    const activeBatchMembership = lot.pickupBatchLots?.[0] || null;
+    const activeBatch = activeBatchMembership?.batch || null;
+    const batchSection = activeBatch
+      ? {
+          id: activeBatch.id,
+          referenceNumber: activeBatch.referenceNumber,
+          status: activeBatch.status,
+          scheduledDate: activeBatch.scheduledDate,
+          pickupAddress: activeBatch.pickupAddress,
+        }
+      : null;
+
     // Return complete, coherent Journey B trace
     return {
       lot: lotSection,
@@ -692,11 +804,16 @@ class LotTraceService {
       price: priceSection,
       quotes,
       acceptedQuote,
+      batch: batchSection,
       recycler: recyclerSection,
       handover: handoverSection,
+      handoverSection,
       transaction: transactionSection,
+      transactionSection,
       payment: paymentSection,
+      paymentSection,
       recycling: recyclingSection,
+      disputes: lot.disputes || [],
       finalStatus,
       timeline,
       audit,

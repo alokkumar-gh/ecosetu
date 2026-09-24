@@ -81,8 +81,8 @@ export const SlideImpact: React.FC<SlideProps> = ({ width, active }) => {
           },
         ]}
       >
-        <Text style={styles.headlineText}>{t('auth.slide5Title')}</Text>
-        <Text style={styles.subtitleText}>{t('auth.slide5Subtitle')}</Text>
+        <Text style={styles.headlineText}>{t('onboarding.slide5Title')}</Text>
+        <Text style={styles.subtitleText}>{t('onboarding.slide5Subtitle')}</Text>
       </Animated.View>
     </View>
   );

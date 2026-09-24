@@ -153,6 +153,33 @@ class MaterialLotController {
       next(err);
     }
   }
+
+  /**
+   * Get marketplace dashboard metrics for Collector or Recycler
+   * GET /api/v1/material-lots/marketplace/overview
+   */
+  async getMarketplaceOverview(req, res, next) {
+    try {
+      const overview = await materialLotService.getMarketplaceOverview(req.user);
+      return sendSuccess(res, overview, 200);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Get factual market statistics for a material category/subcategory
+   * GET /api/v1/material-lots/marketplace/market-stats
+   */
+  async getMarketStats(req, res, next) {
+    try {
+      const { category, subcategory } = req.query;
+      const stats = await materialLotService.getMaterialMarketStats(category, subcategory);
+      return sendSuccess(res, stats, 200);
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = new MaterialLotController();

@@ -1,12 +1,12 @@
 /**
- * CitizenDashboardScreen — Premium SaaS Glassmorphism Edition
+ * CitizenDashboardScreen — EcoSetu Consumer Home (Complete Redesign)
  *
- * Visual design matching EcoSetu mockup:
- * - Top header with profile avatar, name, location, and notification bell
- * - "Your E-Waste Impact" hero glass card with glowing leaf and impact metrics
- * - 4-grid quick action glass buttons: Submit (+), My Requests, Traceability, Notifications
- * - Recent requests glass cards with status pill and glowing accents
- * - 100% preserves all business logic, data fetching, and navigation
+ * Consumer Marketplace experience. Two clear journeys:
+ *   A. SELL/GIVE E-WASTE  — "Schedule a free pickup"
+ *   B. SHOP REUSABLES     — "Browse tested electronics"
+ *
+ * Design: Consumer-first, dark emerald glass, warm accent tones.
+ * Preserves all business logic & data fetching via citizenSyncService.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -28,13 +28,8 @@ import { useNetwork } from '../../hooks/useNetwork';
 import { useI18n } from '../../i18n';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { GlassCard } from '../../components/glass/GlassCard';
-import { GlassHeroCard } from '../../components/glass/GlassHeroCard';
 import { GlassAvatar } from '../../components/glass/GlassAvatar';
-import { OfflineBanner } from '../../components/common/OfflineBanner';
-import { Skeleton } from '../../components/common/Skeleton';
-import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
-import { ewasteService } from '../../services/ewasteService';
-import { requestService } from '../../services/requestService';
+import { citizenSyncService, CitizenCriticalData, CitizenSyncState } from '../../services/citizenSyncService';
 
 type CitizenDashboardNavigationProp = CompositeNavigationProp<
   BottomTabNavigationProp<CitizenTabParamList, 'CitizenHome'>,
@@ -50,107 +45,112 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const { isConnected } = useNetwork();
   const { t } = useI18n();
 
-  const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [items, setItems] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
 
-  const loadDashboardData = useCallback(async () => {
+  useEffect(() => {
+    const unsubscribe = citizenSyncService.subscribe(
+      (data: CitizenCriticalData, state: CitizenSyncState) => {
+        if (data.items) setItems(data.items);
+        if (data.requests) setRequests(data.requests);
+        if (typeof data.unreadNotificationCount === 'number') {
+          setUnreadCount(data.unreadNotificationCount);
+        }
+        if (state.error) setErrorMessage(state.error);
+        else setErrorMessage(null);
+      }
+    );
+    citizenSyncService.bootstrap().catch(() => {});
+    return () => { unsubscribe(); };
+  }, []);
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
     setErrorMessage(null);
     try {
-      const [fetchedItems, fetchedRequests] = await Promise.all([
-        ewasteService.getItems(),
-        requestService.getRequests(),
-      ]);
-      setItems(Array.isArray(fetchedItems) ? fetchedItems : []);
-      setRequests(Array.isArray(fetchedRequests) ? fetchedRequests : []);
+      await citizenSyncService.bootstrap(true);
     } catch (err: any) {
-      console.warn('[CitizenDashboard] Data fetch error:', err?.message || err);
-      setErrorMessage(
-        err?.message || 'Unable to load your e-waste activity. Please pull down to retry.'
-      );
+      setErrorMessage(err?.message || 'Unable to refresh.');
     } finally {
-      setIsLoading(false);
       setIsRefreshing(false);
     }
   }, []);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, [loadDashboardData]);
-
-  const onRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    loadDashboardData();
-  }, [loadDashboardData]);
-
   // Derived metrics
   const itemsSubmittedCount = items.length;
   const activeRequestsCount = requests.filter((r) =>
-    ['SUBMITTED', 'ACCEPTED', 'IN_PROGRESS'].includes((r.status || '').toUpperCase())
+    ['SUBMITTED', 'ACCEPTED', 'IN_PROGRESS', 'PICKUP_SCHEDULED'].includes((r.status || '').toUpperCase())
   ).length;
   const completedPickupsCount = requests.filter(
-    (r) => (r.status || '').toUpperCase() === 'COMPLETED'
+    (r) => ['COMPLETED', 'PICKED_UP'].includes((r.status || '').toUpperCase())
   ).length;
-
-  const estimatedWeightKg = (itemsSubmittedCount * 2.1).toFixed(1);
-  const estimatedCo2Kg = (itemsSubmittedCount * 1.5).toFixed(1);
+  // No fabricated metrics — only real data shown to user
 
   const recentRequests = [...requests]
     .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-    .slice(0, 5);
+    .slice(0, 3);
 
-  // Navigation handlers
   const handleOpenNotifications = () => navigation.navigate('CitizenNotifications');
   const handleOpenSubmit = () => navigation.navigate('CitizenSubmit');
   const handleOpenRequests = () => navigation.navigate('CitizenRequests');
-  const handleOpenTraceability = () => (navigation as any).navigate('ItemTraceability');
+  const handleOpenMarketplace = () => (navigation as any).navigate('CitizenMarketplace');
   const handleOpenRequestDetail = (requestId: string) =>
     (navigation as any).navigate('RequestDetail', { requestId });
+
+  const firstName = (user?.name || 'there').split(' ')[0];
+  const timeGreeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return t('collector.dashboard.greetingMorning', 'Good morning');
+    if (h < 17) return t('collector.dashboard.greetingAfternoon', 'Good afternoon');
+    return t('collector.dashboard.greetingEvening', 'Good evening');
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status.toUpperCase()) {
+      case 'SUBMITTED': return t('status.submitted', 'Submitted');
+      case 'ACCEPTED': return t('status.accepted', 'Accepted');
+      case 'PICKUP_SCHEDULED': return t('status.pickupScheduled', 'Scheduled');
+      case 'IN_PROGRESS': return t('status.inProgress', 'In Progress');
+      case 'PICKED_UP':
+      case 'COMPLETED': return t('status.pickedUp', 'Collected');
+      case 'CANCELLED': return t('status.cancelled', 'Cancelled');
+      case 'EXPIRED': return t('status.rejected', 'Expired');
+      default: return status.replace(/_/g, ' ');
+    }
+  };
 
   return (
     <EcoSetuBackground>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        {/* Top Header Row with Avatar, Info & Notification Bell */}
-        <View style={styles.headerBar}>
-          <View style={styles.headerUserInfo}>
-            <GlassAvatar name={user?.name || 'Citizen'} size={44} online />
-            <View style={styles.userTextCol}>
-              <Text style={styles.userGreeting}>Good Morning,</Text>
-              <Text style={styles.userName} accessibilityRole="header">
-                {user?.name || 'Citizen User'}
-              </Text>
-              <View style={styles.locationRow}>
-                <Text style={styles.locationPin}>📍</Text>
-                <Text style={styles.locationText}>Odisha, India</Text>
-              </View>
+        {/* ─── Top Header ─── */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <GlassAvatar name={user?.name || 'Citizen'} size={42} online={isConnected} />
+            <View style={styles.headerText}>
+              <Text style={styles.headerGreeting}>{timeGreeting()},</Text>
+              <Text style={styles.headerName} numberOfLines={1}>{firstName} 👋</Text>
             </View>
           </View>
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <ReadAloudButton
-              text={`${t('citizen.dashboard.welcomeBack')}. ${user?.name || 'Citizen'}. ${itemsSubmittedCount} ${t('citizen.dashboard.itemsSubmitted')}. ${activeRequestsCount} ${t('citizen.dashboard.activeRequests')}.`}
-              size="small"
-            />
-            <TouchableOpacity
-              style={styles.notificationBtn}
-              onPress={handleOpenNotifications}
-              accessibilityRole="button"
-              accessibilityLabel="Notifications"
-            >
-              <Text style={styles.notificationBellIcon}>🔔</Text>
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>1</Text>
+          <TouchableOpacity
+            style={styles.notifBtn}
+            onPress={handleOpenNotifications}
+            accessibilityRole="button"
+            accessibilityLabel={t('citizen.dashboard.alerts', 'Notifications')}
+          >
+            <Text style={styles.notifIcon}>🔔</Text>
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
               </View>
-            </TouchableOpacity>
-          </View>
+            )}
+          </TouchableOpacity>
         </View>
 
-        <OfflineBanner />
-
         <ScrollView
-          contentContainerStyle={styles.container}
+          contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -163,209 +163,167 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
         >
           {/* Error Banner */}
           {Boolean(errorMessage) && (
-            <View style={styles.errorBox} accessibilityRole="alert">
+            <View style={styles.errorBanner} accessibilityRole="alert">
               <Text style={styles.errorText}>⚠ {errorMessage}</Text>
-              <TouchableOpacity
-                style={styles.retryBtn}
-                onPress={loadDashboardData}
-                accessibilityRole="button"
-                accessibilityLabel="Retry loading dashboard"
-              >
-                <Text style={styles.retryBtnText}>Try Again</Text>
+              <TouchableOpacity onPress={onRefresh} style={styles.retryBtn}>
+                <Text style={styles.retryText}>{t('common.retry', 'Retry')}</Text>
               </TouchableOpacity>
             </View>
           )}
 
-          {/* Loading Skeletons */}
-          {isLoading ? (
-            <View style={styles.skeletonWrapper}>
-              <Skeleton height={180} style={{ borderRadius: 24, marginBottom: 16 }} />
-              <View style={styles.quickActionsGrid}>
-                <Skeleton height={80} style={{ flex: 1, borderRadius: 16, marginRight: 8 }} />
-                <Skeleton height={80} style={{ flex: 1, borderRadius: 16, marginRight: 8 }} />
-                <Skeleton height={80} style={{ flex: 1, borderRadius: 16, marginRight: 8 }} />
-                <Skeleton height={80} style={{ flex: 1, borderRadius: 16 }} />
+          {/* ─── Activity Summary (real data only) ─── */}
+          <View style={styles.heroCard}>
+            <Text style={styles.heroLabel}>{t('citizen.dashboard.activityOverview', 'Your Activity')}</Text>
+            <View style={styles.metricsRow}>
+              <View style={styles.metricItem}>
+                <Text style={styles.metricValue}>{itemsSubmittedCount}</Text>
+                <Text style={styles.metricLabel}>{t('citizen.dashboard.itemsSubmitted', 'Items Submitted')}</Text>
               </View>
-              <Skeleton height={100} style={{ borderRadius: 20, marginTop: 16 }} />
+              <View style={styles.metricDivider} />
+              <View style={styles.metricItem}>
+                <Text style={styles.metricValueAmber}>{activeRequestsCount}</Text>
+                <Text style={styles.metricLabel}>{t('citizen.dashboard.activeRequests', 'Active Pickups')}</Text>
+              </View>
+              <View style={styles.metricDivider} />
+              <View style={styles.metricItem}>
+                <Text style={styles.metricValueGreen}>{completedPickupsCount}</Text>
+                <Text style={styles.metricLabel}>{t('citizen.dashboard.completed', 'Completed')}</Text>
+              </View>
             </View>
+          </View>
+
+          {/* ─── Primary Journeys ─── */}
+          <Text style={styles.sectionTitle}>{t('citizen.dashboard.whatWouldYouLike', 'What would you like to do?')}</Text>
+          <View style={styles.journeyRow}>
+            <TouchableOpacity
+              style={[styles.journeyCard, styles.journeyCardSell]}
+              onPress={handleOpenSubmit}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={t('citizen.dashboard.giveSellEwaste', 'Schedule E-Waste Pickup')}
+            >
+              <Text style={styles.journeyEmoji}>♻️</Text>
+              <Text style={styles.journeyTitle}>{t('citizen.dashboard.submitNewEwaste', 'Give / Sell E-Waste')}</Text>
+              <Text style={styles.journeyDesc}>{t('citizen.dashboard.freeDoorstepPickup', 'Free doorstep pickup')}</Text>
+              <View style={styles.journeyCTA}>
+                <Text style={styles.journeyCTAText}>{t('common.next', 'Schedule ➜')}</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.journeyCard, styles.journeyCardShop]}
+              onPress={handleOpenMarketplace}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={t('navigation.marketplace', 'Browse Reusable Electronics')}
+            >
+              <Text style={styles.journeyEmoji}>🛍️</Text>
+              <Text style={styles.journeyTitle}>{t('navigation.marketplace', 'Buy Reusables')}</Text>
+              <Text style={styles.journeyDesc}>{t('marketplace.bannerDesc', 'Tested & verified items')}</Text>
+              <View style={[styles.journeyCTA, styles.journeyCTAShop]}>
+                <Text style={[styles.journeyCTAText, styles.journeyCTATextShop]}>{t('marketplace.exploreNow', 'Shop ➜')}</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* ─── Quick Nav Grid ─── */}
+          <View style={styles.quickGrid}>
+            <TouchableOpacity style={styles.quickTile} onPress={handleOpenRequests} accessibilityRole="button">
+              <Text style={styles.quickIcon}>📋</Text>
+              <Text style={styles.quickLabel}>{t('citizen.requests.title', 'My Requests')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.quickTile}
+              onPress={() => (navigation as any).navigate('CitizenPurchases')}
+              accessibilityRole="button"
+            >
+              <Text style={styles.quickIcon}>🛒</Text>
+              <Text style={styles.quickLabel}>{t('marketplace.myPurchases', 'Purchases')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.quickTile}
+              onPress={() => {
+                if (items[0]?.id) {
+                  (navigation as any).navigate('ItemTraceability', { itemId: items[0].id });
+                } else {
+                  handleOpenRequests();
+                }
+              }}
+              accessibilityRole="button"
+            >
+              <Text style={styles.quickIcon}>🔍</Text>
+              <Text style={styles.quickLabel}>{t('citizen.traceability.title', 'Track Item')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.quickTile} onPress={handleOpenNotifications} accessibilityRole="button">
+              <Text style={styles.quickIcon}>🔔</Text>
+              <Text style={styles.quickLabel}>{t('navigation.alerts', 'Alerts')}{unreadCount > 0 ? ` (${unreadCount})` : ''}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* ─── Recent Activity ─── */}
+          <View style={styles.sectionRow}>
+            <Text style={styles.sectionTitle}>{t('citizen.dashboard.recentRequests', 'Recent Activity')}</Text>
+            {requests.length > 0 && (
+              <TouchableOpacity onPress={handleOpenRequests}>
+                <Text style={styles.viewAll}>{t('citizen.dashboard.viewAll', 'View All')} ({requests.length}) ›</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {requests.length === 0 ? (
+            <GlassCard variant="standard" style={styles.emptyCard}>
+              <Text style={styles.emptyEmoji}>♻️</Text>
+              <Text style={styles.emptyTitle}>{t('citizen.dashboard.noActivityTitle', 'No Activity Yet')}</Text>
+              <Text style={styles.emptySubtitle}>
+                {t('citizen.dashboard.noActivityMessage', 'Schedule your first free e-waste pickup and start making an impact.')}
+              </Text>
+              <TouchableOpacity style={styles.emptyBtn} onPress={handleOpenSubmit} accessibilityRole="button">
+                <Text style={styles.emptyBtnText}>+ {t('citizen.dashboard.submitNewEwaste', 'Schedule Pickup')}</Text>
+              </TouchableOpacity>
+            </GlassCard>
           ) : (
-            <>
-              {/* Hero Glass Card */}
-              <GlassHeroCard
-                title={t('citizen.dashboard.welcomeBack')}
-                subtitle={t('citizen.dashboard.greetingSubtitle')}
-                icon={<Text style={styles.leafIcon}>🍃</Text>}
-                style={styles.heroCard}
-              >
-                {/* 3 Metric Pills */}
-                <View style={styles.metricsPillsRow}>
-                  <View style={styles.metricPill}>
-                    <Text style={styles.metricPillValue}>{itemsSubmittedCount}</Text>
-                    <Text style={styles.metricPillLabel}>{t('citizen.dashboard.itemsSubmitted')}</Text>
-                  </View>
-                  <View style={styles.metricPill}>
-                    <Text style={styles.metricPillValue}>{activeRequestsCount}</Text>
-                    <Text style={styles.metricPillLabel}>{t('status.pickedUp')}</Text>
-                  </View>
-                  <View style={styles.metricPill}>
-                    <Text style={styles.metricPillValue}>{completedPickupsCount}</Text>
-                    <Text style={styles.metricPillLabel}>{t('status.recycled')}</Text>
-                  </View>
-                </View>
-
-                {/* Environmental Badges Row */}
-                <View style={styles.impactBadgesRow}>
-                  <View style={styles.impactBadge}>
-                    <Text style={styles.impactIcon}>🌱</Text>
-                    <View>
-                      <Text style={styles.impactValue}>{estimatedWeightKg} kg</Text>
-                      <Text style={styles.impactLabel}>{t('citizen.submit.estimatedWeight')}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.impactBadge}>
-                    <Text style={styles.impactIcon}>☁</Text>
-                    <View>
-                      <Text style={styles.impactValue}>{estimatedCo2Kg} kg</Text>
-                      <Text style={styles.impactLabel}>{t('citizen.traceability.co2Saved') || 'CO₂ Saved'}</Text>
-                    </View>
-                  </View>
-                </View>
-              </GlassHeroCard>
-
-              {/* Quick Actions Title */}
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>{t('citizen.dashboard.activityOverview')}</Text>
-              </View>
-
-              {/* 4-Grid Quick Actions */}
-              <View style={styles.quickActionsGrid}>
-                {/* Submit Action (Featured Emerald CTA) */}
-                <TouchableOpacity
-                  style={[styles.quickActionTile, styles.quickActionSubmit]}
-                  onPress={handleOpenSubmit}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('citizen.dashboard.submitNewEwaste')}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.submitIconCircle}>
-                    <Text style={styles.submitPlusIcon}>+</Text>
-                  </View>
-                  <Text style={styles.quickActionSubmitText}>{t('nav.submit')}</Text>
-                  <Text style={styles.quickActionSubmitSubtext}>{t('ewaste.ewaste')}</Text>
-                </TouchableOpacity>
-
-                {/* My Requests Action */}
-                <TouchableOpacity
-                  style={styles.quickActionTile}
-                  onPress={handleOpenRequests}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('citizen.requests.title')}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.quickActionIcon}>📄</Text>
-                  <Text style={styles.quickActionLabel}>{t('nav.requests')}</Text>
-                </TouchableOpacity>
-
-                {/* Traceability Action */}
-                <TouchableOpacity
-                  style={styles.quickActionTile}
-                  onPress={handleOpenTraceability}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('citizen.traceability.title')}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.quickActionIcon}>🔍</Text>
-                  <Text style={styles.quickActionLabel}>{t('citizen.traceability.title')}</Text>
-                </TouchableOpacity>
-
-                {/* Notifications Action */}
-                <TouchableOpacity
-                  style={styles.quickActionTile}
-                  onPress={handleOpenNotifications}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('nav.alerts')}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.quickActionIcon}>🔔</Text>
-                  <Text style={styles.quickActionLabel}>{t('nav.alerts')}</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Recent Requests Section */}
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>{t('citizen.dashboard.recentRequests')}</Text>
-                {requests.length > 0 && (
-                  <TouchableOpacity onPress={handleOpenRequests}>
-                    <Text style={styles.viewAllLink}>{t('citizen.dashboard.viewAll')} ({requests.length}) ›</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {requests.length === 0 ? (
-                <GlassCard variant="standard" style={styles.emptyCard}>
-                  <Text style={styles.emptyIcon}>♻</Text>
-                  <Text style={styles.emptyTitle}>{t('citizen.dashboard.noActivityMessage')}</Text>
-                  <Text style={styles.emptySubtitle}>
-                    {t('citizen.dashboard.greetingSubtitle')}
-                  </Text>
+            <View style={styles.activityList}>
+              {recentRequests.map((req) => {
+                const itemCount = req.ewasteItems?.length || req.itemIds?.length || 1;
+                const rawStatus = (req.status || 'SUBMITTED').toUpperCase();
+                const isCompleted = ['COMPLETED', 'PICKED_UP'].includes(rawStatus);
+                const isCancelled = ['CANCELLED', 'EXPIRED'].includes(rawStatus);
+                const statusColor = isCompleted ? '#10B981' : isCancelled ? '#EF4444' : '#F59E0B';
+                const statusBg = isCompleted
+                  ? 'rgba(16,185,129,0.12)'
+                  : isCancelled
+                  ? 'rgba(239,68,68,0.12)'
+                  : 'rgba(245,158,11,0.12)';
+                return (
                   <TouchableOpacity
-                    style={[styles.emptySubmitBtn, styles.primaryActionButton]}
-                    onPress={handleOpenSubmit}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('citizen.dashboard.submitFirstItem')}
+                    key={req.id}
+                    style={styles.activityCard}
+                    onPress={() => handleOpenRequestDetail(req.id)}
+                    activeOpacity={0.82}
                   >
-                    <Text style={styles.emptySubmitBtnText}>+ {t('citizen.dashboard.submitFirstItem')}</Text>
+                    <View style={styles.activityIconBox}>
+                      <Text style={styles.activityIcon}>📦</Text>
+                    </View>
+                    <View style={styles.activityInfo}>
+                      <Text style={styles.activityId} numberOfLines={1}>
+                        REQ-{req.id ? req.id.slice(0, 8).toUpperCase() : 'NEW'}
+                      </Text>
+                      <Text style={styles.activitySub} numberOfLines={1}>
+                        {itemCount} {itemCount === 1 ? t('collector.browse.item', 'item') : t('collector.browse.items', 'items')} • {t('citizen.requestDetail.doorstepAddress', 'Doorstep Pickup')}
+                      </Text>
+                    </View>
+                    <View style={[styles.statusChip, { backgroundColor: statusBg, borderColor: statusColor }]}>
+                      <Text style={[styles.statusChipText, { color: statusColor }]}>
+                        {getStatusLabel(rawStatus)}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
-                </GlassCard>
-              ) : (
-                <View style={styles.requestsList}>
-                  {recentRequests.map((req, index) => {
-                    const itemCount = req.ewasteItems?.length || req.itemIds?.length || 1;
-                    const status = (req.status || 'SUBMITTED').toUpperCase();
-                    const isCompleted = status === 'COMPLETED';
-
-                    return (
-                      <GlassCard
-                        key={req.id}
-                        variant="standard"
-                        onPress={() => handleOpenRequestDetail(req.id)}
-                        style={styles.requestCard}
-                      >
-                        <View style={styles.requestRowTop}>
-                          <View style={styles.requestIconBox}>
-                            <Text style={styles.requestBoxIcon}>📦</Text>
-                          </View>
-                          <View style={styles.requestInfoCol}>
-                            <Text style={styles.requestId}>
-                              REQ-{req.id ? req.id.slice(0, 8).toUpperCase() : 'NEW'}
-                            </Text>
-                            <Text style={styles.requestSubDetails}>
-                              {itemCount} {itemCount === 1 ? 'item' : 'items'} • Doorstep Pickup
-                            </Text>
-                          </View>
-                          <View
-                            style={[
-                              styles.statusPill,
-                              isCompleted ? styles.statusCompleted : styles.statusActive,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.statusPillText,
-                                isCompleted ? styles.statusTextCompleted : styles.statusTextActive,
-                              ]}
-                            >
-                              {status}
-                            </Text>
-                          </View>
-                        </View>
-                      </GlassCard>
-                    );
-                  })}
-                </View>
-              )}
-            </>
+                );
+              })}
+            </View>
           )}
+
+          <View style={{ height: 100 }} />
         </ScrollView>
       </SafeAreaView>
     </EcoSetuBackground>
@@ -373,345 +331,153 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: 'transparent',
+  safeArea: { flex: 1, backgroundColor: 'transparent' },
+
+  // Header
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10,
   },
-  headerBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 8,
+  headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  headerText: { marginLeft: 12, flex: 1 },
+  headerGreeting: { fontSize: 12, color: 'rgba(255,255,255,0.55)', fontWeight: '500' },
+  headerName: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 },
+  notifBtn: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
+    justifyContent: 'center', alignItems: 'center', position: 'relative',
   },
-  headerUserInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  notifIcon: { fontSize: 18 },
+  badge: {
+    position: 'absolute', top: 6, right: 6,
+    minWidth: 17, height: 17, borderRadius: 9,
+    backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3,
   },
-  userTextCol: {
-    marginLeft: 12,
+  badgeText: { fontSize: 9, fontWeight: '800', color: '#FFFFFF' },
+
+  scroll: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 32 },
+
+  errorBanner: {
+    backgroundColor: 'rgba(239,68,68,0.14)', borderWidth: 1, borderColor: 'rgba(248,113,113,0.35)',
+    borderRadius: 14, padding: 12, marginBottom: 14,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
-  userGreeting: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.65)',
-  },
-  userName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.2,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  locationPin: {
-    fontSize: 11,
-    marginRight: 4,
-  },
-  locationText: {
-    fontSize: 11,
-    color: '#34D399',
-    fontWeight: '600',
-  },
-  notificationBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  notificationBellIcon: {
-    fontSize: 18,
-  },
-  notificationBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#EF4444',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  notificationBadgeText: {
-    fontSize: 9,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  container: {
-    paddingHorizontal: 16,
-    paddingTop: 6,
-    paddingBottom: 80,
-  },
-  errorBox: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(248, 113, 113, 0.4)',
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  errorText: {
-    fontSize: 13,
-    color: '#FCA5A5',
-    flex: 1,
-  },
+  errorText: { fontSize: 13, color: '#FCA5A5', flex: 1, marginRight: 8 },
   retryBtn: {
-    backgroundColor: 'rgba(239, 68, 68, 0.3)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    backgroundColor: 'rgba(239,68,68,0.25)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8,
   },
-  retryBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  skeletonWrapper: {
-    marginTop: 10,
-  },
+  retryText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+
+  // Hero Card
   heroCard: {
-    marginVertical: 6,
+    backgroundColor: 'rgba(16,44,48,0.75)', borderRadius: 24,
+    borderWidth: 1.5, borderColor: 'rgba(52,211,153,0.22)',
+    padding: 20, marginBottom: 22,
+    shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12, shadowRadius: 16, elevation: 5,
   },
-  leafIcon: {
-    fontSize: 28,
+  heroTopRow: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'flex-start', marginBottom: 18,
   },
-  metricsPillsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 14,
+  heroLabel: { fontSize: 17, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 },
+  heroSubLabel: { fontSize: 12, color: 'rgba(255,255,255,0.50)', marginTop: 3, fontWeight: '500' },
+  co2Badge: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: 'rgba(16,185,129,0.18)', borderRadius: 16,
+    borderWidth: 1, borderColor: 'rgba(52,211,153,0.35)',
+    paddingHorizontal: 12, paddingVertical: 8,
   },
-  metricPill: {
-    flex: 1,
-    backgroundColor: 'rgba(7, 30, 34, 0.70)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    alignItems: 'center',
+  co2Icon: { fontSize: 20 },
+  co2Value: { fontSize: 15, fontWeight: '800', color: '#34D399' },
+  co2Label: { fontSize: 10, color: 'rgba(255,255,255,0.55)', fontWeight: '500' },
+  metricsRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.20)', borderRadius: 16, padding: 16,
   },
-  metricPillValue: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#FFFFFF',
-  },
-  metricPillLabel: {
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.65)',
-    marginTop: 2,
-    fontWeight: '600',
-  },
-  impactBadgesRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  impactBadge: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(52, 211, 153, 0.3)',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-  },
-  impactIcon: {
-    fontSize: 20,
-    marginRight: 8,
-  },
-  impactValue: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  impactLabel: {
-    fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.65)',
-    fontWeight: '500',
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 10,
-  },
+  metricItem: { flex: 1, alignItems: 'center' },
+  metricValue: { fontSize: 26, fontWeight: '900', color: '#FFFFFF', letterSpacing: -0.5 },
+  metricValueAmber: { fontSize: 26, fontWeight: '900', color: '#FBBF24', letterSpacing: -0.5 },
+  metricValueGreen: { fontSize: 26, fontWeight: '900', color: '#34D399', letterSpacing: -0.5 },
+  metricLabel: { fontSize: 11, color: 'rgba(255,255,255,0.55)', textAlign: 'center', marginTop: 4 },
+  metricDivider: { width: 1, height: 40, backgroundColor: 'rgba(255,255,255,0.10)' },
+
   sectionTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.2,
+    fontSize: 15, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.2, marginBottom: 12,
   },
-  viewAllLink: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#34D399',
+  sectionRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginTop: 22, marginBottom: 12,
   },
-  quickActionsGrid: {
-    flexDirection: 'row',
-    gap: 10,
+  viewAll: { fontSize: 12, fontWeight: '700', color: '#34D399' },
+
+  // Journey Cards
+  journeyRow: { flexDirection: 'row', gap: 12, marginBottom: 14 },
+  journeyCard: {
+    flex: 1, borderRadius: 22, padding: 20, minHeight: 190,
+    justifyContent: 'space-between', borderWidth: 1.5,
   },
-  quickActionTile: {
-    flex: 1,
-    backgroundColor: 'rgba(16, 44, 48, 0.65)',
-    borderRadius: 18,
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+  journeyCardSell: {
+    backgroundColor: 'rgba(16,185,129,0.14)', borderColor: 'rgba(52,211,153,0.35)',
   },
-  quickActionSubmit: {
-    backgroundColor: 'rgba(16, 185, 129, 0.20)',
-    borderColor: '#34D399',
+  journeyCardShop: {
+    backgroundColor: 'rgba(139,92,246,0.13)', borderColor: 'rgba(167,139,250,0.35)',
   },
-  submitIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#10B981',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
+  journeyEmoji: { fontSize: 32, marginBottom: 8 },
+  journeyTitle: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 },
+  journeyDesc: { fontSize: 12, color: 'rgba(255,255,255,0.60)', lineHeight: 17, marginTop: 4 },
+  journeyCTA: {
+    backgroundColor: '#10B981', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 14,
+    alignSelf: 'flex-start', marginTop: 12,
   },
-  submitPlusIcon: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#051417',
-    lineHeight: 22,
+  journeyCTAShop: { backgroundColor: '#8B5CF6' },
+  journeyCTAText: { fontSize: 12, fontWeight: '800', color: '#051417' },
+  journeyCTATextShop: { color: '#FFFFFF' },
+
+  // Quick Grid
+  quickGrid: { flexDirection: 'row', gap: 10, marginBottom: 4 },
+  quickTile: {
+    flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
+    paddingVertical: 14, paddingHorizontal: 4,
+    alignItems: 'center', justifyContent: 'center', minHeight: 72,
   },
-  quickActionSubmitText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#34D399',
+  quickIcon: { fontSize: 20, marginBottom: 5 },
+  quickLabel: { fontSize: 10, color: 'rgba(255,255,255,0.75)', fontWeight: '600', textAlign: 'center' },
+
+  // Activity
+  activityList: { gap: 10 },
+  activityCard: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 18,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', padding: 14,
   },
-  quickActionSubmitSubtext: {
-    fontSize: 10,
-    color: '#A7F3D0',
+  activityIconBox: {
+    width: 44, height: 44, borderRadius: 13,
+    backgroundColor: 'rgba(16,185,129,0.12)', borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.25)', justifyContent: 'center',
+    alignItems: 'center', marginRight: 12,
   },
-  quickActionIcon: {
-    fontSize: 22,
-    marginBottom: 4,
-  },
-  quickActionLabel: {
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontWeight: '600',
-  },
-  requestsList: {
-    gap: 8,
-  },
-  requestCard: {
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-  },
-  requestRowTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  requestIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(52, 211, 153, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  requestBoxIcon: {
-    fontSize: 20,
-  },
-  requestInfoCol: {
-    flex: 1,
-  },
-  requestId: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
-  },
-  requestSubDetails: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.60)',
-    marginTop: 2,
-  },
-  statusPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  statusCompleted: {
-    backgroundColor: 'rgba(16, 185, 129, 0.18)',
-    borderColor: '#10B981',
-  },
-  statusActive: {
-    backgroundColor: 'rgba(245, 158, 11, 0.18)',
-    borderColor: '#F59E0B',
-  },
-  statusPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  statusTextCompleted: {
-    color: '#34D399',
-  },
-  statusTextActive: {
-    color: '#FBBF24',
-  },
-  emptyCard: {
-    alignItems: 'center',
-    paddingVertical: 24,
-    paddingHorizontal: 16,
-  },
-  emptyIcon: {
-    fontSize: 36,
-    marginBottom: 8,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
+  activityIcon: { fontSize: 20 },
+  activityInfo: { flex: 1, marginRight: 10 },
+  activityId: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
+  activitySub: { fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 2 },
+  statusChip: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 10, borderWidth: 1 },
+  statusChipText: { fontSize: 10, fontWeight: '700' },
+
+  // Empty
+  emptyCard: { alignItems: 'center', paddingVertical: 28, paddingHorizontal: 20 },
+  emptyEmoji: { fontSize: 40, marginBottom: 12 },
+  emptyTitle: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', marginBottom: 6, textAlign: 'center' },
   emptySubtitle: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.60)',
-    textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 16,
+    fontSize: 13, color: 'rgba(255,255,255,0.55)', textAlign: 'center',
+    lineHeight: 19, marginBottom: 20,
   },
-  emptySubmitBtn: {
-    backgroundColor: '#10B981',
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+  emptyBtn: {
+    backgroundColor: '#10B981', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 24,
   },
-  emptySubmitBtnText: {
-    color: '#051417',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  primaryActionButton: {
-    minHeight: 52,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  emptyBtnText: { color: '#051417', fontSize: 14, fontWeight: '800' },
 });
 
 export default CitizenDashboardScreen;

@@ -207,12 +207,18 @@ class RecyclerDirectoryService {
 
   /**
    * Fetch single recycler facility detail
+   * Passes optional lotId for server-side contact privacy access authorization (SIH-RECY-006)
    */
-  async getRecyclerDetail(id: string, coords?: { lat?: number; lng?: number }): Promise<DetailResult> {
+  async getRecyclerDetail(
+    id: string,
+    coords?: { lat?: number; lng?: number },
+    lotId?: string
+  ): Promise<DetailResult> {
     try {
       const params: Record<string, string> = {};
       if (coords?.lat != null) params.lat = String(coords.lat);
       if (coords?.lng != null) params.lng = String(coords.lng);
+      if (lotId) params.lotId = lotId;
 
       const queryString = new URLSearchParams(params).toString();
       const endpoint = queryString ? `/recyclers/${id}?${queryString}` : `/recyclers/${id}`;

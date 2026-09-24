@@ -11,24 +11,36 @@ export type AuthStackParamList = {
 
 export type CitizenTabParamList = {
   CitizenHome: undefined;
+  CitizenMarketplace: undefined;
   CitizenSubmit: undefined;
   CitizenRequests: undefined;
-  CitizenNotifications: undefined;
   CitizenProfile: undefined;
 };
 
 export type CitizenStackParamList = {
   CitizenTabs: undefined;
+  CitizenMarketplace: undefined;
+  CitizenMarketplaceItemDetail: { lotId: string; lot?: any };
+  CitizenPurchases: { filterStatus?: string } | undefined;
   RequestDetail: { requestId: string };
-  ItemTraceability: { itemId: string };
+  ItemTraceability: { itemId?: string } | undefined;
+  CitizenNotifications: undefined;
+  CitizenBills: undefined;
+  CitizenBillDetail: { billId?: string; transactionId?: string; bill?: any };
+  PaymentMethod: { transactionId: string; transaction?: any };
+  CashPaymentConfirmation: { transactionId: string; transaction?: any; confirmation?: any };
+  PaymentResult: { transactionId: string; status: 'SUCCESS' | 'PENDING' | 'FAILED'; paymentMethod: string; amount: number; billId?: string; errorMessage?: string };
 };
 
 export type CollectorTabParamList = {
   CollectorHome: undefined;
-  CollectorBrowse: undefined;
-  CollectorPickups: undefined;
-  CollectorConsign: undefined;
+  CollectorSell: undefined;
+  CollectorDeals: { filterStatus?: string } | undefined;
+  CollectorEarnings: undefined;
   CollectorProfile: undefined;
+  CollectorBrowse?: undefined;
+  CollectorPickups?: undefined;
+  CollectorConsign?: undefined;
 };
 
 export type CollectorStackParamList = {
@@ -44,6 +56,7 @@ export type CollectorStackParamList = {
   CollectorRecyclerDetail: { recyclerId: string; recycler?: any; lotId?: string; preselectedCategory?: string };
   RecyclerFacilityDetail: { recyclerId: string; recycler?: any };
   CollectorMaterialCapture: undefined;
+  CollectorSellFlow: undefined;
   CollectorCreateLot: {
     category?: string;
     subcategory?: string;
@@ -52,8 +65,12 @@ export type CollectorStackParamList = {
     photos?: string[];
     lotId?: string;
     existingLot?: any;
+    approximateTotalWeightKg?: number;
+    intent?: string;
   } | undefined;
   CollectorLots: { filterStatus?: string } | undefined;
+  CollectorBrowse: undefined;
+  CollectorPickups: undefined;
   CollectorLotDetail: { lotId: string; lot?: any };
   CollectorPriceBoard: { preselectedCategory?: string; preselectedLocation?: string } | undefined;
   CollectorRecyclerMatches: { lotId: string; lot?: any };
@@ -67,28 +84,55 @@ export type CollectorStackParamList = {
   CollectorSafetyCenter: undefined;
   CollectorSafetyDetail: { topicId: string };
   CollectorLotTrace: { lotId: string; lot?: any };
+  CollectorPickupBatches: undefined;
+  CollectorBatchDetail: { batchId: string; batch?: any };
+  RecyclerBatchDetail: { batchId: string; batch?: any };
+  CollectorDemand: undefined;
+  CollectorDisputes: undefined;
+  CollectorDisputeDetail: { disputeId: string; dispute?: any };
+  PaymentMethod: { transactionId: string; transaction?: any };
+  CashPaymentConfirmation: { transactionId: string; transaction?: any; confirmation?: any };
+  PaymentResult: { transactionId: string; status: 'SUCCESS' | 'PENDING' | 'FAILED'; paymentMethod: string; amount: number; billId?: string; errorMessage?: string };
+  CollectorBills: undefined;
+  CollectorBillDetail: { billId?: string; transactionId?: string; bill?: any };
 };
 
 export type RecyclerTabParamList = {
-  RecyclerHome: undefined;
-  RecyclerIncoming: undefined;
-  RecyclerRecords: undefined;
-  RecyclerProfile: undefined;
+  RecyclerMarket:    undefined;
+  RecyclerOrders:    undefined;
+  RecyclerInventory: undefined;
+  RecyclerMoney:     undefined;
+  RecyclerProfile:   undefined;
 };
 
 export type RecyclerStackParamList = {
   RecyclerTabs: undefined;
   Verification: undefined;
+  RecyclerMarketplace: undefined;
+  RecyclerLotDetail: { lotId: string; lot?: any };
   ConsignmentDetail: { consignmentId: string; consignment?: any };
   RecyclingRecordDetail: { recordId: string; record?: any };
-  RecyclerCreateQuote: { lot: any; matchData?: any };
+  RecyclerCreateQuote: { lot?: any; matchData?: any; sourcingResponseId?: string; materialCategory?: string; quantity?: number; collectorId?: string };
   RecyclerHandoverConfirm: { handoverId: string; handover?: any };
   RecyclerHandoverReceipt: { handoverId: string; handover?: any };
   RecyclerTransactions: undefined;
   RecyclerTransactionDetail: { transactionId: string; transaction?: any };
   RecyclerLotTrace: { lotId: string; lot?: any };
+  RecyclerPickupManagement: undefined;
+  RecyclerCreateBatch: { preselectedLotIds?: string[] } | undefined;
+  RecyclerBatchDetail: { batchId: string; batch?: any };
+  RecyclerSourcing: undefined;
+  RecyclerCreateSourcingRequest: { template?: any } | undefined;
+  RecyclerSourcingDetail: { requestId: string; request?: any };
+  RecyclerDisputes: undefined;
+  RecyclerDisputeDetail: { disputeId: string; dispute?: any };
+  PaymentMethod: { transactionId: string; transaction?: any };
+  CashPaymentConfirmation: { transactionId: string; transaction?: any; confirmation?: any };
+  PaymentResult: { transactionId: string; status: 'SUCCESS' | 'PENDING' | 'FAILED'; paymentMethod: string; amount: number; billId?: string; errorMessage?: string };
+  RecyclerBills: undefined;
+  RecyclerBillDetail: { billId?: string; transactionId?: string; bill?: any };
+  RecyclerRates: undefined;
 };
-
 
 export type AdminTabParamList = {
   AdminHome: undefined;
@@ -102,5 +146,9 @@ export type AdminTabParamList = {
   AdminSystemHealth: undefined;
   AdminNotificationCenter: { tab?: 'compose' | 'history' | 'templates' | 'analytics'; initialAudience?: string; targetUser?: any } | undefined;
   AdminHistoricalAnalytics: { initialTab?: 'prices' | 'materials' | 'transactions' | 'recyclers' | 'traceability' | 'dataQuality' } | undefined;
+  AdminDisputes: undefined;
+  AdminBills: undefined;
+  AdminBillDetail: { billId: string; bill?: any };
 };
+
 

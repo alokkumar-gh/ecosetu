@@ -81,8 +81,8 @@ export const SlideTraceability: React.FC<SlideProps> = ({ width, active }) => {
           },
         ]}
       >
-        <Text style={styles.headlineText}>{t('auth.slide4Title')}</Text>
-        <Text style={styles.subtitleText}>{t('auth.slide4Subtitle')}</Text>
+        <Text style={styles.headlineText}>{t('onboarding.slide4Title')}</Text>
+        <Text style={styles.subtitleText}>{t('onboarding.slide4Subtitle')}</Text>
       </Animated.View>
     </View>
   );

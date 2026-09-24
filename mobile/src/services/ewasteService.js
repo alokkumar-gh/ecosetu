@@ -160,9 +160,7 @@ class EWasteService {
         const response = await apiClient.get(`/ewaste-items/${itemId}/traceability`);
         const payload = response.data?.traceability || response.data;
         if (payload) {
-          // Persist for offline reads
-          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-          await AsyncStorage.setItem(cacheKey, JSON.stringify({ data: payload, cachedAt: Date.now() }));
+          await storage.setItem(cacheKey, JSON.stringify({ data: payload, cachedAt: Date.now() }));
         }
         return payload || null;
       } catch (err) {
@@ -177,10 +175,10 @@ class EWasteService {
 
   async _getCachedTraceability(itemId, cacheKey) {
     try {
-      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-      const raw = await AsyncStorage.getItem(cacheKey);
+      const raw = await storage.getItem(cacheKey);
       if (!raw) return null;
-      const { data } = JSON.parse(raw);
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      const data = parsed?.data || parsed;
       return data || null;
     } catch {
       return null;

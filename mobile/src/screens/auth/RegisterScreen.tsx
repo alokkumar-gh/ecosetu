@@ -291,9 +291,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backButton: {
-    minHeight: 40,
-    minWidth: 40,
-    borderRadius: 20,
+    minHeight: 48,
+    minWidth: 48,
+    borderRadius: 24,
     backgroundColor: 'rgba(255, 255, 255, 0.10)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',

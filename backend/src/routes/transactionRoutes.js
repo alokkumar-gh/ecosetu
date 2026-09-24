@@ -13,7 +13,7 @@ const router = express.Router();
 router.post(
   '/',
   authenticate,
-  authorize(ROLES.INFORMAL_COLLECTOR, ROLES.RECYCLER, ROLES.ADMIN),
+  authorize(ROLES.INFORMAL_COLLECTOR, ROLES.RECYCLER, ROLES.CITIZEN, ROLES.ADMIN),
   (req, res, next) => transactionController.createTransaction(req, res, next)
 );
 
@@ -21,7 +21,7 @@ router.post(
 router.get(
   '/',
   authenticate,
-  authorize(ROLES.INFORMAL_COLLECTOR, ROLES.RECYCLER, ROLES.ADMIN),
+  authorize(ROLES.INFORMAL_COLLECTOR, ROLES.RECYCLER, ROLES.CITIZEN, ROLES.ADMIN),
   (req, res, next) => transactionController.getTransactions(req, res, next)
 );
 
@@ -43,7 +43,7 @@ router.get(
 router.patch(
   '/:id/payment-status',
   authenticate,
-  authorize(ROLES.INFORMAL_COLLECTOR, ROLES.RECYCLER, ROLES.ADMIN),
+  authorize(ROLES.INFORMAL_COLLECTOR, ROLES.RECYCLER, ROLES.CITIZEN, ROLES.ADMIN),
   (req, res, next) => transactionController.updatePaymentStatus(req, res, next)
 );
 

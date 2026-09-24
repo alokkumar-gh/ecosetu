@@ -194,6 +194,50 @@ class HandoverController {
   }
 
   /**
+   * POST /api/v1/handovers/:id/buyer-confirm
+   * Citizen buyer confirms receipt of material handover
+   */
+  async buyerConfirm(req, res, next) {
+    try {
+      const { error, value } = recyclerConfirmSchema.validate(req.body, { abortEarly: false });
+      if (error) {
+        return next(AppError.badRequest(error.details.map((d) => d.message).join('; ')));
+      }
+
+      const handover = await handoverService.recyclerConfirm(req.user, req.params.id, value, req.ip);
+      return res.status(200).json({
+        status: 'success',
+        message: 'Buyer confirmed receipt of material handover',
+        data: handover,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * GET /api/v1/handovers/citizen
+   * Citizen list own purchase handovers
+   */
+  async getCitizenHandovers(req, res, next) {
+    try {
+      const { error, value } = queryHandoversSchema.validate(req.query, { abortEarly: false });
+      if (error) {
+        return next(AppError.badRequest(error.details.map((d) => d.message).join('; ')));
+      }
+
+      const result = await handoverService.getCitizenHandovers(req.user, value);
+      return res.status(200).json({
+        status: 'success',
+        data: result.handovers,
+        pagination: result.pagination,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
    * POST /api/v1/handovers/:id/cancel
    * Cancel an open handover
    */

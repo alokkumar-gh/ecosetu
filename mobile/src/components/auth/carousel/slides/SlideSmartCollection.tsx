@@ -81,8 +81,8 @@ export const SlideSmartCollection: React.FC<SlideProps> = ({ width, active }) =>
           },
         ]}
       >
-        <Text style={styles.headlineText}>{t('auth.slide3Title')}</Text>
-        <Text style={styles.subtitleText}>{t('auth.slide3Subtitle')}</Text>
+        <Text style={styles.headlineText}>{t('onboarding.slide3Title')}</Text>
+        <Text style={styles.subtitleText}>{t('onboarding.slide3Subtitle')}</Text>
       </Animated.View>
     </View>
   );

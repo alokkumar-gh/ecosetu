@@ -17,17 +17,15 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CitizenTabParamList, CitizenStackParamList } from '../../navigation/types';
 import { useNetwork } from '../../hooks/useNetwork';
 import { TopAppBar } from '../../components/layout/TopAppBar';
-import { StatusBadge } from '../../components/common/StatusBadge';
-import { EmptyState } from '../../components/common/EmptyState';
 import { Skeleton } from '../../components/common/Skeleton';
+import { EmptyState } from '../../components/common/EmptyState';
 import { requestService } from '../../services/requestService';
+import { offlineStore } from '../../services/offlineStore';
 import { REQUEST_STATUS } from '../../utils/constants';
 import { useI18n } from '../../i18n';
-import { GradientBackground } from '../../components/glass/GradientBackground';
-import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
+import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
+import { StatusBadge } from '../../components/common/StatusBadge';
 import { colors } from '../../theme/colors';
-import { spacing } from '../../theme/spacing';
-import { typography } from '../../theme/typography';
 
 type CitizenRequestsNavigationProp = CompositeNavigationProp<
   BottomTabNavigationProp<CitizenTabParamList, 'CitizenRequests'>,
@@ -99,29 +97,44 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
   const [isCancelling, setIsCancelling] = useState<boolean>(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
 
-  const loadRequests = useCallback(async () => {
+  const loadRequests = useCallback(async (isInitial = false) => {
     setErrorMessage(null);
+    let hadCached = false;
+    if (isInitial) {
+      try {
+        const cached = await offlineStore.getCachedRequests();
+        if (Array.isArray(cached) && cached.length > 0) {
+          setRequests(cached);
+          setIsLoading(false);
+          hadCached = true;
+        }
+      } catch {}
+    }
     try {
       const data = await requestService.getRequests();
       setRequests(Array.isArray(data) ? data : []);
+      setErrorMessage(null);
     } catch (err: any) {
       console.warn('[CitizenRequests] Failed to load requests:', err?.message || err);
-      setErrorMessage(
-        err?.message || 'Unable to load your collection requests. Please pull down to retry.'
-      );
+      // Only show error banner if we have no cached requests to show
+      if (!hadCached && (!requests || requests.length === 0)) {
+        setErrorMessage(
+          t('citizen.requests.loadFailed') || 'Could not load requests.'
+        );
+      }
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [requests, t]);
 
   useEffect(() => {
-    loadRequests();
+    loadRequests(true);
   }, [loadRequests]);
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
-    loadRequests();
+    loadRequests(false);
   }, [loadRequests]);
 
   // Filter requests based on active tab
@@ -215,11 +228,11 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   return (
-    <GradientBackground>
+    <EcoSetuBackground>
       <TopAppBar
-        title={t('citizen.requests.title') || 'Collection Requests'}
-        roleBadge="CITIZEN"
-        onNotificationsPress={handleOpenNotifications}
+        title="My E-Waste Requests"
+        subtitle="Doorstep collection tracker"
+        showBack={false}
       />
 
       <ScrollView
@@ -228,174 +241,92 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={onRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
+            colors={['#10B981']}
+            tintColor="#10B981"
           />
         }
       >
-        {/* Screen Header */}
-        <View style={styles.headerRow}>
-          <View style={styles.headerTextGroup}>
-            <Text style={styles.title} accessibilityRole="header">
-              {t('citizen.requests.myRequests') || 'My Requests'}
-            </Text>
-            <Text style={styles.subtitle}>
-              {t('citizen.requests.subtitle') ||
-                'Track doorstep collection by your local informal collector.'}
-            </Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <ReadAloudButton
-              text={`My e-waste requests. You have ${requests.length} requests in total.`}
-              size="small"
-            />
-            <TouchableOpacity
-              style={styles.newRequestButton}
-              onPress={handleOpenSubmit}
-              accessibilityRole="button"
-              accessibilityLabel={
-                t('citizen.requests.submitItem') ||
-                'Submit e-waste item to create collection request'
-              }
-            >
-              <Text style={styles.newRequestButtonText}>
-                {t('citizen.requests.submitItem') || '+ Submit Item'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Offline notice if disconnected */}
+        {/* Offline Banner */}
         {!isConnected && (
-          <View style={styles.offlineNotice} accessibilityRole="alert">
-            <Text style={styles.offlineNoticeText}>
-              {t('citizen.requests.offlineNotice') ||
-                'Offline mode: Showing locally cached requests.'}
-            </Text>
+          <View style={styles.offlineBanner} accessibilityRole="alert">
+            <Text style={styles.offlineBannerText}>📡 Offline — showing cached requests</Text>
           </View>
         )}
 
         {/* Error Banner */}
         {Boolean(errorMessage) && (
-          <View style={styles.errorBox} accessibilityRole="alert">
+          <View style={styles.errorBanner} accessibilityRole="alert">
             <Text style={styles.errorText}>{errorMessage}</Text>
             <TouchableOpacity
-              style={styles.retryButton}
-              onPress={loadRequests}
+              style={styles.retryBtn}
+              onPress={() => loadRequests()}
               accessibilityRole="button"
-              accessibilityLabel={t('citizen.requests.retry') || 'Retry loading requests'}
             >
-              <Text style={styles.retryButtonText}>
-                {t('citizen.requests.retry') || 'Retry'}
-              </Text>
+              <Text style={styles.retryText}>Retry</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Filter Pills */}
-        <View style={styles.filterRow} accessibilityRole="tablist">
+        {/* Header Action Row */}
+        <View style={styles.actionRow}>
+          <Text style={styles.totalLabel}>{requests.length} request{requests.length !== 1 ? 's' : ''} total</Text>
           <TouchableOpacity
-            style={[styles.filterChip, activeFilter === 'ALL' && styles.filterChipActive]}
-            onPress={() => setActiveFilter('ALL')}
-            accessibilityRole="tab"
-            accessibilityLabel={t('citizen.requests.all') || 'All requests'}
-            accessibilityState={{ selected: activeFilter === 'ALL' }}
+            style={styles.newBtn}
+            onPress={handleOpenSubmit}
+            accessibilityRole="button"
+            accessibilityLabel="Schedule new pickup"
           >
-            <Text
-              style={[
-                styles.filterChipText,
-                activeFilter === 'ALL' && styles.filterChipTextActive,
-              ]}
-            >
-              {t('citizen.requests.all') || 'All'} ({requests.length})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterChip, activeFilter === 'ACTIVE' && styles.filterChipActive]}
-            onPress={() => setActiveFilter('ACTIVE')}
-            accessibilityRole="tab"
-            accessibilityLabel={t('citizen.requests.active') || 'Active requests'}
-            accessibilityState={{ selected: activeFilter === 'ACTIVE' }}
-          >
-            <Text
-              style={[
-                styles.filterChipText,
-                activeFilter === 'ACTIVE' && styles.filterChipTextActive,
-              ]}
-            >
-              {t('citizen.requests.active') || 'Active'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterChip, activeFilter === 'PICKED_UP' && styles.filterChipActive]}
-            onPress={() => setActiveFilter('PICKED_UP')}
-            accessibilityRole="tab"
-            accessibilityLabel={t('citizen.requests.collected') || 'Collected requests'}
-            accessibilityState={{ selected: activeFilter === 'PICKED_UP' }}
-          >
-            <Text
-              style={[
-                styles.filterChipText,
-                activeFilter === 'PICKED_UP' && styles.filterChipTextActive,
-              ]}
-            >
-              {t('citizen.requests.collected') || 'Collected'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterChip, activeFilter === 'CANCELLED' && styles.filterChipActive]}
-            onPress={() => setActiveFilter('CANCELLED')}
-            accessibilityRole="tab"
-            accessibilityLabel={t('citizen.requests.cancelled') || 'Cancelled requests'}
-            accessibilityState={{ selected: activeFilter === 'CANCELLED' }}
-          >
-            <Text
-              style={[
-                styles.filterChipText,
-                activeFilter === 'CANCELLED' && styles.filterChipTextActive,
-              ]}
-            >
-              {t('citizen.requests.cancelled') || 'Cancelled'}
-            </Text>
+            <Text style={styles.newBtnText}>+ New Pickup</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Loading Skeletons */}
+        {/* Filter Pills */}
+        <View style={styles.filterRow} accessibilityRole="tablist">
+          {(['ALL', 'ACTIVE', 'PICKED_UP', 'CANCELLED'] as const).map((filter) => (
+            <TouchableOpacity
+              key={filter}
+              style={[styles.filterPill, activeFilter === filter && styles.filterPillActive]}
+              onPress={() => setActiveFilter(filter)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeFilter === filter }}
+            >
+              <Text style={[styles.filterText, activeFilter === filter && styles.filterTextActive]}>
+                {filter === 'ALL' ? `All (${requests.length})` :
+                 filter === 'ACTIVE' ? 'Active' :
+                 filter === 'PICKED_UP' ? 'Collected' : 'Cancelled'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Content */}
         {isLoading ? (
           <View style={styles.skeletonContainer}>
-            <Skeleton height={140} style={styles.skeletonCard} />
-            <Skeleton height={140} style={styles.skeletonCard} />
-            <Skeleton height={140} style={styles.skeletonCard} />
+            <Skeleton height={130} style={styles.skeletonCard} />
+            <Skeleton height={130} style={styles.skeletonCard} />
+            <Skeleton height={130} style={styles.skeletonCard} />
           </View>
         ) : filteredRequests.length === 0 ? (
           <EmptyState
             icon="📦"
-            title={t('citizen.requests.noRequests') || 'No Collection Requests'}
-            message={
-              activeFilter === 'ALL'
-                ? (t('citizen.requests.noRequestsDesc') ||
-                  'No collection requests yet. Submit your first e-waste item to get started!')
-                : (t('citizen.requests.noFilteredRequests', {
-                    filter: activeFilter.toLowerCase(),
-                  }) || `No ${activeFilter.toLowerCase()} requests found.`)
+            title={activeFilter === 'ALL' ? 'No Collection Requests' : `No ${activeFilter.toLowerCase()} requests`}
+            message={activeFilter === 'ALL'
+              ? 'Submit your first e-waste item to get started with free doorstep pickup.'
+              : `No ${activeFilter.toLowerCase()} requests found.`
             }
-            actionLabel={
-              activeFilter === 'ALL'
-                ? (t('citizen.submit.submit') || 'Submit E-Waste Item')
-                : (t('citizen.requests.viewAll') || 'View All Requests')
-            }
+            actionLabel={activeFilter === 'ALL' ? 'Schedule Pickup' : 'View All'}
             onAction={activeFilter === 'ALL' ? handleOpenSubmit : () => setActiveFilter('ALL')}
           />
         ) : (
-          <View style={styles.listContainer}>
+          <View style={styles.cardList}>
             {filteredRequests.map((item) => {
-              const refId = `#REQ-${(item.id || '').substring(0, 8).toUpperCase()}`;
+              const refId = `REQ-${(item.id || '').substring(0, 8).toUpperCase()}`;
               const itemCount = Array.isArray(item.ewasteItems) ? item.ewasteItems.length : 0;
               const cancellable = canCancelRequest(item.status);
               const statusCopy = getStatusDescription(item.status, item);
+              const status = (item.status || '').toUpperCase();
+              const isCompleted = ['COMPLETED', 'PICKED_UP'].includes(status);
+              const isCancelled = ['CANCELLED', 'EXPIRED'].includes(status);
 
               return (
                 <TouchableOpacity
@@ -404,75 +335,58 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
                   onPress={() => handleOpenDetail(item.id)}
                   activeOpacity={0.85}
                   accessibilityRole="button"
-                  accessibilityLabel={`Collection request ${refId}, status ${item.status}, ${itemCount} items`}
+                  accessibilityLabel={`Request ${refId}, ${item.status}, ${itemCount} items`}
                 >
-                  {/* Card Header: Reference & Status */}
-                  <View style={styles.cardHeader}>
-                    <Text style={styles.cardRef}>{refId}</Text>
+                  {/* Card Top */}
+                  <View style={styles.cardTop}>
+                    <View style={styles.cardIconBox}>
+                      <Text style={styles.cardIcon}>
+                        {isCompleted ? '✅' : isCancelled ? '❌' : '📦'}
+                      </Text>
+                    </View>
+                    <View style={styles.cardTopInfo}>
+                      <Text style={styles.cardRef}>#{refId}</Text>
+                      <Text style={styles.cardStatusDesc} numberOfLines={2}>{statusCopy}</Text>
+                    </View>
                     <StatusBadge status={item.status} />
                   </View>
 
-                  {/* Friendly Status Narrative */}
-                  <Text style={styles.statusDescription}>{statusCopy}</Text>
-
-                  {/* Pickup Details */}
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailIcon}>📍</Text>
-                    <Text style={styles.detailText} numberOfLines={2}>
-                      {item.pickupAddress || 'Address on file'}
-                    </Text>
-                  </View>
-
-                  {/* Items & Schedule Row */}
-                  <View style={styles.metaRow}>
-                    <View style={styles.metaItem}>
-                      <Text style={styles.metaLabel}>
-                        {t('citizen.requests.itemsCount') || 'Items:'}
-                      </Text>
-                      <Text style={styles.metaValue}>
-                        {itemCount}{' '}
-                        {itemCount === 1
-                          ? t('citizen.requests.itemsCount') || 'item'
-                          : t('citizen.requests.itemsCountPlural') || 'items'}
-                      </Text>
-                    </View>
-
-                    {Boolean(item.preferredDate) && (
-                      <View style={styles.metaItem}>
-                        <Text style={styles.metaLabel}>Date:</Text>
-                        <Text style={styles.metaValue}>
-                          {new Date(item.preferredDate).toLocaleDateString()}
-                        </Text>
+                  {/* Card Details */}
+                  <View style={styles.cardDetails}>
+                    {Boolean(item.pickupAddress) && (
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailIcon}>📍</Text>
+                        <Text style={styles.detailText} numberOfLines={1}>{item.pickupAddress}</Text>
                       </View>
                     )}
+                    <View style={styles.metaRow}>
+                      <View style={styles.metaChip}>
+                        <Text style={styles.metaText}>📦 {itemCount} {itemCount === 1 ? 'item' : 'items'}</Text>
+                      </View>
+                      {Boolean(item.preferredDate) && (
+                        <View style={styles.metaChip}>
+                          <Text style={styles.metaText}>📅 {new Date(item.preferredDate).toLocaleDateString()}</Text>
+                        </View>
+                      )}
+                      {Boolean(item.collectorId) && (
+                        <View style={[styles.metaChip, styles.metaChipGreen]}>
+                          <Text style={[styles.metaText, styles.metaTextGreen]}>🤝 Collector Assigned</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
 
-                  {/* Assigned Collector Notice (Informal Collector workflow) */}
-                  {Boolean(item.collectorId) && (
-                    <View style={styles.collectorNotice}>
-                      <Text style={styles.collectorNoticeText}>
-                        {t('citizen.requests.assignedCollector') ||
-                          '🤝 Assigned: Local Informal Collector (Kabadiwala)'}
-                      </Text>
-                    </View>
-                  )}
-
-                  {/* Card Footer: Detail Link & Cancel Action */}
+                  {/* Card Footer */}
                   <View style={styles.cardFooter}>
-                    <Text style={styles.viewDetailText}>
-                      {t('citizen.requests.viewDetails') || 'View Details →'}
-                    </Text>
-
+                    <Text style={styles.viewDetailsLink}>View Details →</Text>
                     {cancellable && (
                       <TouchableOpacity
-                        style={styles.cancelActionButton}
+                        style={styles.cancelBtn}
                         onPress={() => handleInitiateCancel(item)}
                         accessibilityRole="button"
                         accessibilityLabel={`Cancel request ${refId}`}
                       >
-                        <Text style={styles.cancelActionText}>
-                          {t('citizen.requests.cancelRequest') || 'Cancel Request'}
-                        </Text>
+                        <Text style={styles.cancelBtnText}>Cancel</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -483,7 +397,7 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
         )}
       </ScrollView>
 
-      {/* Cancellation Confirmation Modal */}
+      {/* Cancellation Modal */}
       <Modal
         visible={cancelModalVisible}
         transparent
@@ -493,31 +407,23 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard} accessibilityViewIsModal={true}>
             <Text style={styles.modalTitle} accessibilityRole="header">
-              {t('citizen.requests.cancelModalTitle') || 'Cancel Collection Request'}
+              Cancel Collection Request
             </Text>
             <Text style={styles.modalSubtitle}>
-              {t('citizen.requests.cancelModalSubtitle', {
-                ref: `#${selectedRequest?.id?.substring(0, 8).toUpperCase()}`,
-              }) ||
-                `Are you sure you want to cancel request #${selectedRequest?.id?.substring(0, 8).toUpperCase()}? Once cancelled, any assigned local collector will be notified.`}
+              {`Cancel request #${selectedRequest?.id?.substring(0, 8).toUpperCase()}? Any assigned collector will be notified.`}
             </Text>
 
             {Boolean(cancelError) && (
-              <View style={styles.modalErrorBox} accessibilityRole="alert">
+              <View style={styles.modalError} accessibilityRole="alert">
                 <Text style={styles.modalErrorText}>{cancelError}</Text>
               </View>
             )}
 
-            <Text style={styles.inputLabel}>
-              {t('citizen.requests.cancelReasonLabel') || 'Reason for cancellation *'}
-            </Text>
+            <Text style={styles.inputLabel}>Reason for cancellation *</Text>
             <TextInput
               style={styles.reasonInput}
-              placeholder={
-                t('citizen.requests.cancelReasonPlaceholder') ||
-                'e.g. Schedule conflict, items already handed over'
-              }
-              placeholderTextColor={colors.textSecondary}
+              placeholder="e.g. Schedule conflict, items already handed over"
+              placeholderTextColor="rgba(255,255,255,0.35)"
               value={cancellationReason}
               onChangeText={setCancellationReason}
               maxLength={500}
@@ -529,364 +435,150 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
 
             <View style={styles.modalActions}>
               <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonSecondary]}
+                style={styles.modalBtnSecondary}
                 onPress={() => setCancelModalVisible(false)}
                 disabled={isCancelling}
                 accessibilityRole="button"
-                accessibilityLabel="Keep request and dismiss"
               >
-                <Text style={styles.modalButtonSecondaryText}>
-                  {t('citizen.requests.keepRequest') || 'Keep Request'}
-                </Text>
+                <Text style={styles.modalBtnSecondaryText}>Keep Request</Text>
               </TouchableOpacity>
-
               <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonDestructive]}
+                style={styles.modalBtnDestructive}
                 onPress={handleConfirmCancel}
                 disabled={isCancelling}
                 accessibilityRole="button"
-                accessibilityLabel="Confirm request cancellation"
               >
                 {isCancelling ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.modalButtonDestructiveText}>
-                    {t('citizen.requests.confirmCancel') || 'Confirm Cancel'}
-                  </Text>
+                  <Text style={styles.modalBtnDestructiveText}>Confirm Cancel</Text>
                 )}
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-    </GradientBackground>
+    </EcoSetuBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.backgroundBase,
+  container: { padding: 20, paddingBottom: 100 },
+
+  offlineBanner: {
+    backgroundColor: 'rgba(245,158,11,0.15)', borderWidth: 1, borderColor: 'rgba(245,158,11,0.35)',
+    borderRadius: 12, padding: 10, marginBottom: 12, alignItems: 'center',
   },
-  container: {
-    padding: spacing.spaceMd,
-    paddingBottom: spacing.spaceXl * 2,
+  offlineBannerText: { fontSize: 12, fontWeight: '600', color: '#FBBF24' },
+
+  errorBanner: {
+    backgroundColor: 'rgba(239,68,68,0.14)', borderWidth: 1, borderColor: 'rgba(248,113,113,0.35)',
+    borderRadius: 14, padding: 12, marginBottom: 14,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.spaceMd,
+  errorText: { fontSize: 13, color: '#FCA5A5', flex: 1, marginRight: 8 },
+  retryBtn: {
+    backgroundColor: 'rgba(239,68,68,0.25)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8,
   },
-  headerTextGroup: {
-    flex: 1,
-    marginRight: spacing.spaceMd,
+  retryText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+
+  actionRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14,
   },
-  title: {
-    fontSize: typography.Headline.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
+  totalLabel: { fontSize: 13, color: 'rgba(255,255,255,0.55)', fontWeight: '500' },
+  newBtn: {
+    backgroundColor: '#10B981', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8,
   },
-  subtitle: {
-    fontSize: typography.Body.fontSize,
-    fontWeight: '400',
-    color: colors.textSecondary,
-    marginTop: 2,
+  newBtnText: { fontSize: 13, fontWeight: '800', color: '#051417' },
+
+  // Filter
+  filterRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  filterPill: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
   },
-  newRequestButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.spaceMd,
-    paddingVertical: spacing.spaceSm,
-    borderRadius: spacing.radiusMd,
-    minHeight: 48,
-    minWidth: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
-  },
-  newRequestButtonText: {
-    fontSize: typography.Button.fontSize,
-    fontWeight: '700',
-    color: colors.textInverse,
-  },
-  offlineNotice: {
-    backgroundColor: colors.warningFill,
-    padding: spacing.spaceSm,
-    borderRadius: spacing.radiusSm,
-    marginBottom: spacing.spaceMd,
-    borderWidth: 1,
-    borderColor: colors.warning + '40',
-  },
-  offlineNoticeText: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '600',
-    color: colors.warning,
-    textAlign: 'center',
-  },
-  errorBox: {
-    backgroundColor: colors.errorFill,
-    padding: spacing.spaceMd,
-    borderRadius: spacing.radiusSm,
-    marginBottom: spacing.spaceMd,
-    borderWidth: 1,
-    borderColor: colors.error + '40',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  errorText: {
-    fontSize: typography.Body.fontSize,
-    fontWeight: '400',
-    color: colors.error,
-    flex: 1,
-    marginRight: spacing.spaceSm,
-  },
-  retryButton: {
-    backgroundColor: colors.error,
-    paddingHorizontal: spacing.spaceMd,
-    paddingVertical: spacing.spaceSm,
-    borderRadius: 6,
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  retryButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  filterRow: {
-    flexDirection: 'row',
-    marginBottom: spacing.spaceMd,
-    gap: spacing.spaceSm,
-  },
-  filterChip: {
-    paddingHorizontal: spacing.spaceMd,
-    paddingVertical: spacing.spaceSm,
-    borderRadius: spacing.radiusPill,
-    backgroundColor: colors.glassFill,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  filterChipActive: {
-    backgroundColor: colors.accentFill,
-    borderColor: colors.primary,
-  },
-  filterChipText: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  filterChipTextActive: {
-    color: colors.primary,
-  },
-  skeletonContainer: {
-    gap: spacing.spaceMd,
-  },
-  skeletonCard: {
-    borderRadius: 8,
-  },
-  listContainer: {
-    gap: spacing.spaceMd,
-  },
+  filterPillActive: { backgroundColor: 'rgba(16,185,129,0.20)', borderColor: '#10B981' },
+  filterText: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.60)' },
+  filterTextActive: { color: '#10B981' },
+
+  // Skeleton
+  skeletonContainer: { gap: 14 },
+  skeletonCard: { borderRadius: 18 },
+
+  // Cards
+  cardList: { gap: 14 },
   requestCard: {
-    backgroundColor: colors.glassFill,
-    borderRadius: spacing.radiusMd,
-    padding: spacing.spaceMd,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    backgroundColor: 'rgba(16,44,48,0.70)', borderRadius: 20, padding: 16,
+    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.10)',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15, shadowRadius: 8, elevation: 3,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.spaceSm,
+  cardTop: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
+  cardIconBox: {
+    width: 44, height: 44, borderRadius: 13,
+    backgroundColor: 'rgba(16,185,129,0.12)', borderWidth: 1, borderColor: 'rgba(52,211,153,0.25)',
+    justifyContent: 'center', alignItems: 'center', marginRight: 12,
   },
-  cardRef: {
-    fontSize: typography.Subheading.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
+  cardIcon: { fontSize: 20 },
+  cardTopInfo: { flex: 1, marginRight: 8 },
+  cardRef: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3, marginBottom: 2 },
+  cardStatusDesc: { fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 16, fontStyle: 'italic' },
+
+  cardDetails: { marginBottom: 12 },
+  detailRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  detailIcon: { fontSize: 13, marginRight: 6 },
+  detailText: { fontSize: 13, color: 'rgba(255,255,255,0.70)', flex: 1 },
+  metaRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  metaChip: {
+    backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 10, borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)', paddingHorizontal: 10, paddingVertical: 5,
   },
-  statusDescription: {
-    fontSize: typography.Body.fontSize,
-    fontWeight: '400',
-    color: colors.textSecondary,
-    marginBottom: spacing.spaceMd,
-    fontStyle: 'italic',
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: spacing.spaceSm,
-  },
-  detailIcon: {
-    fontSize: 14,
-    marginRight: 6,
-    marginTop: 2,
-  },
-  detailText: {
-    fontSize: typography.Body.fontSize,
-    fontWeight: '400',
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    backgroundColor: colors.background,
-    padding: spacing.spaceSm,
-    borderRadius: 6,
-    marginVertical: spacing.spaceSm,
-    justifyContent: 'space-between',
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  metaLabel: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '400',
-    color: colors.textSecondary,
-    marginRight: 4,
-  },
-  metaValue: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  collectorNotice: {
-    backgroundColor: '#E8F5E9',
-    padding: spacing.spaceSm,
-    borderRadius: 6,
-    marginVertical: spacing.spaceSm,
-  },
-  collectorNoticeText: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '600',
-    color: colors.primaryDark,
-  },
+  metaChipGreen: { backgroundColor: 'rgba(16,185,129,0.12)', borderColor: 'rgba(52,211,153,0.30)' },
+  metaText: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.65)' },
+  metaTextGreen: { color: '#34D399' },
+
   cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing.spaceSm,
-    paddingTop: spacing.spaceSm,
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)',
   },
-  viewDetailText: {
-    fontSize: typography.Button.fontSize,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  cancelActionButton: {
-    paddingVertical: spacing.spaceSm,
-    paddingHorizontal: spacing.spaceSm,
-    minHeight: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cancelActionText: {
-    fontSize: typography.Button.fontSize,
-    fontWeight: '700',
-    color: colors.error,
-  },
-  // Modal styles
+  viewDetailsLink: { fontSize: 13, fontWeight: '700', color: '#34D399' },
+  cancelBtn: { paddingHorizontal: 12, paddingVertical: 6 },
+  cancelBtnText: { fontSize: 12, fontWeight: '700', color: '#F87171' },
+
+  // Modal
   modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.spaceLg,
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'center', alignItems: 'center', padding: 24,
   },
   modalCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: spacing.spaceLg,
-    width: '100%',
-    maxWidth: 400,
-    elevation: 5,
+    backgroundColor: '#0B2D33', borderRadius: 22, padding: 24,
+    width: '100%', maxWidth: 400,
+    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.12)', elevation: 10,
   },
-  modalTitle: {
-    fontSize: typography.Subheading.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.spaceSm,
+  modalTitle: { fontSize: 17, fontWeight: '800', color: '#FFFFFF', marginBottom: 8 },
+  modalSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.60)', marginBottom: 16, lineHeight: 18 },
+  modalError: {
+    backgroundColor: 'rgba(239,68,68,0.15)', borderRadius: 10, padding: 10, marginBottom: 12,
   },
-  modalSubtitle: {
-    fontSize: typography.Body.fontSize,
-    fontWeight: '400',
-    color: colors.textSecondary,
-    marginBottom: spacing.spaceMd,
-  },
-  modalErrorBox: {
-    backgroundColor: '#FFEBEE',
-    padding: spacing.spaceSm,
-    borderRadius: 6,
-    marginBottom: spacing.spaceSm,
-  },
-  modalErrorText: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '400',
-    color: colors.error,
-  },
-  inputLabel: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.spaceXs,
-  },
+  modalErrorText: { fontSize: 12, color: '#FCA5A5' },
+  inputLabel: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.70)', marginBottom: 6 },
   reasonInput: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: 8,
-    padding: spacing.spaceMd,
-    fontSize: typography.Body.fontSize,
-    fontWeight: '400',
-    color: colors.textPrimary,
-    textAlignVertical: 'top',
-    minHeight: 80,
-    marginBottom: spacing.spaceLg,
+    backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 12, padding: 14, fontSize: 14, color: '#FFFFFF',
+    textAlignVertical: 'top', minHeight: 80, marginBottom: 20,
   },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.spaceSm,
+  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
+  modalBtnSecondary: {
+    paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.20)',
+    minHeight: 44, justifyContent: 'center', alignItems: 'center',
   },
-  modalButton: {
-    paddingHorizontal: spacing.spaceLg,
-    paddingVertical: spacing.spaceSm,
-    borderRadius: 8,
-    minHeight: 48,
-    minWidth: 100,
-    alignItems: 'center',
-    justifyContent: 'center',
+  modalBtnSecondaryText: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
+  modalBtnDestructive: {
+    paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12,
+    backgroundColor: '#EF4444', minHeight: 44, justifyContent: 'center', alignItems: 'center',
   },
-  modalButtonSecondary: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.divider,
-  },
-  modalButtonSecondaryText: {
-    fontSize: typography.Button.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  modalButtonDestructive: {
-    backgroundColor: colors.error,
-  },
-  modalButtonDestructiveText: {
-    fontSize: typography.Button.fontSize,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
+  modalBtnDestructiveText: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
 });
 
 export default CitizenRequestsScreen;

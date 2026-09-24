@@ -81,8 +81,8 @@ export const SlideEcosetuHero: React.FC<SlideProps> = ({ width, active }) => {
           },
         ]}
       >
-        <Text style={styles.headlineText}>{t('auth.slide6Title')}</Text>
-        <Text style={styles.subtitleText}>{t('auth.slide6Subtitle')}</Text>
+        <Text style={styles.headlineText}>{t('onboarding.slide6Title')}</Text>
+        <Text style={styles.subtitleText}>{t('onboarding.slide6Subtitle')}</Text>
       </Animated.View>
     </View>
   );

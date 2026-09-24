@@ -19,6 +19,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { useI18n } from '../../i18n';
 import handoverService, { HandoverReceipt } from '../../services/handoverService';
 import voiceService from '../../services/voiceService';
+import { ReportProblemModal } from '../../components/dispute/ReportProblemModal';
 
 export const CollectorHandoverReceiptScreen: React.FC = () => {
   const { t, language } = useI18n();
@@ -29,6 +30,7 @@ export const CollectorHandoverReceiptScreen: React.FC = () => {
 
   const [receipt, setReceipt] = useState<HandoverReceipt | null>(null);
   const [loading, setLoading] = useState(true);
+  const [problemModalVisible, setProblemModalVisible] = useState(false);
 
   useEffect(() => {
     if (handoverId) {
@@ -275,6 +277,14 @@ export const CollectorHandoverReceiptScreen: React.FC = () => {
         </TouchableOpacity>
       )}
 
+      {/* Report Handover Dispute Action */}
+      <TouchableOpacity
+        style={styles.disputeBtn}
+        onPress={() => setProblemModalVisible(true)}
+      >
+        <Text style={styles.disputeBtnText}>🚨 Report Handover Problem / Weight Mismatch</Text>
+      </TouchableOpacity>
+
       {/* Return Action */}
       <TouchableOpacity
         style={styles.doneBtn}
@@ -282,6 +292,21 @@ export const CollectorHandoverReceiptScreen: React.FC = () => {
       >
         <Text style={styles.doneBtnText}>{t('common.back') || 'Back to Material Lots'}</Text>
       </TouchableOpacity>
+
+      {receipt && (
+        <ReportProblemModal
+          visible={problemModalVisible}
+          onClose={() => setProblemModalVisible(false)}
+          materialLotId={(receipt as any).materialLotId || (route.params as any)?.materialLotId || (route.params as any)?.lotId || ''}
+          handoverId={handoverId}
+          initialDisputeType="HANDOVER_DISPUTE"
+          estimatedWeightKg={receipt.declaredWeightKg ? Number(receipt.declaredWeightKg) : undefined}
+          finalWeightKg={receipt.confirmedWeightKg ? Number(receipt.confirmedWeightKg) : undefined}
+          onDisputeCreated={() => {
+            navigation.navigate('CollectorDisputes');
+          }}
+        />
+      )}
     </ScrollView>
   );
 };
@@ -536,6 +561,21 @@ const styles = StyleSheet.create({
   },
   recordSaleBtnText: {
     color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  disputeBtn: {
+    backgroundColor: '#fff1f2',
+    borderWidth: 1.5,
+    borderColor: '#f43f5e',
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  disputeBtnText: {
+    color: '#e11d48',
     fontWeight: 'bold',
     fontSize: 15,
   },

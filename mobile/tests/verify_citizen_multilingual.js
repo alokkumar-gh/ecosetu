@@ -53,8 +53,8 @@ function parseLocaleFile(relPath, varName) {
   const file = readFile(relPath);
   if (!file.exists) return null;
   const cleanCode = file.content
-    .replace(/import\s+type[^;]+;/, '')
-    .replace(new RegExp(`export\\s+const\\s+${varName}:\\s*TranslationSchema\\s*=`), `const ${varName} =`)
+    .replace(/import\s+type[^;]+;/g, '')
+    .replace(new RegExp(`export\\s+const\\s+${varName}\\s*(?::\\s*TranslationSchema)?\\s*=`), `const ${varName} =`)
     + `\n;${varName};`;
   return vm.runInNewContext(cleanCode);
 }

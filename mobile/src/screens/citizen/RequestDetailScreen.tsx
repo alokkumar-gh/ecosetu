@@ -1,3 +1,9 @@
+/**
+ * RequestDetailScreen — COMPLETE REBUILD
+ * Citizen views their e-waste collection request status.
+ * Goal: What I submitted → Current status → What happens next → What I need to do.
+ */
+
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -6,7 +12,6 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
-  SafeAreaView,
   Modal,
   TextInput,
   ActivityIndicator,
@@ -15,1206 +20,896 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { CitizenStackParamList } from '../../navigation/types';
 import { useNetwork } from '../../hooks/useNetwork';
-import { TopAppBar } from '../../components/layout/TopAppBar';
-import { StatusBadge } from '../../components/common/StatusBadge';
-import { Skeleton } from '../../components/common/Skeleton';
-import { requestService } from '../../services/requestService';
-import { REQUEST_STATUS } from '../../utils/constants';
 import { useI18n } from '../../i18n';
-import { colors } from '../../theme/colors';
-import { spacing } from '../../theme/spacing';
-import { typography } from '../../theme/typography';
+import { requestService } from '../../services/requestService';
+import { offlineStore } from '../../services/offlineStore';
+import { REQUEST_STATUS } from '../../utils/constants';
+import { EcoSetuBackground } from '../../components/eco';
 import { AuthorizedImage } from '../../components/common/AuthorizedImage';
-import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
+import { colors } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<CitizenStackParamList, 'RequestDetail'>;
 
-// Check if request can be cancelled per docs/07 Section 1.3
-// Citizen can cancel before PICKED_UP; cannot cancel once PICKED_UP, CANCELLED, or EXPIRED
+// ─── Status config ─────────────────────────────────────────────────────────────
+
 const canCancelRequest = (status: string): boolean => {
-  const norm = (status || '').toUpperCase();
+  const s = (status || '').toUpperCase();
+  return s !== REQUEST_STATUS.PICKED_UP && s !== REQUEST_STATUS.CANCELLED && s !== REQUEST_STATUS.EXPIRED;
+};
+
+const STATUS_ORDER: Record<string, number> = {
+  [REQUEST_STATUS.DRAFT]: 0,
+  [REQUEST_STATUS.SUBMITTED]: 1,
+  [REQUEST_STATUS.ACCEPTED]: 2,
+  [REQUEST_STATUS.PICKUP_SCHEDULED]: 3,
+  [REQUEST_STATUS.PICKED_UP]: 4,
+};
+
+const TIMELINE_STEPS = [
+  {
+    id: 'SUBMITTED',
+    icon: '📤',
+    label: 'Request Sent',
+    next: 'Your request is being broadcast to nearby collectors.',
+  },
+  {
+    id: 'ACCEPTED',
+    icon: '🤝',
+    label: 'Collector Assigned',
+    next: 'A local collector (Kabadiwala) will contact you to schedule pickup.',
+  },
+  {
+    id: 'PICKUP_SCHEDULED',
+    icon: '📅',
+    label: 'Pickup Scheduled',
+    next: 'The collector will arrive at your address on the scheduled date.',
+  },
+  {
+    id: 'PICKED_UP',
+    icon: '✅',
+    label: 'Items Collected',
+    next: 'Your e-waste has been responsibly handed over for recycling.',
+  },
+];
+
+function getStepState(stepId: string, currentStatus: string): 'done' | 'current' | 'pending' | 'cancelled' {
+  const norm = (currentStatus || '').toUpperCase();
+  if (norm === REQUEST_STATUS.CANCELLED || norm === REQUEST_STATUS.EXPIRED) return 'cancelled';
+  const current = STATUS_ORDER[norm] ?? -1;
+  const stepLevel = STATUS_ORDER[stepId] ?? 0;
+  if (stepLevel < current) return 'done';
+  if (stepLevel === current) return 'current';
+  return 'pending';
+}
+
+function getStatusBadgeMeta(status: string, t: any) {
+  const s = (status || '').toUpperCase();
+  switch (s) {
+    case REQUEST_STATUS.DRAFT:           return { label: t('status.draft', 'Draft'),             color: '#A78BFA', bg: 'rgba(139,92,246,0.15)' };
+    case REQUEST_STATUS.SUBMITTED:       return { label: t('status.awaitingCollector', 'Awaiting Collector'), color: '#60A5FA', bg: 'rgba(59,130,246,0.15)' };
+    case REQUEST_STATUS.ACCEPTED:        return { label: t('status.collectorAssigned', 'Collector Assigned'), color: '#10B981', bg: 'rgba(16,185,129,0.15)' };
+    case REQUEST_STATUS.PICKUP_SCHEDULED:return { label: t('status.pickupScheduled', 'Pickup Scheduled'),   color: '#34D399', bg: 'rgba(52,211,153,0.15)' };
+    case REQUEST_STATUS.PICKED_UP:       return { label: t('status.collected', 'Collected ✓'),        color: '#10B981', bg: 'rgba(16,185,129,0.18)' };
+    case REQUEST_STATUS.CANCELLED:       return { label: t('status.cancelled', 'Cancelled'),           color: '#F87171', bg: 'rgba(239,68,68,0.15)' };
+    case REQUEST_STATUS.EXPIRED:         return { label: t('status.expired', 'Expired'),             color: '#FBBF24', bg: 'rgba(245,158,11,0.15)' };
+    default:                             return { label: status,               color: '#94A3B8', bg: 'rgba(148,163,184,0.15)' };
+  }
+}
+
+// ─── Cancel Modal ─────────────────────────────────────────────────────────────
+
+interface CancelModalProps {
+  visible: boolean;
+  isCancelling: boolean;
+  cancelError: string | null;
+  reason: string;
+  onChangeReason: (r: string) => void;
+  onConfirm: () => void;
+  onClose: () => void;
+}
+
+const CancelModal: React.FC<CancelModalProps> = ({
+  visible, isCancelling, cancelError, reason, onChangeReason, onConfirm, onClose,
+}) => {
+  const { t } = useI18n();
   return (
-    norm !== REQUEST_STATUS.PICKED_UP &&
-    norm !== REQUEST_STATUS.CANCELLED &&
-    norm !== REQUEST_STATUS.EXPIRED
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose} />
+      <View style={styles.modalSheet}>
+        <View style={styles.sheetHandle} />
+        <Text style={styles.modalTitle}>{t('common.cancelRequest', 'Cancel Request')}</Text>
+        <Text style={styles.modalSubtitle}>
+          {t('common.cancelReasonHelp', "Please tell us why you're cancelling. This helps us improve.")}
+        </Text>
+
+        <TextInput
+          style={styles.modalTextArea}
+          value={reason}
+          onChangeText={onChangeReason}
+          multiline
+          numberOfLines={4}
+          placeholder={t('common.cancelReasonPlaceholder', 'Reason for cancellation…')}
+          placeholderTextColor="rgba(255,255,255,0.30)"
+          textAlignVertical="top"
+          autoFocus
+        />
+
+        {cancelError && (
+          <Text style={styles.modalError}>{cancelError}</Text>
+        )}
+
+        <View style={styles.modalActions}>
+          <TouchableOpacity style={styles.modalCancelBtn} onPress={onClose} disabled={isCancelling}>
+            <Text style={styles.modalCancelText}>{t('common.keepRequest', 'Keep Request')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modalDestructiveBtn, isCancelling && { opacity: 0.6 }]}
+            onPress={onConfirm}
+            disabled={isCancelling}
+          >
+            {isCancelling
+              ? <ActivityIndicator size="small" color="#FFF" />
+              : <Text style={styles.modalDestructiveText}>{t('common.cancelRequest', 'Cancel Request')}</Text>}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
   );
 };
 
-// Friendly status narrative per docs/07_BUSINESS_WORKFLOWS.md Section 1.2
-const getStatusDescription = (status: string, request?: any): string => {
-  const norm = (status || '').toUpperCase();
-  switch (norm) {
-    case REQUEST_STATUS.DRAFT:
-      return 'Your request is in draft status and has not yet been submitted for pickup.';
-    case REQUEST_STATUS.SUBMITTED:
-      return 'Your request has been broadcasted to nearby informal collectors (Kabadiwalas).';
-    case REQUEST_STATUS.ACCEPTED:
-      return 'A local informal collector has accepted your request. Pickup will be scheduled.';
-    case REQUEST_STATUS.PICKUP_SCHEDULED:
-      return request?.preferredDate
-        ? `Doorstep pickup scheduled for ${new Date(request.preferredDate).toLocaleDateString()}.`
-        : 'Doorstep pickup has been scheduled by your collector.';
-    case REQUEST_STATUS.PICKED_UP:
-      return 'Your e-waste items have been collected and verified at your doorstep.';
-    case REQUEST_STATUS.CANCELLED:
-      return 'This collection request was cancelled.';
-    case REQUEST_STATUS.EXPIRED:
-      return 'This collection request has expired. Please submit a new request.';
-    default:
-      return 'Collection request status updated.';
-  }
-};
-
-interface StepItem {
-  id: string;
-  label: string;
-  description: string;
-}
-
-const LIFECYCLE_STEPS: StepItem[] = [
-  { id: 'DRAFT', label: 'Request Created', description: 'Item details entered' },
-  { id: 'SUBMITTED', label: 'Submitted', description: 'Broadcasting to local collectors' },
-  { id: 'ACCEPTED', label: 'Collector Accepted', description: 'Informal collector assigned' },
-  { id: 'PICKUP_SCHEDULED', label: 'Pickup Scheduled', description: 'Date & arrival slot confirmed' },
-  { id: 'PICKED_UP', label: 'Items Picked Up', description: 'Doorstep collection completed' },
-];
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const { requestId } = route.params;
   const { isConnected } = useNetwork();
   const { t } = useI18n();
 
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [request, setRequest] = useState<any | null>(null);
 
-  // Cancellation Modal State
-  const [cancelModalVisible, setCancelModalVisible] = useState<boolean>(false);
-  const [cancellationReason, setCancellationReason] = useState<string>('');
-  const [isCancelling, setIsCancelling] = useState<boolean>(false);
+  const [cancelVisible, setCancelVisible] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
 
-  const getStepLocalized = (stepId: string, fallbackLabel: string, fallbackDesc: string) => {
-    switch (stepId) {
-      case 'DRAFT':
-        return {
-          label: t('citizen.requestDetail.stepDraft') || fallbackLabel,
-          description: t('citizen.requestDetail.stepDraftDesc') || fallbackDesc,
-        };
-      case 'SUBMITTED':
-        return {
-          label: t('citizen.requestDetail.stepSubmitted') || fallbackLabel,
-          description: t('citizen.requestDetail.stepSubmittedDesc') || fallbackDesc,
-        };
-      case 'ACCEPTED':
-        return {
-          label: t('citizen.requestDetail.stepAccepted') || fallbackLabel,
-          description: t('citizen.requestDetail.stepAcceptedDesc') || fallbackDesc,
-        };
-      case 'PICKUP_SCHEDULED':
-        return {
-          label: t('citizen.requestDetail.stepScheduled') || fallbackLabel,
-          description: t('citizen.requestDetail.stepScheduledDesc') || fallbackDesc,
-        };
-      case 'PICKED_UP':
-        return {
-          label: t('citizen.requestDetail.stepPickedUp') || fallbackLabel,
-          description: t('citizen.requestDetail.stepPickedUpDesc') || fallbackDesc,
-        };
-      default:
-        return { label: fallbackLabel, description: fallbackDesc };
-    }
-  };
+  const timelineSteps = [
+    {
+      id: 'SUBMITTED',
+      icon: '📤',
+      label: t('status.requestSent', 'Request Sent'),
+      next: t('status.requestSentNext', 'Your request is being broadcast to nearby collectors.'),
+    },
+    {
+      id: 'ACCEPTED',
+      icon: '🤝',
+      label: t('status.collectorAssigned', 'Collector Assigned'),
+      next: t('status.collectorAssignedNext', 'A local collector (Kabadiwala) will contact you to schedule pickup.'),
+    },
+    {
+      id: 'PICKUP_SCHEDULED',
+      icon: '📅',
+      label: t('status.pickupScheduled', 'Pickup Scheduled'),
+      next: t('status.pickupScheduledNext', 'The collector will arrive at your address on the scheduled date.'),
+    },
+    {
+      id: 'PICKED_UP',
+      icon: '✅',
+      label: t('status.itemsCollected', 'Items Collected'),
+      next: t('status.itemsCollectedNext', 'Your e-waste has been responsibly handed over for recycling.'),
+    },
+  ];
 
-  const getLocalizedStatusDesc = (st: string, req?: any) => {
-    const norm = (st || '').toUpperCase();
-    switch (norm) {
-      case REQUEST_STATUS.DRAFT:
-        return (
-          t('citizen.requestDetail.draftDesc') ||
-          'Your request is in draft status and has not yet been submitted for pickup.'
-        );
+  const getNextActionText = (statusVal: string, req?: any): string | null => {
+    const s = (statusVal || '').toUpperCase();
+    switch (s) {
       case REQUEST_STATUS.SUBMITTED:
-        return (
-          t('citizen.requestDetail.submittedDesc') ||
-          'Your request has been broadcasted to nearby informal collectors (Kabadiwalas).'
-        );
+        return t('status.submittedNext', "Nothing needed from you right now. We're finding a collector in your area.");
       case REQUEST_STATUS.ACCEPTED:
-        return (
-          t('citizen.requestDetail.acceptedDesc') ||
-          'A local informal collector has accepted your request. Pickup will be scheduled.'
-        );
+        return t('status.acceptedNext', 'A collector has been assigned. They will contact you to confirm pickup.');
       case REQUEST_STATUS.PICKUP_SCHEDULED:
         return req?.preferredDate
-          ? t('citizen.requestDetail.scheduledForDate', {
-              date: new Date(req.preferredDate).toLocaleDateString(),
-            }) ||
-              `Doorstep pickup scheduled for ${new Date(req.preferredDate).toLocaleDateString()}.`
-          : t('citizen.requestDetail.pickupScheduledDesc') ||
-              'Doorstep pickup has been scheduled by your collector.';
+          ? `${t('status.beAvailableOn', 'Be available on')} ${new Date(req.preferredDate).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}.`
+          : t('status.beAvailableAtAddress', 'Be available at your address at the scheduled time.');
       case REQUEST_STATUS.PICKED_UP:
-        return (
-          t('citizen.requestDetail.pickedUpDesc') ||
-          'Your e-waste items have been collected and verified at your doorstep.'
-        );
       case REQUEST_STATUS.CANCELLED:
-        return (
-          t('citizen.requestDetail.cancelledDesc') ||
-          'This collection request was cancelled.'
-        );
       case REQUEST_STATUS.EXPIRED:
-        return (
-          t('citizen.requestDetail.expiredDesc') ||
-          'This collection request has expired. Please submit a new request.'
-        );
+        return null;
       default:
-        return (
-          t('citizen.requestDetail.statusUpdated') ||
-          'Collection request status updated.'
-        );
+        return t('status.nothingNeeded', 'Nothing needed from you right now.');
     }
   };
 
-  const loadRequestDetails = useCallback(async () => {
+  const loadRequest = useCallback(async (initial = false) => {
     setErrorMessage(null);
+    if (initial) {
+      try {
+        const cached = await offlineStore.getCachedRequests();
+        const found = (cached || []).find((r: any) => r.id === requestId);
+        if (found) { setRequest(found); setIsLoading(false); }
+      } catch {}
+    }
     try {
       const data = await requestService.getRequestById(requestId);
       if (!data) {
-        setErrorMessage(
-          t('citizen.requestDetail.notFoundError') ||
-            'Collection request not found. It may have been deleted or is unavailable offline.'
-        );
+        setErrorMessage('Request not found.');
       } else {
         setRequest(data);
       }
     } catch (err: any) {
-      console.warn('[RequestDetail] Fetch error:', err?.message || err);
-      if (err?.status === 403 || err?.code === 'FORBIDDEN') {
-        setErrorMessage(
-          t('citizen.requestDetail.forbiddenError') ||
-            'Access denied. You can only view your own collection requests.'
-        );
-      } else if (err?.status === 404 || err?.code === 'NOT_FOUND') {
-        setErrorMessage(
-          t('citizen.requestDetail.notFoundError') || 'Collection request not found.'
-        );
-      } else {
-        setErrorMessage(
-          err?.message ||
-            (t('citizen.requestDetail.loadError') ||
-              'Unable to load request details. Please check your connection and retry.')
-        );
+      if (!request) {
+        const code = err?.status || err?.code;
+        if (code === 403 || code === 'FORBIDDEN') {
+          setErrorMessage('Access denied. You can only view your own requests.');
+        } else if (code === 404 || code === 'NOT_FOUND') {
+          setErrorMessage('Request not found.');
+        } else {
+          setErrorMessage(err?.message || 'Unable to load request. Check your connection.');
+        }
       }
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [requestId, t]);
+  }, [requestId]);
 
-  useEffect(() => {
-    loadRequestDetails();
-  }, [loadRequestDetails]);
-
-  const onRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    loadRequestDetails();
-  }, [loadRequestDetails]);
-
-  const handleOpenCancelModal = () => {
-    if (!isConnected) {
-      Alert.alert(
-        t('citizen.requests.cancelOfflineError') || 'Offline',
-        t('citizen.requests.cancelOfflineMessage') ||
-          'Cancelling a collection request requires an active internet connection.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-    setCancellationReason('');
-    setCancelError(null);
-    setCancelModalVisible(true);
-  };
+  useEffect(() => { loadRequest(true); }, [loadRequest]);
 
   const handleConfirmCancel = async () => {
-    const reason = cancellationReason.trim();
-    if (!reason) {
-      setCancelError(
-        t('citizen.requests.cancelReasonRequired') ||
-          'Please provide a reason for cancelling this request.'
-      );
+    if (!cancelReason.trim()) {
+      setCancelError('Please provide a reason for cancelling.');
       return;
     }
-
+    if (!isConnected) {
+      Alert.alert('Offline', 'Cancellation requires an internet connection.');
+      return;
+    }
     setIsCancelling(true);
     setCancelError(null);
-
     try {
-      await requestService.cancelRequest(requestId, reason);
-      setCancelModalVisible(false);
-      setCancellationReason('');
-      await loadRequestDetails();
-      Alert.alert(
-        t('citizen.requests.cancelSuccess') || 'Request Cancelled',
-        t('citizen.requests.cancelSuccessMessage') ||
-          'Your collection request has been cancelled successfully.'
-      );
+      await requestService.cancelRequest(requestId, cancelReason.trim());
+      setCancelVisible(false);
+      setCancelReason('');
+      await loadRequest();
+      Alert.alert('Request Cancelled', 'Your collection request has been cancelled.');
     } catch (err: any) {
-      console.warn('[RequestDetail] Cancel error:', err?.message || err);
-      setCancelError(err?.message || 'Failed to cancel request. Please try again.');
+      setCancelError(err?.message || 'Failed to cancel. Please try again.');
     } finally {
       setIsCancelling(false);
     }
   };
 
-  const handleViewItemTraceability = (itemId: string) => {
-    navigation.navigate('ItemTraceability', { itemId });
-  };
+  // ── Loading / Error ────────────────────────────────────────────────────────
 
-  const status = request?.status ? request.status.toUpperCase() : '';
-  const refId = `#REQ-${(requestId || '').substring(0, 8).toUpperCase()}`;
+  if (isLoading) {
+    return (
+      <EcoSetuBackground>
+        <View style={styles.loadingBox}>
+          <ActivityIndicator size="large" color="#10B981" />
+        </View>
+      </EcoSetuBackground>
+    );
+  }
+
+  if (errorMessage && !request) {
+    return (
+      <EcoSetuBackground>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Text style={styles.backIcon}>← Back</Text>
+        </TouchableOpacity>
+        <View style={styles.errorBox}>
+          <Text style={styles.errorIcon}>⚠️</Text>
+          <Text style={styles.errorTitle}>Couldn't Load Request</Text>
+          <Text style={styles.errorMessage}>{errorMessage}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => { setIsLoading(true); loadRequest(); }}>
+            <Text style={styles.retryBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </EcoSetuBackground>
+    );
+  }
+
+  // ── Data ───────────────────────────────────────────────────────────────────
+
+  const status = (request?.status || '').toUpperCase();
+  const badge = getStatusBadgeMeta(status, t);
+  const nextAction = getNextActionText(status, request);
   const cancellable = canCancelRequest(status);
-  const items = Array.isArray(request?.ewasteItems) ? request.ewasteItems : [];
+  const items: any[] = Array.isArray(request?.ewasteItems) ? request.ewasteItems : [];
+  const refId = `REQ-${(requestId || '').substring(0, 8).toUpperCase()}`;
 
-  // Determine stage indices for lifecycle stepper
-  const getStepStatus = (index: number) => {
-    if (status === REQUEST_STATUS.CANCELLED || status === REQUEST_STATUS.EXPIRED) {
-      return 'INACTIVE';
-    }
-    const statusOrder: Record<string, number> = {
-      [REQUEST_STATUS.DRAFT]: 0,
-      [REQUEST_STATUS.SUBMITTED]: 1,
-      [REQUEST_STATUS.ACCEPTED]: 2,
-      [REQUEST_STATUS.PICKUP_SCHEDULED]: 3,
-      [REQUEST_STATUS.PICKED_UP]: 4,
-    };
-    const currentLevel = statusOrder[status] ?? -1;
-    if (index < currentLevel) return 'COMPLETED';
-    if (index === currentLevel) return 'CURRENT';
-    return 'PENDING';
-  };
+  const isTerminal = status === REQUEST_STATUS.CANCELLED || status === REQUEST_STATUS.EXPIRED || status === REQUEST_STATUS.PICKED_UP;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <TopAppBar
-        title={t('citizen.requestDetail.title') || 'Request Details'}
-        roleBadge="CITIZEN"
-        onBack={() => navigation.goBack()}
-      />
+    <EcoSetuBackground>
+
+      {/* Back button */}
+      <TouchableOpacity
+        style={styles.backBtn}
+        onPress={() => navigation.goBack()}
+        accessibilityRole="button"
+        accessibilityLabel={t('common.back', 'Go back')}
+      >
+        <Text style={styles.backIcon}>← {t('common.back', 'Back')}</Text>
+      </TouchableOpacity>
 
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
+            onRefresh={() => { setIsRefreshing(true); loadRequest(); }}
+            tintColor="#10B981"
+            colors={['#10B981']}
           />
         }
       >
-        {/* Offline Notice */}
-        {!isConnected && (
-          <View style={styles.offlineNotice} accessibilityRole="alert">
-            <Text style={styles.offlineNoticeText}>
-              {t('citizen.requestDetail.offlineNotice') ||
-                'Offline mode: Showing locally cached request details.'}
+        {/* ── Request hero ── */}
+        <View style={styles.hero}>
+          <View>
+            <Text style={styles.heroRef}>{refId}</Text>
+            <Text style={styles.heroTitle}>{t('collection.collectionRequest', 'Collection Request')}</Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
+            <View style={[styles.statusDot, { backgroundColor: badge.color }]} />
+            <Text style={[styles.statusLabel, { color: badge.color }]}>{badge.label}</Text>
+          </View>
+        </View>
+
+        {/* ── Next action card ── */}
+        {nextAction && (
+          <View style={styles.nextActionCard}>
+            <Text style={styles.nextActionLabel}>{t('common.next', 'NEXT')}</Text>
+            <Text style={styles.nextActionText}>{nextAction}</Text>
+          </View>
+        )}
+
+        {status === REQUEST_STATUS.PICKED_UP && (
+          <View style={styles.successCard}>
+            <Text style={styles.successIcon}>🎉</Text>
+            <Text style={styles.successText}>
+              {t('common.collectedSuccessMsg', 'Your e-waste has been collected and handed to a verified recycler. Thank you for recycling responsibly!')}
             </Text>
           </View>
         )}
 
-        {/* Loading State */}
-        {isLoading ? (
-          <View style={styles.skeletonContainer}>
-            <Skeleton width="100%" height={120} style={styles.skeletonCard} />
-            <Skeleton width="100%" height={200} style={styles.skeletonCard} />
-            <Skeleton width="100%" height={160} style={styles.skeletonCard} />
-          </View>
-        ) : errorMessage ? (
-          /* Error State */
-          <View style={styles.errorBox} accessibilityRole="alert">
-            <Text style={styles.errorTitle}>Request Detail Error</Text>
-            <Text style={styles.errorText}>{errorMessage}</Text>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={loadRequestDetails}
-              accessibilityRole="button"
-              accessibilityLabel={t('citizen.requests.retry') || 'Retry loading request details'}
-            >
-              <Text style={styles.retryButtonText}>
-                {t('citizen.requests.retry') || 'Retry'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        ) : request ? (
-          /* Request Details Content */
-          <>
-            {/* Header Summary Card */}
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View>
-                  <Text style={styles.cardRef}>{refId}</Text>
-                  <Text style={styles.cardCreatedDate}>
-                    {t('citizen.requestDetail.createdOn', {
-                      date: request.createdAt
-                        ? new Date(request.createdAt).toLocaleDateString()
-                        : 'N/A',
-                    }) ||
-                      `Created on ${request.createdAt ? new Date(request.createdAt).toLocaleDateString() : 'N/A'}`}
-                  </Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <StatusBadge status={status} />
-                  <ReadAloudButton
-                    text={`Request ${refId}. Status is ${status.replace(/_/g, ' ')}. ${getLocalizedStatusDesc(status, request) || getStatusDescription(status, request)}`}
-                    size="small"
-                  />
-                </View>
-              </View>
+        {/* ── Timeline ── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('common.journey', 'Journey')}</Text>
+          <View style={styles.timeline}>
+            {timelineSteps.map((stepItem, i) => {
+              const state = isTerminal && status === REQUEST_STATUS.PICKED_UP
+                ? 'done'
+                : getStepState(stepItem.id, status);
+              const isCancelledState = status === REQUEST_STATUS.CANCELLED || status === REQUEST_STATUS.EXPIRED;
 
-              <Text style={styles.statusDescription}>
-                {getLocalizedStatusDesc(status, request) || getStatusDescription(status, request)}
-              </Text>
-
-              {/* Cancelled or Expired Highlight */}
-              {status === REQUEST_STATUS.CANCELLED && (
-                <View style={styles.cancellationBanner} accessibilityRole="alert">
-                  <Text style={styles.cancellationBannerTitle}>
-                    {t('citizen.requestDetail.requestCancelledBanner') || '⚠️ Request Cancelled'}
-                  </Text>
-                  {Boolean(request.cancellationReason) && (
-                    <Text style={styles.cancellationBannerReason}>
-                      {t('citizen.requestDetail.reasonLabel') || 'Reason:'} "{request.cancellationReason}"
-                    </Text>
-                  )}
-                  {Boolean(request.cancelledAt) && (
-                    <Text style={styles.cancellationBannerDate}>
-                      {t('citizen.requestDetail.cancelledOn', {
-                        date: new Date(request.cancelledAt).toLocaleString(),
-                      }) ||
-                        `Cancelled on: ${new Date(request.cancelledAt).toLocaleString()}`}
-                    </Text>
-                  )}
-                </View>
-              )}
-
-              {status === REQUEST_STATUS.EXPIRED && (
-                <View style={styles.expiredBanner} accessibilityRole="alert">
-                  <Text style={styles.expiredBannerTitle}>
-                    {t('citizen.requestDetail.requestExpiredBanner') || '⌛ Request Expired'}
-                  </Text>
-                  <Text style={styles.expiredBannerText}>
-                    {t('citizen.requestDetail.expiredBannerText') ||
-                      'No local informal collector accepted within the 48-hour broadcast window.'}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Visual Lifecycle Stepper */}
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle} accessibilityRole="header">
-                {t('citizen.requestDetail.lifecycleTitle') || 'Collection Lifecycle'}
-              </Text>
-              <Text style={styles.sectionSubtitle}>
-                {t('citizen.requestDetail.lifecycleSubtitle') ||
-                  'Progress from citizen submission to doorstep pickup by your local collector.'}
-              </Text>
-
-              <View style={styles.stepperContainer}>
-                {LIFECYCLE_STEPS.map((step, idx) => {
-                  const stepState = getStepStatus(idx);
-                  const isLast = idx === LIFECYCLE_STEPS.length - 1;
-                  const localizedStep = getStepLocalized(step.id, step.label, step.description);
-
-                  return (
-                    <View key={step.id} style={styles.stepRow}>
-                      <View style={styles.stepIndicatorColumn}>
-                        <View
-                          style={[
-                            styles.stepCircle,
-                            stepState === 'COMPLETED' && styles.stepCircleCompleted,
-                            stepState === 'CURRENT' && styles.stepCircleCurrent,
-                            stepState === 'PENDING' && styles.stepCirclePending,
-                            stepState === 'INACTIVE' && styles.stepCircleInactive,
-                          ]}
-                          accessibilityLabel={`Step ${idx + 1}: ${localizedStep.label}, status ${stepState.toLowerCase()}`}
-                        >
-                          {stepState === 'COMPLETED' ? (
-                            <Text style={styles.stepCircleCheck}>✓</Text>
-                          ) : (
-                            <Text
-                              style={[
-                                styles.stepCircleNumber,
-                                stepState === 'CURRENT' && styles.stepCircleNumberCurrent,
-                              ]}
-                            >
-                              {idx + 1}
-                            </Text>
-                          )}
-                        </View>
-                        {!isLast && (
-                          <View
-                            style={[
-                              styles.stepLine,
-                              stepState === 'COMPLETED' && styles.stepLineCompleted,
-                            ]}
-                          />
-                        )}
-                      </View>
-
-                      <View style={styles.stepContentColumn}>
-                        <Text
-                          style={[
-                            styles.stepLabel,
-                            stepState === 'CURRENT' && styles.stepLabelCurrent,
-                            stepState === 'COMPLETED' && styles.stepLabelCompleted,
-                          ]}
-                        >
-                          {localizedStep.label}
-                        </Text>
-                        <Text style={styles.stepDescription}>{localizedStep.description}</Text>
-                      </View>
+              return (
+                <View key={stepItem.id} style={styles.timelineRow}>
+                  {/* Connector line */}
+                  <View style={styles.timelineLeft}>
+                    <View style={[
+                      styles.timelineNode,
+                      state === 'done' && styles.timelineNodeDone,
+                      state === 'current' && styles.timelineNodeCurrent,
+                      isCancelledState && styles.timelineNodeCancelled,
+                    ]}>
+                      {state === 'done'
+                        ? <Text style={styles.timelineCheck}>✓</Text>
+                        : state === 'current'
+                          ? <View style={styles.timelinePulse} />
+                          : <Text style={styles.timelineNum}>{i + 1}</Text>}
                     </View>
-                  );
-                })}
-              </View>
-            </View>
+                    {i < timelineSteps.length - 1 && (
+                      <View style={[
+                        styles.timelineLine,
+                        state === 'done' && styles.timelineLineDone,
+                      ]} />
+                    )}
+                  </View>
 
-            {/* Pickup & Collector Card */}
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle} accessibilityRole="header">
-                {t('citizen.requestDetail.pickupInfoTitle') || 'Pickup & Collector Information'}
-              </Text>
-
-              <View style={styles.detailItem}>
-                <Text style={styles.detailLabel}>
-                  📍 {t('citizen.requestDetail.doorstepAddress') || 'Doorstep Address'}
-                </Text>
-                <Text style={styles.detailValue}>
-                  {request.pickupAddress ||
-                    (t('citizen.requestDetail.addressOnFile') || 'Address on file')}
-                </Text>
-              </View>
-
-              {Boolean(request.preferredDate) && (
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>
-                    📅 {t('citizen.requestDetail.preferredDate') || 'Preferred Date'}
-                  </Text>
-                  <Text style={styles.detailValue}>
-                    {new Date(request.preferredDate).toLocaleDateString()}
-                    {Boolean(request.preferredTimeStart) && ` (${request.preferredTimeStart}`}
-                    {Boolean(request.preferredTimeEnd) && ` - ${request.preferredTimeEnd})`}
-                  </Text>
-                </View>
-              )}
-
-              {Boolean(request.notes) && (
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>
-                    📝 {t('citizen.requestDetail.citizenNotes') || 'Citizen Pickup Notes'}
-                  </Text>
-                  <Text style={styles.detailValue}>{request.notes}</Text>
-                </View>
-              )}
-
-              {/* Informal Collector First Representation */}
-              <View style={styles.collectorBox}>
-                <Text style={styles.collectorBoxTitle}>
-                  {request.collectorId
-                    ? t('citizen.requestDetail.assignedCollectorTitle') ||
-                      '🤝 Assigned: Local Informal Collector (Kabadiwala)'
-                    : t('citizen.requestDetail.awaitingCollectorTitle') ||
-                      '🔍 Awaiting Local Informal Collector Assignment'}
-                </Text>
-                <Text style={styles.collectorBoxText}>
-                  {request.collectorId
-                    ? t('citizen.requestDetail.assignedCollectorDesc') ||
-                      'A verified local informal collector has claimed this request and will conduct physical doorstep collection and weighing.'
-                    : t('citizen.requestDetail.awaitingCollectorDesc') ||
-                      'Your request is visible to verified informal collectors operating within your neighbourhood.'}
-                </Text>
-              </View>
-            </View>
-
-            {/* Associated E-Waste Items Card */}
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.sectionTitle} accessibilityRole="header">
-                  {t('citizen.requestDetail.associatedItemsTitle', { count: items.length }) ||
-                    `Associated E-Waste Items (${items.length})`}
-                </Text>
-              </View>
-              <Text style={styles.sectionSubtitle}>
-                {t('citizen.requestDetail.associatedItemsSubtitle') ||
-                  'Items included in this collection request and their individual traceability records.'}
-              </Text>
-
-              {items.length === 0 ? (
-                <Text style={styles.emptyItemsText}>
-                  {t('citizen.requestDetail.noItems') || 'No items found in this request.'}
-                </Text>
-              ) : (
-                items.map((item: any, i: number) => {
-                  return (
-                    <View key={item.id || i} style={styles.itemCard}>
-                      <View style={styles.itemHeader}>
-                        {item.imageUrl ? (
-                          <AuthorizedImage
-                            uri={item.imageUrl}
-                            style={{ width: 48, height: 48, borderRadius: 8, marginRight: 10 }}
-                            allowFullscreen
-                          />
-                        ) : null}
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.itemCategory}>
-                            {(item.category || 'OTHER').replace(/_/g, ' ')}
-                          </Text>
-                          <Text style={styles.itemCondition}>
-                            {t('citizen.requestDetail.conditionLabel') || 'Condition:'}{' '}
-                            {item.condition || 'UNKNOWN'}
-                          </Text>
-                        </View>
-                        <StatusBadge status={item.status || 'SUBMITTED'} />
-                      </View>
-
-                      <View style={styles.itemMetaRow}>
-                        <Text style={styles.itemMetaText}>
-                          {t('citizen.requestDetail.quantityLabel') || 'Qty:'}{' '}
-                          <Text style={styles.itemMetaBold}>{item.quantity || 1}</Text>
-                        </Text>
-                        {Boolean(item.estimatedWeightKg) && (
-                          <Text style={styles.itemMetaText}>
-                            {t('citizen.requestDetail.estimatedWeightLabel') || 'Est. Weight:'}{' '}
-                            <Text style={styles.itemMetaBold}>
-                              {parseFloat(item.estimatedWeightKg).toFixed(2)} kg
-                            </Text>
-                          </Text>
-                        )}
-                        {Boolean(item.actualWeightKg) && (
-                          <Text style={styles.itemMetaText}>
-                            {t('citizen.requestDetail.actualWeightLabel') || 'Actual Weight:'}{' '}
-                            <Text style={styles.itemMetaBold}>
-                              {parseFloat(item.actualWeightKg).toFixed(2)} kg
-                            </Text>
-                          </Text>
-                        )}
-                      </View>
-
-                      {Boolean(item.description) && (
-                        <Text style={styles.itemDescription} numberOfLines={2}>
-                          {item.description}
-                        </Text>
+                  {/* Content */}
+                  <View style={[styles.timelineContent, { marginBottom: i < timelineSteps.length - 1 ? 0 : 4 }]}>
+                    <Text style={styles.timelineIcon}>{stepItem.icon}</Text>
+                    <View style={styles.timelineTextBlock}>
+                      <Text style={[
+                        styles.timelineLabel,
+                        state === 'done' && styles.timelineLabelDone,
+                        state === 'current' && styles.timelineLabelCurrent,
+                        (state === 'pending' || isCancelledState) && styles.timelineLabelPending,
+                      ]}>
+                        {stepItem.label}
+                      </Text>
+                      {state === 'current' && (
+                        <Text style={styles.timelineNext}>{stepItem.next}</Text>
                       )}
-
-                      {/* Action to view item lifecycle traceability */}
-                      <TouchableOpacity
-                        style={styles.itemTraceabilityButton}
-                        onPress={() => handleViewItemTraceability(item.id)}
-                        accessibilityRole="button"
-                        accessibilityLabel={`View traceability for ${item.category}`}
-                      >
-                        <Text style={styles.itemTraceabilityButtonText}>
-                          {t('citizen.requestDetail.viewItemTraceability') ||
-                            'View Full Item Traceability →'}
-                        </Text>
-                      </TouchableOpacity>
                     </View>
-                  );
-                })
-              )}
-            </View>
+                  </View>
+                </View>
+              );
+            })}
 
-            {/* Actions Section */}
-            {cancellable && (
-              <View style={styles.actionCard}>
-                <Text style={styles.actionCardTitle}>
-                  {t('citizen.requestDetail.cancelSectionTitle') || 'Need to cancel this request?'}
+            {/* Cancelled / expired terminal */}
+            {(status === REQUEST_STATUS.CANCELLED || status === REQUEST_STATUS.EXPIRED) && (
+              <View style={styles.cancelledBanner}>
+                <Text style={styles.cancelledIcon}>{status === REQUEST_STATUS.CANCELLED ? '✕' : '⏰'}</Text>
+                <Text style={styles.cancelledText}>
+                  {status === REQUEST_STATUS.CANCELLED
+                    ? t('status.cancelledMsg', 'Request cancelled.')
+                    : t('status.expiredMsg', 'Request expired. Submit a new request to restart.')}
                 </Text>
-                <Text style={styles.actionCardSubtitle}>
-                  {t('citizen.requestDetail.cancelSectionSubtitle') ||
-                    'You can cancel anytime before physical doorstep pickup is performed.'}
-                </Text>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={handleOpenCancelModal}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    t('citizen.requestDetail.cancelButton') || 'Cancel this collection request'
-                  }
-                >
-                  <Text style={styles.cancelButtonText}>
-                    {t('citizen.requestDetail.cancelButton') || 'Cancel Collection Request'}
-                  </Text>
-                </TouchableOpacity>
               </View>
             )}
-          </>
-        ) : null}
-      </ScrollView>
-
-      {/* Cancellation Confirmation Modal */}
-      <Modal
-        visible={cancelModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => !isCancelling && setCancelModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard} accessibilityViewIsModal={true}>
-            <Text style={styles.modalTitle} accessibilityRole="header">
-              {t('citizen.requestDetail.cancelModalTitle') || 'Cancel Collection Request'}
-            </Text>
-            <Text style={styles.modalSubtitle}>
-              {t('citizen.requestDetail.cancelModalSubtitle', { ref: refId }) ||
-                `Are you sure you want to cancel request ${refId}? If a local collector was assigned, they will be promptly notified.`}
-            </Text>
-
-            {Boolean(cancelError) && (
-              <View style={styles.modalErrorBox} accessibilityRole="alert">
-                <Text style={styles.modalErrorText}>{cancelError}</Text>
-              </View>
-            )}
-
-            <Text style={styles.inputLabel}>
-              {t('citizen.requests.cancelReasonLabel') || 'Reason for cancellation *'}
-            </Text>
-            <TextInput
-              style={styles.reasonInput}
-              placeholder={
-                t('citizen.requestDetail.cancelReasonPlaceholder') ||
-                'e.g. Rescheduled, item already disposed, address error'
-              }
-              placeholderTextColor={colors.textSecondary}
-              value={cancellationReason}
-              onChangeText={setCancellationReason}
-              maxLength={500}
-              multiline
-              numberOfLines={3}
-              editable={!isCancelling}
-              accessibilityLabel="Cancellation reason"
-            />
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonSecondary]}
-                onPress={() => setCancelModalVisible(false)}
-                disabled={isCancelling}
-                accessibilityRole="button"
-                accessibilityLabel="Keep request and return"
-              >
-                <Text style={styles.modalButtonSecondaryText}>
-                  {t('citizen.requestDetail.keepRequest') || 'Keep Request'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonDestructive]}
-                onPress={handleConfirmCancel}
-                disabled={isCancelling}
-                accessibilityRole="button"
-                accessibilityLabel="Confirm cancellation"
-              >
-                {isCancelling ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.modalButtonDestructiveText}>
-                    {t('citizen.requestDetail.confirmCancel') || 'Confirm Cancel'}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
           </View>
         </View>
-      </Modal>
-    </SafeAreaView>
+
+        {/* ── Items ── */}
+        {items.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('common.yourItems', 'Your Items')} ({items.length})</Text>
+            {items.map((item: any) => (
+              <View key={item.id} style={styles.itemCard}>
+                {item.imageUrl && (
+                  <AuthorizedImage uri={item.imageUrl} style={styles.itemPhoto} />
+                )}
+                <View style={styles.itemInfo}>
+                  <Text style={styles.itemCategory}>
+                    {item.category?.replace(/_/g, ' ') || 'Electronics'}
+                  </Text>
+                  <Text style={styles.itemCondition}>{item.condition || '—'}</Text>
+                  {item.quantity > 1 && (
+                    <Text style={styles.itemQty}>×{item.quantity}</Text>
+                  )}
+                </View>
+                {status === REQUEST_STATUS.PICKED_UP && item.id && (
+                  <TouchableOpacity
+                    style={styles.traceBtn}
+                    onPress={() => navigation.navigate('ItemTraceability', { itemId: item.id })}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('traceability.viewTraceability', 'View traceability')}
+                  >
+                    <Text style={styles.traceBtnText}>{t('common.track', 'Track')} ↗</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* ── Pickup address ── */}
+        {request?.pickupAddress && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('location.pickupLocation', 'Collection Address')}</Text>
+            <View style={styles.addressCard}>
+              <Text style={styles.addressIcon}>📍</Text>
+              <Text style={styles.addressText}>{request.pickupAddress}</Text>
+            </View>
+          </View>
+        )}
+
+        {/* ── Collector info ── */}
+        {request?.collector && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('common.yourCollector', 'Your Collector')}</Text>
+            <View style={styles.collectorCard}>
+              <View style={styles.collectorAvatar}>
+                <Text style={styles.collectorAvatarText}>
+                  {(request.collector.name || 'C').charAt(0).toUpperCase()}
+                </Text>
+              </View>
+              <View style={styles.collectorInfo}>
+                <Text style={styles.collectorName}>{request.collector.name || t('roles.collector', 'Local Collector')}</Text>
+                <Text style={styles.collectorRole}>{t('common.collectorSub', 'Informal Collector · Kabadiwala')}</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* ── Cancel ── */}
+        {cancellable && (
+          <View style={styles.section}>
+            <TouchableOpacity
+              style={styles.cancelRequestBtn}
+              onPress={() => {
+                if (!isConnected) {
+                  Alert.alert(t('common.offline', 'Offline'), t('common.offlineCancel', 'Cancellation requires an internet connection.'));
+                  return;
+                }
+                setCancelReason('');
+                setCancelError(null);
+                setCancelVisible(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.cancelThisRequest', 'Cancel this request')}
+            >
+              <Text style={styles.cancelRequestText}>{t('common.cancelThisRequest', 'Cancel This Request')}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <View style={{ height: 60 }} />
+      </ScrollView>
+
+      {/* ── Cancel Modal ── */}
+      <CancelModal
+        visible={cancelVisible}
+        isCancelling={isCancelling}
+        cancelError={cancelError}
+        reason={cancelReason}
+        onChangeReason={setCancelReason}
+        onConfirm={handleConfirmCancel}
+        onClose={() => setCancelVisible(false)}
+      />
+    </EcoSetuBackground>
   );
 };
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  safeArea: {
+  loadingBox: {
     flex: 1,
-    backgroundColor: colors.background,
-  },
-  container: {
-    padding: spacing.spaceMd,
-    paddingBottom: spacing.spaceXl * 2,
-  },
-  offlineNotice: {
-    backgroundColor: '#FFF9C4',
-    padding: spacing.spaceSm,
-    borderRadius: 6,
-    marginBottom: spacing.spaceMd,
-    borderWidth: 1,
-    borderColor: '#FFF176',
-  },
-  offlineNoticeText: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '600',
-    color: '#795548',
-    textAlign: 'center',
-  },
-  skeletonContainer: {
-    gap: spacing.spaceMd,
-  },
-  skeletonCard: {
-    borderRadius: 8,
-  },
-  errorBox: {
-    backgroundColor: '#FFEBEE',
-    padding: spacing.spaceLg,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FFCDD2',
     alignItems: 'center',
-    marginTop: spacing.spaceLg,
-  },
-  errorTitle: {
-    fontSize: typography.Subheading.fontSize,
-    fontWeight: '700',
-    color: colors.error,
-    marginBottom: spacing.spaceSm,
-  },
-  errorText: {
-    fontSize: typography.Body.fontSize,
-    fontWeight: '400',
-    color: colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: spacing.spaceMd,
-  },
-  retryButton: {
-    backgroundColor: colors.error,
-    paddingHorizontal: spacing.spaceLg,
-    paddingVertical: spacing.spaceSm,
-    borderRadius: 6,
-    minHeight: 48,
-    minWidth: 120,
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  retryButtonText: {
-    fontSize: typography.Button.fontSize,
+
+  // ── Back ──
+  backBtn: {
+    paddingHorizontal: 20,
+    paddingTop: 56,
+    paddingBottom: 12,
+  },
+  backIcon: {
+    fontSize: 15,
+    color: '#34D399',
     fontWeight: '700',
-    color: '#FFFFFF',
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    padding: spacing.spaceMd,
-    marginBottom: spacing.spaceMd,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+
+  scroll: {
+    paddingHorizontal: 20,
+    paddingBottom: 60,
   },
-  cardHeader: {
+
+  // ── Hero ──
+  hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: spacing.spaceSm,
+    marginBottom: 16,
   },
-  cardRef: {
-    fontSize: typography.Title.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
+  heroRef: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.40)',
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 3,
   },
-  cardCreatedDate: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '400',
-    color: colors.textSecondary,
-    marginTop: 2,
+  heroTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.4,
   },
-  statusDescription: {
-    fontSize: typography.Body.fontSize,
-    fontWeight: '400',
-    color: colors.textPrimary,
-    lineHeight: 20,
-    marginTop: spacing.spaceXs,
-    fontStyle: 'italic',
-  },
-  cancellationBanner: {
-    backgroundColor: '#FFEBEE',
-    borderLeftWidth: 4,
-    borderLeftColor: colors.error,
-    padding: spacing.spaceSm,
-    borderRadius: 4,
-    marginTop: spacing.spaceMd,
-  },
-  cancellationBannerTitle: {
-    fontSize: typography.Body.fontSize,
-    fontWeight: '700',
-    color: colors.error,
-  },
-  cancellationBannerReason: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '500',
-    color: colors.textPrimary,
-    marginTop: 2,
-  },
-  cancellationBannerDate: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '400',
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  expiredBanner: {
-    backgroundColor: '#FFF3E0',
-    borderLeftWidth: 4,
-    borderLeftColor: colors.warning,
-    padding: spacing.spaceSm,
-    borderRadius: 4,
-    marginTop: spacing.spaceMd,
-  },
-  expiredBannerTitle: {
-    fontSize: typography.Body.fontSize,
-    fontWeight: '700',
-    color: colors.warning,
-  },
-  expiredBannerText: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '400',
-    color: colors.textPrimary,
-    marginTop: 2,
-  },
-  sectionTitle: {
-    fontSize: typography.Subheading.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.spaceXs,
-  },
-  sectionSubtitle: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '400',
-    color: colors.textSecondary,
-    marginBottom: spacing.spaceMd,
-  },
-  stepperContainer: {
-    marginTop: spacing.spaceXs,
-  },
-  stepRow: {
+  statusBadge: {
     flexDirection: 'row',
-  },
-  stepIndicatorColumn: {
     alignItems: 'center',
-    width: 32,
-    marginRight: spacing.spaceSm,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
+    marginTop: 4,
   },
-  stepCircle: {
+  statusDot: { width: 7, height: 7, borderRadius: 4 },
+  statusLabel: { fontSize: 12, fontWeight: '700' },
+
+  // ── Next Action ──
+  nextActionCard: {
+    backgroundColor: 'rgba(16,185,129,0.12)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.30)',
+    padding: 16,
+    marginBottom: 16,
+    gap: 4,
+  },
+  nextActionLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#34D399',
+    letterSpacing: 1,
+  },
+  nextActionText: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    lineHeight: 21,
+    fontWeight: '500',
+  },
+
+  // ── Success ──
+  successCard: {
+    backgroundColor: 'rgba(16,185,129,0.12)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.30)',
+    padding: 16,
+    marginBottom: 16,
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  successIcon: { fontSize: 24 },
+  successText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#FFFFFF',
+    lineHeight: 21,
+    fontWeight: '500',
+  },
+
+  // ── Section ──
+  section: { marginBottom: 24 },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.40)',
+    letterSpacing: 1,
+    marginBottom: 12,
+    textTransform: 'uppercase',
+  },
+
+  // ── Timeline ──
+  timeline: { gap: 0 },
+  timelineRow: {
+    flexDirection: 'row',
+    gap: 12,
+    minHeight: 52,
+  },
+  timelineLeft: {
+    alignItems: 'center',
+    width: 28,
+  },
+  timelineNode: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    borderWidth: 2,
-    borderColor: colors.divider,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  stepCircleCompleted: {
-    backgroundColor: colors.success,
-    borderColor: colors.success,
+  timelineNodeDone: {
+    backgroundColor: '#10B981',
+    borderColor: '#10B981',
   },
-  stepCircleCurrent: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+  timelineNodeCurrent: {
+    backgroundColor: 'rgba(16,185,129,0.20)',
+    borderColor: '#10B981',
   },
-  stepCirclePending: {
-    backgroundColor: colors.surface,
-    borderColor: colors.divider,
+  timelineNodeCancelled: {
+    backgroundColor: 'rgba(239,68,68,0.15)',
+    borderColor: 'rgba(239,68,68,0.30)',
   },
-  stepCircleInactive: {
-    backgroundColor: colors.background,
-    borderColor: colors.divider,
+  timelineCheck: { fontSize: 13, color: '#FFFFFF', fontWeight: '800' },
+  timelinePulse: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#10B981',
   },
-  stepCircleCheck: {
-    color: '#FFFFFF',
+  timelineNum: { fontSize: 10, color: 'rgba(255,255,255,0.35)', fontWeight: '700' },
+  timelineLine: {
+    flex: 1,
+    width: 2,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    marginVertical: 3,
+  },
+  timelineLineDone: { backgroundColor: '#10B981' },
+  timelineContent: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 10,
+    paddingBottom: 16,
+    alignItems: 'flex-start',
+  },
+  timelineIcon: { fontSize: 16, marginTop: 4 },
+  timelineTextBlock: { flex: 1 },
+  timelineLabel: {
     fontSize: 14,
     fontWeight: '700',
+    marginTop: 4,
+    color: 'rgba(255,255,255,0.40)',
   },
-  stepCircleNumber: {
+  timelineLabelDone: { color: '#34D399' },
+  timelineLabelCurrent: { color: '#FFFFFF' },
+  timelineLabelPending: { color: 'rgba(255,255,255,0.35)' },
+  timelineNext: {
     fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  stepCircleNumberCurrent: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  stepLine: {
-    width: 2,
-    flex: 1,
-    minHeight: 24,
-    backgroundColor: colors.divider,
-    marginVertical: 2,
-  },
-  stepLineCompleted: {
-    backgroundColor: colors.success,
-  },
-  stepContentColumn: {
-    flex: 1,
-    paddingBottom: spacing.spaceMd,
-  },
-  stepLabel: {
-    fontSize: typography.Body.fontSize,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  stepLabelCompleted: {
-    color: colors.textPrimary,
-  },
-  stepLabelCurrent: {
-    color: colors.primary,
-    fontWeight: '700',
-  },
-  stepDescription: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '400',
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  detailItem: {
-    marginBottom: spacing.spaceSm,
-  },
-  detailLabel: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '700',
-    color: colors.textSecondary,
-    marginBottom: 2,
-  },
-  detailValue: {
-    fontSize: typography.Body.fontSize,
-    fontWeight: '400',
-    color: colors.textPrimary,
-  },
-  collectorBox: {
-    backgroundColor: '#E8F5E9',
-    borderRadius: 8,
-    padding: spacing.spaceMd,
-    marginTop: spacing.spaceSm,
-    borderWidth: 1,
-    borderColor: '#C8E6C9',
-  },
-  collectorBoxTitle: {
-    fontSize: typography.Body.fontSize,
-    fontWeight: '700',
-    color: colors.primaryDark,
-    marginBottom: spacing.spaceXs,
-  },
-  collectorBoxText: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '400',
-    color: colors.primaryDark,
+    color: 'rgba(255,255,255,0.55)',
     lineHeight: 18,
+    marginTop: 3,
   },
-  emptyItemsText: {
-    fontSize: typography.Body.fontSize,
-    fontWeight: '400',
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    marginVertical: spacing.spaceMd,
-  },
-  itemCard: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: spacing.spaceSm + 4,
-    marginBottom: spacing.spaceSm,
-    borderWidth: 1,
-    borderColor: colors.divider,
-  },
-  itemHeader: {
+  cancelledBanner: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 10,
     alignItems: 'center',
-    marginBottom: spacing.spaceXs,
+    backgroundColor: 'rgba(239,68,68,0.12)',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 8,
   },
+  cancelledIcon: { fontSize: 18 },
+  cancelledText: { flex: 1, fontSize: 13, color: '#FCA5A5', lineHeight: 19 },
+
+  // ── Items ──
+  itemCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16,44,48,0.80)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 12,
+    gap: 12,
+    marginBottom: 8,
+  },
+  itemPhoto: {
+    width: 56,
+    height: 56,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  itemInfo: { flex: 1 },
   itemCategory: {
-    fontSize: typography.Body.fontSize,
+    fontSize: 14,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#FFFFFF',
+    textTransform: 'capitalize',
   },
   itemCondition: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '400',
-    color: colors.textSecondary,
-  },
-  itemMetaRow: {
-    flexDirection: 'row',
-    gap: spacing.spaceMd,
-    marginVertical: spacing.spaceXs,
-  },
-  itemMetaText: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '400',
-    color: colors.textSecondary,
-  },
-  itemMetaBold: {
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  itemDescription: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '400',
-    color: colors.textPrimary,
-    fontStyle: 'italic',
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.50)',
+    fontWeight: '500',
     marginTop: 2,
   },
-  itemTraceabilityButton: {
-    marginTop: spacing.spaceSm,
-    paddingTop: spacing.spaceSm,
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  itemTraceabilityButtonText: {
-    fontSize: typography.Caption.fontSize,
+  itemQty: {
+    fontSize: 11,
+    color: '#34D399',
     fontWeight: '700',
-    color: colors.primary,
+    marginTop: 2,
   },
-  actionCard: {
-    backgroundColor: colors.surface,
+  traceBtn: {
+    backgroundColor: 'rgba(16,185,129,0.18)',
     borderRadius: 8,
-    padding: spacing.spaceMd,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
-  actionCardTitle: {
-    fontSize: typography.Body.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.spaceXs,
-  },
-  actionCardSubtitle: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '400',
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.spaceMd,
-  },
-  cancelButton: {
-    backgroundColor: 'rgba(239, 68, 68, 0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.45)',
-    borderRadius: 10,
-    paddingVertical: spacing.spaceSm,
-    paddingHorizontal: spacing.spaceLg,
-    minHeight: 48,
-    minWidth: 200,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: typography.Button.fontSize,
-    fontWeight: '700',
-    color: '#F87171',
-    letterSpacing: 0.3,
-  },
-  // Modal styles — Premium Dark Glass Dialog
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(2, 8, 13, 0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.spaceLg,
-  },
-  modalCard: {
-    backgroundColor: '#071A21',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(45, 212, 191, 0.35)',
-    padding: spacing.spaceLg,
-    width: '100%',
-    maxWidth: 420,
-    elevation: 12,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-  },
-  modalTitle: {
-    fontSize: typography.Subheading.fontSize,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: spacing.spaceSm,
-  },
-  modalSubtitle: {
-    fontSize: typography.Body.fontSize,
-    fontWeight: '400',
-    color: '#CBD5E1',
-    lineHeight: 20,
-    marginBottom: spacing.spaceMd,
-  },
-  modalErrorBox: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.40)',
-    padding: spacing.spaceSm,
-    borderRadius: 8,
-    marginBottom: spacing.spaceSm,
-  },
-  modalErrorText: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '500',
-    color: '#FCA5A5',
-  },
-  inputLabel: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '700',
-    color: '#E2E8F0',
-    marginBottom: spacing.spaceXs,
-  },
-  reasonInput: {
-    backgroundColor: 'rgba(6, 21, 27, 0.90)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.20)',
-    borderRadius: 10,
-    padding: spacing.spaceMd,
-    fontSize: typography.Body.fontSize,
-    fontWeight: '400',
-    color: '#FFFFFF',
-    textAlignVertical: 'top',
-    minHeight: 80,
-    marginBottom: spacing.spaceLg,
-  },
-  modalActions: {
+  traceBtnText: { fontSize: 12, color: '#34D399', fontWeight: '700' },
+
+  // ── Address ──
+  addressCard: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.spaceMd,
+    gap: 10,
+    backgroundColor: 'rgba(16,44,48,0.80)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 14,
+    alignItems: 'flex-start',
   },
-  modalButton: {
-    paddingHorizontal: spacing.spaceLg,
-    paddingVertical: spacing.spaceSm,
-    borderRadius: 10,
-    minHeight: 48,
-    minWidth: 120,
+  addressIcon: { fontSize: 16 },
+  addressText: { flex: 1, fontSize: 14, color: 'rgba(255,255,255,0.80)', lineHeight: 21 },
+
+  // ── Collector ──
+  collectorCard: {
+    flexDirection: 'row',
+    gap: 12,
+    backgroundColor: 'rgba(16,44,48,0.80)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 14,
+    alignItems: 'center',
+  },
+  collectorAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(16,185,129,0.20)',
+    borderWidth: 1.5,
+    borderColor: '#34D399',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  modalButtonSecondary: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  collectorAvatarText: { fontSize: 18, fontWeight: '800', color: '#34D399' },
+  collectorInfo: { flex: 1 },
+  collectorName: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  collectorRole: { fontSize: 12, color: 'rgba(255,255,255,0.50)', marginTop: 2 },
+
+  // ── Cancel request ──
+  cancelRequestBtn: {
+    borderWidth: 1.5,
+    borderColor: 'rgba(239,68,68,0.40)',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  cancelRequestText: { fontSize: 15, color: '#F87171', fontWeight: '600' },
+
+  // ── Error ──
+  errorBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  },
+  errorIcon: { fontSize: 48, marginBottom: 12 },
+  errorTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginBottom: 8, textAlign: 'center' },
+  errorMessage: { fontSize: 14, color: 'rgba(255,255,255,0.55)', textAlign: 'center', lineHeight: 21 },
+  retryBtn: {
+    marginTop: 20,
+    backgroundColor: '#10B981',
+    borderRadius: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  retryBtnText: { fontSize: 15, color: '#FFFFFF', fontWeight: '700' },
+
+  // ── Cancel Modal ──
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.60)' },
+  modalSheet: {
+    backgroundColor: '#0D2E32',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 36,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.22)',
+    borderColor: 'rgba(255,255,255,0.10)',
   },
-  modalButtonSecondaryText: {
-    fontSize: typography.Button.fontSize,
-    fontWeight: '700',
-    color: '#FFFFFF',
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.20)',
+    alignSelf: 'center',
+    marginBottom: 20,
   },
-  modalButtonDestructive: {
-    backgroundColor: '#DC2626',
+  modalTitle: { fontSize: 20, fontWeight: '800', color: '#FFFFFF', marginBottom: 6 },
+  modalSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.55)', marginBottom: 16, lineHeight: 21 },
+  modalTextArea: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#EF4444',
-  },
-  modalButtonDestructiveText: {
-    fontSize: typography.Button.fontSize,
-    fontWeight: '700',
+    borderColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
     color: '#FFFFFF',
+    height: 100,
+    marginBottom: 12,
   },
+  modalError: { fontSize: 13, color: '#FCA5A5', marginBottom: 10 },
+  modalActions: { flexDirection: 'row', gap: 12, marginTop: 8 },
+  modalCancelBtn: {
+    flex: 1,
+    height: 50,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.20)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelText: { fontSize: 15, color: 'rgba(255,255,255,0.65)', fontWeight: '600' },
+  modalDestructiveBtn: {
+    flex: 1.5,
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalDestructiveText: { fontSize: 15, color: '#FFFFFF', fontWeight: '700' },
 });
 
 export default RequestDetailScreen;

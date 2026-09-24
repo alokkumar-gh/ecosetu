@@ -1,9 +1,16 @@
 /**
  * EcoSetu Collector Quotes Screen
  * Canonical Reference: docs/25_SIH_26229_REQUIREMENTS.md Section 10 (SIH-QUOTE-001..006)
+ *
+ * Real two-sided offer competition & transparent negotiation:
+ * - Factual sorting: Highest Rate, Pickup Available, Nearest, Newest (no subjective "Best" labels)
+ * - Transparent quote card: Buyer, Facility, Authorization, Rate, Unit, Quantity, Total, Pickup, Distance, Validity, Created, Status
+ * - Dedicated read-only Negotiation Timeline embedded for each quote
+ * - Mathematical precision: Total = Rate × Quantity
+ * - Honest empty states: "No offers received yet."
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,15 +20,17 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
-  SafeAreaView,
   RefreshControl,
+  TextInput,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useI18n } from '../../i18n';
 import { EcoSetuBackground } from '../../components/eco';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { quoteService, RecyclerQuote, LotQuotesResponse } from '../../services/quoteService';
+import { NegotiationTimeline } from '../../components/marketplace/NegotiationTimeline';
 import voiceService from '../../services/voiceService';
 import networkService from '../../services/networkService';
 
@@ -33,11 +42,12 @@ const space = {
   xl: spacing.spaceXl,
 };
 
+type SortOption = 'HIGHEST_RATE' | 'PICKUP' | 'NEWEST' | 'NEAREST';
+
 export const CollectorQuotesScreen: React.FC = () => {
   const { t, language } = useI18n();
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
-
 
   const lotId = route.params?.lotId;
   const initialLot = route.params?.lot;
@@ -46,12 +56,16 @@ export const CollectorQuotesScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [lotData, setLotData] = useState<LotQuotesResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption>('HIGHEST_RATE');
 
   // Decision Modals
   const [selectedQuote, setSelectedQuote] = useState<RecyclerQuote | null>(null);
   const [acceptModalVisible, setAcceptModalVisible] = useState(false);
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [rejectReason, setRejectReason] = useState<string>('PRICE_TOO_LOW');
+  const [counterModalVisible, setCounterModalVisible] = useState(false);
+  const [counterPriceInput, setCounterPriceInput] = useState<string>('');
+  const [counterNotesInput, setCounterNotesInput] = useState<string>('');
   const [actionLoading, setActionLoading] = useState(false);
 
   const fetchQuotes = useCallback(async () => {
@@ -82,14 +96,13 @@ export const CollectorQuotesScreen: React.FC = () => {
     voiceService.speak(text, { language });
   };
 
-
   const handleAcceptConfirm = async () => {
     if (!selectedQuote) return;
 
     if (!networkService.isOnline()) {
       Alert.alert(
         t('common.offline') || 'Offline',
-        t('quotation.connectToAccept')
+        t('quotation.connectToAccept') || 'Internet connection required to accept quote.'
       );
       return;
     }
@@ -100,8 +113,8 @@ export const CollectorQuotesScreen: React.FC = () => {
       setAcceptModalVisible(false);
       setSelectedQuote(null);
       Alert.alert(
-        t('quotation.quoteAccepted'),
-        t('quotation.acceptanceNotice')
+        t('quotation.quoteAccepted') || 'Quote Accepted',
+        t('quotation.acceptanceNotice') || 'You have accepted this quotation. Competing quotes have been cancelled.'
       );
       fetchQuotes();
     } catch (err: any) {
@@ -117,7 +130,7 @@ export const CollectorQuotesScreen: React.FC = () => {
     if (!networkService.isOnline()) {
       Alert.alert(
         t('common.offline') || 'Offline',
-        t('quotation.connectToReject')
+        t('quotation.connectToReject') || 'Internet connection required to reject quote.'
       );
       return;
     }
@@ -128,8 +141,8 @@ export const CollectorQuotesScreen: React.FC = () => {
       setRejectModalVisible(false);
       setSelectedQuote(null);
       Alert.alert(
-        t('quotation.quoteRejected'),
-        t('quotation.quoteRejected')
+        t('quotation.quoteRejected') || 'Quote Rejected',
+        t('quotation.quoteRejected') || 'The quotation has been marked as rejected.'
       );
       fetchQuotes();
     } catch (err: any) {
@@ -138,6 +151,61 @@ export const CollectorQuotesScreen: React.FC = () => {
       setActionLoading(false);
     }
   };
+
+  const handleCounterConfirm = async () => {
+    if (!selectedQuote) return;
+
+    const parsedPrice = parseFloat(counterPriceInput);
+    if (isNaN(parsedPrice) || parsedPrice <= 0) {
+      Alert.alert(t('common.error') || 'Error', t('quotation.validRateRequired') || 'Please enter a valid positive rate');
+      return;
+    }
+
+    if (!networkService.isOnline()) {
+      Alert.alert(
+        t('common.offline') || 'Offline',
+        t('quotation.connectToCounter') || 'Connect to internet to propose counter-offer'
+      );
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      await quoteService.counterQuote(selectedQuote.id, parsedPrice, counterNotesInput.trim() || undefined);
+      setCounterModalVisible(false);
+      setSelectedQuote(null);
+      setCounterPriceInput('');
+      setCounterNotesInput('');
+      Alert.alert(
+        t('quotation.counterSubmitted') || 'Counter-Offer Submitted',
+        t('quotation.counterSubmittedDesc') || 'Your counter-offer has been sent to the recycler.'
+      );
+      fetchQuotes();
+    } catch (err: any) {
+      Alert.alert(t('common.error') || 'Error', err.message || 'Failed to submit counter-offer');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const sortedQuotes = useMemo(() => {
+    if (!lotData?.quotes) return [];
+    const list = [...lotData.quotes];
+    if (sortBy === 'HIGHEST_RATE') {
+      list.sort((a, b) => (b.quotedUnitPrice || 0) - (a.quotedUnitPrice || 0));
+    } else if (sortBy === 'PICKUP') {
+      list.sort((a, b) => {
+        const aPickup = a.recycler?.pickupAvailable ? 1 : 0;
+        const bPickup = b.recycler?.pickupAvailable ? 1 : 0;
+        return bPickup - aPickup;
+      });
+    } else if (sortBy === 'NEWEST') {
+      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } else if (sortBy === 'NEAREST') {
+      list.sort((a: any, b: any) => (a.distanceKm || 9999) - (b.distanceKm || 9999));
+    }
+    return list;
+  }, [lotData?.quotes, sortBy]);
 
   const getStatusBadgeStyle = (status: string) => {
     switch (status) {
@@ -159,18 +227,18 @@ export const CollectorQuotesScreen: React.FC = () => {
   const getStatusText = (status: string) => {
     switch (status) {
       case 'ACCEPTED':
-        return `✓ ${t('quotation.accepted')}`;
+        return `✓ ${t('quotation.accepted') || 'Accepted'}`;
       case 'REJECTED':
-        return `✗ ${t('quotation.rejected')}`;
+        return `✗ ${t('quotation.rejected') || 'Rejected'}`;
       case 'EXPIRED':
-        return `⏱ ${t('quotation.expired')}`;
+        return `⏱ ${t('quotation.expired') || 'Expired'}`;
       case 'CANCELLED':
-        return `⊘ ${t('quotation.cancelled')}`;
+        return `⊘ ${t('quotation.cancelled') || 'Cancelled'}`;
       case 'VIEWED':
-        return `👁 ${t('quotation.viewed')}`;
+        return `👁 ${t('quotation.viewed') || 'Viewed'}`;
       case 'SENT':
       default:
-        return `● ${t('quotation.active')}`;
+        return `● ${t('quotation.active') || 'Active'}`;
     }
   };
 
@@ -189,7 +257,7 @@ export const CollectorQuotesScreen: React.FC = () => {
           >
             <Text style={styles.backButtonText}>← {t('common.back')}</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{t('quotation.title')}</Text>
+          <Text style={styles.headerTitle}>{t('quotation.title') || 'Competitive Offers'}</Text>
         </View>
 
         <ScrollView
@@ -211,7 +279,7 @@ export const CollectorQuotesScreen: React.FC = () => {
               <Text style={styles.lotRefText}>{lotData?.lotReference || initialLot?.referenceNumber || 'LOT'}</Text>
               <View style={[styles.lotStatusBadge, isLotAccepted ? styles.statusAccepted : styles.statusActive]}>
                 <Text style={styles.lotStatusText}>
-                  {isLotAccepted ? t('quotation.accepted') : (lotData?.lotStatus || initialLot?.status || 'QUOTED')}
+                  {isLotAccepted ? (t('quotation.accepted') || 'ACCEPTED') : (lotData?.lotStatus || initialLot?.status || 'QUOTED')}
                 </Text>
               </View>
             </View>
@@ -225,7 +293,7 @@ export const CollectorQuotesScreen: React.FC = () => {
           {/* Benchmark Market Valuation Context */}
           {lotData?.benchmarkEstimate && lotData.benchmarkEstimate.status === 'AVAILABLE' ? (
             <View style={styles.benchmarkCard}>
-              <Text style={styles.benchmarkHeader}>📊 {t('recyclerMatching.marketEstimateTitle')}</Text>
+              <Text style={styles.benchmarkHeader}>📊 {t('recyclerMatching.marketEstimateTitle') || 'Verified Market Price Reference'}</Text>
               <Text style={styles.benchmarkValue}>
                 ₹{lotData.benchmarkEstimate.marketRangeLow} – ₹{lotData.benchmarkEstimate.marketRangeHigh} / kg
               </Text>
@@ -235,7 +303,7 @@ export const CollectorQuotesScreen: React.FC = () => {
                 </Text>
               ) : null}
               <Text style={styles.benchmarkNote}>
-                {t('recyclerMatching.marketEstimateNote')}
+                {t('recyclerMatching.marketEstimateNote') || 'Reference only based on recent verified transactions. You make the final commercial decision.'}
               </Text>
             </View>
           ) : null}
@@ -244,7 +312,7 @@ export const CollectorQuotesScreen: React.FC = () => {
           {loading && !refreshing ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#10B981" />
-              <Text style={styles.loadingText}>{t('common.loading')}</Text>
+              <Text style={styles.loadingText}>{t('common.loading') || 'Loading...'}</Text>
             </View>
           ) : null}
 
@@ -262,34 +330,78 @@ export const CollectorQuotesScreen: React.FC = () => {
           {!loading && !error && (!lotData?.quotes || lotData.quotes.length === 0) ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyIcon}>📨</Text>
-              <Text style={styles.emptyTitle}>{t('quotation.noQuotesYet')}</Text>
-              <Text style={styles.emptyDescription}>{t('quotation.noQuotesDescription')}</Text>
+              <Text style={styles.emptyTitle}>No offers received yet.</Text>
+              <Text style={styles.emptyDescription}>
+                {t('quotation.noQuotesDescription') || 'No verified recyclers have submitted bids for this material lot yet. Tap below to notify matched recyclers.'}
+              </Text>
               <TouchableOpacity
                 style={styles.findRecyclerCta}
                 onPress={() => navigation.navigate('CollectorRecyclerMatches', { lotId })}
               >
-                <Text style={styles.findRecyclerCtaText}>🔍 {t('recyclerMatching.findRecycler')}</Text>
+                <Text style={styles.findRecyclerCtaText}>🔍 {t('recyclerMatching.findRecycler') || 'Match Recyclers'}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
+          {/* Factual Sort Controls */}
+          {sortedQuotes.length > 1 ? (
+            <View style={styles.sortBar}>
+              <Text style={styles.sortLabel}>Sort By:</Text>
+              <TouchableOpacity
+                style={[styles.sortChip, sortBy === 'HIGHEST_RATE' && styles.sortChipActive]}
+                onPress={() => setSortBy('HIGHEST_RATE')}
+              >
+                <Text style={[styles.sortChipText, sortBy === 'HIGHEST_RATE' && styles.sortChipTextActive]}>
+                  💰 Highest Rate
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.sortChip, sortBy === 'PICKUP' && styles.sortChipActive]}
+                onPress={() => setSortBy('PICKUP')}
+              >
+                <Text style={[styles.sortChipText, sortBy === 'PICKUP' && styles.sortChipTextActive]}>
+                  🚚 Pickup
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.sortChip, sortBy === 'NEWEST' && styles.sortChipActive]}
+                onPress={() => setSortBy('NEWEST')}
+              >
+                <Text style={[styles.sortChipText, sortBy === 'NEWEST' && styles.sortChipTextActive]}>
+                  ⏱ Newest
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.sortChip, sortBy === 'NEAREST' && styles.sortChipActive]}
+                onPress={() => setSortBy('NEAREST')}
+              >
+                <Text style={[styles.sortChipText, sortBy === 'NEAREST' && styles.sortChipTextActive]}>
+                  📍 Nearest
+                </Text>
               </TouchableOpacity>
             </View>
           ) : null}
 
           {/* Quotes List */}
-          {lotData?.quotes?.map((quote) => {
+          {sortedQuotes.map((quote) => {
             const canDecide = !isLotAccepted && ['SENT', 'VIEWED'].includes(quote.status) && !quote.isExpired;
+            const unitLabel = quote.unit === 'PER_KG' ? 'kg' : quote.unit === 'PER_UNIT' ? 'unit' : 'lot';
+            const weightVal = lotData?.weightKg || initialLot?.approximateTotalWeightKg || 0;
+            const calculatedTotal = quote.quotedTotal || (Number(quote.quotedUnitPrice) * (weightVal || 1));
 
             return (
               <View key={quote.id} style={styles.quoteCard}>
-                {/* Quote Card Header */}
+                {/* Quote Card Header: Buyer Facility & Status */}
                 <View style={styles.cardHeader}>
                   <View style={styles.recyclerInfo}>
-                    <Text style={styles.recyclerName}>{quote.recycler?.facilityName || 'Recycler'}</Text>
+                    <Text style={styles.recyclerName}>{quote.recycler?.facilityName || 'Authorized Recycler'}</Text>
                     <View style={styles.badgeRow}>
                       <View style={[styles.statusBadge, getStatusBadgeStyle(quote.status)]}>
                         <Text style={styles.statusBadgeText}>{getStatusText(quote.status)}</Text>
                       </View>
                       {quote.recycler?.user?.isVerified ? (
                         <View style={styles.verifiedBadge}>
-                          <Text style={styles.verifiedBadgeText}>✓ {t('recyclerMatching.authorized')}</Text>
+                          <Text style={styles.verifiedBadgeText}>✓ {t('recyclerMatching.authorized') || 'Authorized'}</Text>
                         </View>
                       ) : null}
                     </View>
@@ -297,54 +409,65 @@ export const CollectorQuotesScreen: React.FC = () => {
                   <Text style={styles.quoteRefText}>{quote.referenceNumber}</Text>
                 </View>
 
-                {/* Quoted Price Banner */}
+                {/* Quoted Price Banner: Rate, Unit, Quantity, Total */}
                 <View style={styles.priceContainer}>
                   <View>
-                    <Text style={styles.priceLabel}>{t('quotation.quotedRate')}</Text>
+                    <Text style={styles.priceLabel}>Offer Rate</Text>
                     <Text style={styles.priceValue}>
-                      ₹{quote.quotedUnitPrice} <Text style={styles.priceUnit}>/ {quote.unit === 'PER_KG' ? 'kg' : quote.unit}</Text>
+                      ₹{quote.quotedUnitPrice} <Text style={styles.priceUnit}>/ {unitLabel}</Text>
                     </Text>
+                    {weightVal > 0 ? (
+                      <Text style={styles.quantityLabel}>Lot Quantity: {weightVal} kg</Text>
+                    ) : null}
                   </View>
-                  {quote.quotedTotal ? (
-                    <View style={styles.totalContainer}>
-                      <Text style={styles.totalLabel}>{t('quotation.quotedTotal')}</Text>
-                      <Text style={styles.totalValue}>₹{quote.quotedTotal.toLocaleString()}</Text>
-                    </View>
-                  ) : null}
+                  <View style={styles.totalContainer}>
+                    <Text style={styles.totalLabel}>Total Offer Value</Text>
+                    <Text style={styles.totalValue}>₹{calculatedTotal.toLocaleString()}</Text>
+                  </View>
                 </View>
 
-                {/* Validity and Details */}
-                <View style={styles.metaRow}>
-                  <Text style={styles.metaText}>
-                    📅 {t('quotation.validUntil')}: {new Date(quote.validUntil).toLocaleDateString()}
+                {/* Location & Logistics Specs */}
+                <View style={styles.specRow}>
+                  <Text style={styles.specText}>
+                    🚚 {quote.recycler?.pickupAvailable ? 'Pickup Available' : 'Self Drop / Handover'}
                   </Text>
                   {quote.recycler?.city ? (
-                    <Text style={styles.metaText}>
-                      📍 {quote.recycler.city}, {quote.recycler.state}
+                    <Text style={styles.specText}>
+                      📍 {quote.recycler.city}{quote.recycler.state ? `, ${quote.recycler.state}` : ''}
+                    </Text>
+                  ) : null}
+                  {(quote as any).distanceKm ? (
+                    <Text style={styles.specText}>
+                      📏 {(quote as any).distanceKm} km away
                     </Text>
                   ) : null}
                 </View>
 
-                {/* Notes if present */}
-                {quote.notes ? (
-                  <View style={styles.notesContainer}>
-                    <Text style={styles.notesTitle}>📝 {t('quotation.notes')}:</Text>
-                    <Text style={styles.notesText}>{quote.notes}</Text>
-                  </View>
-                ) : null}
+                {/* Timestamp & Validity */}
+                <View style={styles.metaRow}>
+                  <Text style={styles.metaText}>
+                    🕒 Offered: {new Date(quote.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({new Date(quote.createdAt).toLocaleDateString()})
+                  </Text>
+                  <Text style={styles.metaText}>
+                    📅 Valid Until: {new Date(quote.validUntil).toLocaleDateString()}
+                  </Text>
+                </View>
+
+                {/* Dedicated Negotiation Timeline Component */}
+                <NegotiationTimeline quote={quote} />
 
                 {/* Rejection / Cancellation Reason if present */}
                 {quote.rejectionReason ? (
                   <View style={styles.reasonContainer}>
                     <Text style={styles.reasonText}>
-                      ✗ {t('quotation.rejectionReason')}: {quote.rejectionReason}
+                      ✗ Rejection Reason: {quote.rejectionReason}
                     </Text>
                   </View>
                 ) : null}
                 {quote.cancellationReason ? (
                   <View style={styles.reasonContainer}>
                     <Text style={styles.cancellationText}>
-                      ⊘ {quote.cancellationReason === 'COMPETING_QUOTE_ACCEPTED' ? t('quotation.competingQuotesCancelledWarning') : quote.cancellationReason}
+                      ⊘ {quote.cancellationReason === 'COMPETING_QUOTE_ACCEPTED' ? 'Another competing quote was accepted.' : quote.cancellationReason}
                     </Text>
                   </View>
                 ) : null}
@@ -356,9 +479,9 @@ export const CollectorQuotesScreen: React.FC = () => {
                     style={styles.speakButton}
                     onPress={() => handleSpeakQuote(quote)}
                     accessibilityRole="button"
-                    accessibilityLabel={t('quotation.speakQuote')}
+                    accessibilityLabel="Speak Offer Summary"
                   >
-                    <Text style={styles.speakButtonText}>🔊 {t('quotation.speakQuote')}</Text>
+                    <Text style={styles.speakButtonText}>🔊 Speak Summary</Text>
                   </TouchableOpacity>
 
                   {/* Decision CTAs */}
@@ -371,7 +494,19 @@ export const CollectorQuotesScreen: React.FC = () => {
                           setRejectModalVisible(true);
                         }}
                       >
-                        <Text style={styles.rejectButtonText}>✗ {t('quotation.rejectQuote')}</Text>
+                        <Text style={styles.rejectButtonText}>✗ Reject</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.counterButton}
+                        onPress={() => {
+                          setSelectedQuote(quote);
+                          setCounterPriceInput(quote.quotedUnitPrice ? String(quote.quotedUnitPrice) : '');
+                          setCounterNotesInput('');
+                          setCounterModalVisible(true);
+                        }}
+                      >
+                        <Text style={styles.counterButtonText}>💬 Counter</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
@@ -381,7 +516,7 @@ export const CollectorQuotesScreen: React.FC = () => {
                           setAcceptModalVisible(true);
                         }}
                       >
-                        <Text style={styles.acceptButtonText}>✓ {t('quotation.acceptQuote')}</Text>
+                        <Text style={styles.acceptButtonText}>✓ Accept</Text>
                       </TouchableOpacity>
                     </View>
                   ) : null}
@@ -393,9 +528,9 @@ export const CollectorQuotesScreen: React.FC = () => {
                         style={styles.handoverButton}
                         onPress={() => (navigation as any).navigate('CollectorHandover', { lot: lotData || initialLot, quote })}
                         accessibilityRole="button"
-                        accessibilityLabel={t('handover.startHandover')}
+                        accessibilityLabel="Start Handover"
                       >
-                        <Text style={styles.handoverButtonText}>🤝 {t('handover.startHandover')}</Text>
+                        <Text style={styles.handoverButtonText}>🤝 Start Handover</Text>
                       </TouchableOpacity>
                     </View>
                   ) : null}
@@ -414,40 +549,40 @@ export const CollectorQuotesScreen: React.FC = () => {
         >
           <View style={styles.modalOverlay}>
             <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>🤝 {t('lowLiteracy.quoteConfirmTitle') || t('quotation.confirmAcceptTitle')}</Text>
-              <Text style={styles.modalMessage}>{t('lowLiteracy.quoteConfirmMessage') || t('quotation.confirmAcceptMessage')}</Text>
+              <Text style={styles.modalTitle}>🤝 Confirm Quote Acceptance</Text>
+              <Text style={styles.modalMessage}>
+                Accepting this quotation establishes an official commercial deal. All other competing bids for this material lot will be automatically cancelled.
+              </Text>
 
               {selectedQuote ? (
                 <View style={styles.modalQuoteSummary}>
                   <View style={styles.confirmRow}>
-                    <Text style={styles.confirmLabel}>{t('lowLiteracy.buyer')}:</Text>
+                    <Text style={styles.confirmLabel}>Buyer:</Text>
                     <Text style={styles.confirmValue}>{selectedQuote.recycler?.facilityName || 'Authorized Recycler'}</Text>
                   </View>
                   <View style={styles.confirmRow}>
-                    <Text style={styles.confirmLabel}>{t('lowLiteracy.category')}:</Text>
+                    <Text style={styles.confirmLabel}>Material:</Text>
                     <Text style={styles.confirmValue}>{lotData?.category || initialLot?.category || 'E-Waste'}</Text>
                   </View>
                   <View style={styles.confirmRow}>
-                    <Text style={styles.confirmLabel}>{t('lowLiteracy.weight')}:</Text>
+                    <Text style={styles.confirmLabel}>Weight:</Text>
                     <Text style={styles.confirmValue}>{lotData?.weightKg || initialLot?.approximateTotalWeightKg || '—'} kg</Text>
                   </View>
                   <View style={styles.confirmRow}>
-                    <Text style={styles.confirmLabel}>{t('lowLiteracy.rate')}:</Text>
+                    <Text style={styles.confirmLabel}>Agreed Rate:</Text>
                     <Text style={[styles.confirmValue, { color: '#10B981', fontWeight: '700' }]}>
                       ₹{selectedQuote.quotedUnitPrice} / {selectedQuote.unit === 'PER_KG' ? 'kg' : selectedQuote.unit}
                     </Text>
                   </View>
-                  {selectedQuote.quotedTotal ? (
-                    <View style={styles.confirmRow}>
-                      <Text style={styles.confirmLabel}>{t('lowLiteracy.totalAmount')}:</Text>
-                      <Text style={[styles.confirmValue, { color: '#34D399', fontWeight: '800', fontSize: 16 }]}>
-                        ₹{selectedQuote.quotedTotal.toLocaleString()}
-                      </Text>
-                    </View>
-                  ) : null}
+                  <View style={styles.confirmRow}>
+                    <Text style={styles.confirmLabel}>Total Deal Value:</Text>
+                    <Text style={[styles.confirmValue, { color: '#34D399', fontWeight: '800', fontSize: 16 }]}>
+                      ₹{(selectedQuote.quotedTotal || (Number(selectedQuote.quotedUnitPrice) * Number(lotData?.weightKg || 1))).toLocaleString()}
+                    </Text>
+                  </View>
                   {selectedQuote.validUntil ? (
                     <View style={styles.confirmRow}>
-                      <Text style={styles.confirmLabel}>{t('lowLiteracy.validity')}:</Text>
+                      <Text style={styles.confirmLabel}>Offer Validity:</Text>
                       <Text style={styles.confirmValue}>{new Date(selectedQuote.validUntil).toLocaleDateString()}</Text>
                     </View>
                   ) : null}
@@ -455,7 +590,7 @@ export const CollectorQuotesScreen: React.FC = () => {
               ) : null}
 
               <Text style={styles.modalWarningText}>
-                ⚠️ {t('quotation.competingQuotesCancelledWarning')}
+                ⚠️ Server-authoritative acceptance: Competing quotes will be marked CANCELLED.
               </Text>
 
               <View style={styles.modalActions}>
@@ -465,7 +600,7 @@ export const CollectorQuotesScreen: React.FC = () => {
                   disabled={actionLoading}
                   accessibilityRole="button"
                 >
-                  <Text style={styles.modalCancelButtonText}>{t('lowLiteracy.cancelAction') || t('common.cancel')}</Text>
+                  <Text style={styles.modalCancelButtonText}>{t('common.cancel') || 'Cancel'}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -477,7 +612,86 @@ export const CollectorQuotesScreen: React.FC = () => {
                   {actionLoading ? (
                     <ActivityIndicator color="#071E22" />
                   ) : (
-                    <Text style={styles.modalConfirmAcceptButtonText}>✓ {t('lowLiteracy.acceptAction') || t('quotation.acceptQuote')}</Text>
+                    <Text style={styles.modalConfirmAcceptButtonText}>✓ Accept Deal</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Counter Offer Modal */}
+        <Modal
+          visible={counterModalVisible}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setCounterModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>💬 Propose Counter-Offer</Text>
+              <Text style={styles.modalMessage}>
+                Submit a revised rate to the buyer. This will update the negotiation round while keeping the audit trail transparent.
+              </Text>
+
+              {selectedQuote ? (
+                <View style={styles.modalQuoteSummary}>
+                  <View style={styles.confirmRow}>
+                    <Text style={styles.confirmLabel}>Buyer:</Text>
+                    <Text style={styles.confirmValue}>{selectedQuote.recycler?.facilityName || 'Recycler'}</Text>
+                  </View>
+                  <View style={styles.confirmRow}>
+                    <Text style={styles.confirmLabel}>Current Offer Rate:</Text>
+                    <Text style={styles.confirmValue}>₹{selectedQuote.quotedUnitPrice} / {selectedQuote.unit === 'PER_KG' ? 'kg' : selectedQuote.unit}</Text>
+                  </View>
+                </View>
+              ) : null}
+
+              <Text style={styles.inputLabel}>Your Desired Unit Rate (₹/kg):</Text>
+              <TextInput
+                style={styles.textInput}
+                keyboardType="numeric"
+                placeholder="e.g. 250"
+                placeholderTextColor="#64748B"
+                value={counterPriceInput}
+                onChangeText={setCounterPriceInput}
+              />
+
+              {lotData?.weightKg && !isNaN(parseFloat(counterPriceInput)) && parseFloat(counterPriceInput) > 0 ? (
+                <Text style={styles.calcPreview}>
+                  Mathematical Total: {lotData.weightKg} kg × ₹{parseFloat(counterPriceInput)} = ₹{(lotData.weightKg * parseFloat(counterPriceInput)).toLocaleString()}
+                </Text>
+              ) : null}
+
+              <Text style={styles.inputLabel}>Negotiation Notes (Optional):</Text>
+              <TextInput
+                style={[styles.textInput, styles.textAreaInput]}
+                placeholder="e.g. Material is sorted and packaged for immediate pickup"
+                placeholderTextColor="#64748B"
+                multiline
+                numberOfLines={3}
+                value={counterNotesInput}
+                onChangeText={setCounterNotesInput}
+              />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.modalCancelButton}
+                  onPress={() => setCounterModalVisible(false)}
+                  disabled={actionLoading}
+                >
+                  <Text style={styles.modalCancelButtonText}>{t('common.cancel') || 'Cancel'}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalConfirmCounterButton}
+                  onPress={handleCounterConfirm}
+                  disabled={actionLoading}
+                >
+                  {actionLoading ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.modalConfirmCounterButtonText}>💬 Send Counter</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -494,15 +708,15 @@ export const CollectorQuotesScreen: React.FC = () => {
         >
           <View style={styles.modalOverlay}>
             <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>✗ {t('quotation.confirmRejectTitle')}</Text>
-              <Text style={styles.modalMessage}>{t('quotation.selectRejectReason')}</Text>
+              <Text style={styles.modalTitle}>✗ Reject Quotation</Text>
+              <Text style={styles.modalMessage}>Select a reason for declining this buyer's offer:</Text>
 
               {/* Reasons options */}
               {[
-                { key: 'PRICE_TOO_LOW', label: t('quotation.priceTooLow') },
-                { key: 'PICKUP_ISSUE', label: t('quotation.pickupIssue') },
-                { key: 'TIMING_ISSUE', label: t('quotation.timingIssue') },
-                { key: 'OTHER', label: t('quotation.otherReason') },
+                { key: 'PRICE_TOO_LOW', label: 'Rate is too low' },
+                { key: 'PICKUP_ISSUE', label: 'Logistics / Pickup terms unsuitable' },
+                { key: 'TIMING_ISSUE', label: 'Timeline or validity issue' },
+                { key: 'OTHER', label: 'Other commercial reason' },
               ].map((item) => (
                 <TouchableOpacity
                   key={item.key}
@@ -522,7 +736,7 @@ export const CollectorQuotesScreen: React.FC = () => {
                   onPress={() => setRejectModalVisible(false)}
                   disabled={actionLoading}
                 >
-                  <Text style={styles.modalCancelButtonText}>{t('common.cancel')}</Text>
+                  <Text style={styles.modalCancelButtonText}>{t('common.cancel') || 'Cancel'}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -533,7 +747,7 @@ export const CollectorQuotesScreen: React.FC = () => {
                   {actionLoading ? (
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.modalConfirmRejectButtonText}>✗ {t('quotation.rejectQuote')}</Text>
+                    <Text style={styles.modalConfirmRejectButtonText}>✗ Confirm Rejection</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -732,6 +946,40 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 15,
   },
+  sortBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  sortLabel: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '600',
+    marginRight: 4,
+  },
+  sortChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  sortChipActive: {
+    backgroundColor: 'rgba(16, 185, 129, 0.25)',
+    borderColor: '#10B981',
+  },
+  sortChipText: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  sortChipTextActive: {
+    color: '#34D399',
+    fontWeight: '700',
+  },
   quoteCard: {
     backgroundColor: 'rgba(15, 35, 40, 0.85)',
     borderRadius: 18,
@@ -839,6 +1087,11 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#94A3B8',
   },
+  quantityLabel: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
   totalContainer: {
     alignItems: 'flex-end',
   },
@@ -852,6 +1105,21 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
   },
+  specRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 6,
+    paddingVertical: 4,
+  },
+  specText: {
+    fontSize: 12,
+    color: '#CBD5E1',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
   metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -861,22 +1129,6 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 11,
     color: colors.textSecondary || '#94A3B8',
-  },
-  notesContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 8,
-    padding: 8,
-    marginVertical: 4,
-  },
-  notesTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#E2E8F0',
-    marginBottom: 2,
-  },
-  notesText: {
-    fontSize: 12,
-    color: '#CBD5E1',
   },
   reasonContainer: {
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
@@ -935,6 +1187,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 13,
   },
+  counterButton: {
+    flex: 1,
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    borderColor: '#3B82F6',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    minHeight: 52,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  counterButtonText: {
+    color: '#60A5FA',
+    fontWeight: '700',
+    fontSize: 13,
+  },
   acceptButton: {
     flex: 2,
     backgroundColor: '#10B981',
@@ -947,29 +1215,21 @@ const styles = StyleSheet.create({
   acceptButtonText: {
     color: '#071E22',
     fontWeight: '800',
-    fontSize: 15,
+    fontSize: 14,
   },
   handoverButton: {
     flex: 1,
-    backgroundColor: '#059669',
-    borderColor: '#34D399',
-    borderWidth: 1,
+    backgroundColor: '#8B5CF6',
     borderRadius: 10,
     paddingVertical: 12,
     minHeight: 56,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
   },
   handoverButtonText: {
     color: '#FFFFFF',
     fontWeight: '800',
     fontSize: 14,
-    letterSpacing: 0.5,
   },
   modalOverlay: {
     flex: 1,
@@ -983,7 +1243,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: space.lg,
     width: '100%',
-    maxWidth: 380,
+    maxWidth: 400,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
   },
@@ -995,90 +1255,53 @@ const styles = StyleSheet.create({
   },
   modalMessage: {
     fontSize: 13,
-    color: colors.textSecondary || '#94A3B8',
+    color: '#94A3B8',
     lineHeight: 18,
     marginBottom: space.md,
   },
   modalQuoteSummary: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 12,
     padding: space.sm,
-    marginBottom: space.sm,
+    marginBottom: space.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   confirmRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 5,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    paddingVertical: 4,
   },
   confirmLabel: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.65)',
-    fontWeight: '500',
+    fontSize: 13,
+    color: '#94A3B8',
   },
   confirmValue: {
     fontSize: 13,
     color: '#FFFFFF',
     fontWeight: '600',
-    textAlign: 'right',
-    flexShrink: 1,
-  },
-  modalQuoteName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  modalQuoteAmount: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#10B981',
-    marginTop: 2,
   },
   modalWarningText: {
     fontSize: 11,
     color: '#FCD34D',
-    marginBottom: space.md,
     lineHeight: 16,
-  },
-  reasonOption: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    marginBottom: space.md,
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    padding: 8,
     borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    marginBottom: 6,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  reasonOptionSelected: {
-    borderColor: '#EF4444',
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-  },
-  reasonOptionText: {
-    color: '#CBD5E1',
-    fontSize: 13,
-  },
-  reasonOptionTextSelected: {
-    color: '#FCA5A5',
-    fontWeight: '700',
   },
   modalActions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
     gap: space.sm,
-    marginTop: space.md,
   },
   modalCancelButton: {
+    flex: 1,
     paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    minHeight: 52,
-    justifyContent: 'center',
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 52,
   },
   modalCancelButtonText: {
     color: '#CBD5E1',
@@ -1086,34 +1309,94 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   modalConfirmAcceptButton: {
+    flex: 2,
     paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    borderRadius: 10,
     backgroundColor: '#10B981',
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 120,
-    minHeight: 56,
+    minHeight: 52,
   },
   modalConfirmAcceptButtonText: {
     color: '#071E22',
     fontWeight: '800',
     fontSize: 14,
   },
-  modalConfirmRejectButton: {
+  modalConfirmCounterButton: {
+    flex: 2,
     paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    borderRadius: 10,
+    backgroundColor: '#3B82F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 52,
+  },
+  modalConfirmCounterButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  modalConfirmRejectButton: {
+    flex: 2,
+    paddingVertical: 12,
+    borderRadius: 10,
     backgroundColor: '#EF4444',
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 120,
     minHeight: 52,
   },
   modalConfirmRejectButtonText: {
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 13,
+  },
+  inputLabel: {
+    fontSize: 12,
+    color: '#CBD5E1',
+    marginBottom: 4,
+    fontWeight: '600',
+  },
+  textInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: '#FFFFFF',
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    marginBottom: space.sm,
+  },
+  textAreaInput: {
+    height: 70,
+    textAlignVertical: 'top',
+  },
+  calcPreview: {
+    fontSize: 11,
+    color: '#34D399',
+    marginBottom: space.sm,
+    fontWeight: '600',
+  },
+  reasonOption: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  reasonOptionSelected: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: '#EF4444',
+  },
+  reasonOptionText: {
+    color: '#94A3B8',
+    fontSize: 13,
+  },
+  reasonOptionTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
 });
 

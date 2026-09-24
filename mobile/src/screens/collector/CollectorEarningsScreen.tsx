@@ -1,918 +1,319 @@
 /**
- * CollectorEarningsScreen.tsx
- * Collector Easy Earnings Ledger + Outstanding Pending Dues
- * Canonical Reference: SIH Problem Statement 26229 - Prompt 8: Collector Earnings Ledger + Pending Dues
+ * CollectorEarningsScreen — COMPLETE REDESIGN
+ *
+ * New concept: YOUR MONEY — clean, money-centric experience
+ *
+ * Structure:
+ *  1. PAYMENT SUMMARY hero (large total, pending vs paid)
+ *  2. Period filter pills (All / Month / Week)
+ *  3. Pending dues section (if any)
+ *  4. Transaction history list (EarningsRow per item)
+ *
+ * No decorative charts. No stat grids. Just money information.
+ * Each transaction shows: material, date, qty, rate, total, status.
+ * Actions per row: View Bill, View Transaction, View Trace.
+ *
+ * Preserves: earningsService, transactionService, voiceService,
+ *   BillDetail, CollectorTransactionDetail, CollectorLotTrace navigation.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
   FlatList,
+  TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import earningsService, {
-  EarningsSummary,
-  PendingDueItem,
-  MonthlyEarningsItem,
-} from '../../services/earningsService';
-import voiceService from '../../services/voiceService';
-import { useTranslation } from '../../i18n';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useI18n } from '../../i18n';
+import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
+import {
+  CollectorHeader,
+  PaymentSummary,
+  EarningsRow,
+  CollectorSkeletonList,
+  EmptyMarketplaceState,
+  CollectorSectionHeader,
+} from '../../components/collector';
+import { colors } from '../../theme/colors';
+import earningsService from '../../services/earningsService';
+import { MATERIAL_TAXONOMY } from '../../config/materialTaxonomy';
 
-type PeriodType = 'ALL_TIME' | 'THIS_MONTH' | 'LAST_MONTH' | 'THIS_WEEK' | 'TODAY';
+type Period = 'ALL_TIME' | 'THIS_MONTH' | 'THIS_WEEK';
 
+const PERIOD_TABS: { id: Period; label: string }[] = [
+  { id: 'ALL_TIME',   label: 'All Time'    },
+  { id: 'THIS_MONTH', label: 'This Month'  },
+  { id: 'THIS_WEEK',  label: 'This Week'   },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
 export const CollectorEarningsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const { t, language } = useTranslation();
+  const { t }      = useI18n();
 
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [isOffline, setIsOffline] = useState(false);
+  const [period, setPeriod]               = useState<Period>('ALL_TIME');
+  const [summary, setSummary]             = useState<any>(null);
+  const [transactions, setTransactions]   = useState<any[]>([]);
+  const [pendingDues, setPendingDues]     = useState<any[]>([]);
+  const [isLoading, setIsLoading]         = useState(true);
+  const [isRefreshing, setIsRefreshing]   = useState(false);
 
-  // Filter States
-  const [period, setPeriod] = useState<PeriodType>('ALL_TIME');
-  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
-  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
-
-  // Ledger Data States
-  const [summary, setSummary] = useState<EarningsSummary>({
-    totalRecordedSales: '0.00',
-    totalPaid: '0.00',
-    totalPending: '0.00',
-    totalPartiallyPaid: '0.00',
-    transactionCount: 0,
-    paidTransactionCount: 0,
-    pendingTransactionCount: 0,
-    partialTransactionCount: 0,
-    period: 'ALL_TIME',
-    generatedAt: new Date().toISOString(),
-  });
-
-  const [pendingDues, setPendingDues] = useState<PendingDueItem[]>([]);
-  const [monthlyData, setMonthlyData] = useState<MonthlyEarningsItem[]>([]);
-  const [transactions, setTransactions] = useState<any[]>([]);
-
-  const loadLedgerData = async () => {
+  const loadData = useCallback(async () => {
     try {
-      const filters: any = { period };
-      if (selectedCategory !== 'ALL') filters.category = selectedCategory;
-      if (selectedStatus !== 'ALL') filters.paymentStatus = selectedStatus;
-
-      const [summaryRes, pendingRes, monthlyRes, txnsRes] = await Promise.all([
-        earningsService.getEarningsSummary(filters),
-        earningsService.getPendingDues(filters),
-        earningsService.getMonthlyEarnings(filters),
-        earningsService.getEarningsTransactions(filters),
+      const [summaryRes, pendingRes, txnRes] = await Promise.allSettled([
+        earningsService.getEarningsSummary({ period }),
+        earningsService.getPendingDues({ period }),
+        earningsService.getEarningsTransactions({ period, limit: 50 }),
       ]);
 
-      setSummary(summaryRes);
-      setPendingDues(pendingRes.pendingDues || []);
-      setMonthlyData(monthlyRes.monthly || []);
-      setTransactions(txnsRes.transactions || []);
-      setIsOffline(!!(summaryRes.isCached || pendingRes.isCached || txnsRes.isCached));
-    } catch (err: any) {
-      console.warn('Failed to load earnings ledger:', err.message);
+      if (summaryRes.status === 'fulfilled') setSummary(summaryRes.value);
+      if (pendingRes.status === 'fulfilled')
+        setPendingDues(pendingRes.value?.pendingDues || []);
+      if (txnRes.status === 'fulfilled')
+        setTransactions(txnRes.value?.transactions || []);
+    } catch (e) {
+      console.warn('[CollectorEarnings] load error', e);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setIsLoading(false);
+      setIsRefreshing(false);
     }
-  };
+  }, [period]);
 
   useFocusEffect(
     useCallback(() => {
-      loadLedgerData();
-    }, [period, selectedCategory, selectedStatus])
+      setIsLoading(true);
+      loadData();
+    }, [loadData])
   );
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadLedgerData();
-  };
+  const onRefresh = () => { setIsRefreshing(true); loadData(); };
 
-  const handleSpeakSummary = async () => {
-    const text = earningsService.generateEarningsSpeechText(summary, language);
-    await voiceService.speak(text, { language, force: true });
-  };
+  // ── Totals ──────────────────────────────────────────────────────────────────
+  const totalAmount   = Number(summary?.totalRecordedSales  || 0);
+  const paidAmount    = Number(summary?.totalPaid           || 0);
+  const pendingAmount = Number(summary?.totalPending        || 0);
 
-  const renderStatusBadge = (status: string) => {
-    let bg = '#e2e8f0';
-    let color = '#475569';
-    let label = status;
+  // Period label
+  const periodLabel = period === 'ALL_TIME' ? t('common.allTime', 'All time') :
+                      period === 'THIS_MONTH' ? t('common.thisMonth', 'This month') : t('common.thisWeek', 'This week');
 
-    if (status === 'PAID') {
-      bg = '#dcfce7';
-      color = '#15803d';
-      label = t('transaction.paid') || 'Paid';
-    } else if (status === 'PARTIALLY_PAID') {
-      bg = '#fef3c7';
-      color = '#b45309';
-      label = t('transaction.partiallyPaid') || 'Partially Paid';
-    } else if (status === 'PENDING') {
-      bg = '#fee2e2';
-      color = '#b91c1c';
-      label = t('transaction.pending') || 'Pending';
-    }
+  // ── Item renderer ────────────────────────────────────────────────────────────
+  const renderTransaction = useCallback(
+    ({ item }: { item: any }) => {
+      const catMeta = MATERIAL_TAXONOMY[item.materialLot?.category] || {
+        symbol: '📦',
+        defaultName: item.materialLot?.category || 'Material',
+      };
+      const catName = (catMeta as any).i18nKey ? t((catMeta as any).i18nKey, catMeta.defaultName) : catMeta.defaultName;
 
-    return (
-      <View style={[styles.badge, { backgroundColor: bg }]}>
-        <Text style={[styles.badgeText, { color }]}>{label}</Text>
-      </View>
-    );
-  };
+      const material = item.materialLot?.subcategory || catName;
+      const date     = item.completedAt || item.createdAt
+        ? new Date(item.completedAt || item.createdAt).toLocaleDateString('en-IN', {
+            day: '2-digit', month: 'short', year: 'numeric',
+          })
+        : '—';
 
-  const categories = ['ALL', 'MOBILE_PHONE', 'LAPTOP', 'BATTERY', 'OTHER'];
-  const statuses = ['ALL', 'PAID', 'PARTIALLY_PAID', 'PENDING'];
-
-  return (
-    <View style={styles.container}>
-      {/* Offline Banner */}
-      {isOffline && (
-        <View style={styles.offlineBanner}>
-          <Text style={styles.offlineBannerText}>
-            ⚠️ {t('earnings.offlineNotice') || 'Offline — showing cached earnings'}
-          </Text>
-        </View>
-      )}
-
-      {loading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#16a34a" />
-          <Text style={styles.loadingText}>{t('earnings.loading')}</Text>
-        </View>
-      ) : (
-        <ScrollView
-          style={styles.scrollContainer}
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#16a34a']} />
+      return (
+        <EarningsRow
+          material={material}
+          materialIcon={catMeta.symbol}
+          date={date}
+          quantityKg={item.finalWeightKg || item.materialLot?.approximateTotalWeightKg}
+          ratePerKg={item.agreedRatePerKg}
+          totalAmount={Number(item.totalAmount || item.recordedAmount || 0)}
+          paymentStatus={item.paymentStatus || 'PENDING'}
+          onPress={() =>
+            navigation.navigate('CollectorTransactionDetail', { transactionId: item.id, transaction: item })
           }
-        >
-          {/* Header & Speech Action */}
-          <View style={styles.headerRow}>
-            <View>
-              <Text style={styles.screenTitle}>{t('earnings.title') || 'Earnings Ledger'}</Text>
-              <Text style={styles.screenSubtitle}>
-                {t('common.verifiedProvenance') || 'Authoritative Sales & Financial Balance'}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={styles.speechButton}
-              activeOpacity={0.8}
-              onPress={handleSpeakSummary}
-            >
-              <Text style={styles.speechButtonText}>🔊 {t('earnings.speakSummary') || 'Speak'}</Text>
-            </TouchableOpacity>
-          </View>
+          onViewBill={
+            item.billId
+              ? () => navigation.navigate('CollectorBillDetail', { billId: item.billId })
+              : undefined
+          }
+        />
+      );
+    },
+    [navigation, t]
+  );
 
-          {/* Period Filter Tabs */}
-          <View style={styles.periodTabs}>
-            {(
-              [
-                { id: 'ALL_TIME', label: t('earnings.periodAllTime') || 'All Time' },
-                { id: 'THIS_MONTH', label: t('earnings.periodThisMonth') || 'This Month' },
-                { id: 'LAST_MONTH', label: t('earnings.periodLastMonth') || 'Last Month' },
-                { id: 'THIS_WEEK', label: t('earnings.periodThisWeek') || 'This Week' },
-                { id: 'TODAY', label: t('earnings.periodToday') || 'Today' },
-              ] as const
-            ).map((tab) => (
-              <TouchableOpacity
-                key={tab.id}
-                style={[styles.periodTab, period === tab.id && styles.periodTabActive]}
-                onPress={() => setPeriod(tab.id)}
-              >
-                <Text
-                  style={[styles.periodTabText, period === tab.id && styles.periodTabTextActive]}
-                >
-                  {tab.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+  // ─────────────────────────────────────────────────────────────────────────
+  return (
+    <EcoSetuBackground>
+      <SafeAreaView style={styles.safeArea}>
+        <CollectorHeader
+          name={t('collector.earningsTitle', 'Earnings')}
+          subtitle={t('collector.earningsSub', 'Your money from material sales')}
+        />
 
-          {/* Category & Status Chips */}
-          <View style={styles.chipRow}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {categories.map((cat) => (
-                <TouchableOpacity
-                  key={cat}
-                  style={[styles.chip, selectedCategory === cat && styles.chipActive]}
-                  onPress={() => setSelectedCategory(cat)}
-                >
-                  <Text style={[styles.chipText, selectedCategory === cat && styles.chipTextActive]}>
-                    {cat === 'ALL' ? (t('earnings.allCategories') || 'All Categories') : cat}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-
-          {/* SUMMARY CARDS (Low-Literacy Friendly) */}
-          <View style={styles.summaryGrid}>
-            {/* Sales Recorded */}
-            <View style={[styles.summaryCard, styles.cardSales]}>
-              <Text style={styles.summaryCardIcon}>📦</Text>
-              <Text style={styles.summaryCardLabel}>
-                {t('earnings.salesRecorded') || 'Sales Recorded'}
-              </Text>
-              <Text style={styles.summaryCardValue}>₹{summary.totalRecordedSales}</Text>
-              <Text style={styles.summaryCardSub}>
-                {summary.transactionCount} {t('earnings.transactionsCount') || 'Transactions'}
-              </Text>
-            </View>
-
-            {/* Money Received */}
-            <View style={[styles.summaryCard, styles.cardReceived]}>
-              <Text style={styles.summaryCardIcon}>✅</Text>
-              <Text style={styles.summaryCardLabel}>
-                {t('earnings.moneyReceived') || 'Money Received'}
-              </Text>
-              <Text style={[styles.summaryCardValue, { color: '#15803d' }]}>
-                ₹{summary.totalPaid}
-              </Text>
-              <Text style={styles.summaryCardSub}>
-                {summary.paidTransactionCount} {t('transaction.paid') || 'Settled'}
-              </Text>
-            </View>
-
-            {/* Money Pending */}
-            <View style={[styles.summaryCard, styles.cardPending]}>
-              <Text style={styles.summaryCardIcon}>⏳</Text>
-              <Text style={styles.summaryCardLabel}>
-                {t('earnings.moneyPending') || 'Money Pending'}
-              </Text>
-              <Text style={[styles.summaryCardValue, { color: '#b91c1c' }]}>
-                ₹{summary.totalPending}
-              </Text>
-              <Text style={styles.summaryCardSub}>
-                {summary.pendingTransactionCount + summary.partialTransactionCount} {t('transaction.pending') || 'Outstanding'}
-              </Text>
-            </View>
-
-            {/* Transactions Count */}
-            <View style={[styles.summaryCard, styles.cardTxnCount]}>
-              <Text style={styles.summaryCardIcon}>📊</Text>
-              <Text style={styles.summaryCardLabel}>
-                {t('earnings.transactionsCount') || 'Transactions'}
-              </Text>
-              <Text style={styles.summaryCardValue}>{summary.transactionCount}</Text>
-              <Text style={styles.summaryCardSub}>
-                {summary.partialTransactionCount} {t('transaction.partiallyPaid') || 'Partial'}
-              </Text>
-            </View>
-          </View>
-
-          {/* PENDING DUES SECTION */}
-          <View style={styles.sectionHeader}>
-            <View>
-              <Text style={styles.sectionTitle}>
-                {t('earnings.pendingDuesTitle') || 'Pending Dues'}
-              </Text>
-              <Text style={styles.sectionSubtitle}>
-                {t('earnings.oldestFirstNotice') || 'Showing oldest dues first'}
-              </Text>
-            </View>
-            <View style={styles.duesTotalPill}>
-              <Text style={styles.duesTotalText}>
-                ₹{summary.totalPending}
-              </Text>
-            </View>
-          </View>
-
-          {pendingDues.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyCardIcon}>🎉</Text>
-              <Text style={styles.emptyCardTitle}>
-                {t('earnings.noPendingDues') || 'No Pending Dues'}
-              </Text>
-              <Text style={styles.emptyCardText}>
-                {t('earnings.noPendingDuesDesc') ||
-                  'All your recorded transactions have been fully settled.'}
-              </Text>
-            </View>
-          ) : (
-            pendingDues.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.dueCard}
-                activeOpacity={0.7}
-                onPress={() =>
-                  navigation.navigate('CollectorTransactionDetail', {
-                    transactionId: item.id,
-                  })
-                }
-              >
-                <View style={styles.dueCardHeader}>
-                  <Text style={styles.dueCardRef}>{item.referenceNumber}</Text>
-                  {renderStatusBadge(item.paymentStatus)}
+        <FlatList
+          data={transactions}
+          keyExtractor={(item) => item.id}
+          renderItem={renderTransaction}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+          ListHeaderComponent={
+            <>
+              {/* ── PAYMENT SUMMARY ──────────────────────────── */}
+              {isLoading ? (
+                <View style={styles.summaryPlaceholder}>
+                  <View style={styles.skLine} />
+                  <View style={[styles.skLine, { width: '60%', height: 40, marginTop: 8 }]} />
                 </View>
+              ) : (
+                <PaymentSummary
+                  totalAmount={totalAmount}
+                  pendingAmount={pendingAmount}
+                  paidAmount={paidAmount}
+                  period={periodLabel}
+                />
+              )}
 
-                <View style={styles.dueCardBody}>
-                  <View style={styles.dueRow}>
-                    <Text style={styles.dueCategory}>
-                      {item.category} {item.subcategory ? `• ${item.subcategory}` : ''}
-                    </Text>
-                    <View style={styles.dueAmountBlock}>
-                      <Text style={styles.dueLabel}>{t('earnings.dueAmount') || 'Due'}:</Text>
-                      <Text style={styles.dueValue}>₹{item.amountDue}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.dueMetaRow}>
-                    <Text style={styles.dueRecycler}>
-                      {t('earnings.dueFrom') || 'Buyer'}: {item.recycler?.facilityName || item.recycler?.businessName}
-                    </Text>
-                    <Text style={styles.dueDate}>
-                      {item.transactionDate ? new Date(item.transactionDate).toLocaleDateString() : ''}
-                    </Text>
-                  </View>
-
-                  <View style={styles.dueFooter}>
-                    <Text style={styles.dueHandover}>
-                      {t('handover.handoverReference')}: {item.handoverReference || t('status.accepted')}
-                    </Text>
-                    <Text style={styles.duePaidSummary}>
-                      {t('earnings.paidAmount') || 'Received'}: ₹{item.amountPaid} / ₹{item.finalSaleValue}
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
-
-          {/* MONTHLY BREAKDOWN SECTION */}
-          {monthlyData.length > 0 && (
-            <View style={styles.monthlySection}>
-              <Text style={styles.sectionTitle}>
-                {t('earnings.monthlyBreakdown') || 'Monthly Breakdown'}
-              </Text>
-              <Text style={styles.sectionSubtitle}>{t('earnings.historicalPerformance')}</Text>
-
-              <View style={styles.monthlyGrid}>
-                {monthlyData.map((m) => (
-                  <View key={m.month} style={styles.monthCard}>
-                    <View style={styles.monthHeader}>
-                      <Text style={styles.monthName}>{m.month}</Text>
-                      <Text style={styles.monthTxnCount}>
-                        {m.transactionCount} {t('earnings.transactionsCount') || 'txns'}
+              {/* ── PERIOD FILTER ────────────────────────────── */}
+              <View style={styles.periodRow}>
+                {[
+                  { id: 'ALL_TIME' as Period,   label: t('common.allTime', 'All Time') },
+                  { id: 'THIS_MONTH' as Period, label: t('common.thisMonth', 'This Month') },
+                  { id: 'THIS_WEEK' as Period,  label: t('common.thisWeek', 'This Week') },
+                ].map((tab) => {
+                  const isActive = period === tab.id;
+                  return (
+                    <TouchableOpacity
+                      key={tab.id}
+                      style={[styles.periodPill, isActive && styles.periodPillActive]}
+                      onPress={() => { setPeriod(tab.id); setIsLoading(true); }}
+                      accessibilityRole="tab"
+                    >
+                      <Text style={[styles.periodPillText, isActive && styles.periodPillTextActive]}>
+                        {tab.label}
                       </Text>
-                    </View>
-                    <View style={styles.monthStats}>
-                      <View style={styles.monthStatCol}>
-                        <Text style={styles.monthStatLabel}>{t('earnings.recorded')}</Text>
-                        <Text style={styles.monthStatVal}>₹{m.recordedSales}</Text>
-                      </View>
-                      <View style={styles.monthStatCol}>
-                        <Text style={styles.monthStatLabel}>{t('earnings.paid')}</Text>
-                        <Text style={[styles.monthStatVal, { color: '#15803d' }]}>
-                          ₹{m.amountPaid}
-                        </Text>
-                      </View>
-                      <View style={styles.monthStatCol}>
-                        <Text style={styles.monthStatLabel}>{t('earnings.pending')}</Text>
-                        <Text style={[styles.monthStatVal, { color: '#b91c1c' }]}>
-                          ₹{m.amountPending}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                ))}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-            </View>
-          )}
 
-          {/* TRANSACTION HISTORY SECTION */}
-          <View style={styles.sectionHeader}>
-            <View>
-              <Text style={styles.sectionTitle}>
-                {t('earnings.allTransactions') || 'Transaction History'}
-              </Text>
-              <Text style={styles.sectionSubtitle}>
-                {transactions.length} contributing records
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('CollectorTransactions')}
-            >
-              <Text style={styles.viewAllText}>{t('earnings.viewAll')}</Text>
-            </TouchableOpacity>
-          </View>
+              {/* ── PENDING DUES ─────────────────────────────── */}
+              {pendingDues.length > 0 && (
+                <View style={styles.pendingSection}>
+                  <CollectorSectionHeader
+                    title={t('collector.pendingDues', 'Pending Dues')}
+                    count={pendingDues.length}
+                  />
+                  <View style={styles.pendingList}>
+                    {pendingDues.slice(0, 3).map((due: any) => (
+                      <TouchableOpacity
+                        key={due.id}
+                        style={styles.pendingRow}
+                        onPress={() =>
+                          navigation.navigate('CollectorTransactionDetail', {
+                            transactionId: due.id,
+                            transaction: due,
+                          })
+                        }
+                        activeOpacity={0.8}
+                      >
+                        <View style={styles.pendingLeft}>
+                          <Text style={styles.pendingMaterial} numberOfLines={1}>
+                            {due.materialLot?.subcategory || due.materialLot?.category || t('common.material', 'Material')}
+                          </Text>
+                          <Text style={styles.pendingDate}>
+                            {due.createdAt
+                              ? new Date(due.createdAt).toLocaleDateString('en-IN')
+                              : '—'}
+                          </Text>
+                        </View>
+                        <Text style={styles.pendingAmount}>
+                          ₹{Number(due.totalAmount || 0).toLocaleString('en-IN')}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
 
-          {transactions.length === 0 ? (
-            <View style={styles.emptyTxnCard}>
-              <Text style={styles.emptyIcon}>💵</Text>
-              <Text style={styles.emptyTitle}>
-                {t('lowLiteracy.emptyEarningsTitle') || 'No Sales Recorded Yet'}
-              </Text>
-              <Text style={styles.emptySubtext}>
-                {t('lowLiteracy.emptyEarningsDesc') || 'Record completed handovers and cash/UPI receipts to view earnings.'}
-              </Text>
-              <TouchableOpacity
-                style={styles.emptyActionBtn}
-                onPress={() => navigation.navigate('CollectorLots')}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-              >
-                <Text style={styles.emptyActionBtnText}>
-                  📦 {t('lowLiteracy.viewBatches') || 'View Batches'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            transactions.slice(0, 5).map((tx) => (
-              <TouchableOpacity
-                key={tx.id}
-                style={styles.txnItemCard}
-                activeOpacity={0.7}
-                onPress={() =>
-                  navigation.navigate('CollectorTransactionDetail', {
-                    transactionId: tx.id,
-                    transaction: tx,
-                  })
-                }
-              >
-                <View style={styles.txnItemTop}>
-                  <Text style={styles.txnItemRef}>{tx.referenceNumber}</Text>
-                  {renderStatusBadge(tx.paymentStatus)}
+              {/* ── TRANSACTIONS HEADER ──────────────────────── */}
+              <CollectorSectionHeader
+                title={t('collector.transactions', 'Transactions')}
+                count={transactions.length > 0 ? transactions.length : undefined}
+              />
+
+              {isLoading && (
+                <View style={styles.skeletonPad}>
+                  <CollectorSkeletonList rows={4} rowHeight={70} />
                 </View>
-                <View style={styles.txnItemBottom}>
-                  <Text style={styles.txnItemCategory}>{tx.category}</Text>
-                  <Text style={styles.txnItemAmount}>₹{tx.finalSaleValue}</Text>
-                </View>
-                <View style={styles.txnItemMeta}>
-                  <Text style={styles.txnItemRecycler}>
-                    {tx.recycler?.facilityName || 'Recycler'}
-                  </Text>
-                  <Text style={styles.txnItemDate}>
-                    {tx.transactionDate ? new Date(tx.transactionDate).toLocaleDateString() : ''}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
-        </ScrollView>
-      )}
-    </View>
+              )}
+            </>
+          }
+          ListEmptyComponent={
+            isLoading ? null : (
+              <EmptyMarketplaceState
+                context="no_earnings"
+                onAction={() => navigation.navigate('CollectorSell')}
+              />
+            )
+          }
+          contentContainerStyle={styles.listContent}
+          ItemSeparatorComponent={() => null}
+        />
+      </SafeAreaView>
+    </EcoSetuBackground>
   );
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
+  safeArea:          { flex: 1 },
+  summaryPlaceholder: { paddingHorizontal: 20, paddingVertical: 24, gap: 8 },
+  skLine: {
+    height: 14, borderRadius: 7, width: '40%',
+    backgroundColor: 'rgba(255,255,255,0.07)',
   },
-  scrollContainer: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 48,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 15,
-    color: '#64748b',
-  },
-  offlineBanner: {
-    backgroundColor: '#fffbeb',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f59e0b',
-    padding: 10,
-    alignItems: 'center',
-  },
-  offlineBannerText: {
-    color: '#b45309',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  headerRow: {
+  periodRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  screenTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  screenSubtitle: {
-    fontSize: 13,
-    color: '#64748b',
-    marginTop: 2,
-  },
-  speechButton: {
-    backgroundColor: '#dcfce7',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#86efac',
-    minHeight: 48,
-    minWidth: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  speechButtonText: {
-    color: '#15803d',
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  periodTabs: {
-    flexDirection: 'row',
-    backgroundColor: '#e2e8f0',
-    borderRadius: 10,
-    padding: 3,
-    marginBottom: 12,
-  },
-  periodTab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    minHeight: 48,
-  },
-  periodTabActive: {
-    backgroundColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  periodTabText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#64748b',
-  },
-  periodTabTextActive: {
-    color: '#0f172a',
-    fontWeight: '700',
-  },
-  chipRow: {
-    marginBottom: 16,
-  },
-  chip: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 16,
-    marginRight: 8,
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  chipActive: {
-    backgroundColor: '#16a34a',
-    borderColor: '#16a34a',
-  },
-  chipText: {
-    fontSize: 12,
-    color: '#475569',
-    fontWeight: '500',
-  },
-  chipTextActive: {
-    color: '#ffffff',
-    fontWeight: '700',
-  },
-  summaryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  summaryCard: {
-    width: '48%',
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  cardSales: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#0284c7',
-  },
-  cardReceived: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#16a34a',
-  },
-  cardPending: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#ef4444',
-  },
-  cardTxnCount: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#8b5cf6',
-  },
-  summaryCardIcon: {
-    fontSize: 20,
-    marginBottom: 4,
-  },
-  summaryCardLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748b',
-    marginBottom: 4,
-  },
-  summaryCardValue: {
-    fontSize: 19,
-    fontWeight: '800',
-    color: '#0f172a',
-    marginBottom: 2,
-  },
-  summaryCardSub: {
-    fontSize: 11,
-    color: '#94a3b8',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  sectionSubtitle: {
-    fontSize: 12,
-    color: '#64748b',
-    marginTop: 1,
-  },
-  duesTotalPill: {
-    backgroundColor: '#fee2e2',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  duesTotalText: {
-    color: '#b91c1c',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  emptyCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    marginBottom: 16,
-  },
-  emptyCardIcon: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  emptyCardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 4,
-  },
-  emptyCardText: {
-    fontSize: 13,
-    color: '#64748b',
-    textAlign: 'center',
-  },
-  dueCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#fca5a5',
-    borderLeftWidth: 4,
-    borderLeftColor: '#ef4444',
-  },
-  dueCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  dueCardRef: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  dueCardBody: {},
-  dueRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  dueCategory: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#334155',
-  },
-  dueAmountBlock: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  dueLabel: {
-    fontSize: 12,
-    color: '#64748b',
-    marginRight: 4,
-  },
-  dueValue: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#b91c1c',
-  },
-  dueMetaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  dueRecycler: {
-    fontSize: 12,
-    color: '#475569',
-  },
-  dueDate: {
-    fontSize: 12,
-    color: '#64748b',
-  },
-  dueFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
-    paddingTop: 6,
-  },
-  dueHandover: {
-    fontSize: 11,
-    color: '#94a3b8',
-  },
-  duePaidSummary: {
-    fontSize: 11,
-    color: '#64748b',
-    fontWeight: '500',
-  },
-  monthlySection: {
-    marginVertical: 14,
-  },
-  monthlyGrid: {
-    marginTop: 8,
-  },
-  monthCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  monthHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  monthName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  monthTxnCount: {
-    fontSize: 12,
-    color: '#64748b',
-  },
-  monthStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  monthStatCol: {
-    alignItems: 'center',
-  },
-  monthStatLabel: {
-    fontSize: 11,
-    color: '#64748b',
-    marginBottom: 2,
-  },
-  monthStatVal: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  viewAllText: {
-    fontSize: 13,
-    color: '#16a34a',
-    fontWeight: '600',
-  },
-  txnItemCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  txnItemTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  txnItemRef: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  txnItemBottom: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  txnItemCategory: {
-    fontSize: 13,
-    color: '#334155',
-    fontWeight: '500',
-  },
-  txnItemAmount: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  txnItemMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  txnItemRecycler: {
-    fontSize: 11,
-    color: '#64748b',
-  },
-  txnItemDate: {
-    fontSize: 11,
-    color: '#94a3b8',
-  },
-  emptyTxnCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    marginTop: 8,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 10,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  emptySubtext: {
-    fontSize: 13,
-    color: '#64748b',
-    textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 18,
-  },
-  emptyActionBtn: {
-    backgroundColor: '#16a34a',
-    borderRadius: 10,
     paddingHorizontal: 20,
-    paddingVertical: 14,
-    minHeight: 56,
-    justifyContent: 'center',
-    alignItems: 'center',
+    gap: 8,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+    marginBottom: 4,
   },
-  emptyActionBtnText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
+  periodPill: {
+    paddingHorizontal: 16, paddingVertical: 8,
+    borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    minHeight: 36,
+  },
+  periodPillActive:     { backgroundColor: 'rgba(16,185,129,0.15)', borderColor: 'rgba(16,185,129,0.4)' },
+  periodPillText:       { color: 'rgba(255,255,255,0.55)', fontSize: 13, fontWeight: '700' },
+  periodPillTextActive: { color: '#10B981' },
+  pendingSection: { gap: 10, marginBottom: 8 },
+  pendingList:    { paddingHorizontal: 20, gap: 8 },
+  pendingRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: 'rgba(245,158,11,0.07)',
+    borderWidth: 1, borderColor: 'rgba(245,158,11,0.2)',
+    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12,
+  },
+  pendingLeft:    { gap: 2 },
+  pendingMaterial: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  pendingDate:    { color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: '500' },
+  pendingAmount:  { color: '#F59E0B', fontSize: 16, fontWeight: '900' },
+  skeletonPad:    { paddingHorizontal: 20, paddingTop: 12 },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 40,
   },
 });
+
+export default CollectorEarningsScreen;

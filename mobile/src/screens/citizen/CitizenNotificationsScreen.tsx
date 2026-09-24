@@ -486,9 +486,6 @@ export const CitizenNotificationsScreen: React.FC = () => {
 
   const ListHeader = (
     <>
-      {/* Offline banner */}
-      {!isConnected && <OfflineBanner />}
-
       {/* Cached data notice */}
       {fromCache && (
         <View style={styles.cachedNotice}>
@@ -499,53 +496,56 @@ export const CitizenNotificationsScreen: React.FC = () => {
         </View>
       )}
 
-      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: spacing.spaceMd, marginVertical: 4 }}>
+      {/* Top Actions Row: Mark all read on left, Read Aloud on right */}
+      <View style={styles.topActionsRow}>
+        {hasUnread ? (
+          <TouchableOpacity
+            style={styles.markAllButton}
+            onPress={handleMarkAllRead}
+            disabled={isMarkingAll || !isConnected}
+            accessibilityRole="button"
+            accessibilityLabel={
+              t('citizen.notifications.markAllAsRead') || 'Mark all notifications as read'
+            }
+            accessibilityState={{ disabled: isMarkingAll || !isConnected }}
+          >
+            {isMarkingAll ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Text
+                style={[
+                  styles.markAllText,
+                  (!isConnected || isMarkingAll) && styles.markAllTextDisabled,
+                ]}
+              >
+                {t('citizen.notifications.markAllAsRead') || '✓ Mark all as read'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <View style={{ flex: 1 }} />
+        )}
+
         <ReadAloudButton
           text={`Notifications. You have ${notifications.length} notifications, ${unreadCount} unread.`}
           size="small"
         />
       </View>
-
-      {/* Mark all read — only when online and there are unread items */}
-      {hasUnread && (
-        <TouchableOpacity
-          style={styles.markAllButton}
-          onPress={handleMarkAllRead}
-          disabled={isMarkingAll || !isConnected}
-          accessibilityRole="button"
-          accessibilityLabel={
-            t('citizen.notifications.markAllAsRead') || 'Mark all notifications as read'
-          }
-          accessibilityState={{ disabled: isMarkingAll || !isConnected }}
-        >
-          {isMarkingAll ? (
-            <ActivityIndicator size="small" color={colors.primary} />
-          ) : (
-            <Text
-              style={[
-                styles.markAllText,
-                (!isConnected || isMarkingAll) && styles.markAllTextDisabled,
-              ]}
-            >
-              {t('citizen.notifications.markAllAsRead') || '✓ Mark all as read'}
-            </Text>
-          )}
-        </TouchableOpacity>
-      )}
     </>
   );
 
   // ── Loading ───────────────────────────────────────────────────────────────
 
-  if (isLoading) {
+  if (isLoading && notifications.length === 0) {
     return (
-      <SafeAreaView style={styles.container}>
+      <EcoSetuBackground>
         <TopAppBar
-          title={t('citizen.notifications.title') || 'Notifications'}
-          roleBadge="CITIZEN"
+          title={t('navigation.notifications', 'Notifications')}
+          subtitle={unreadCount != null && unreadCount > 0 ? `${unreadCount} ${t('common.unread', 'unread')}` : t('common.allCaughtUp', 'All caught up')}
+          showBack={true}
         />
         <NotificationsSkeleton />
-      </SafeAreaView>
+      </EcoSetuBackground>
     );
   }
 
@@ -553,30 +553,24 @@ export const CitizenNotificationsScreen: React.FC = () => {
 
   if (errorMessage && notifications.length === 0) {
     return (
-      <SafeAreaView style={styles.container}>
+      <EcoSetuBackground>
         <TopAppBar
-          title={t('citizen.notifications.title') || 'Notifications'}
-          roleBadge="CITIZEN"
+          title={t('navigation.notifications', 'Notifications')}
+          showBack={true}
         />
-        {!isConnected && <OfflineBanner />}
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorIcon}>⚠️</Text>
-          <Text style={styles.errorTitle}>
-            {t('citizen.notifications.couldNotLoad') || 'Could Not Load Notifications'}
-          </Text>
-          <Text style={styles.errorMessage}>{errorMessage}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => { setIsLoading(true); loadData(); }}
-            accessibilityRole="button"
-            accessibilityLabel={t('citizen.requests.retry') || 'Retry loading notifications'}
-          >
-            <Text style={styles.retryButtonText}>
-              {t('citizen.requests.retry') || 'Retry'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorIcon}>⚠️</Text>
+            <Text style={styles.errorTitle}>{t('common.couldNotLoadNotifications', 'Could Not Load Notifications')}</Text>
+            <Text style={styles.errorMessage}>{errorMessage}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => { setIsLoading(true); loadData(); }}
+              accessibilityRole="button"
+            >
+              <Text style={styles.retryButtonText}>{t('common.retry', 'Retry')}</Text>
+            </TouchableOpacity>
+          </View>
+    </EcoSetuBackground>
     );
   }
 
@@ -584,11 +578,10 @@ export const CitizenNotificationsScreen: React.FC = () => {
 
   return (
     <EcoSetuBackground>
-      <SafeAreaView style={styles.container}>
         <TopAppBar
-          title={t('citizen.notifications.title') || 'Notifications'}
-          roleBadge="CITIZEN"
-          unreadNotificationsCount={unreadCount ?? 0}
+          title={t('navigation.notifications', 'Notifications')}
+          subtitle={unreadCount != null && unreadCount > 0 ? `${unreadCount} ${t('common.unread', 'unread')}` : undefined}
+          showBack={true}
         />
 
         <FlatList
@@ -621,7 +614,6 @@ export const CitizenNotificationsScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
           removeClippedSubviews
         />
-      </SafeAreaView>
     </EcoSetuBackground>
   );
 };
@@ -635,7 +627,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: spacing.spaceMd,
-    paddingBottom: spacing.spaceXl,
+    paddingBottom: 96,
   },
   listContentEmpty: {
     flexGrow: 1,
@@ -643,20 +635,20 @@ const styles = StyleSheet.create({
 
   // ── Notification Card ──
   card: {
-    backgroundColor: 'rgba(6, 21, 27, 0.75)',
-    borderRadius: 14,
-    marginBottom: spacing.spaceSm,
+    backgroundColor: 'rgba(16,44,48,0.75)',
+    borderRadius: 18,
+    marginBottom: 10,
     elevation: 2,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.10)',
     flexDirection: 'row',
     overflow: 'hidden',
     minHeight: 80,
   },
   cardUnread: {
-    backgroundColor: 'rgba(10, 36, 44, 0.90)',
-    borderColor: 'rgba(16, 185, 129, 0.50)',
-    borderWidth: 1.2,
+    backgroundColor: 'rgba(10,36,44,0.92)',
+    borderColor: 'rgba(16,185,129,0.40)',
+    borderWidth: 1.5,
     elevation: 4,
   },
   unreadBar: {
@@ -739,14 +731,18 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // ── Mark All ──
-  markAllButton: {
-    alignSelf: 'flex-end',
-    paddingHorizontal: spacing.spaceSm,
-    paddingVertical: spacing.spaceXs + 2,
-    marginBottom: spacing.spaceXs,
-    minHeight: 36,
+  // ── Top Actions ──
+  topActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: spacing.spaceSm,
+    minHeight: 36,
+  },
+  markAllButton: {
+    paddingHorizontal: spacing.spaceSm,
+    paddingVertical: spacing.spaceXs,
+    minHeight: 32,
     justifyContent: 'center',
   },
   markAllText: {

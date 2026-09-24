@@ -81,8 +81,8 @@ export const SlideEcosetuNetwork: React.FC<SlideProps> = ({ width, active }) => 
           },
         ]}
       >
-        <Text style={styles.headlineText}>{t('auth.slide2Title')}</Text>
-        <Text style={styles.subtitleText}>{t('auth.slide2Subtitle')}</Text>
+        <Text style={styles.headlineText}>{t('onboarding.slide2Title')}</Text>
+        <Text style={styles.subtitleText}>{t('onboarding.slide2Subtitle')}</Text>
       </Animated.View>
     </View>
   );

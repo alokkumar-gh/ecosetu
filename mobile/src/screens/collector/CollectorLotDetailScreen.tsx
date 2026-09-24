@@ -18,12 +18,12 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Image,
   ActivityIndicator,
   Alert,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useI18n } from '../../i18n';
 import { TopAppBar } from '../../components/layout/TopAppBar';
 import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
@@ -31,8 +31,10 @@ import { EcoSetuBackground } from '../../components/eco';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { materialLotService, MaterialLotItem } from '../../services/materialLotService';
+import sourcingService from '../../services/sourcingService';
 import { MATERIAL_TAXONOMY } from '../../config/materialTaxonomy';
 import { getSafetyTopicByCategory } from '../../data/safetyGuidance';
+import { ReportProblemModal } from '../../components/dispute/ReportProblemModal';
 
 const space = {
   xs: spacing.spaceXs,
@@ -63,6 +65,7 @@ export const CollectorLotDetailScreen: React.FC<CollectorLotDetailScreenProps> =
   const [lot, setLot] = useState<MaterialLotItem | null>(initialLot);
   const [isLoading, setIsLoading] = useState<boolean>(!initialLot && Boolean(lotId));
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [problemModalVisible, setProblemModalVisible] = useState<boolean>(false);
 
   useEffect(() => {
     if (!lotId) return;
@@ -338,6 +341,30 @@ export const CollectorLotDetailScreen: React.FC<CollectorLotDetailScreenProps> =
             </Text>
           </TouchableOpacity>
 
+          {/* Phase 6: Sell Again for Completed Lot */}
+          {lot.status === 'COMPLETED' && (
+            <TouchableOpacity
+              style={styles.sellAgainButton}
+              onPress={async () => {
+                try {
+                  const template = await sourcingService.getSellAgainTemplate(lot.id);
+                  navigation?.navigate('CollectorCreateLot', {
+                    category: template.category,
+                    subcategory: template.subcategory,
+                    condition: template.condition,
+                  });
+                } catch (err: any) {
+                  Alert.alert(t('common.error'), err.message || 'Failed to generate template');
+                }
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.sellAgainButtonText}>
+                🔁 {t('sourcing.sellAgain', 'Sell Again')}
+              </Text>
+            </TouchableOpacity>
+          )}
+
           {/* If Draft, Show Submit/Open Lot CTA */}
           {isDraft && (
             <TouchableOpacity
@@ -357,6 +384,29 @@ export const CollectorLotDetailScreen: React.FC<CollectorLotDetailScreenProps> =
               )}
             </TouchableOpacity>
           )}
+
+          {/* Phase 7: Report a Problem / Open Dispute */}
+          {!isDraft && (
+            <TouchableOpacity
+              style={styles.reportProblemButton}
+              onPress={() => setProblemModalVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.reportProblemButtonText}>
+                🚨 {t('disputes.reportProblem', 'Report a Problem')}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          <ReportProblemModal
+            visible={problemModalVisible}
+            onClose={() => setProblemModalVisible(false)}
+            materialLotId={lot.id}
+            estimatedWeightKg={lot.approximateTotalWeightKg}
+            onDisputeCreated={() => {
+              navigation?.navigate('CollectorDisputes');
+            }}
+          />
         </ScrollView>
       </SafeAreaView>
     </EcoSetuBackground>
@@ -636,5 +686,40 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
   },
+  sellAgainButton: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: '#10B981',
+    borderWidth: 1.5,
+    borderRadius: 14,
+    minHeight: 52,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: space.xs,
+    marginBottom: space.sm,
+  },
+  sellAgainButtonText: {
+    color: '#34D399',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  reportProblemButton: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderColor: '#EF4444',
+    borderWidth: 1.5,
+    borderRadius: 14,
+    minHeight: 52,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: space.xs,
+    marginBottom: space.sm,
+  },
+  reportProblemButtonText: {
+    color: '#EF4444',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
 });
+
 

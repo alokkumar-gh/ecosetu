@@ -11,11 +11,11 @@ const { ROLES } = require('../utils/constants');
 
 const router = express.Router();
 
-// Recycler creates a quote for a matched material lot
+// Recycler or Citizen creates a quote / purchase offer for a material lot
 router.post(
   '/',
   authenticate,
-  authorize(ROLES.RECYCLER, ROLES.ADMIN),
+  authorize(ROLES.RECYCLER, ROLES.CITIZEN, ROLES.ADMIN),
   validate(quoteValidators.createQuote),
   (req, res, next) => quoteController.createQuote(req, res, next)
 );
@@ -27,6 +27,15 @@ router.get(
   authorize(ROLES.RECYCLER, ROLES.ADMIN),
   validate(quoteValidators.listQuotesQuery, 'query'),
   (req, res, next) => quoteController.getRecyclerQuotes(req, res, next)
+);
+
+// Citizen gets list of own purchase offers
+router.get(
+  '/citizen',
+  authenticate,
+  authorize(ROLES.CITIZEN, ROLES.ADMIN),
+  validate(quoteValidators.listQuotesQuery, 'query'),
+  (req, res, next) => quoteController.getCitizenQuotes(req, res, next)
 );
 
 // Get single quote by ID
@@ -49,15 +58,23 @@ router.post(
   '/:id/reject',
   authenticate,
   authorize(ROLES.INFORMAL_COLLECTOR),
-  validate(quoteValidators.rejectQuote),
   (req, res, next) => quoteController.rejectQuote(req, res, next)
 );
 
-// Recycler cancels quote
+// Collector, Recycler, or Citizen counter-offers / revises quote
+router.post(
+  '/:id/counter',
+  authenticate,
+  authorize(ROLES.INFORMAL_COLLECTOR, ROLES.RECYCLER, ROLES.CITIZEN, ROLES.ADMIN),
+  validate(quoteValidators.counterQuote),
+  (req, res, next) => quoteController.counterQuote(req, res, next)
+);
+
+// Recycler or Citizen cancels own quote
 router.post(
   '/:id/cancel',
   authenticate,
-  authorize(ROLES.RECYCLER, ROLES.ADMIN),
+  authorize(ROLES.RECYCLER, ROLES.CITIZEN, ROLES.ADMIN),
   validate(quoteValidators.cancelQuote),
   (req, res, next) => quoteController.cancelQuote(req, res, next)
 );
