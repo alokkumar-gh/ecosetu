@@ -86,8 +86,8 @@ async def predict(image: UploadFile = File(...)):
         )
 
     try:
-        print("[EcoSetu AI DEBUG] FastAPI: Starting inference...")
-        prediction = classifier.predict(file_bytes)
+        import asyncio
+        prediction = await asyncio.to_thread(classifier.predict, file_bytes)
         print(f"[EcoSetu AI DEBUG] FastAPI: Inference completed in {prediction.inference_time_ms}ms -> detections: {len(prediction.detections)}, category: {prediction.category}, confidence: {prediction.confidence}")
         return prediction
     except ValueError as err:
