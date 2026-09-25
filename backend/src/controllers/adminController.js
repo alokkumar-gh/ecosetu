@@ -81,17 +81,43 @@ class AdminController {
   }
 
   /**
-   * Approve or reject user verification request
+   * Get verification request by ID with applicant details and audit history
+   * GET /api/v1/admin/verifications/:id
+   */
+  async getVerificationById(req, res, next) {
+    try {
+      const data = await verificationService.getVerificationById(req.params.id);
+      return sendSuccess(res, { verification: data }, 200);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Approve, reject, or request changes on user verification request
    * PATCH /api/v1/admin/verifications/:id
+   * POST /api/v1/admin/verifications/:id/approve
+   * POST /api/v1/admin/verifications/:id/reject
+   * POST /api/v1/admin/verifications/:id/request-changes
    */
   async updateVerification(req, res, next) {
     try {
       const clientIp = req.ip || req.connection?.remoteAddress || null;
+      let status = req.body.status;
+      if (req.path.endsWith('/approve')) status = 'APPROVED';
+      else if (req.path.endsWith('/reject')) status = 'REJECTED';
+      else if (req.path.endsWith('/request-changes')) status = 'CHANGES_REQUIRED';
+
       const data = await verificationService.updateVerification(
         req.user.id,
         req.params.id,
-        req.body.status,
-        req.body.reviewNotes,
+        status,
+        {
+          reviewNotes: req.body.reviewNotes,
+          rejectionReason: req.body.rejectionReason,
+          changeRequestReason: req.body.changeRequestReason,
+          changeRequestOptions: req.body.changeRequestOptions,
+        },
         clientIp
       );
       return sendSuccess(res, { verification: data }, 200);

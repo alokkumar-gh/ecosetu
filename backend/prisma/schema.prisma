@@ -119,8 +119,12 @@ enum RecyclingStatus {
 
 enum VerificationStatus {
   PENDING
+  NOT_SUBMITTED
+  SUBMITTED
+  UNDER_REVIEW
   APPROVED
   REJECTED
+  CHANGES_REQUIRED
 
   @@map("verification_status")
 }
@@ -699,22 +703,32 @@ model AiPrediction {
 }
 
 model Verification {
-  id          String             @id @default(uuid()) @db.Uuid
-  userId      String             @map("user_id") @db.Uuid
-  status      VerificationStatus @default(PENDING)
-  documentUrl String?            @map("document_url") @db.VarChar(500)
-  submittedAt DateTime           @default(now()) @map("submitted_at") @db.Timestamptz(6)
-  reviewedAt  DateTime?          @map("reviewed_at") @db.Timestamptz(6)
-  reviewedBy  String?            @map("reviewed_by") @db.Uuid
-  reviewNotes String?            @map("review_notes") @db.Text
-  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                   String             @id @default(uuid()) @db.Uuid
+  userId               String             @map("user_id") @db.Uuid
+  role                 UserRole?          @map("role")
+  status               VerificationStatus @default(PENDING)
+  documentType         String?            @map("document_type") @db.VarChar(50)
+  documentNumberMasked String?            @map("document_number_masked") @db.VarChar(50)
+  documentUrl          String?            @map("document_url") @db.VarChar(500)
+  storageKey           String?            @map("storage_key") @db.VarChar(255)
+  mimeType             String?            @map("mime_type") @db.VarChar(50)
+  fileSize             Int?               @map("file_size")
+  submittedAt          DateTime           @default(now()) @map("submitted_at") @db.Timestamptz(6)
+  reviewedAt           DateTime?          @map("reviewed_at") @db.Timestamptz(6)
+  reviewedBy           String?            @map("reviewed_by") @db.Uuid
+  reviewNotes          String?            @map("review_notes") @db.Text
+  rejectionReason      String?            @map("rejection_reason") @db.Text
+  changeRequestReason  String?            @map("change_request_reason") @db.Text
+  changeRequestOptions String[]           @default([]) @map("change_request_options")
+  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   user     User  @relation("UserVerifications", fields: [userId], references: [id], onDelete: Cascade)
   reviewer User? @relation("AdminReviewedVerifications", fields: [reviewedBy], references: [id], onDelete: SetNull)
 
   @@index([userId], map: "idx_v_user")
   @@index([status], map: "idx_v_status")
+  @@index([role], map: "idx_v_role")
   @@map("verifications")
 }
 

@@ -69,6 +69,15 @@ const firebaseLoginValidator = [
     .trim()
     .isString()
     .withMessage('Provider must be a string'),
+  body('role')
+    .optional()
+    .trim()
+    .isIn(allowedRegistrationRoles)
+    .withMessage('Role must be one of: CITIZEN, INFORMAL_COLLECTOR, RECYCLER'),
+  body('profileData')
+    .optional()
+    .isObject()
+    .withMessage('profileData must be an object'),
 ];
 
 module.exports = {

@@ -79,17 +79,17 @@ class AuthService {
   /**
    * Authenticate user with verified Firebase ID token
    * Synchronizes Firebase identity with backend ECOSETU session
-   * @param {Object} params - { idToken: string, provider?: string }
-   * @returns {Promise<{ user: Object, accessToken: string, refreshToken?: string }>}
+   * @param {Object} params - { idToken: string, provider?: string, role?: string, profileData?: Object }
+   * @returns {Promise<{ user?: Object, accessToken?: string, isNewUser?: boolean }>}
    */
-  async loginWithFirebase({ idToken, provider = 'firebase' }) {
+  async loginWithFirebase({ idToken, provider = 'firebase', role, profileData }) {
     if (!idToken) {
       throw AppError.validationError('Firebase ID token is required');
     }
 
     const response = await apiClient.post(
       '/auth/firebase-login',
-      { idToken, provider },
+      { idToken, provider, role, profileData },
       { skipAuth: true }
     );
 
@@ -97,10 +97,17 @@ class AuthService {
       throw AppError.authError('Firebase login failed: Invalid server response');
     }
 
+    // New user requiring role selection
+    if (response.data.isNewUser) {
+      return response.data;
+    }
+
     const { user, accessToken, refreshToken } = response.data;
 
     // Securely persist credentials in AsyncStorage
-    await storage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
+    if (accessToken) {
+      await storage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
+    }
     if (refreshToken) {
       await storage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
     }

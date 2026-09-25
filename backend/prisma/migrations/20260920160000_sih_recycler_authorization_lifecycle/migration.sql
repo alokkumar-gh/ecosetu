@@ -1,3 +1,10 @@
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'recycler_authorization_status') THEN
+    CREATE TYPE "recycler_authorization_status" AS ENUM ('PENDING', 'AUTHORIZED', 'PROVISIONAL', 'REJECTED', 'SUSPENDED', 'EXPIRED', 'REVOKED');
+  END IF;
+END $$;
+
 -- AlterEnum
 ALTER TYPE "recycler_authorization_status" ADD VALUE IF NOT EXISTS 'PROVISIONAL';
 ALTER TYPE "recycler_authorization_status" ADD VALUE IF NOT EXISTS 'REJECTED';
@@ -5,6 +12,7 @@ ALTER TYPE "recycler_authorization_status" ADD VALUE IF NOT EXISTS 'SUSPENDED';
 
 -- AlterTable
 ALTER TABLE "recycler_profiles" 
+  ADD COLUMN IF NOT EXISTS "authorization_status" "recycler_authorization_status" DEFAULT 'PENDING',
   ALTER COLUMN "authorization_status" SET DEFAULT 'PENDING'::recycler_authorization_status,
   ADD COLUMN IF NOT EXISTS "accepted_subcategories" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
   ADD COLUMN IF NOT EXISTS "authorization_number" VARCHAR(100),

@@ -172,8 +172,53 @@ function validateImageFile(file) {
   return true;
 }
 
+const PDF_MAGIC = Buffer.from([0x25, 0x50, 0x44, 0x46, 0x2d]); // '%PDF-'
+
+/**
+ * Validates req.file for identity/verification documents (PDF, JPG, PNG, WebP)
+ */
+function validateDocumentFile(file) {
+  if (!file || !file.buffer || file.buffer.length === 0) {
+    throw AppError.badRequest('Document file is required');
+  }
+
+  if (file.buffer.length > MAX_FILE_SIZE) {
+    throw AppError.badRequest('File size must be under 10MB');
+  }
+
+  const filename = file.filename || '';
+  const ext = filename.includes('.') ? filename.split('.').pop().toLowerCase() : '';
+  const allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'pdf'];
+
+  if (ext && !allowedExts.includes(ext)) {
+    throw AppError.badRequest('Only JPG, PNG, WebP, and PDF documents are accepted');
+  }
+
+  const mimetype = (file.mimetype || '').toLowerCase();
+  const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
+
+  if (!allowedMimes.includes(mimetype)) {
+    throw AppError.badRequest('Only JPG, PNG, WebP, and PDF documents are accepted');
+  }
+
+  const isJpeg = file.buffer.length >= 3 && file.buffer.slice(0, 3).equals(JPEG_MAGIC);
+  const isPng = file.buffer.length >= 4 && file.buffer.slice(0, 4).equals(PNG_MAGIC);
+  const isWebp =
+    file.buffer.length >= 12 &&
+    file.buffer.slice(0, 4).equals(WEBP_RIFF) &&
+    file.buffer.slice(8, 12).equals(WEBP_TAG);
+  const isPdf = file.buffer.length >= 5 && file.buffer.slice(0, 5).equals(PDF_MAGIC);
+
+  if (!isJpeg && !isPng && !isWebp && !isPdf) {
+    throw AppError.badRequest('Corrupted or invalid document file signature');
+  }
+
+  return true;
+}
+
 module.exports = {
   handleImageUpload,
   validateImageFile,
+  validateDocumentFile,
   MAX_FILE_SIZE,
 };

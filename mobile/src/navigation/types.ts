@@ -9,6 +9,8 @@ export type AuthStackParamList = {
   Login: undefined;
   Register: { initialRole?: 'CITIZEN' | 'INFORMAL_COLLECTOR' | 'RECYCLER' } | undefined;
   ForgotPassword: undefined;
+  CollectorOnboarding: { idToken?: string; name?: string; email?: string } | undefined;
+  RecyclerOnboarding: { idToken?: string; name?: string; email?: string } | undefined;
 };
 
 export type CitizenTabParamList = {

@@ -1,21 +1,7 @@
 /**
- * AdminVerificationsScreen
- * Authenticated ADMIN — Review and approve/reject collector and recycler verifications.
- *
- * Operational Scope:
- *   - List verification requests via GET /api/v1/admin/verifications
- *   - Filter by status: PENDING, APPROVED, REJECTED, ALL
- *   - Inspect applicant identity, role, credentials, and uploaded documents
- *   - Approve or reject verification via PATCH /api/v1/admin/verifications/:id
- *   - Pre-flight confirmation, duplicate protection, online-only validation, 409 conflict handling
- *
- * Source of Truth:
- *   docs/05_API_SPECIFICATION.md Section 14
- *   docs/06_ROLES_AND_PERMISSIONS.md
- *   docs/07_BUSINESS_WORKFLOWS.md Sections 2.1, 3.1, 4.1
- *   docs/08_UI_UX_SPECIFICATION.md Section 4
- *   docs/21_TRACEABILITY_AND_AUDIT.md
- *   docs/23_NOTIFICATION_SYSTEM.md
+ * AdminVerificationsScreen — Upgraded Verification Center
+ * Authenticated ADMIN — Comprehensive identity & role review workflow.
+ * Canonical Reference: Prompt Sections 21, 22, 23, 24, 25, 26, 27
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -26,12 +12,12 @@ import {
   FlatList,
   TextInput,
   TouchableOpacity,
-  SafeAreaView,
   Modal,
   Alert,
   ActivityIndicator,
   RefreshControl,
   ScrollView,
+  Image,
 } from 'react-native';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Skeleton } from '../../components/common/Skeleton';
@@ -40,33 +26,64 @@ import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { useNetwork } from '../../hooks/useNetwork';
 import { adminService } from '../../services/adminService';
 import { AdminShell } from '../../components/admin/AdminShell';
-import { ADMIN_COLOR, ADMIN_TYPE, ADMIN_RADIUS } from '../../components/admin/AdminTheme';
+import { ADMIN_COLOR, ADMIN_RADIUS } from '../../components/admin/AdminTheme';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
 
-const STATUS_FILTERS = ['PENDING', 'APPROVED', 'REJECTED', 'ALL'];
+const TABS = [
+  { id: 'ALL', label: 'All', type: 'status' },
+  { id: 'INFORMAL_COLLECTOR', label: 'Collectors', type: 'role' },
+  { id: 'RECYCLER', label: 'Recyclers', type: 'role' },
+  { id: 'PENDING', label: 'Pending', type: 'status' },
+  { id: 'APPROVED', label: 'Approved', type: 'status' },
+  { id: 'REJECTED', label: 'Rejected', type: 'status' },
+  { id: 'CHANGES_REQUIRED', label: 'Changes Req.', type: 'status' },
+];
+
+const CHANGE_REQUEST_REASONS = [
+  'Document unreadable / blurry',
+  'Incorrect or expired document',
+  'Missing required government ID / license',
+  'Name mismatch with application',
+  'Facility address requires physical proof',
+  'Other',
+];
 
 export const AdminVerificationsScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const { isConnected } = useNetwork();
 
   const [verifications, setVerifications] = useState<any[]>([]);
   const [pagination, setPagination] = useState<any>(null);
+  const [metrics, setMetrics] = useState<any>({
+    pending: 0,
+    underReview: 0,
+    approved: 0,
+    rejected: 0,
+    changesRequired: 0,
+    total: 0,
+  });
   const [page, setPage] = useState<number>(1);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
-  const [fromCache, setFromCache] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Filters
-  const [selectedStatus, setSelectedStatus] = useState<string>('PENDING');
+  // Active Filter Tab
+  const [activeTab, setActiveTab] = useState<string>('PENDING');
 
-  // Selected Verification Modal & Decision
+  // Selected Verification Detail Modal
   const [selectedVerification, setSelectedVerification] = useState<any | null>(null);
   const [reviewNotes, setReviewNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [modalError, setModalError] = useState<string | null>(null);
+
+  // Request Changes Modal
+  const [changesModalVisible, setChangesModalVisible] = useState<boolean>(false);
+  const [selectedChangeReasons, setSelectedChangeReasons] = useState<string[]>([]);
+  const [customChangeNote, setCustomChangeNote] = useState<string>('');
+
+  // Document Zoom Modal
+  const [zoomDocVisible, setZoomDocVisible] = useState<boolean>(false);
 
   const isSubmittingRef = useRef<boolean>(false);
   const refreshingRef = useRef<boolean>(false);
@@ -75,15 +92,23 @@ export const AdminVerificationsScreen: React.FC<{ navigation?: any }> = ({ navig
     async (targetPage = 1, silent = false) => {
       if (!silent) setError(null);
       try {
-        const result = await adminService.getVerifications({
-          status: selectedStatus,
+        const isRoleTab = activeTab === 'INFORMAL_COLLECTOR' || activeTab === 'RECYCLER';
+        const statusParam = isRoleTab ? 'ALL' : activeTab;
+        const roleParam = isRoleTab ? activeTab : 'ALL';
+
+        const result = await (adminService as any).getVerifications({
+          status: statusParam,
+          role: roleParam,
           page: targetPage,
           limit: 20,
         });
+
         setVerifications(result.verifications || []);
         setPagination(result.pagination || null);
+        if (result.metrics) {
+          setMetrics(result.metrics);
+        }
         setPage(targetPage);
-        setFromCache(result.fromCache);
       } catch (err: any) {
         const msg =
           err?.response?.data?.message || err?.message || 'Unable to load verification requests.';
@@ -93,7 +118,7 @@ export const AdminVerificationsScreen: React.FC<{ navigation?: any }> = ({ navig
         setIsRefreshing(false);
       }
     },
-    [selectedStatus],
+    [activeTab]
   );
 
   useEffect(() => {
@@ -110,180 +135,271 @@ export const AdminVerificationsScreen: React.FC<{ navigation?: any }> = ({ navig
     });
   }, [loadVerifications]);
 
-  const handleOpenModal = (v: any) => {
+  const handleOpenReview = (v: any) => {
     setSelectedVerification(v);
     setReviewNotes(v.reviewNotes || '');
-    setModalError(null);
   };
 
   const handleCloseModal = () => {
     if (isSubmitting) return;
     setSelectedVerification(null);
-    setModalError(null);
+    setChangesModalVisible(false);
   };
 
-  const handleDecision = (decision: 'APPROVED' | 'REJECTED') => {
+  // ── Actions: Approve, Reject, Request Changes ───────────────────────────────
+
+  const handleConfirmApprove = () => {
     if (!selectedVerification) return;
-
     if (!isConnected) {
-      Alert.alert(
-        'Internet Connection Required',
-        'Verification decisions require real-time connection to the ECOSETU network.',
-      );
+      Alert.alert('Online Connection Required', 'Approvals require a live connection to ECOSETU.');
       return;
     }
 
-    if (selectedVerification.status !== 'PENDING') {
-      Alert.alert('Decision Completed', `This request has already been ${selectedVerification.status}.`);
-      return;
-    }
-
-    const title = decision === 'APPROVED' ? 'Approve Verification' : 'Reject Verification';
-    const message =
-      decision === 'APPROVED'
-        ? `Are you sure you want to approve ${selectedVerification.user?.name || 'this applicant'}? Their account will become ACTIVE immediately.`
-        : `Are you sure you want to reject ${selectedVerification.user?.name || 'this applicant'}? They will be notified of the decision and can resubmit.`;
-
-    Alert.alert(title, message, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: decision === 'APPROVED' ? 'Approve' : 'Reject',
-        style: decision === 'REJECTED' ? 'destructive' : 'default',
-        onPress: () => executeDecision(decision),
-      },
-    ]);
+    Alert.alert(
+      'Approve Verification?',
+      `Are you sure you want to approve ${selectedVerification.user?.name || 'this applicant'}? Their account will be activated immediately with full operational privileges.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm Approve',
+          onPress: () => executeDecision('APPROVED', { reviewNotes }),
+        },
+      ]
+    );
   };
 
-  const executeDecision = async (decision: 'APPROVED' | 'REJECTED') => {
+  const handleConfirmReject = () => {
+    if (!selectedVerification) return;
+    if (!isConnected) {
+      Alert.alert('Online Connection Required', 'Decisions require a live connection.');
+      return;
+    }
+
+    Alert.alert(
+      'Reject Verification?',
+      'This will prevent the applicant from accessing verified functionality. The applicant will be notified and can resubmit with corrected documentation.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm Rejection',
+          style: 'destructive',
+          onPress: () =>
+            executeDecision('REJECTED', {
+              rejectionReason: reviewNotes || 'Document could not be validated',
+              reviewNotes,
+            }),
+        },
+      ]
+    );
+  };
+
+  const handleOpenRequestChanges = () => {
+    setSelectedChangeReasons([]);
+    setCustomChangeNote('');
+    setChangesModalVisible(true);
+  };
+
+  const toggleChangeReason = (reason: string) => {
+    setSelectedChangeReasons((prev) =>
+      prev.includes(reason) ? prev.filter((r) => r !== reason) : [...prev, reason]
+    );
+  };
+
+  const handleExecuteRequestChanges = async () => {
+    if (selectedChangeReasons.length === 0 && !customChangeNote.trim()) {
+      Alert.alert('Reason Required', 'Please check at least one correction reason or write an explanation.');
+      return;
+    }
+
+    const changeReason = [
+      ...selectedChangeReasons,
+      customChangeNote.trim() ? `Note: ${customChangeNote.trim()}` : null,
+    ]
+      .filter(Boolean)
+      .join('; ');
+
+    setChangesModalVisible(false);
+    await executeDecision('CHANGES_REQUIRED', {
+      changeRequestReason: changeReason,
+      changeRequestOptions: selectedChangeReasons,
+      reviewNotes: customChangeNote.trim() || undefined,
+    });
+  };
+
+  const executeDecision = async (status: string, payload: any) => {
     if (!selectedVerification || isSubmittingRef.current) return;
 
     isSubmittingRef.current = true;
     setIsSubmitting(true);
-    setModalError(null);
 
     try {
       const updated: any = await adminService.updateVerification(
         selectedVerification.id,
-        decision,
-        reviewNotes,
+        status,
+        payload
       );
 
-      // Reconcile list
+      // Reconcile list state
       setVerifications((prev) =>
-        prev.map((v) => (v.id === selectedVerification.id ? { ...v, ...updated } : v)),
+        prev.map((v) => (v.id === selectedVerification.id ? { ...v, ...updated } : v))
       );
 
       Alert.alert(
         'Decision Recorded',
-        `Verification has been ${decision === 'APPROVED' ? 'approved' : 'rejected'}. Target account notified.`,
-        [{ text: 'OK', onPress: () => setSelectedVerification(null) }],
+        `Verification updated to ${status}. Notification dispatched to applicant.`,
+        [{ text: 'OK', onPress: () => setSelectedVerification(null) }]
       );
+      loadVerifications(page, true);
     } catch (err: any) {
-      const status = err?.response?.status;
-      const msg =
-        err?.response?.data?.message || err?.message || 'Failed to record verification decision.';
-
-      if (status === 409) {
-        setModalError('Status conflict: this verification has already been reviewed. Refreshing.');
-        loadVerifications(page, true);
-      } else if (status === 403) {
-        setModalError('Forbidden: administrative permissions required.');
-      } else {
-        setModalError(msg);
-      }
+      Alert.alert('Error', err?.message || 'Failed to update verification');
     } finally {
-      isSubmittingRef.current = false;
       setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
+  // ── Render Item in Queue ───────────────────────────────────────────────────
+
   const renderVerificationItem = ({ item }: { item: any }) => {
     const applicant = item.user || {};
-    const isPending = item.status === 'PENDING';
+    const effectiveRole = item.role || applicant.role;
+    const isCollector = effectiveRole === 'INFORMAL_COLLECTOR';
+    const isPending = item.status === 'PENDING' || item.status === 'SUBMITTED' || item.status === 'UNDER_REVIEW';
 
     return (
-      <TouchableOpacity
-        style={[styles.card, isPending && styles.cardPending]}
-        onPress={() => handleOpenModal(item)}
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityLabel={`Verification: ${applicant.name || 'Unnamed'}, Role: ${applicant.role}, Status: ${item.status}`}
-      >
+      <View style={[styles.queueCard, isPending && styles.queueCardPending]}>
         <View style={styles.cardHeader}>
-          <View style={styles.nameContainer}>
-            <Text style={styles.userName}>{applicant.name || 'Unnamed Applicant'}</Text>
-            <Text style={styles.userEmail}>{applicant.email}</Text>
+          <View style={styles.applicantInfo}>
+            <Text style={styles.applicantName}>{applicant.name || 'Unnamed Applicant'}</Text>
+            <View style={styles.roleTagWrap}>
+              <View
+                style={[
+                  styles.roleBadge,
+                  isCollector ? styles.roleBadgeCollector : styles.roleBadgeRecycler,
+                ]}
+              >
+                <Text style={styles.roleBadgeText}>
+                  {isCollector ? '🚚 Collector' : '🏭 Recycler'}
+                </Text>
+              </View>
+              <Text style={styles.emailText}>{applicant.email}</Text>
+            </View>
           </View>
           <StatusBadge status={item.status} />
         </View>
 
-        <View style={styles.cardMeta}>
-          <Text style={styles.roleTag}>{applicant.role}</Text>
-          {applicant.phone ? <Text style={styles.metaText}>📞 {applicant.phone}</Text> : null}
+        {/* Document Status */}
+        <View style={styles.docStatusRow}>
+          <Text style={styles.docStatusText}>
+            📄 {item.documentType || (isCollector ? 'Aadhaar / ID Proof' : 'PCB Authorization')}
+            {item.documentNumberMasked ? ` (${item.documentNumberMasked})` : ''}
+          </Text>
         </View>
 
+        {/* Footer info & review button */}
         <View style={styles.cardFooter}>
-          <Text style={styles.submittedDate}>
-            Submitted: {item.submittedAt ? new Date(item.submittedAt).toLocaleDateString('en-IN') : '—'}
-          </Text>
-          {item.documentUrl ? (
-            <Text style={styles.docAttachedTag}>📎 Document Attached</Text>
-          ) : null}
+          <View>
+            <Text style={styles.submittedText}>
+              Submitted: {item.submittedAt ? new Date(item.submittedAt).toLocaleDateString('en-IN') : '—'}
+            </Text>
+            {item.reviewer ? (
+              <Text style={styles.reviewerText}>Reviewed by: {item.reviewer.name}</Text>
+            ) : null}
+          </View>
+
+          <TouchableOpacity
+            style={styles.reviewBtn}
+            onPress={() => handleOpenReview(item)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+          >
+            <Text style={styles.reviewBtnText}>REVIEW</Text>
+          </TouchableOpacity>
         </View>
-      </TouchableOpacity>
+      </View>
     );
   };
 
   return (
     <AdminShell
       screenKey="AdminVerifications"
-      breadcrumb={['Operations', 'Verifications']}
+      breadcrumb={['Operations', 'Verification Center']}
       navigation={navigation}
     >
-
       <OfflineBanner />
 
-      {/* Status Filter Tabs */}
+      {/* VERIFICATION CENTER TITLE & HEADER */}
+      <View style={styles.titleSection}>
+        <Text style={styles.mainTitle}>VERIFICATION CENTER</Text>
+        <Text style={styles.mainSubtitle}>
+          Admin-controlled multi-role identity & compliance verification queue.
+        </Text>
+      </View>
+
+      {/* REAL DATABASE METRICS DASHBOARD (Prompt Section 21) */}
+      <View style={styles.metricsGrid}>
+        <View style={[styles.metricCard, { borderLeftColor: '#F59E0B' }]}>
+          <Text style={styles.metricVal}>{metrics.pending}</Text>
+          <Text style={styles.metricLabel}>Pending</Text>
+        </View>
+        <View style={[styles.metricCard, { borderLeftColor: '#3B82F6' }]}>
+          <Text style={styles.metricVal}>{metrics.underReview}</Text>
+          <Text style={styles.metricLabel}>Under Review</Text>
+        </View>
+        <View style={[styles.metricCard, { borderLeftColor: '#10B981' }]}>
+          <Text style={styles.metricVal}>{metrics.approved}</Text>
+          <Text style={styles.metricLabel}>Approved</Text>
+        </View>
+        <View style={[styles.metricCard, { borderLeftColor: '#EF4444' }]}>
+          <Text style={styles.metricVal}>{metrics.rejected}</Text>
+          <Text style={styles.metricLabel}>Rejected</Text>
+        </View>
+      </View>
+
+      {/* FILTER TABS (Prompt Section 21) */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.filterScroll}
         contentContainerStyle={styles.filterContainer}
       >
-        {STATUS_FILTERS.map((s) => (
-          <TouchableOpacity
-            key={s}
-            style={[styles.filterChip, selectedStatus === s && styles.filterChipActive]}
-            onPress={() => setSelectedStatus(s)}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: selectedStatus === s }}
-          >
-            <Text
-              style={[styles.filterChipText, selectedStatus === s && styles.filterChipTextActive]}
+        {TABS.map((tab) => {
+          const active = activeTab === tab.id;
+          return (
+            <TouchableOpacity
+              key={tab.id}
+              style={[styles.filterTab, active && styles.filterTabActive]}
+              onPress={() => setActiveTab(tab.id)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
             >
-              {s}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text style={[styles.filterTabText, active && styles.filterTabTextActive]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.spaceMd, marginVertical: spacing.spaceXs }}>
-        <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-          {pagination?.total ?? verifications.length} {selectedStatus}
+      {/* Summary Row */}
+      <View style={styles.summaryRow}>
+        <Text style={styles.summaryText}>
+          {pagination?.total ?? verifications.length} verification requests in view
         </Text>
         <ReadAloudButton
           variant="compact"
-          text={() => `Admin Verifications. ${selectedStatus} requests: ${pagination?.total ?? verifications.length}.`}
-          accessibilityLabel="Read verifications summary"
+          text={() =>
+            `Verification Center. ${metrics.pending} pending, ${metrics.approved} approved, ${metrics.rejected} rejected.`
+          }
         />
       </View>
 
-      {/* Main List */}
+      {/* Main Verification Queue List */}
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <Skeleton width="100%" height={95} borderRadius={8} style={{ marginBottom: spacing.spaceSm }} />
-          <Skeleton width="100%" height={95} borderRadius={8} style={{ marginBottom: spacing.spaceSm }} />
-          <Skeleton width="100%" height={95} borderRadius={8} style={{ marginBottom: spacing.spaceSm }} />
+          <Skeleton width="100%" height={105} borderRadius={8} style={{ marginBottom: 10 }} />
+          <Skeleton width="100%" height={105} borderRadius={8} style={{ marginBottom: 10 }} />
+          <Skeleton width="100%" height={105} borderRadius={8} style={{ marginBottom: 10 }} />
         </View>
       ) : error && verifications.length === 0 ? (
         <View style={styles.centerContainer}>
@@ -310,16 +426,16 @@ export const AdminVerificationsScreen: React.FC<{ navigation?: any }> = ({ navig
           }
           ListEmptyComponent={
             <EmptyState
-              title="No Verifications"
-              message={`No verification requests in '${selectedStatus}' status.`}
+              title="No Verifications in This Queue"
+              message={`No records matching filter '${activeTab}'.`}
               actionLabel="Show Pending"
-              onAction={() => setSelectedStatus('PENDING')}
+              onAction={() => setActiveTab('PENDING')}
             />
           }
         />
       )}
 
-      {/* Review & Decision Modal */}
+      {/* ── VERIFICATION DETAIL & DECISION MODAL (Prompt Section 23) ─────────── */}
       <Modal
         visible={!!selectedVerification}
         transparent
@@ -328,159 +444,292 @@ export const AdminVerificationsScreen: React.FC<{ navigation?: any }> = ({ navig
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Verification Inspection</Text>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>VERIFICATION INSPECTION</Text>
+              <TouchableOpacity onPress={handleCloseModal} style={styles.modalCloseBtn}>
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
 
             {selectedVerification && (
-              <ScrollView style={styles.modalScroll}>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Applicant:</Text>
-                  <Text style={styles.detailValue}>{selectedVerification.user?.name || '—'}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Role:</Text>
-                  <Text style={styles.detailValue}>{selectedVerification.user?.role}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Email:</Text>
-                  <Text style={styles.detailValue}>{selectedVerification.user?.email}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Phone:</Text>
-                  <Text style={styles.detailValue}>{selectedVerification.user?.phone || '—'}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Status:</Text>
-                  <StatusBadge status={selectedVerification.status} />
-                </View>
-
-                {/* Role-Specific Operational Details */}
-                {selectedVerification.user?.collectorProfile && (
-                  <View style={styles.profileBox}>
-                    <Text style={styles.boxTitle}>Collector Profile Details</Text>
-                    <Text style={styles.boxText}>
-                      Service Radius: {selectedVerification.user.collectorProfile.serviceRadiusKm || 5} km
-                    </Text>
-                    {selectedVerification.user.collectorProfile.bio ? (
-                      <Text style={styles.boxText}>
-                        Bio: {selectedVerification.user.collectorProfile.bio}
-                      </Text>
-                    ) : null}
+              <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+                {/* APPLICANT SECTION */}
+                <View style={styles.inspectionSection}>
+                  <Text style={styles.inspectionTitle}>APPLICANT INFORMATION</Text>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Full Name:</Text>
+                    <Text style={styles.detailValue}>{selectedVerification.user?.name || '—'}</Text>
                   </View>
-                )}
-
-                {selectedVerification.user?.recyclerProfile && (
-                  <View style={styles.profileBox}>
-                    <Text style={styles.boxTitle}>Recycler Facility Details</Text>
-                    <Text style={styles.boxText}>
-                      Facility: {selectedVerification.user.recyclerProfile.facilityName || '—'}
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Role:</Text>
+                    <Text style={[styles.detailValue, { fontWeight: '800' }]}>
+                      {selectedVerification.role || selectedVerification.user?.role}
                     </Text>
-                    <Text style={styles.boxText}>
-                      Address: {selectedVerification.user.recyclerProfile.facilityAddress || '—'}
-                    </Text>
-                    {selectedVerification.user.recyclerProfile.licenseNumber ? (
-                      <Text style={styles.boxText}>
-                        License No: {selectedVerification.user.recyclerProfile.licenseNumber}
-                      </Text>
-                    ) : null}
                   </View>
-                )}
-
-                {/* Uploaded Document Info */}
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Credential Document:</Text>
-                  <Text style={[styles.detailValue, { color: colors.primary }]}>
-                    {selectedVerification.documentUrl || 'Uploaded in Profile'}
-                  </Text>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Email:</Text>
+                    <Text style={styles.detailValue}>{selectedVerification.user?.email}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Phone:</Text>
+                    <Text style={styles.detailValue}>{selectedVerification.user?.phone || '—'}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Registered:</Text>
+                    <Text style={styles.detailValue}>
+                      {selectedVerification.user?.createdAt
+                        ? new Date(selectedVerification.user.createdAt).toLocaleDateString('en-IN')
+                        : '—'}
+                    </Text>
+                  </View>
                 </View>
 
-                {/* Existing Review Info if Already Reviewed */}
-                {selectedVerification.status !== 'PENDING' && (
-                  <View style={styles.reviewedBox}>
-                    <Text style={styles.boxTitle}>Review History</Text>
-                    <Text style={styles.boxText}>
-                      Reviewed At: {selectedVerification.reviewedAt ? new Date(selectedVerification.reviewedAt).toLocaleString('en-IN') : '—'}
-                    </Text>
-                    {selectedVerification.reviewer?.name && (
-                      <Text style={styles.boxText}>
-                        Reviewer: {selectedVerification.reviewer.name}
+                {/* SUBMITTED ROLE INFORMATION */}
+                <View style={styles.inspectionSection}>
+                  <Text style={styles.inspectionTitle}>SUBMITTED PROFILE DETAILS</Text>
+                  {selectedVerification.user?.collectorProfile ? (
+                    <>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Operating Area:</Text>
+                        <Text style={styles.detailValue}>
+                          {selectedVerification.user.collectorProfile.serviceArea || '—'}
+                        </Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>City / Location:</Text>
+                        <Text style={styles.detailValue}>
+                          {selectedVerification.user.collectorProfile.city || 'Delhi'}
+                        </Text>
+                      </View>
+                    </>
+                  ) : null}
+
+                  {selectedVerification.user?.recyclerProfile ? (
+                    <>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Facility Name:</Text>
+                        <Text style={styles.detailValue}>
+                          {selectedVerification.user.recyclerProfile.facilityName || '—'}
+                        </Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Address:</Text>
+                        <Text style={styles.detailValue}>
+                          {selectedVerification.user.recyclerProfile.facilityAddress || '—'}
+                        </Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>License Number:</Text>
+                        <Text style={styles.detailValue}>
+                          {selectedVerification.user.recyclerProfile.licenseNumber || '—'}
+                        </Text>
+                      </View>
+                    </>
+                  ) : null}
+
+                  {selectedVerification.documentNumberMasked ? (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Document Ref:</Text>
+                      <Text style={[styles.detailValue, { color: '#FBBF24', fontWeight: '700' }]}>
+                        {selectedVerification.documentNumberMasked}
                       </Text>
-                    )}
-                    {selectedVerification.reviewNotes && (
-                      <Text style={styles.boxText}>
-                        Notes: {selectedVerification.reviewNotes}
-                      </Text>
-                    )}
-                  </View>
-                )}
-
-                {modalError && (
-                  <View style={styles.errorBanner}>
-                    <Text style={styles.errorBannerText}>{modalError}</Text>
-                  </View>
-                )}
-
-                {/* Decision Controls (Enabled only for PENDING) */}
-                {selectedVerification.status === 'PENDING' ? (
-                  <>
-                    <Text style={styles.sectionHeading}>Administrative Review Notes</Text>
-                    <TextInput
-                      style={styles.notesInput}
-                      placeholder="Enter optional approval notes or rejection reason..."
-                      placeholderTextColor={colors.textSecondary}
-                      value={reviewNotes}
-                      onChangeText={setReviewNotes}
-                      multiline
-                      numberOfLines={3}
-                      maxLength={500}
-                      editable={!isSubmitting && isConnected}
-                    />
-
-                    {!isConnected && (
-                      <Text style={styles.offlineNotice}>
-                        ⚠️ Verification decisions are disabled while offline.
-                      </Text>
-                    )}
-
-                    <View style={styles.decisionActionsRow}>
-                      <TouchableOpacity
-                        style={[
-                          styles.rejectButton,
-                          (!isConnected || isSubmitting) && styles.buttonDisabled,
-                        ]}
-                        onPress={() => handleDecision('REJECTED')}
-                        disabled={isSubmitting || !isConnected}
-                      >
-                        <Text style={styles.rejectButtonText}>Reject</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[
-                          styles.approveButton,
-                          (!isConnected || isSubmitting) && styles.buttonDisabled,
-                        ]}
-                        onPress={() => handleDecision('APPROVED')}
-                        disabled={isSubmitting || !isConnected}
-                      >
-                        {isSubmitting ? (
-                          <ActivityIndicator size="small" color="#FFFFFF" />
-                        ) : (
-                          <Text style={styles.approveButtonText}>Approve</Text>
-                        )}
-                      </TouchableOpacity>
                     </View>
-                  </>
-                ) : null}
+                  ) : null}
+                </View>
 
-                <TouchableOpacity
-                  style={styles.closeModalButton}
-                  onPress={handleCloseModal}
-                  disabled={isSubmitting}
-                >
-                  <Text style={styles.closeModalButtonText}>Close</Text>
-                </TouchableOpacity>
+                {/* SECURE IDENTITY DOCUMENT PREVIEW */}
+                <View style={styles.inspectionSection}>
+                  <Text style={styles.inspectionTitle}>IDENTITY DOCUMENT</Text>
+                  {selectedVerification.documentUrl ? (
+                    <View style={styles.docPreviewCard}>
+                      <Image
+                        source={{ uri: selectedVerification.documentUrl }}
+                        style={styles.docThumbnail}
+                        resizeMode="cover"
+                      />
+                      <View style={styles.docPreviewActions}>
+                        <TouchableOpacity
+                          style={styles.docActionBtn}
+                          onPress={() => setZoomDocVisible(true)}
+                        >
+                          <Text style={styles.docActionBtnText}>🔍 ZOOM</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.docActionBtn}
+                          onPress={() =>
+                            Alert.alert('Secure Document View', 'Authorized admin inspection mode active.')
+                          }
+                        >
+                          <Text style={styles.docActionBtnText}>👁 VIEW</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : (
+                    <Text style={styles.noDocText}>No document preview available.</Text>
+                  )}
+                </View>
+
+                {/* REVIEW HISTORY (Prompt Section 26) */}
+                <View style={styles.inspectionSection}>
+                  <Text style={styles.inspectionTitle}>REVIEW HISTORY & AUDIT TRAIL</Text>
+                  <View style={styles.auditRow}>
+                    <Text style={styles.auditDot}>•</Text>
+                    <Text style={styles.auditText}>
+                      Submitted on{' '}
+                      {new Date(selectedVerification.submittedAt).toLocaleString('en-IN')}
+                    </Text>
+                  </View>
+                  {selectedVerification.reviewedAt ? (
+                    <View style={styles.auditRow}>
+                      <Text style={styles.auditDot}>•</Text>
+                      <Text style={styles.auditText}>
+                        Decision: {selectedVerification.status} by{' '}
+                        {selectedVerification.reviewer?.name || 'Admin'} on{' '}
+                        {new Date(selectedVerification.reviewedAt).toLocaleString('en-IN')}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={styles.auditRow}>
+                      <Text style={styles.auditDot}>•</Text>
+                      <Text style={styles.auditText}>Awaiting decision from admin</Text>
+                    </View>
+                  )}
+                  {selectedVerification.rejectionReason ? (
+                    <Text style={styles.reasonText}>
+                      Reason: {selectedVerification.rejectionReason}
+                    </Text>
+                  ) : null}
+                  {selectedVerification.changeRequestReason ? (
+                    <Text style={styles.reasonText}>
+                      Feedback: {selectedVerification.changeRequestReason}
+                    </Text>
+                  ) : null}
+                </View>
+
+                {/* Admin Review Notes Input */}
+                <Text style={styles.inputLabel}>DECISION NOTES (OPTIONAL)</Text>
+                <TextInput
+                  style={styles.notesInput}
+                  placeholder="Internal review observations..."
+                  placeholderTextColor={ADMIN_COLOR.textMuted}
+                  value={reviewNotes}
+                  onChangeText={setReviewNotes}
+                  multiline
+                />
+
+                {/* 3 ACTIONS: APPROVE / REQUEST CHANGES / REJECT */}
+                <View style={styles.actionButtonsRow}>
+                  <TouchableOpacity
+                    style={styles.approveBtn}
+                    onPress={handleConfirmApprove}
+                    disabled={isSubmitting}
+                  >
+                    <Text style={styles.approveBtnText}>APPROVE</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.changesBtn}
+                    onPress={handleOpenRequestChanges}
+                    disabled={isSubmitting}
+                  >
+                    <Text style={styles.changesBtnText}>REQUEST CHANGES</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.rejectBtn}
+                    onPress={handleConfirmReject}
+                    disabled={isSubmitting}
+                  >
+                    <Text style={styles.rejectBtnText}>REJECT</Text>
+                  </TouchableOpacity>
+                </View>
               </ScrollView>
             )}
           </View>
+        </View>
+      </Modal>
+
+      {/* ── REQUEST CHANGES SUB-MODAL (Prompt Section 25) ──────────────────── */}
+      <Modal
+        visible={changesModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setChangesModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.changesModalCard}>
+            <Text style={styles.changesModalTitle}>WHAT NEEDS TO BE CORRECTED?</Text>
+            <Text style={styles.changesModalSub}>
+              Select applicable reasons to notify the applicant.
+            </Text>
+
+            <ScrollView style={{ maxHeight: 220 }}>
+              {CHANGE_REQUEST_REASONS.map((reason) => {
+                const checked = selectedChangeReasons.includes(reason);
+                return (
+                  <TouchableOpacity
+                    key={reason}
+                    style={styles.checkboxRow}
+                    onPress={() => toggleChangeReason(reason)}
+                  >
+                    <View style={[styles.checkboxBox, checked && styles.checkboxBoxChecked]}>
+                      {checked ? <Text style={styles.checkMark}>✓</Text> : null}
+                    </View>
+                    <Text style={styles.checkboxLabel}>{reason}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <Text style={[styles.inputLabel, { marginTop: 12 }]}>ADDITIONAL NOTE</Text>
+            <TextInput
+              style={styles.notesInput}
+              placeholder="e.g. Please re-upload with high resolution and clear date of issue."
+              placeholderTextColor={ADMIN_COLOR.textMuted}
+              value={customChangeNote}
+              onChangeText={setCustomChangeNote}
+              multiline
+            />
+
+            <View style={styles.changesActions}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setChangesModalVisible(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalSendBtn}
+                onPress={handleExecuteRequestChanges}
+              >
+                <Text style={styles.modalSendText}>Send Request</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── DOCUMENT ZOOM MODAL ────────────────────────────────────────────── */}
+      <Modal
+        visible={zoomDocVisible}
+        transparent={false}
+        animationType="fade"
+        onRequestClose={() => setZoomDocVisible(false)}
+      >
+        <View style={styles.zoomContainer}>
+          <TouchableOpacity
+            style={styles.zoomCloseBtn}
+            onPress={() => setZoomDocVisible(false)}
+          >
+            <Text style={styles.zoomCloseText}>✕ Close</Text>
+          </TouchableOpacity>
+          {selectedVerification?.documentUrl ? (
+            <Image
+              source={{ uri: selectedVerification.documentUrl }}
+              style={styles.zoomImage}
+              resizeMode="contain"
+            />
+          ) : null}
         </View>
       </Modal>
     </AdminShell>
@@ -488,278 +737,450 @@ export const AdminVerificationsScreen: React.FC<{ navigation?: any }> = ({ navig
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  titleSection: {
+    paddingHorizontal: spacing.spaceMd,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  mainTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 1,
+  },
+  mainSubtitle: {
+    fontSize: 12,
+    color: ADMIN_COLOR.textMid,
+    marginTop: 2,
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.spaceMd,
+    gap: 8,
+    marginVertical: 10,
+  },
+  metricCard: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    padding: 10,
+    borderLeftWidth: 3,
+  },
+  metricVal: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  metricLabel: {
+    fontSize: 10,
+    color: ADMIN_COLOR.textMuted,
+    marginTop: 2,
+    fontWeight: '600',
   },
   filterScroll: {
-    maxHeight: 52,
-    marginVertical: spacing.spaceXs,
+    maxHeight: 46,
+    marginVertical: 6,
   },
   filterContainer: {
     paddingHorizontal: spacing.spaceMd,
-    paddingVertical: 2,
-    gap: spacing.spaceXs,
-  },
-  filterChip: {
-    minHeight: 44,
-    justifyContent: 'center',
-    backgroundColor: 'rgba(6, 21, 27, 0.75)',
-    paddingHorizontal: spacing.spaceSm + 4,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(45, 212, 191, 0.20)',
-  },
-  filterChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  filterChipText: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '500',
-    color: colors.textSecondary,
-  },
-  filterChipTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  loadingContainer: {
-    padding: spacing.spaceMd,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    gap: 8,
     alignItems: 'center',
-    padding: spacing.spaceMd,
   },
-  listContainer: {
-    padding: spacing.spaceMd,
-    paddingBottom: spacing.spaceXl * 2,
-    gap: spacing.spaceSm,
-  },
-  card: {
-    backgroundColor: 'rgba(6, 21, 27, 0.85)',
-    borderRadius: 10,
-    padding: spacing.spaceMd,
+  filterTab: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: ADMIN_RADIUS.full,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(45, 212, 191, 0.22)',
-    elevation: 2,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  cardPending: {
+  filterTabActive: {
+    backgroundColor: ADMIN_COLOR.brand,
+    borderColor: ADMIN_COLOR.brand,
+  },
+  filterTabText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: ADMIN_COLOR.textMid,
+  },
+  filterTabTextActive: {
+    color: '#000000',
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.spaceMd,
+    marginVertical: 6,
+  },
+  summaryText: {
+    fontSize: 12,
+    color: ADMIN_COLOR.textMuted,
+  },
+  queueCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 14,
+    marginBottom: 10,
+  },
+  queueCardPending: {
     borderLeftWidth: 4,
-    borderLeftColor: '#F57C00',
+    borderLeftColor: '#F59E0B',
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: spacing.spaceXs,
   },
-  nameContainer: {
+  applicantInfo: {
     flex: 1,
-    marginRight: spacing.spaceSm,
   },
-  userName: {
-    fontSize: typography.Body.fontSize,
-    fontWeight: '700',
-    color: '#F8FAFC',
+  applicantName: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
-  userEmail: {
-    fontSize: typography.Caption.fontSize,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  cardMeta: {
+  roleTagWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.spaceSm,
-    marginTop: spacing.spaceXs,
+    gap: 8,
+    marginTop: 4,
   },
-  roleTag: {
-    fontSize: typography.Caption.fontSize,
-    fontWeight: '700',
-    color: colors.primary,
-    backgroundColor: `${colors.primary}12`,
-    paddingHorizontal: 6,
+  roleBadge: {
+    paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 4,
   },
-  metaText: {
-    fontSize: typography.Caption.fontSize,
-    color: colors.textSecondary,
+  roleBadgeCollector: {
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+  },
+  roleBadgeRecycler: {
+    backgroundColor: 'rgba(139, 92, 246, 0.2)',
+  },
+  roleBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  emailText: {
+    fontSize: 11,
+    color: ADMIN_COLOR.textMuted,
+  },
+  docStatusRow: {
+    marginTop: 8,
+    paddingVertical: 4,
+  },
+  docStatusText: {
+    fontSize: 12,
+    color: ADMIN_COLOR.textMid,
   },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: spacing.spaceSm,
-    paddingTop: spacing.spaceXs,
+    marginTop: 8,
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+    paddingTop: 8,
   },
-  submittedDate: {
-    fontSize: typography.Caption.fontSize,
-    color: colors.textSecondary,
+  submittedText: {
+    fontSize: 11,
+    color: ADMIN_COLOR.textMuted,
   },
-  docAttachedTag: {
-    fontSize: typography.Caption.fontSize,
-    color: '#38BDF8',
-    fontWeight: '600',
+  reviewerText: {
+    fontSize: 10,
+    color: '#10B981',
   },
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(2, 8, 13, 0.85)',
-    justifyContent: 'center',
+  reviewBtn: {
+    backgroundColor: ADMIN_COLOR.brand,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  reviewBtnText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#000000',
+  },
+  loadingContainer: {
     padding: spacing.spaceMd,
   },
+  centerContainer: {
+    padding: spacing.spaceMd,
+    alignItems: 'center',
+  },
+  listContainer: {
+    paddingHorizontal: spacing.spaceMd,
+    paddingBottom: 40,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'flex-end',
+  },
   modalContent: {
-    backgroundColor: '#071A21',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(45, 212, 191, 0.35)',
-    padding: spacing.spaceLg,
+    backgroundColor: '#0F201A',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     maxHeight: '90%',
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
   },
   modalTitle: {
-    fontSize: typography.Subheading.fontSize,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '900',
     color: '#FFFFFF',
-    marginBottom: spacing.spaceMd,
-    textAlign: 'center',
+    letterSpacing: 0.8,
+  },
+  modalCloseBtn: {
+    padding: 6,
+  },
+  modalCloseText: {
+    fontSize: 18,
+    color: ADMIN_COLOR.textMuted,
   },
   modalScroll: {
-    flexGrow: 0,
+    maxHeight: '85%',
+  },
+  inspectionSection: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+  },
+  inspectionTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: ADMIN_COLOR.brand,
+    letterSpacing: 0.8,
+    marginBottom: 8,
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    paddingVertical: 3,
   },
   detailLabel: {
-    fontSize: typography.Body.fontSize,
-    color: '#94A3B8',
-    fontWeight: '500',
+    fontSize: 12,
+    color: ADMIN_COLOR.textMuted,
   },
   detailValue: {
-    fontSize: typography.Body.fontSize,
-    color: '#F8FAFC',
-    fontWeight: '600',
+    fontSize: 12,
+    color: '#FFFFFF',
     maxWidth: '65%',
     textAlign: 'right',
   },
-  profileBox: {
-    backgroundColor: 'rgba(6, 21, 27, 0.75)',
-    padding: spacing.spaceSm,
-    borderRadius: 8,
-    marginVertical: spacing.spaceSm,
+  docPreviewCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingTop: 4,
+  },
+  docThumbnail: {
+    width: 60,
+    height: 60,
+    borderRadius: 6,
+    backgroundColor: '#000',
+  },
+  docPreviewActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  docActionBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(45, 212, 191, 0.20)',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
-  reviewedBox: {
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    padding: spacing.spaceSm,
-    borderRadius: 8,
-    marginVertical: spacing.spaceSm,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.30)',
-  },
-  boxTitle: {
-    fontSize: typography.Caption.fontSize,
+  docActionBtnText: {
+    fontSize: 11,
     fontWeight: '700',
-    color: '#F8FAFC',
-    marginBottom: 4,
+    color: '#FFFFFF',
   },
-  boxText: {
-    fontSize: typography.Caption.fontSize,
-    color: '#CBD5E1',
-    lineHeight: 18,
+  noDocText: {
+    fontSize: 12,
+    color: ADMIN_COLOR.textMuted,
   },
-  sectionHeading: {
-    fontSize: typography.Body.fontSize,
+  auditRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 3,
+  },
+  auditDot: {
+    color: ADMIN_COLOR.brand,
+  },
+  auditText: {
+    fontSize: 11,
+    color: ADMIN_COLOR.textMid,
+  },
+  reasonText: {
+    fontSize: 11,
+    color: '#FBBF24',
+    marginTop: 4,
+  },
+  inputLabel: {
+    fontSize: 11,
     fontWeight: '700',
-    color: '#F8FAFC',
-    marginTop: spacing.spaceMd,
-    marginBottom: spacing.spaceXs,
+    color: ADMIN_COLOR.textMuted,
+    marginBottom: 6,
   },
   notesInput: {
-    borderWidth: 1,
-    borderColor: 'rgba(45, 212, 191, 0.25)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderRadius: 8,
-    padding: spacing.spaceSm,
-    fontSize: typography.Body.fontSize,
-    color: '#FFFFFF',
-    backgroundColor: 'rgba(6, 21, 27, 0.90)',
-    minHeight: 65,
-    textAlignVertical: 'top',
-    marginBottom: spacing.spaceSm,
-  },
-  offlineNotice: {
-    fontSize: typography.Caption.fontSize,
-    color: '#FBBF24',
-    marginBottom: spacing.spaceSm,
-    textAlign: 'center',
-  },
-  errorBanner: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    padding: spacing.spaceSm,
-    borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.35)',
-    marginVertical: spacing.spaceSm,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    color: '#FFFFFF',
+    padding: 10,
+    fontSize: 13,
+    marginBottom: 14,
   },
-  errorBannerText: {
-    color: '#FCA5A5',
-    fontSize: typography.Caption.fontSize,
-  },
-  decisionActionsRow: {
+  actionButtonsRow: {
     flexDirection: 'row',
-    gap: spacing.spaceSm,
-    marginTop: spacing.spaceSm,
-    marginBottom: spacing.spaceSm,
+    gap: 8,
+    marginVertical: 14,
   },
-  rejectButton: {
+  approveBtn: {
     flex: 1,
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    paddingVertical: spacing.spaceSm + 2,
+    backgroundColor: '#10B981',
+    paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.35)',
   },
-  rejectButtonText: {
-    color: '#FCA5A5',
-    fontWeight: '700',
-    fontSize: typography.Button.fontSize,
+  approveBtnText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#000000',
   },
-  approveButton: {
-    flex: 1,
-    backgroundColor: '#2E7D32',
-    paddingVertical: spacing.spaceSm + 2,
-    borderRadius: 6,
+  changesBtn: {
+    flex: 1.4,
+    backgroundColor: '#F59E0B',
+    paddingVertical: 12,
+    borderRadius: 8,
     alignItems: 'center',
   },
-  approveButtonText: {
+  changesBtnText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#000000',
+  },
+  rejectBtn: {
+    flex: 1,
+    backgroundColor: '#EF4444',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  rejectBtnText: {
+    fontSize: 12,
+    fontWeight: '900',
     color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: typography.Button.fontSize,
   },
-  buttonDisabled: {
-    opacity: 0.5,
+  changesModalCard: {
+    backgroundColor: '#11221D',
+    borderRadius: 16,
+    padding: 20,
+    margin: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
-  closeModalButton: {
-    alignSelf: 'center',
-    paddingVertical: spacing.spaceSm,
-    paddingHorizontal: spacing.spaceLg,
-    marginTop: spacing.spaceSm,
+  changesModalTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#FBBF24',
+    marginBottom: 4,
   },
-  closeModalButtonText: {
-    color: colors.textSecondary,
+  changesModalSub: {
+    fontSize: 12,
+    color: ADMIN_COLOR.textMid,
+    marginBottom: 14,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 6,
+  },
+  checkboxBox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxBoxChecked: {
+    backgroundColor: '#F59E0B',
+    borderColor: '#F59E0B',
+  },
+  checkMark: {
+    color: '#000',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  checkboxLabel: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    flex: 1,
+  },
+  changesActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 16,
+  },
+  modalCancelBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  modalCancelText: {
+    color: ADMIN_COLOR.textMuted,
     fontWeight: '600',
-    fontSize: typography.Body.fontSize,
+  },
+  modalSendBtn: {
+    backgroundColor: '#F59E0B',
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: 6,
+  },
+  modalSendText: {
+    color: '#000000',
+    fontWeight: '800',
+  },
+  zoomContainer: {
+    flex: 1,
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  zoomCloseBtn: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  zoomCloseText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  zoomImage: {
+    width: '100%',
+    height: '80%',
   },
 });
 

@@ -39,9 +39,13 @@ router.get('/health', (req, res) => {
   });
 });
 
+const verificationRoutes = require('./verificationRoutes');
+
 // Authentication, User & Profile Management routes
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
+router.use('/verifications', verificationRoutes);
+router.use('/verification', verificationRoutes);
 router.use('/collectors', collectorRoutes);
 router.use('/collector', collectorRoutes);
 router.use('/recyclers', recyclerRoutes);

@@ -17,7 +17,7 @@ export interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<any>;
-  loginWithFirebase: (params: { idToken: string; provider?: string }) => Promise<any>;
+  loginWithFirebase: (params: { idToken: string; provider?: string; role?: string; profileData?: any }) => Promise<any>;
   register: (userData: any) => Promise<any>;
   logout: () => Promise<void>;
   refresh: () => Promise<string>;
@@ -82,12 +82,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const loginWithFirebase = async (params: { idToken: string; provider?: string }) => {
+  const loginWithFirebase = async (params: { idToken: string; provider?: string; role?: string; profileData?: any }) => {
     setIsLoading(true);
     try {
       const data = await authService.loginWithFirebase(params);
-      setUser((data.user as UserProfile) || null);
-      setAccessToken(data.accessToken);
+      if (!data?.isNewUser && data?.user) {
+        setUser((data.user as UserProfile) || null);
+        setAccessToken(data.accessToken || null);
+      }
       return data;
     } finally {
       setIsLoading(false);

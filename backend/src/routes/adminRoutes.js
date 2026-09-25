@@ -116,12 +116,41 @@ router.get(
   (req, res, next) => adminController.getVerifications(req, res, next)
 );
 
-// Approve or reject user verification (Admin only)
+// Get verification details by ID (Admin only)
+router.get(
+  '/verifications/:id',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  (req, res, next) => adminController.getVerificationById(req, res, next)
+);
+
+// Approve, reject, or request changes on user verification (Admin only)
 router.patch(
   '/verifications/:id',
   authenticate,
   authorize(ROLES.ADMIN),
   validate(adminValidators.updateVerification),
+  (req, res, next) => adminController.updateVerification(req, res, next)
+);
+
+router.post(
+  '/verifications/:id/approve',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  (req, res, next) => adminController.updateVerification(req, res, next)
+);
+
+router.post(
+  '/verifications/:id/reject',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  (req, res, next) => adminController.updateVerification(req, res, next)
+);
+
+router.post(
+  '/verifications/:id/request-changes',
+  authenticate,
+  authorize(ROLES.ADMIN),
   (req, res, next) => adminController.updateVerification(req, res, next)
 );
 

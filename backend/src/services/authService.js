@@ -297,25 +297,44 @@ class AuthService {
 
   /**
    * Synchronize authenticated Firebase identity with ECOSETU User and issue session
+   * Supports Citizen, Collector, Recycler with role selection and verification initialization.
    * @param {object} params
    * @param {string} params.idToken - Firebase ID Token
    * @param {string} [params.provider] - Authentication provider (google, password, phone)
+   * @param {string} [params.role] - User role chosen by user: CITIZEN, INFORMAL_COLLECTOR, RECYCLER
+   * @param {object} [params.profileData] - Role-specific onboarding metadata
    */
-  async firebaseLogin({ idToken, provider }) {
+  async firebaseLogin({ idToken, provider, role, profileData }) {
     const verified = await this.verifyFirebaseToken(idToken);
     const { uid, email, phone_number, name } = verified;
 
-    // Look up existing user by email or phone
+    // 1. Look up existing user by email or phone
     let user = null;
     if (email) {
       user = await prisma.user.findUnique({
         where: { email: email.toLowerCase() },
+        include: {
+          collectorProfile: true,
+          recyclerProfile: true,
+          verifications: {
+            orderBy: { submittedAt: 'desc' },
+            take: 1,
+          },
+        },
       });
     }
 
     if (!user && phone_number) {
       user = await prisma.user.findFirst({
         where: { phone: phone_number },
+        include: {
+          collectorProfile: true,
+          recyclerProfile: true,
+          verifications: {
+            orderBy: { submittedAt: 'desc' },
+            take: 1,
+          },
+        },
       });
     }
 
@@ -327,26 +346,135 @@ class AuthService {
       if (user.status === USER_STATUS.DEACTIVATED) {
         throw new AppError('Your account has been deactivated.', 403, ERROR_CODES.FORBIDDEN);
       }
-    } else {
-      // Create new user with authoritative CITIZEN role (no client privilege elevation)
-      const crypto = require('crypto');
-      const randomPassword = crypto.randomBytes(32).toString('hex');
-      const passwordHash = await this.hashPassword(randomPassword);
 
-      const userEmail = email ? email.toLowerCase() : `user_${String(uid).slice(0, 12)}@ecosetu.local`;
-      const userName = name && name.trim() ? name.trim() : 'EcoSetu User';
+      const isRoleMismatch = role && role !== user.role;
+      const accessToken = this.generateAccessToken(user);
+      const refreshToken = this.generateRefreshToken(user);
 
-      user = await prisma.user.create({
+      return {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          status: user.status,
+          verification: user.verifications?.[0] || null,
+        },
+        accessToken,
+        refreshToken,
+        isExistingUser: true,
+        message: isRoleMismatch
+          ? `This Google account is already registered as a ${user.role}. Signed in with your existing account.`
+          : undefined,
+      };
+    }
+
+    // 2. New User: If no role selected yet, signal client to present role selection screen
+    if (!role) {
+      return {
+        isNewUser: true,
+        email: email || null,
+        name: name || null,
+        phoneNumber: phone_number || null,
+      };
+    }
+
+    // 3. Guard against self-assigning ADMIN role
+    if (role === ROLES.ADMIN) {
+      throw AppError.forbidden('Admin accounts cannot be created via self-registration');
+    }
+
+    const allowedRoles = [ROLES.CITIZEN, ROLES.INFORMAL_COLLECTOR, ROLES.RECYCLER];
+    if (!allowedRoles.includes(role)) {
+      throw AppError.validation('Invalid role. Allowed roles: CITIZEN, INFORMAL_COLLECTOR, RECYCLER');
+    }
+
+    // 4. Generate random secure password for Google OAuth account
+    const crypto = require('crypto');
+    const randomPassword = crypto.randomBytes(32).toString('hex');
+    const passwordHash = await this.hashPassword(randomPassword);
+
+    const userEmail = email ? email.toLowerCase() : `user_${String(uid).slice(0, 12)}@ecosetu.local`;
+    const userName = (profileData?.name && profileData.name.trim()) || (name && name.trim()) || 'EcoSetu User';
+    const userPhone = profileData?.phone ? profileData.phone.trim() : (phone_number || null);
+
+    // CITIZEN is ACTIVE immediately; COLLECTOR & RECYCLER are PENDING_VERIFICATION
+    const userStatus = role === ROLES.CITIZEN ? USER_STATUS.ACTIVE : USER_STATUS.PENDING_VERIFICATION;
+
+    // 5. Create user and role profile in atomic transaction
+    user = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
         data: {
           email: userEmail,
           passwordHash,
           name: userName,
-          phone: phone_number || null,
-          role: ROLES.CITIZEN,
-          status: USER_STATUS.ACTIVE,
+          phone: userPhone,
+          role,
+          status: userStatus,
         },
       });
-    }
+
+      if (role === ROLES.INFORMAL_COLLECTOR) {
+        await tx.collectorProfile.create({
+          data: {
+            userId: newUser.id,
+            serviceArea: profileData?.serviceArea || null,
+            city: profileData?.city || null,
+            state: profileData?.state || null,
+            pincode: profileData?.pincode || null,
+            idDocumentUrl: profileData?.idDocumentUrl || null,
+            bio: profileData?.bio || null,
+          },
+        });
+
+        if (profileData?.idDocumentUrl || profileData?.documentType) {
+          await tx.verification.create({
+            data: {
+              userId: newUser.id,
+              role: ROLES.INFORMAL_COLLECTOR,
+              status: VERIFICATION_STATUS.SUBMITTED,
+              documentType: profileData?.documentType || 'AADHAAR',
+              documentNumberMasked: profileData?.documentNumberMasked || null,
+              documentUrl: profileData?.idDocumentUrl || null,
+              storageKey: profileData?.storageKey || null,
+            },
+          });
+        }
+      } else if (role === ROLES.RECYCLER) {
+        await tx.recyclerProfile.create({
+          data: {
+            userId: newUser.id,
+            facilityName: profileData?.facilityName || `${userName}'s Facility`,
+            facilityAddress: profileData?.facilityAddress || 'Address pending verification',
+            city: profileData?.city || null,
+            state: profileData?.state || null,
+            pincode: profileData?.pincode || null,
+            licenseNumber: profileData?.licenseNumber || null,
+            licenseDocumentUrl: profileData?.licenseDocumentUrl || null,
+            acceptedCategories: profileData?.acceptedCategories || [],
+            authorizationStatus: 'PENDING',
+          },
+        });
+
+        if (profileData?.licenseDocumentUrl || profileData?.licenseNumber) {
+          await tx.verification.create({
+            data: {
+              userId: newUser.id,
+              role: ROLES.RECYCLER,
+              status: VERIFICATION_STATUS.SUBMITTED,
+              documentType: 'RECYCLER_LICENSE',
+              documentNumberMasked: profileData?.licenseNumber
+                ? `LIC-XXXX-${profileData.licenseNumber.slice(-4)}`
+                : null,
+              documentUrl: profileData?.licenseDocumentUrl || null,
+              storageKey: profileData?.storageKey || null,
+            },
+          });
+        }
+      }
+
+      return newUser;
+    });
 
     const accessToken = this.generateAccessToken(user);
     const refreshToken = this.generateRefreshToken(user);

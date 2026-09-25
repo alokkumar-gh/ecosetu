@@ -26,6 +26,8 @@ import { AuthGatewayScreen } from '../screens/auth/AuthGatewayScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { RegisterScreen } from '../screens/auth/RegisterScreen';
 import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
+import { CollectorOnboardingScreen } from '../screens/auth/CollectorOnboardingScreen';
+import { RecyclerOnboardingScreen } from '../screens/auth/RecyclerOnboardingScreen';
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
@@ -57,6 +59,8 @@ export const AuthNavigator: React.FC = () => {
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="CollectorOnboarding" component={CollectorOnboardingScreen} />
+      <Stack.Screen name="RecyclerOnboarding" component={RecyclerOnboardingScreen} />
     </Stack.Navigator>
   );
 };

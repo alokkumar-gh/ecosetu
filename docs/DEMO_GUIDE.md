@@ -88,7 +88,7 @@ npx expo start --android
 
 ### Scenario D: Admin Control Center & System Telemetry
 1. **Login as Administrator**:
-   - Sign In with demo credentials: `admin@ecosetu.org` / `AdminPass123!`.
+   - Sign In with the configured ECOSETU administrator credentials (`admin@ecosetu.org`).
 2. **Explore Sidebar Navigation (`AdminShell`)**:
    - Toggle the collapsible side drawer (expanded 220px / collapsed 60px icon mode).
    - Use global search palette (`Ctrl+K` or search bar).
@@ -116,4 +116,4 @@ npx expo start --android
 | **Citizen** | `citizen@ecosetu.org` | `Password123!` | Pickup requests & AI appraisal |
 | **Collector** | `collector@ecosetu.org` | `Password123!` | Collection logistics & offline queue |
 | **Recycler** | `recycler@ecosetu.org` | `Password123!` | Facility ingestion & EPR manifest |
-| **Admin** | `admin@ecosetu.org` | `AdminPass123!` | Control center & platform telemetry |
+| **Admin** | `admin@ecosetu.org` | *Use configured administrator credentials* | Control center & platform telemetry |

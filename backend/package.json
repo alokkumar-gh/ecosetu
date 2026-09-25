@@ -10,7 +10,8 @@
     "dev": "nodemon src/index.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "prisma:seed": "prisma db seed"
+    "prisma:seed": "prisma db seed",
+    "reset:user-data": "node scripts/reset-user-data.js"
   },
   "engines": {
     "node": ">=20.0.0"

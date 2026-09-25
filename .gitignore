@@ -29,9 +29,11 @@ mobile/android/app/google-services.json
 local.properties
 mobile/android/local.properties
 
-# Backend Uploads
+# Backend Uploads & Local Backups
 backend/uploads/
 uploads/
+backend/backups/
+backups/
 
 # IDE & OS
 .vscode/

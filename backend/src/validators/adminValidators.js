@@ -106,8 +106,13 @@ const listAuditLogs = [
 const listVerifications = [
   query('status')
     .optional()
-    .isIn([...Object.values(VERIFICATION_STATUS), 'ALL'])
+    .isIn([...Object.values(VERIFICATION_STATUS), 'ALL', 'PENDING_ALL'])
     .withMessage(`Invalid status filter. Allowed: ${Object.values(VERIFICATION_STATUS).join(', ')}, ALL`),
+
+  query('role')
+    .optional()
+    .isIn([...Object.values(ROLES), 'ALL'])
+    .withMessage(`Invalid role filter. Allowed: ${Object.values(ROLES).join(', ')}, ALL`),
 
   query('page')
     .optional()
@@ -128,14 +133,36 @@ const updateVerification = [
   body('status')
     .exists({ checkNull: true })
     .withMessage('status is required')
-    .isIn([VERIFICATION_STATUS.APPROVED, VERIFICATION_STATUS.REJECTED])
-    .withMessage(`status must be one of: ${VERIFICATION_STATUS.APPROVED}, ${VERIFICATION_STATUS.REJECTED}`),
+    .isIn([
+      VERIFICATION_STATUS.APPROVED,
+      VERIFICATION_STATUS.REJECTED,
+      VERIFICATION_STATUS.CHANGES_REQUIRED,
+      VERIFICATION_STATUS.UNDER_REVIEW,
+    ])
+    .withMessage('status must be one of: APPROVED, REJECTED, CHANGES_REQUIRED, UNDER_REVIEW'),
 
   body('reviewNotes')
     .optional()
     .trim()
-    .isLength({ max: 500 })
-    .withMessage('reviewNotes must not exceed 500 characters'),
+    .isLength({ max: 1000 })
+    .withMessage('reviewNotes must not exceed 1000 characters'),
+
+  body('rejectionReason')
+    .optional()
+    .trim()
+    .isLength({ max: 1000 })
+    .withMessage('rejectionReason must not exceed 1000 characters'),
+
+  body('changeRequestReason')
+    .optional()
+    .trim()
+    .isLength({ max: 1000 })
+    .withMessage('changeRequestReason must not exceed 1000 characters'),
+
+  body('changeRequestOptions')
+    .optional()
+    .isArray()
+    .withMessage('changeRequestOptions must be an array of strings'),
 ];
 
 const sendCustomNotification = [

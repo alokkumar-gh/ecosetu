@@ -63,8 +63,12 @@ class AuthController {
 
   async firebaseLogin(req, res, next) {
     try {
-      const { idToken, provider } = req.body;
-      const result = await authService.firebaseLogin({ idToken, provider });
+      const { idToken, provider, role, profileData } = req.body;
+      const result = await authService.firebaseLogin({ idToken, provider, role, profileData });
+
+      if (result.isNewUser) {
+        return sendSuccess(res, result, 200);
+      }
 
       setRefreshTokenCookie(res, result.refreshToken);
 
@@ -74,6 +78,8 @@ class AuthController {
           user: result.user,
           accessToken: result.accessToken,
           refreshToken: result.refreshToken,
+          isExistingUser: result.isExistingUser || false,
+          message: result.message,
         },
         200
       );

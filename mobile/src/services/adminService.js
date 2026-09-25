@@ -287,11 +287,17 @@ class AdminService {
    * @param {string} [params.status='PENDING']
    * @param {number} [params.page=1]
    * @param {number} [params.limit=20]
-   * @returns {Promise<{ verifications: Array<object>, pagination: object, fromCache: boolean }>}
+   * @param {object} params
+   * @param {string} [params.status='PENDING']
+   * @param {string} [params.role='ALL']
+   * @param {number} [params.page=1]
+   * @param {number} [params.limit=20]
+   * @returns {Promise<{ verifications: Array<object>, pagination: object, metrics: object, fromCache: boolean }>}
    */
-  async getVerifications({ status = 'PENDING', page = 1, limit = 20 } = {}) {
+  async getVerifications({ status = 'PENDING', role = 'ALL', page = 1, limit = 20 } = {}) {
     const query = new URLSearchParams();
     if (status && status !== 'ALL') query.append('status', status);
+    if (role && role !== 'ALL') query.append('role', role);
     if (page) query.append('page', String(page));
     if (limit) query.append('limit', String(limit));
 
@@ -304,12 +310,13 @@ class AdminService {
         const data = response.data?.data || response.data;
         const verifications = data.verifications || [];
         const pagination = data.pagination || { page, limit, total: verifications.length, totalPages: 1 };
+        const metrics = data.metrics || { pending: 0, underReview: 0, approved: 0, rejected: 0, changesRequired: 0, total: 0 };
 
-        if ((!status || status === 'PENDING') && page === 1) {
-          await AsyncStorage.setItem(CACHE_KEYS.VERIFICATIONS, JSON.stringify({ verifications, pagination }));
+        if ((!status || status === 'PENDING') && page === 1 && (!role || role === 'ALL')) {
+          await AsyncStorage.setItem(CACHE_KEYS.VERIFICATIONS, JSON.stringify({ verifications, pagination, metrics }));
         }
 
-        return { verifications, pagination, fromCache: false };
+        return { verifications, pagination, metrics, fromCache: false };
       } catch (err) {
         if (err.isNetworkError) {
           return this._getCachedVerifications();
@@ -322,26 +329,32 @@ class AdminService {
   }
 
   /**
-   * Approve or reject a user verification request.
+   * Get single verification request by ID with applicant details and audit history
+   * @param {string} verificationId
+   * @returns {Promise<object>} Verification detail object
+   */
+  async getVerificationById(verificationId) {
+    const response = await apiClient.get(`/admin/verifications/${verificationId}`);
+    return response.data?.data?.verification || response.data?.verification || response.data;
+  }
+
+  /**
+   * Approve, reject, or request changes on a user verification request.
    * Server-authoritative mutation. ONLINE-ONLY: blocked when offline.
-   * Never enqueued in offlineQueue.
    *
    * @param {string} verificationId - Verification UUID
-   * @param {string} status - 'APPROVED' or 'REJECTED'
-   * @param {string} [reviewNotes] - Optional review notes / rejection reason
+   * @param {string} status - 'APPROVED' | 'REJECTED' | 'CHANGES_REQUIRED' | 'UNDER_REVIEW'
+   * @param {string|object} [decisionData] - Notes string or payload object
    * @returns {Promise<object>} Updated verification record
    */
-  async updateVerification(verificationId, status, reviewNotes) {
+  async updateVerification(verificationId, status, decisionData = {}) {
     if (!networkService.isConnected()) {
       const err = new Error('Internet connection required. Verification decisions cannot be performed offline.');
       err.isOfflineError = true;
       throw err;
     }
 
-    const payload = { status };
-    if (reviewNotes && reviewNotes.trim()) {
-      payload.reviewNotes = reviewNotes.trim();
-    }
+    const payload = typeof decisionData === 'string' ? { reviewNotes: decisionData, status } : { ...decisionData, status };
 
     const response = await apiClient.patch(`/admin/verifications/${verificationId}`, payload);
     const updatedVerification = response.data?.data?.verification || response.data?.verification || response.data;

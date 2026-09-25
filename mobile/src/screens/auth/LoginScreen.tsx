@@ -28,6 +28,7 @@ import {
   Image,
   SafeAreaView,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types';
@@ -39,8 +40,10 @@ import { EcoInput } from '../../components/auth/design/EcoInput';
 import { EcoButton, EcoSocialButton } from '../../components/auth/design/EcoButton';
 import { EcoAuthDivider, EcoGlassCard } from '../../components/auth/design/EcoAuthWidgets';
 import { PhoneAuthModal } from '../../components/auth/PhoneAuthModal';
+import { RoleSelectionModal } from '../../components/auth/RoleSelectionModal';
 import { LanguageSelector } from '../../components/common/LanguageSelector';
 import { AUTH_COLORS, AUTH_ORBS, AUTH_SPACE, AUTH_RADIUS } from '../../components/auth/design/AuthTheme';
+import { ROLES } from '../../utils/constants';
 
 const LOGO_IMAGE = require('../../assets/images/logo.png');
 
@@ -61,6 +64,8 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [phoneModalVisible, setPhoneModalVisible] = useState(false);
+  const [roleModalVisible, setRoleModalVisible] = useState(false);
+  const [pendingGoogleAuth, setPendingGoogleAuth] = useState<{ idToken: string; name?: string; email?: string } | null>(null);
 
   // Hero animations
   const ringRotate = useRef(new Animated.Value(0)).current;
@@ -159,12 +164,51 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       const { idToken, provider } = await firebaseAuthService.signInWithGoogle();
       firebaseAuthService.logDiagnostic('BACKEND_FIREBASE_LOGIN_STARTED', { provider });
       const result = await loginWithFirebase({ idToken, provider });
+
+      if (result?.isNewUser) {
+        setPendingGoogleAuth({ idToken, name: result.name, email: result.email });
+        setRoleModalVisible(true);
+        return;
+      }
+
+      if (result?.message) {
+        Alert.alert('Existing Account Found', result.message);
+      }
+
       firebaseAuthService.logDiagnostic('AUTH_COMPLETE', { role: result?.user?.role });
     } catch (err: any) {
       if (err?.code === 'SIGN_IN_CANCELLED' || err?.message?.includes?.('cancelled')) return;
       setErrorMessage('Google sign-in didn\'t work. Please try again or use email.');
     } finally {
       setIsGoogleLoading(false);
+    }
+  };
+
+  const handleSelectRoleFromModal = async (chosenRole: string) => {
+    if (!pendingGoogleAuth?.idToken) return;
+
+    if (chosenRole === ROLES.CITIZEN) {
+      // Immediate citizen registration
+      await loginWithFirebase({
+        idToken: pendingGoogleAuth.idToken,
+        role: ROLES.CITIZEN,
+      });
+      setRoleModalVisible(false);
+      setPendingGoogleAuth(null);
+    } else if (chosenRole === ROLES.INFORMAL_COLLECTOR) {
+      setRoleModalVisible(false);
+      navigation.navigate('CollectorOnboarding', {
+        idToken: pendingGoogleAuth.idToken,
+        name: pendingGoogleAuth.name,
+        email: pendingGoogleAuth.email,
+      });
+    } else if (chosenRole === ROLES.RECYCLER) {
+      setRoleModalVisible(false);
+      navigation.navigate('RecyclerOnboarding', {
+        idToken: pendingGoogleAuth.idToken,
+        name: pendingGoogleAuth.name,
+        email: pendingGoogleAuth.email,
+      });
     }
   };
 
@@ -345,6 +389,17 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
         <PhoneAuthModal
           visible={phoneModalVisible}
           onClose={() => setPhoneModalVisible(false)}
+        />
+
+        <RoleSelectionModal
+          visible={roleModalVisible}
+          userName={pendingGoogleAuth?.name}
+          userEmail={pendingGoogleAuth?.email}
+          onSelectRole={handleSelectRoleFromModal}
+          onCancel={() => {
+            setRoleModalVisible(false);
+            setPendingGoogleAuth(null);
+          }}
         />
       </SafeAreaView>
     </AuthBackground>

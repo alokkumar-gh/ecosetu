@@ -9,17 +9,21 @@ const prisma = new PrismaClient();
 async function seed() {
   console.log('--- EcoSetu Database Seeding Started ---');
 
-  const defaultPassword = process.env.DEMO_USER_PASSWORD || 'Password123!';
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@ecosetu.org';
+  const defaultPassword = process.env.ADMIN_PASSWORD || process.env.DEMO_USER_PASSWORD || 'Password123!';
   const passwordHash = await bcrypt.hash(defaultPassword, 10);
 
-  // 1. Seed ADMIN
+  // 1. Seed Canonical ADMIN
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@demo.com' },
-    update: {},
+    where: { email: adminEmail },
+    update: {
+      status: 'ACTIVE',
+      role: 'ADMIN',
+    },
     create: {
-      email: 'admin@demo.com',
+      email: adminEmail,
       passwordHash,
-      name: 'EcoSetu Administrator',
+      name: 'EcoSetu System Administrator',
       phone: '+919876543200',
       role: 'ADMIN',
       status: 'ACTIVE',

@@ -30,8 +30,8 @@ android {
         applicationId "com.ecosetu"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 4
-        versionName "1.0.4"
+        versionCode 7
+        versionName "1.0.7"
         manifestPlaceholders = [MAPS_API_KEY: mapsApiKey]
     }
 
