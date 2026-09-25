@@ -1,0 +1,18 @@
+# EcoSetu Render Blueprint Specification
+# Deploys the FastAPI AI Microservice using Dockerfile and context in ./ai
+
+services:
+  - type: web
+    name: ecosetu-ai
+    runtime: docker
+    plan: free
+    dockerfilePath: ./ai/Dockerfile
+    dockerContext: ./ai
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: MODEL_DIR
+        value: "/app/models"
