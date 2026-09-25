@@ -12,14 +12,19 @@ class AiController {
    */
   async predict(req, res, next) {
     try {
+      console.log(`[EcoSetu AI DEBUG] Backend /ai/predict request received. User role: ${req.user?.role || 'anonymous'}, user ID: ${req.user?.id || 'none'}`);
       if (!req.file) {
+        console.warn('[EcoSetu AI DEBUG] Backend: req.file is missing in request');
         throw AppError.badRequest('Image file is required');
       }
+
+      console.log(`[EcoSetu AI DEBUG] Backend: image received -> filename: ${req.file.filename}, mimetype: ${req.file.mimetype}, sizeBytes: ${req.file.buffer?.length || 0}`);
 
       // Enforce file size, mime-type and magic bytes validation (docs/13_SECURITY_PRIVACY.md)
       validateImageFile(req.file);
 
       // Call AI microservice
+      console.log('[EcoSetu AI DEBUG] Backend: Calling aiService.predictCategory...');
       const prediction = await aiService.predictCategory(
         req.file.buffer,
         req.file.filename,
@@ -28,15 +33,24 @@ class AiController {
 
       // If microservice is unavailable or model weights missing, return 503 (docs/05_API_SPECIFICATION.md)
       if (!prediction) {
+        console.warn('[EcoSetu AI DEBUG] Backend: aiService returned null (service unavailable or model uninitialized)');
         throw AppError.serviceUnavailable('AI service is temporarily unavailable. Please select category manually.');
       }
+
+      console.log(`[EcoSetu AI DEBUG] Backend: response returned to mobile -> category: ${prediction.category}, confidence: ${prediction.confidence}, has_detection: ${prediction.has_detection}`);
 
       return res.status(200).json({
         success: true,
         data: {
           prediction: {
+            has_detection: prediction.has_detection,
             category: prediction.category,
             confidence: prediction.confidence,
+            confidence_level: prediction.confidence_level,
+            review_required: prediction.review_required,
+            review_reason: prediction.review_reason,
+            bbox: prediction.bbox,
+            detections: prediction.detections,
             allPredictions: prediction.allPredictions,
             modelVersion: prediction.modelVersion,
             inferenceTimeMs: prediction.inferenceTimeMs,
@@ -44,6 +58,7 @@ class AiController {
         },
       });
     } catch (err) {
+      console.error('[EcoSetu AI DEBUG] Backend predict controller error:', err?.message || err);
       next(err);
     }
   }

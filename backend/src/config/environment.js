@@ -12,7 +12,7 @@ const environment = {
   jwtAccessExpiry: process.env.JWT_ACCESS_EXPIRY || '15m',
   jwtRefreshExpiry: process.env.JWT_REFRESH_EXPIRY || '7d',
   corsOrigin: process.env.CORS_ORIGIN || '*',
-  aiServiceUrl: process.env.AI_SERVICE_URL || 'http://localhost:8000',
+  aiServiceUrl: process.env.AI_SERVICE_URL || 'https://ecosetu-ai.onrender.com',
   cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
   cloudinaryApiKey: process.env.CLOUDINARY_API_KEY || '',
   cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET || '',

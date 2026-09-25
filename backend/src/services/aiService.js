@@ -18,12 +18,17 @@ class AiService {
    */
   async predictCategory(imageBuffer, filename = 'upload.jpg', mimetype = 'image/jpeg') {
     if (!imageBuffer || imageBuffer.length === 0) {
+      console.warn('[EcoSetu AI DEBUG] Backend aiService: empty image buffer provided');
       return null;
     }
 
     const aiUrl = `${environment.aiServiceUrl}/predict`;
+    console.log(`[EcoSetu AI DEBUG] Backend aiService: request started -> URL: ${aiUrl}, size: ${imageBuffer.length} bytes`);
+    
+    // 120-second timeout (120,000ms) to accommodate Render cold-starts (~30-60s) + CPU inference (~42.6s) + network latency
+    const timeoutMs = parseInt(process.env.AI_TIMEOUT_MS, 10) || 120000;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10-second timeout
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       const formData = new FormData();
@@ -37,26 +42,38 @@ class AiService {
       });
 
       clearTimeout(timeoutId);
+      console.log(`[EcoSetu AI DEBUG] Backend aiService: FastAPI HTTP status: ${response.status}`);
 
       if (!response.ok) {
         logger.warn(`AI microservice returned HTTP ${response.status} from ${aiUrl}`);
+        console.warn(`[EcoSetu AI DEBUG] Backend aiService: Non-OK status from FastAPI: ${response.status}`);
         return null;
       }
 
       const data = await response.json();
+      console.log(`[EcoSetu AI DEBUG] Backend aiService: FastAPI response body: ${JSON.stringify(data)}`);
       return {
+        success: data.success !== undefined ? data.success : true,
+        has_detection: data.has_detection !== undefined ? data.has_detection : (data.category && data.category !== 'OTHER'),
         category: data.category,
-        confidence: data.confidence,
+        confidence: data.confidence !== undefined ? data.confidence : 0.0,
+        confidence_level: data.confidence_level || 'LOW',
+        review_required: data.review_required !== undefined ? data.review_required : false,
+        review_reason: data.review_reason || null,
+        bbox: data.bbox || null,
+        detections: data.detections || [],
         allPredictions: data.predictions || [],
-        modelVersion: data.model_version || 'v1.0',
+        modelVersion: data.model_version || 'material-detection-v0.2.0',
         inferenceTimeMs: data.inference_time_ms || 0,
       };
     } catch (err) {
       clearTimeout(timeoutId);
       if (err.name === 'AbortError') {
-        logger.warn(`AI microservice request timed out after 10 seconds: ${aiUrl}`);
+        logger.warn(`AI microservice request timed out after ${timeoutMs / 1000}s: ${aiUrl}`);
+        console.warn(`[EcoSetu AI DEBUG] Backend aiService: AI microservice request timed out after ${timeoutMs / 1000}s: ${aiUrl}`);
       } else {
         logger.warn(`AI microservice unreachable at ${aiUrl}: ${err.message}`);
+        console.warn(`[EcoSetu AI DEBUG] Backend aiService: AI microservice unreachable at ${aiUrl}: ${err.message}`);
       }
       return null;
     }

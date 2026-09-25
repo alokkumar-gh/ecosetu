@@ -12,12 +12,12 @@ const { ROLES } = require('../utils/constants');
 
 const router = express.Router();
 
-// Classify an e-waste image (Citizen only, multipart/form-data)
+// Classify an e-waste image (Citizen and Informal Collector, multipart/form-data)
 router.post(
   '/predict',
-  authenticate,
-  authorize(ROLES.CITIZEN),
   handleImageUpload,
+  authenticate,
+  authorize(ROLES.CITIZEN, ROLES.INFORMAL_COLLECTOR),
   (req, res, next) => aiController.predict(req, res, next)
 );
 

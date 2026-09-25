@@ -204,23 +204,6 @@ async function runAiModuleTests() {
       assert.strictEqual(data.error.code, 'UNAUTHORIZED');
     });
 
-    await testAsync('POST /api/v1/ai/predict: Collector role rejected (403)', async () => {
-      const boundary = '----TestBoundary123';
-      const body = createMultipartPayload(boundary, 'sample.jpg', 'image/jpeg', validJpegBytes);
-      const res = await fetch(`http://localhost:${TEST_PORT}/api/v1/ai/predict`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${collectorToken}`,
-          'Content-Type': `multipart/form-data; boundary=${boundary}`,
-        },
-        body,
-      });
-      assert.strictEqual(res.status, 403);
-      const data = await res.json();
-      assert.strictEqual(data.success, false);
-      assert.strictEqual(data.error.code, 'FORBIDDEN');
-    });
-
     await testAsync('POST /api/v1/ai/predict: Recycler role rejected (403)', async () => {
       const boundary = '----TestBoundary123';
       const body = createMultipartPayload(boundary, 'sample.jpg', 'image/jpeg', validJpegBytes);
@@ -328,10 +311,9 @@ async function runAiModuleTests() {
     });
 
     // ==========================================
-    // 4. POST /api/v1/ai/predict - Successful Mocked Inference Response
+    // 4. POST /api/v1/ai/predict - Successful Mocked Inference & Detection Contract
     // ==========================================
-    await testAsync('POST /api/v1/ai/predict: When AI microservice returns inference, backend returns 200 with contract', async () => {
-      // Temporarily mock global fetch for aiService
+    await testAsync('POST /api/v1/ai/predict: Citizen receives complete detection contract (200)', async () => {
       const originalFetch = global.fetch;
       global.fetch = async (url, options) => {
         if (typeof url === 'string' && (url.startsWith(environment.aiServiceUrl) || url.includes(':8000/predict'))) {
@@ -339,15 +321,25 @@ async function runAiModuleTests() {
             ok: true,
             status: 200,
             json: async () => ({
-              category: EWASTE_CATEGORIES.LAPTOP,
-              confidence: 0.92,
-              predictions: [
-                { category: EWASTE_CATEGORIES.LAPTOP, confidence: 0.92 },
-                { category: EWASTE_CATEGORIES.TABLET, confidence: 0.05 },
-                { category: EWASTE_CATEGORIES.MONITOR, confidence: 0.02 },
+              success: true,
+              has_detection: true,
+              category: EWASTE_CATEGORIES.MOBILE_PHONE,
+              confidence: 0.9482,
+              confidence_level: 'HIGH',
+              review_required: false,
+              review_reason: null,
+              bbox: { x_min: 0.1, y_min: 0.2, x_max: 0.7, y_max: 0.8 },
+              detections: [
+                {
+                  class_id: 1,
+                  category: EWASTE_CATEGORIES.MOBILE_PHONE,
+                  confidence: 0.9482,
+                  bbox: { x_min: 0.1, y_min: 0.2, x_max: 0.7, y_max: 0.8 },
+                },
               ],
-              model_version: 'v1.0',
-              inference_time_ms: 180,
+              predictions: [{ category: EWASTE_CATEGORIES.MOBILE_PHONE, confidence: 0.9482 }],
+              model_version: 'material-detection-v0.2.0',
+              inference_time_ms: 120,
             }),
           };
         }
@@ -356,7 +348,7 @@ async function runAiModuleTests() {
 
       try {
         const boundary = '----TestBoundary123';
-        const body = createMultipartPayload(boundary, 'laptop.png', 'image/png', validPngBytes);
+        const body = createMultipartPayload(boundary, 'phone.png', 'image/png', validPngBytes);
         const res = await originalFetch(`http://localhost:${TEST_PORT}/api/v1/ai/predict`, {
           method: 'POST',
           headers: {
@@ -370,11 +362,123 @@ async function runAiModuleTests() {
         const data = await res.json();
         assert.strictEqual(data.success, true);
         assert.ok(data.data.prediction);
-        assert.strictEqual(data.data.prediction.category, EWASTE_CATEGORIES.LAPTOP);
-        assert.strictEqual(data.data.prediction.confidence, 0.92);
-        assert.strictEqual(data.data.prediction.modelVersion, 'v1.0');
-        assert.strictEqual(data.data.prediction.inferenceTimeMs, 180);
-        assert.strictEqual(data.data.prediction.allPredictions.length, 3);
+        assert.strictEqual(data.data.prediction.has_detection, true);
+        assert.strictEqual(data.data.prediction.category, EWASTE_CATEGORIES.MOBILE_PHONE);
+        assert.strictEqual(data.data.prediction.confidence, 0.9482);
+        assert.strictEqual(data.data.prediction.confidence_level, 'HIGH');
+        assert.strictEqual(data.data.prediction.review_required, false);
+        assert.strictEqual(data.data.prediction.review_reason, null);
+        assert.deepStrictEqual(data.data.prediction.bbox, { x_min: 0.1, y_min: 0.2, x_max: 0.7, y_max: 0.8 });
+        assert.strictEqual(data.data.prediction.detections.length, 1);
+        assert.strictEqual(data.data.prediction.modelVersion, 'material-detection-v0.2.0');
+        assert.strictEqual(data.data.prediction.inferenceTimeMs, 120);
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    await testAsync('POST /api/v1/ai/predict: Collector role allowed and receives prediction (200)', async () => {
+      const originalFetch = global.fetch;
+      global.fetch = async (url, options) => {
+        if (typeof url === 'string' && (url.startsWith(environment.aiServiceUrl) || url.includes(':8000/predict'))) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              success: true,
+              has_detection: true,
+              category: EWASTE_CATEGORIES.KEYBOARD_MOUSE,
+              confidence: 0.88,
+              confidence_level: 'HIGH',
+              review_required: false,
+              review_reason: null,
+              bbox: { x_min: 0.2, y_min: 0.3, x_max: 0.8, y_max: 0.9 },
+              detections: [
+                {
+                  class_id: 0,
+                  category: EWASTE_CATEGORIES.KEYBOARD_MOUSE,
+                  confidence: 0.88,
+                  bbox: { x_min: 0.2, y_min: 0.3, x_max: 0.8, y_max: 0.9 },
+                },
+              ],
+              predictions: [{ category: EWASTE_CATEGORIES.KEYBOARD_MOUSE, confidence: 0.88 }],
+              model_version: 'material-detection-v0.2.0',
+              inference_time_ms: 110,
+            }),
+          };
+        }
+        return originalFetch(url, options);
+      };
+
+      try {
+        const boundary = '----TestBoundary123';
+        const body = createMultipartPayload(boundary, 'keyboard.png', 'image/png', validPngBytes);
+        const res = await originalFetch(`http://localhost:${TEST_PORT}/api/v1/ai/predict`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${collectorToken}`,
+            'Content-Type': `multipart/form-data; boundary=${boundary}`,
+          },
+          body,
+        });
+
+        assert.strictEqual(res.status, 200);
+        const data = await res.json();
+        assert.strictEqual(data.success, true);
+        assert.strictEqual(data.data.prediction.category, EWASTE_CATEGORIES.KEYBOARD_MOUSE);
+        assert.strictEqual(data.data.prediction.has_detection, true);
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    await testAsync('POST /api/v1/ai/predict: No-detection response handled safely', async () => {
+      const originalFetch = global.fetch;
+      global.fetch = async (url, options) => {
+        if (typeof url === 'string' && (url.startsWith(environment.aiServiceUrl) || url.includes(':8000/predict'))) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              success: true,
+              has_detection: false,
+              category: EWASTE_CATEGORIES.OTHER,
+              confidence: 0.0,
+              confidence_level: 'LOW',
+              review_required: true,
+              review_reason: 'No objects detected: manual verification required',
+              bbox: null,
+              detections: [],
+              predictions: [],
+              model_version: 'material-detection-v0.2.0',
+              inference_time_ms: 95,
+            }),
+          };
+        }
+        return originalFetch(url, options);
+      };
+
+      try {
+        const boundary = '----TestBoundary123';
+        const body = createMultipartPayload(boundary, 'empty.png', 'image/png', validPngBytes);
+        const res = await originalFetch(`http://localhost:${TEST_PORT}/api/v1/ai/predict`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${citizen1Token}`,
+            'Content-Type': `multipart/form-data; boundary=${boundary}`,
+          },
+          body,
+        });
+
+        assert.strictEqual(res.status, 200);
+        const data = await res.json();
+        assert.strictEqual(data.success, true);
+        assert.strictEqual(data.data.prediction.has_detection, false);
+        assert.strictEqual(data.data.prediction.category, EWASTE_CATEGORIES.OTHER);
+        assert.strictEqual(data.data.prediction.confidence, 0.0);
+        assert.strictEqual(data.data.prediction.confidence_level, 'LOW');
+        assert.strictEqual(data.data.prediction.review_required, true);
+        assert.strictEqual(data.data.prediction.detections.length, 0);
       } finally {
         global.fetch = originalFetch;
       }
