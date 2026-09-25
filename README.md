@@ -23,7 +23,7 @@
 
 Get the standalone release build of the EcoSetu Android app:
 
-👉 **[Download Latest EcoSetu APK (v1.0.2)](https://github.com/alokkumar-gh/ecosetu/releases/latest)**
+👉 **[Download Latest EcoSetu APK (v1.0.6)](https://github.com/alokkumar-gh/ecosetu/releases/latest)**
 
 ---
 
@@ -38,19 +38,42 @@ In India, over **95% of e-waste** is collected and processed through the informa
 ## 🚀 Key Features
 
 ### 👥 1. Role-Based Experience (RBAC)
-- **Citizens**: Seamlessly schedule e-waste doorstep pickups, receive automated AI appraisals for unwanted electronics, earn Green Credits, and track real-time collection.
+- **Citizens**: Schedule e-waste doorstep pickups, receive automated AI appraisals for unwanted electronics, earn Green Credits, and track real-time collection.
 - **Informal Collectors (Kabadiwalas)**: Accessible interface with native vernacular voice support, Aadhaar/UPI onboarding, optimized collection routes, and instant cashless payouts.
-- **Formal Recyclers**: Ingestion management, digital batch manifests, tamper-evident chain-of-custody logging, and compliance reporting.
+- **Formal Recyclers**: Batch ingestion management, digital manifests, tamper-evident chain-of-custody logging, and EPR compliance reporting.
+- **System Administrators**: 12 dedicated control center screens wrapped in the `AdminShell` layout system.
 
-### 🧠 2. AI-Driven E-Waste Identification & Valuation
-- Integrated **FastAPI** microservice serving custom **YOLOv8** models.
-- Instant edge/cloud classification of electronics (smartphones, motherboards, batteries, appliances) with condition grading and estimated precious metal / material recovery valuations.
+### 🛡️ 2. Admin Control Center (`AdminShell`)
+- **Collapsible Layout Shell**: Animated 220px expanded / 60px collapsed sidebar with persistent storage.
+- **Top Navigation Bar**: Dynamic breadcrumbs, global `Ctrl+K` search palette, notification badge, and profile quick-actions.
+- **12 Specialized Control Screens**:
+  - **Executive Dashboard**: Real-time KPIs, collection conversion funnel, action items, & live activity feed.
+  - **Verification Management**: Collector/Recycler verification queue with document modal & audit log.
+  - **User Ecosystem**: User table with status toggling (Active / Suspended / Deactivated).
+  - **Geographic Analytics**: Privacy-safe regional map view showing verified recycler facilities and coverage zones.
+  - **System Health Diagnostics**: On-demand single-click diagnostic checker measuring API latency & service health.
+  - **Platform Reports**: CSV and shareable text compliance summary generator.
+  - **Dispute Operations**: Operational marketplace dispute ledger & neutrality audit trail.
+  - **Notification Center, Audit Logs, Historical Analytics, Governance, and Profile Controls**.
 
-### 📶 3. Offline-First Synchronization
+### 🤖 3. EcoSaathi Vernacular AI Assistant
+- Interactive floating conversational AI bot powered by dynamic database knowledge.
+- **Text-To-Speech (TTS)** voice synthesis supporting multiple Indian languages (Hindi, Marathi, Odia, English).
+- Provides instant assistance for e-waste classification rules, Green Credit redemption, and collection guidelines.
+
+### 🧠 4. AI-Driven E-Waste Vision Classification
+- Integrated **FastAPI** / **Roboflow** computer vision API serving custom **YOLOv8** models.
+- Instant edge/cloud classification of electronics (smartphones, PCBs, batteries, displays, appliances) with condition grading and estimated precious metal / material recovery valuations.
+
+### 🔄 5. B2B Marketplace & Chain-of-Custody Traceability
+- Digital batch manifests, consignment delivery tracking, and tamper-evident audit logs.
+- Guarantees Extended Producer Responsibility (EPR) data provenance from doorstep collection to formal processing.
+
+### 📶 6. Offline-First Synchronization
 - Native **SQLite** queue on Android ensuring collectors can log collections, record item weights, and scan QR/barcodes even in zero-connectivity urban pockets.
-- Automatic background idempotency sync as soon as network connectivity is restored.
+- Automatic background sync as soon as network connectivity is restored.
 
-### 🌐 4. Multilingual & Inclusive Design
+### 🌐 7. Multilingual & Inclusive Design
 - Deep localization into **10+ Indian languages** (Hindi, Tamil, Telugu, Bengali, Marathi, Gujarati, Kannada, Malayalam, Odia, Punjabi, and English).
 - Dark-mode SaaS glassmorphism UI engineered with fluid micro-interactions and high-contrast accessibility.
 
