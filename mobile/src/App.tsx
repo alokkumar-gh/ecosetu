@@ -11,11 +11,13 @@ import { EcoSaathiProvider } from './context/EcoSaathiContext';
 import { EcoSaathiButton } from './components/eco/EcoSaathiButton';
 import { EcoSaathiChatModal } from './components/eco/EcoSaathiChatModal';
 import { OfflineBanner } from './components/common/OfflineBanner';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { colors } from './theme/colors';
 
 const App: React.FC = () => {
   return (
-    <SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
       <AuthProvider>
         <NetworkProvider>
           <I18nProvider>
@@ -36,6 +38,7 @@ const App: React.FC = () => {
         </NetworkProvider>
       </AuthProvider>
     </SafeAreaProvider>
+  </ErrorBoundary>
   );
 };
 
