@@ -35,6 +35,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { TopAppBar } from '../../components/layout/TopAppBar';
+import { AdminShell } from '../../components/admin/AdminShell';
 import { EmptyState } from '../../components/common/EmptyState';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { useNetwork } from '../../hooks/useNetwork';
@@ -276,14 +277,12 @@ export const AdminSystemHealthScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <TopAppBar
-        title={t('admin.systemHealth.title')}
-        subtitle={t('admin.systemHealth.subtitle')}
-        showBack={Boolean(navigation?.canGoBack && navigation.canGoBack())}
-        onBack={() => navigation?.goBack()}
-      />
-
+    <AdminShell
+      title={t('admin.systemHealth.title')}
+      subtitle={t('admin.systemHealth.subtitle')}
+      activeScreen="AdminSystemHealth"
+      navigation={navigation}
+    >
       {!isConnected && <OfflineBanner />}
 
       <ScrollView
@@ -398,7 +397,7 @@ export const AdminSystemHealthScreen: React.FC<Props> = ({ navigation }) => {
           );
         })}
       </ScrollView>
-    </SafeAreaView>
+    </AdminShell>
   );
 };
 

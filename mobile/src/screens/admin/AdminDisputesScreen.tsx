@@ -17,6 +17,7 @@ import {
   RefreshControl,
   SafeAreaView,
 } from 'react-native';
+import { AdminShell } from '../../components/admin/AdminShell';
 import { useNavigation } from '@react-navigation/native';
 import disputeService, { MarketplaceDispute, DisputeStatus } from '../../services/disputeService';
 import { colors } from '../../theme/colors';
@@ -60,14 +61,12 @@ export const AdminDisputesScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Marketplace Disputes (Operations)</Text>
-        <View style={{ width: 36 }} />
-      </View>
+    <AdminShell
+      title="Marketplace Disputes"
+      subtitle="Operational dispute ledger & neutrality audit"
+      activeScreen="AdminDisputes"
+      navigation={navigation}
+    >
 
       {/* Filter Tabs */}
       <View style={styles.filterBar}>
@@ -150,7 +149,7 @@ export const AdminDisputesScreen: React.FC = () => {
           )}
         </ScrollView>
       )}
-    </SafeAreaView>
+    </AdminShell>
   );
 };
 

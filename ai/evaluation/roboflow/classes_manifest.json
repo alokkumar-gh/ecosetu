@@ -1,0 +1,30 @@
+{
+  "model_id": "e-waste-dataset-r0ojc/43",
+  "task": "object_detection",
+  "dataset_size": 19613,
+  "classes_count": 77,
+  "classes": [
+    "Air-Conditioner", "Bar-Phone", "Battery", "Blood-Pressure-Monitor", "Boiler",
+    "Calculator", "Camera", "Ceiling-Fan", "Christmas-Lights", "Clothes-Iron",
+    "Coffee-Machine", "Compact-Fluorescent-Lamps", "Computer-Keyboard", "Computer-Mouse",
+    "Cooled-Dispenser", "Cooling-Display", "CRT-Monitor", "CRT-TV", "Dehumidifier",
+    "Desktop-PC", "Digital-Oscilloscope", "Dishwasher", "Drone", "Electric-Bicycle",
+    "Electric-Guitar", "Electrocardiograph-Machine", "Electronic-Keyboard", "Exhaust-Fan",
+    "Flashlight", "Flat-Panel-Monitor", "Flat-Panel-TV", "Floor-Fan", "Freezer",
+    "Glucose-Meter", "Hair-Dryer", "HDD", "Headphone", "Laptop", "LED-Bulb",
+    "Microwave", "Music-Player", "Neon-Sign", "Network-Switch", "Non-Cooled-Dispenser",
+    "Oven", "Patient-Monitoring-System", "PCB", "Photovoltaic-Panel", "PlayStation-5",
+    "Power-Adapter", "Printer", "Projector", "Pulse-Oximeter", "Range-Hood",
+    "Refrigerator", "Rotary-Mower", "Router", "Server", "Smart-Watch", "Smartphone",
+    "Smoke-Detector", "Soldering-Iron", "Speaker", "SSD", "Stove",
+    "Straight-Tube-Fluorescent-Lamp", "Street-Lamp", "Table-Lamp", "Tablet",
+    "Telephone-Set", "Toaster", "Tumble-Dryer", "TV-Remote-Control", "USB-Flash-Drive",
+    "Vacuum-Cleaner", "Washing-Machine", "Xbox-Series-X"
+  ],
+  "license": "CC BY 4.0",
+  "metrics": {
+    "mAP50": 0.698,
+    "precision": 0.711,
+    "recall": 0.679
+  }
+}

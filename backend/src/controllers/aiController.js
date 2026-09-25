@@ -87,6 +87,22 @@ class AiController {
       next(err);
     }
   }
+
+  /**
+   * GET /api/v1/ai/status
+   * Safe diagnostic endpoint returning AI provider status without leaking secrets
+   */
+  async status(req, res, next) {
+    try {
+      const statusData = aiService.getStatus();
+      return res.status(200).json({
+        success: true,
+        data: statusData,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = new AiController();

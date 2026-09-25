@@ -37,7 +37,7 @@ export const LandingScreen: React.FC<Props> = ({ navigation, route }) => {
 
         const completed = await AsyncStorage.getItem(STORAGE_KEYS.CAROUSEL_COMPLETED);
         if (completed === 'true' && isMounted) {
-          navigation.replace('Login');
+          navigation.replace('AuthGateway');
           return;
         }
       } catch {
@@ -60,9 +60,9 @@ export const LandingScreen: React.FC<Props> = ({ navigation, route }) => {
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.CAROUSEL_COMPLETED, 'true');
     } catch {
-      // Continue to Login even if storage write fails
+      // Continue to AuthGateway even if storage write fails
     }
-    navigation.replace('Login');
+    navigation.replace('AuthGateway');
   };
 
   if (checkingStatus) {
@@ -99,7 +99,7 @@ export const LandingScreen: React.FC<Props> = ({ navigation, route }) => {
                     setNeedsLanguageSelection(false);
                     const completed = await AsyncStorage.getItem(STORAGE_KEYS.CAROUSEL_COMPLETED);
                     if (completed === 'true') {
-                      navigation.replace('Login');
+                      navigation.replace('AuthGateway');
                     }
                   }}
                   activeOpacity={0.8}

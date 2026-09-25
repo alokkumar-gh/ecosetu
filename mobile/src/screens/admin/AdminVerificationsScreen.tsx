@@ -33,14 +33,14 @@ import {
   RefreshControl,
   ScrollView,
 } from 'react-native';
-import { TopAppBar } from '../../components/layout/TopAppBar';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Skeleton } from '../../components/common/Skeleton';
 import { EmptyState } from '../../components/common/EmptyState';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { useNetwork } from '../../hooks/useNetwork';
 import { adminService } from '../../services/adminService';
-import { EcoSetuBackground } from '../../components/eco';
+import { AdminShell } from '../../components/admin/AdminShell';
+import { ADMIN_COLOR, ADMIN_TYPE, ADMIN_RADIUS } from '../../components/admin/AdminTheme';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -48,7 +48,7 @@ import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
 
 const STATUS_FILTERS = ['PENDING', 'APPROVED', 'REJECTED', 'ALL'];
 
-export const AdminVerificationsScreen: React.FC = () => {
+export const AdminVerificationsScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const { isConnected } = useNetwork();
 
   const [verifications, setVerifications] = useState<any[]>([]);
@@ -235,13 +235,11 @@ export const AdminVerificationsScreen: React.FC = () => {
   };
 
   return (
-    <EcoSetuBackground>
-      <SafeAreaView style={styles.safeArea}>
-        <TopAppBar
-          title="Verifications"
-          subtitle="Review Collector & Recycler Applications"
-          showBack={false}
-        />
+    <AdminShell
+      screenKey="AdminVerifications"
+      breadcrumb={['Operations', 'Verifications']}
+      navigation={navigation}
+    >
 
       <OfflineBanner />
 
@@ -485,8 +483,7 @@ export const AdminVerificationsScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
-      </SafeAreaView>
-    </EcoSetuBackground>
+    </AdminShell>
   );
 };
 

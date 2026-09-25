@@ -24,6 +24,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
+import { AdminShell } from '../../components/admin/AdminShell';
 import { GlassCard } from '../../components/glass/GlassCard';
 import { GlassButton } from '../../components/glass/GlassButton';
 import { GlassBadge } from '../../components/glass/GlassBadge';
@@ -285,15 +286,13 @@ export const AdminNotificationCenterScreen: React.FC<Props> = ({ navigation, rou
   }, [title, message, audience, targetUser, actionUrl, loadHistory]);
 
   return (
-    <EcoSetuBackground>
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <TopAppBar
-          title="Notification Center"
-          subtitle="Admin Broadcast & Governance"
-          showBack
-          onBack={() => navigation?.goBack?.()}
-        />
-        <OfflineBanner />
+    <AdminShell
+      title="Notification Center"
+      subtitle="Admin Broadcast & Governance"
+      activeScreen="AdminNotificationCenter"
+      navigation={navigation}
+    >
+      <OfflineBanner />
 
         {/* Tab Navigation Strip */}
         <View style={styles.tabBar}>
@@ -698,8 +697,7 @@ export const AdminNotificationCenterScreen: React.FC<Props> = ({ navigation, rou
             </GlassCard>
           </View>
         </Modal>
-      </SafeAreaView>
-    </EcoSetuBackground>
+    </AdminShell>
   );
 };
 

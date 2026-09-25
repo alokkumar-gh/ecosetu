@@ -27,6 +27,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { TopAppBar } from '../../components/layout/TopAppBar';
+import { AdminShell } from '../../components/admin/AdminShell';
 import { MetricCard } from '../../components/common/MetricCard';
 import { Skeleton } from '../../components/common/Skeleton';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
@@ -310,14 +311,12 @@ export const AdminGovernanceScreen: React.FC<Props> = ({ navigation }) => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <TopAppBar
-        title={t('admin.governance.title')}
-        subtitle={t('admin.governance.subtitle')}
-        showBack={Boolean(navigation?.canGoBack && navigation.canGoBack())}
-        onBack={() => navigation?.goBack()}
-      />
-
+    <AdminShell
+      title={t('admin.governance.title')}
+      subtitle={t('admin.governance.subtitle')}
+      activeScreen="AdminGovernance"
+      navigation={navigation}
+    >
       {fromCache && <OfflineBanner />}
 
       {/* Header Snapshot Telemetry & Refresh */}
@@ -797,7 +796,7 @@ export const AdminGovernanceScreen: React.FC<Props> = ({ navigation }) => {
           )}
         </ScrollView>
       )}
-    </SafeAreaView>
+    </AdminShell>
   );
 };
 

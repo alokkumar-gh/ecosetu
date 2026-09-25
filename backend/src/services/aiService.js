@@ -4,28 +4,56 @@
 const prisma = require('../config/database');
 const environment = require('../config/environment');
 const logger = require('../config/logger');
+const roboflowService = require('./roboflowService');
 const AppError = require('../utils/AppError');
 const { EWASTE_CATEGORIES } = require('../utils/constants');
 
 class AiService {
   /**
-   * Send image to FastAPI microservice for category prediction
-   * Handles timeouts (10s) and service failures gracefully returning null (EC-AI-01, EC-AI-05)
+   * Primary category prediction dispatcher.
+   * Routes to Roboflow v43 hosted inference provider by default when configured,
+   * while preserving fallback compatibility with legacy material-detection-v0.2.0 microservice.
+   *
    * @param {Buffer} imageBuffer - Uploaded image binary buffer
    * @param {string} filename - Original or generated image filename
    * @param {string} mimetype - Image MIME type (image/jpeg, image/png)
-   * @returns {Promise<object|null>} Prediction result object or null if unavailable
+   * @param {object} options - Optional inference parameters
+   * @returns {Promise<object|null>} Standardized prediction result object or null if unavailable
    */
-  async predictCategory(imageBuffer, filename = 'upload.jpg', mimetype = 'image/jpeg') {
+  async predictCategory(imageBuffer, filename = 'upload.jpg', mimetype = 'image/jpeg', options = {}) {
     if (!imageBuffer || imageBuffer.length === 0) {
       console.warn('[EcoSetu AI DEBUG] Backend aiService: empty image buffer provided');
       return null;
     }
 
+    const provider = (environment.aiProvider || 'roboflow').toLowerCase();
+
+    // ── Primary: Roboflow v43 Hosted Inference Provider ──
+    if (provider === 'roboflow' || roboflowService.isConfigured()) {
+      console.log(`[EcoSetu AI DEBUG] Backend aiService: Using Roboflow inference provider (model: ${roboflowService.modelId})`);
+      const roboflowResult = await roboflowService.predict(imageBuffer, options);
+
+      if (roboflowResult) {
+        console.log(`[EcoSetu AI DEBUG] Backend aiService: Roboflow returned category: ${roboflowResult.category}, conf: ${roboflowResult.confidence}`);
+        return roboflowResult;
+      }
+
+      console.warn('[EcoSetu AI DEBUG] Backend aiService: Roboflow inference returned null, attempting legacy fallback if available...');
+    }
+
+    // ── Fallback / Legacy: FastAPI Microservice (material-detection-v0.2.0) ──
+    return this._predictLegacyFastApi(imageBuffer, filename, mimetype);
+  }
+
+  /**
+   * Legacy FastAPI microservice prediction method (preserved for backward compatibility).
+   * @private
+   */
+  async _predictLegacyFastApi(imageBuffer, filename, mimetype) {
     const aiUrl = `${environment.aiServiceUrl}/predict`;
-    console.log(`[EcoSetu AI DEBUG] Backend aiService: request started -> URL: ${aiUrl}, size: ${imageBuffer.length} bytes`);
+    console.log(`[EcoSetu AI DEBUG] Backend aiService: Legacy FastAPI request started -> URL: ${aiUrl}, size: ${imageBuffer.length} bytes`);
     
-    // 120-second timeout (120,000ms) to accommodate Render cold-starts (~30-60s) + CPU inference (~42.6s) + network latency
+    // 120-second timeout to accommodate Render cold-starts + CPU inference + network latency
     const timeoutMs = parseInt(process.env.AI_TIMEOUT_MS, 10) || 120000;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -69,14 +97,28 @@ class AiService {
     } catch (err) {
       clearTimeout(timeoutId);
       if (err.name === 'AbortError') {
-        logger.warn(`AI microservice request timed out after ${timeoutMs / 1000}s: ${aiUrl}`);
-        console.warn(`[EcoSetu AI DEBUG] Backend aiService: AI microservice request timed out after ${timeoutMs / 1000}s: ${aiUrl}`);
+        logger.warn(`Legacy AI microservice request timed out after ${timeoutMs / 1000}s: ${aiUrl}`);
+        console.warn(`[EcoSetu AI DEBUG] Backend aiService: Legacy AI request timed out after ${timeoutMs / 1000}s: ${aiUrl}`);
       } else {
-        logger.warn(`AI microservice unreachable at ${aiUrl}: ${err.message}`);
-        console.warn(`[EcoSetu AI DEBUG] Backend aiService: AI microservice unreachable at ${aiUrl}: ${err.message}`);
+        logger.warn(`Legacy AI microservice unreachable at ${aiUrl}: ${err.message}`);
+        console.warn(`[EcoSetu AI DEBUG] Backend aiService: Legacy AI unreachable at ${aiUrl}: ${err.message}`);
       }
       return null;
     }
+  }
+
+  /**
+   * Diagnostic method reporting current AI provider and configuration status without leaking keys.
+   * @returns {object} Status summary object
+   */
+  getStatus() {
+    const isConfigured = roboflowService.isConfigured();
+    return {
+      provider: environment.aiProvider || 'roboflow',
+      modelId: roboflowService.modelId,
+      apiKeyStatus: isConfigured ? 'CONFIGURED' : 'NOT_CONFIGURED',
+      legacyFallbackAvailable: Boolean(environment.aiServiceUrl),
+    };
   }
 
   /**

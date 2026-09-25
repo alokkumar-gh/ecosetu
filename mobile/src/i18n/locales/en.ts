@@ -2228,5 +2228,154 @@ export const en = {
     "checkConfirmationStatus": "Check Confirmation Status",
     "backToDashboard": "Back to Dashboard",
     "recyclingDifferenceNote": "Every transaction is recorded on-chain for formal circular recycling compliance."
+  },
+  "ai": {
+    "suggestion": "AI Suggestion",
+    "possibleMatch": "Possible match",
+    "useSuggestion": "Use suggestion",
+    "chooseManually": "Choose manually",
+    "checkingPhoto": "Checking photo...",
+    "aiProcessingTimeNotice": "AI analysis on Render cloud may take up to a minute...",
+    "suggestionUnavailable": "AI service is temporarily unavailable. Select material manually.",
+    "serviceUnavailableTitle": "AI Service Unavailable",
+    "couldNotIdentify": "Couldn't identify this item",
+    "couldNotConfidentlyIdentify": "Couldn't confidently identify this item",
+    "noMatchingEwaste": "No supported e-waste detected. Please select category manually.",
+    "manualVerificationNeeded": "Manual verification needed",
+    "matchConfidence": "{percent}% match",
+    "aiTimeoutError": "AI request timed out. Please try again or select category manually.",
+    "retryAnalysis": "Retry AI"
+  },
+  "saathi": {
+    "clarification_prompt": "I found a few related topics. Which one would you like to explore?",
+    "actions": {
+      "open_disputes": "Open Disputes",
+      "open_price_board": "View Price Board",
+      "create_lot": "Create Material Lot",
+      "view_my_lots": "View My Lots",
+      "citizen_submit": "Give E-Waste",
+      "view_requests": "View Requests",
+      "open_marketplace": "Explore Marketplace",
+      "open_deals": "View Deals & Offers",
+      "view_transactions": "View Transactions",
+      "open_earnings": "Open Earnings",
+      "open_safety_center": "Open Safety Center",
+      "view_traceability": "View Impact & Certificate",
+      "open_language_settings": "Change Language",
+      "open_profile": "Open Profile Settings"
+    },
+    "intents": {
+      "who_is_eco_saathi": {
+        "answer": "Namaste! I am Eco-Saathi, your EcoSetu voice and chat assistant. I help you navigate scrap sales, view benchmark prices, understand safety rules, and manage transactions."
+      },
+      "what_is_ecosetu": {
+        "answer": "EcoSetu connects citizens, local scrap collectors (kabadiwalas), and authorized recyclers to build a formal, fair, and safe e-waste circular value chain."
+      },
+      "support_help": {
+        "answer": "For urgent issues, you can file a formal ticket in the Dispute & Support Center or contact our grievance desk at support@ecosetu.org."
+      },
+      "ai_classes": {
+        "answer": "The EcoSetu AI camera automatically detects Mobile Phones, Tablets, and Keyboards/Mice. For all other 13 categories (PCBs, Batteries, Cables, etc.), you can easily choose from the manual list."
+      },
+      "ai_manual_selection": {
+        "answer": "If your e-waste item is not recognized or belongs to another category, simply select the category from the dropdown and enter the estimated weight."
+      },
+      "ai_accuracy": {
+        "answer": "The AI detection is an assistive guide to save you time. It does not set prices or restrict listings; you always have final control to review and edit details."
+      },
+      "price_board": {
+        "answer": "You can check current benchmark market scrap rates on the Price Board. Rates are updated based on regional circular demand."
+      },
+      "todays_price": {
+        "answer": "Scrap rates vary by material type and purity. Opening the Price Board to show live indicative market rates..."
+      },
+      "price_determination": {
+        "answer": "Prices on EcoSetu are mutually negotiated between collectors and recyclers using the Price Board as a fair benchmark."
+      },
+      "how_to_create_lot": {
+        "answer": "To sell e-waste, open 'Sell', choose material category, take a photo with AI assistance, enter approximate weight, and publish your lot to verified recyclers."
+      },
+      "my_lots_status": {
+        "answer": "Fetching your active lots and listing statuses..."
+      },
+      "lot_categories": {
+        "answer": "EcoSetu supports 16 standard e-waste categories including PCBs, Batteries, Cables, CRT, LCDs, Mobile Phones, Laptops, and Mixed Plastics."
+      },
+      "citizen_give_ewaste": {
+        "answer": "To responsibly give your old electronics, tap 'Give', take a photo of the item, select your pickup address, and a verified local collector will come to collect it."
+      },
+      "citizen_requests_status": {
+        "answer": "Checking the status of your submitted pickup requests..."
+      },
+      "marketplace_browse": {
+        "answer": "Authorized recyclers can browse aggregated scrap lots across categories and submit direct purchase bids on the marketplace."
+      },
+      "view_offers": {
+        "answer": "Checking incoming bids, buyer quotes, and active negotiations for your lots..."
+      },
+      "negotiate_offer": {
+        "answer": "When a recycler bids on your lot, you can accept their quote or submit a counter-offer with your proposed rate per kg in the Deals section."
+      },
+      "handover_protocol": {
+        "answer": "During physical handover, both collector and recycler verify material weights, inspect condition, and confirm handover via GPS location and reference code."
+      },
+      "handover_qr_code": {
+        "answer": "Use your digital Handover Reference Code shown on the active deal screen to complete verification with the buyer."
+      },
+      "payment_methods": {
+        "answer": "Payments can be settled directly in Cash, via UPI (recorded in app), or Bank Transfer upon verified physical handover."
+      },
+      "payment_status": {
+        "answer": "Checking your recorded transactions and settlement status..."
+      },
+      "payment_non_custodial": {
+        "answer": "EcoSetu is a non-custodial platform that records formal transaction audit trails without holding user funds in escrow."
+      },
+      "view_earnings": {
+        "answer": "Retrieving your total verified earnings and payment history..."
+      },
+      "safety_battery": {
+        "answer": "WARNING: Never puncture, crush, or expose swollen lithium-ion batteries to heat or water. Store them in a dry, non-flammable container."
+      },
+      "safety_burning": {
+        "answer": "DANGER: Never burn cables or plastic coatings. Open burning releases highly toxic dioxins and lead fumes. Use mechanical stripping or sell directly to authorized recyclers."
+      },
+      "safety_acid": {
+        "answer": "CRITICAL HAZARD: Do not perform chemical acid leaching to extract gold or metals at home. Cyanide and acid baths cause fatal poisoning and irreversible water contamination."
+      },
+      "safety_ppe": {
+        "answer": "Always wear thick cut-resistant gloves, dust masks, and safety glasses when handling broken glass, sharp metals, or disassembling electronics."
+      },
+      "safety_crt": {
+        "answer": "CAUTION: Old CRT television monitors are fragile vacuum tubes containing toxic lead and phosphor powder. Never smash CRT tubes."
+      },
+      "report_dispute": {
+        "answer": "If there is a weight discrepancy or cash shortage during handover, you can open a Dispute Ticket with photo proof for admin review."
+      },
+      "dispute_policy": {
+        "answer": "Disputes are reviewed by EcoSetu compliance admins. Both buyer and seller audit logs, GPS records, and handover receipts are examined."
+      },
+      "recycler_verification": {
+        "answer": "Recyclers must upload valid CPCB/SPCB authorization and GSTIN credentials before they can purchase lots on EcoSetu."
+      },
+      "green_certificate": {
+        "answer": "Every verified recycled item generates an auditable Green Recycling Certificate and calculates total CO2 emissions saved."
+      },
+      "offline_mode": {
+        "answer": "EcoSetu works offline! You can draft lots and record actions without internet; they will automatically sync once you are back online."
+      },
+      "change_language": {
+        "answer": "You can change your language anytime from English, Hindi (हिन्दी), Marathi (मराठी), and Odia (ଓଡ଼ିଆ) in your Profile settings."
+      },
+      "profile_settings": {
+        "answer": "You can update your name, contact phone, and operating locality directly from the Profile screen."
+      },
+      "verification_status": {
+        "answer": "Checking your profile verification status with platform administrators..."
+      },
+      "unknown": {
+        "answer": "I don't have a verified answer for that yet. Try asking about scrap prices, creating lots, deals, payments, safety warnings, or language settings."
+      }
+    }
   }
 };

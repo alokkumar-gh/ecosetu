@@ -28,6 +28,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { TopAppBar } from '../../components/layout/TopAppBar';
+import { AdminShell } from '../../components/admin/AdminShell';
 import { MetricCard } from '../../components/common/MetricCard';
 import { Skeleton } from '../../components/common/Skeleton';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
@@ -337,14 +338,12 @@ export const AdminReportsScreen: React.FC<Props> = ({ navigation }) => {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <TopAppBar
-        title={t('admin.reports.title') || 'Platform Reports & Exports'}
-        subtitle={t('admin.reports.subtitle') || 'Authoritative Governance & Compliance'}
-        showBack={true}
-        onBack={() => navigation?.goBack?.()}
-      />
-
+    <AdminShell
+      title={t('admin.reports.title') || 'Platform Reports & Exports'}
+      subtitle={t('admin.reports.subtitle') || 'Authoritative Governance & Compliance'}
+      activeScreen="AdminReports"
+      navigation={navigation}
+    >
       <OfflineBanner />
 
       {/* Snapshot Information Banner */}
@@ -580,7 +579,7 @@ export const AdminReportsScreen: React.FC<Props> = ({ navigation }) => {
           )}
         </ScrollView>
       )}
-    </SafeAreaView>
+    </AdminShell>
   );
 };
 

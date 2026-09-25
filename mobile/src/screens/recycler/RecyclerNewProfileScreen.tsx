@@ -31,6 +31,7 @@ import { useI18n } from '../../i18n';
 import { LANGUAGE_OPTIONS, SupportedLanguage } from '../../i18n/config';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { recyclingService } from '../../services/recyclingService';
+import { useEcoSaathi } from '../../context/EcoSaathiContext';
 
 // ─── MENU ROW ─────────────────────────────────────────────────────────────────
 const MenuRow: React.FC<{
@@ -71,6 +72,7 @@ export const RecyclerNewProfileScreen: React.FC = () => {
   const navigation                    = useNavigation<any>();
   const { user, logout }              = useAuth();
   const { t, language, setLanguage }  = useI18n();
+  const { openChat }                  = useEcoSaathi();
 
   const [profile, setProfile]           = useState<any>(null);
   const [isLoading, setIsLoading]       = useState(true);
@@ -202,8 +204,15 @@ export const RecyclerNewProfileScreen: React.FC = () => {
             />
           </MenuGroup>
 
-          {/* ── COMPLIANCE ───────────────────────────────────────────── */}
-          <MenuGroup label={t('recycler.compliance', 'COMPLIANCE')}>
+          {/* ── COMPLIANCE & SUPPORT ──────────────────────────────────── */}
+          <MenuGroup label={t('recycler.complianceAndSupport', 'COMPLIANCE & SUPPORT')}>
+            <MenuRow
+              icon="🌿"
+              label={t('saathi.title', 'Eco-Saathi AI Assistant')}
+              sub={t('saathi.recyclerProfileSub', 'Ask about compliance, lots, sourcing & rates')}
+              onPress={() => openChat('RecyclerProfile')}
+            />
+            <View style={styles.rowDivider} />
             <MenuRow
               icon="🏛️"
               label={t('recycler.authorization', 'Authorization')}

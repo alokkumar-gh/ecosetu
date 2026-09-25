@@ -35,6 +35,7 @@ import { useI18n } from '../../i18n';
 import { LANGUAGE_OPTIONS, SupportedLanguage } from '../../i18n/config';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { userProfileService } from '../../services/userProfileService';
+import { useEcoSaathi } from '../../context/EcoSaathiContext';
 import { colors } from '../../theme/colors';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -117,6 +118,7 @@ export const CitizenProfileScreen: React.FC = () => {
   const { user, logout } = useAuth();
   const { isConnected } = useNetwork();
   const { t, language, setLanguage } = useI18n();
+  const { openChat } = useEcoSaathi();
 
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -382,6 +384,13 @@ export const CitizenProfileScreen: React.FC = () => {
 
           {/* ── ACCOUNT & SUPPORT ───────────────────────────────────── */}
           <MenuGroup label={t('citizen.profile.sectionSupport', 'ACCOUNT & SUPPORT')}>
+            <MenuRow
+              icon="🌿"
+              label={t('saathi.title', 'Eco-Saathi AI Assistant')}
+              sub={t('saathi.citizenProfileSub', 'Ask questions about scrap, pickups, rewards & e-waste')}
+              onPress={() => openChat('CitizenProfile')}
+            />
+            <View style={styles.rowDivider} />
             <MenuRow
               icon="🛡️"
               label={t('citizen.profile.privacy', 'Data Privacy & Security')}

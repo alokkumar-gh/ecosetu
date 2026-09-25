@@ -5,8 +5,10 @@
 
 export type AuthStackParamList = {
   Landing: { forceShow?: boolean } | undefined;
+  AuthGateway: undefined;
   Login: undefined;
   Register: { initialRole?: 'CITIZEN' | 'INFORMAL_COLLECTOR' | 'RECYCLER' } | undefined;
+  ForgotPassword: undefined;
 };
 
 export type CitizenTabParamList = {

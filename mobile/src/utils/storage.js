@@ -92,8 +92,14 @@ export const storage = {
    * @returns {Promise<void>}
    */
   async setItem(key, value) {
+    if (value === undefined || value === null) {
+      return this.removeItem(key);
+    }
     try {
       const serialized = typeof value === 'string' ? value : JSON.stringify(value);
+      if (serialized === undefined) {
+        return this.removeItem(key);
+      }
       await getBackend().setItem(key, serialized);
     } catch (error) {
       console.error(`[Storage] Failed to write key: ${key}`, error);

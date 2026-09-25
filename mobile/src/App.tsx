@@ -6,6 +6,10 @@ import { AuthProvider } from './context/AuthContext';
 import { NetworkProvider } from './context/NetworkContext';
 import { I18nProvider } from './i18n';
 import { RootNavigator } from './navigation/RootNavigator';
+import { navigationRef } from './navigation/navigationRef';
+import { EcoSaathiProvider } from './context/EcoSaathiContext';
+import { EcoSaathiButton } from './components/eco/EcoSaathiButton';
+import { EcoSaathiChatModal } from './components/eco/EcoSaathiChatModal';
 import { OfflineBanner } from './components/common/OfflineBanner';
 import { colors } from './theme/colors';
 
@@ -18,8 +22,14 @@ const App: React.FC = () => {
             <View style={styles.container}>
               <StatusBar barStyle="light-content" backgroundColor={colors.backgroundDeep} />
               <OfflineBanner />
-              <NavigationContainer>
-                <RootNavigator />
+              <NavigationContainer ref={navigationRef}>
+                <EcoSaathiProvider>
+                  <View style={styles.appWrapper}>
+                    <RootNavigator />
+                    <EcoSaathiButton />
+                    <EcoSaathiChatModal />
+                  </View>
+                </EcoSaathiProvider>
               </NavigationContainer>
             </View>
           </I18nProvider>
@@ -33,6 +43,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.backgroundBase,
+  },
+  appWrapper: {
+    flex: 1,
+    position: 'relative',
   },
 });
 

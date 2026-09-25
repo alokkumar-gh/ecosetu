@@ -180,9 +180,9 @@ class ApiClient {
    */
   async _tryFallbackBases(endpoint, options) {
     const candidateBases = [
-      API_CONFIG.FALLBACK_BASE_URL,
-      API_CONFIG.LAN_DEV_BASE_URL,
       API_CONFIG.LOCAL_DEV_BASE_URL,
+      API_CONFIG.LAN_DEV_BASE_URL,
+      API_CONFIG.FALLBACK_BASE_URL,
     ].filter((base) => Boolean(base) && base !== this._baseUrl);
 
     for (const base of candidateBases) {
@@ -283,9 +283,10 @@ class ApiClient {
 
       // Serialize body unless already FormData or string
       if (body !== null && body !== undefined) {
-        if (typeof FormData !== 'undefined' && body instanceof FormData) {
+        if ((typeof FormData !== 'undefined' && body instanceof FormData) || (body && Array.isArray(body._parts))) {
           fetchOptions.body = body;
           delete requestHeaders['Content-Type'];
+          delete requestHeaders['content-type'];
         } else if (typeof body === 'string') {
           fetchOptions.body = body;
           if (!requestHeaders['Content-Type']) {

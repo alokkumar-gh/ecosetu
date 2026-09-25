@@ -21,14 +21,17 @@ import {
 import { TopAppBar } from '../../components/layout/TopAppBar';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { EcoSetuBackground } from '../../components/eco';
+import { AdminShell } from '../../components/admin/AdminShell';
 import { useAuth } from '../../hooks/useAuth';
+import { useEcoSaathi } from '../../context/EcoSaathiContext';
 import { userProfileService } from '../../services/userProfileService';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 
-export const AdminProfileScreen: React.FC = () => {
+export const AdminProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const { user, logout } = useAuth();
+  const { openChat } = useEcoSaathi();
   const [profileData, setProfileData] = useState<any>(user);
 
   useEffect(() => {
@@ -55,11 +58,13 @@ export const AdminProfileScreen: React.FC = () => {
   };
 
   return (
-    <EcoSetuBackground>
-      <SafeAreaView style={styles.safeArea}>
-        <TopAppBar title="Admin Profile" subtitle="System Administrator Controls" showBack={false} />
-
-        <ScrollView style={styles.content} contentContainerStyle={styles.scrollContainer}>
+    <AdminShell
+      title="Admin Profile"
+      subtitle="System Administrator Controls"
+      activeScreen="AdminProfile"
+      navigation={navigation}
+    >
+      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContainer}>
           {/* Profile Card */}
           <View style={styles.card}>
             <View style={styles.avatarContainer}>
@@ -95,6 +100,23 @@ export const AdminProfileScreen: React.FC = () => {
             </View>
           </View>
 
+          {/* Eco-Saathi Help Assistant */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>🌿 Eco-Saathi AI Assistant</Text>
+            <Text style={styles.sessionNotice}>
+              Instant guidance on platform features, verification guidelines, regulations, and e-waste rules.
+            </Text>
+            <TouchableOpacity
+              style={[styles.logoutButton, { backgroundColor: '#10B981', marginTop: 12 }]}
+              onPress={() => openChat('AdminProfile')}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Launch Eco-Saathi Assistant"
+            >
+              <Text style={[styles.logoutButtonText, { color: '#042F2C' }]}>Ask Eco-Saathi</Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Security / Sign Out */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Session Security</Text>
@@ -113,8 +135,7 @@ export const AdminProfileScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </SafeAreaView>
-    </EcoSetuBackground>
+    </AdminShell>
   );
 };
 

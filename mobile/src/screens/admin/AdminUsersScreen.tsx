@@ -49,7 +49,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { useI18n } from '../../i18n';
 import { adminService } from '../../services/adminService';
 import { ROLES as CONST_ROLES } from '../../utils/constants';
-import { EcoSetuBackground, EcoGlassSearch } from '../../components/eco';
+import { EcoGlassSearch } from '../../components/eco';
+import { AdminShell } from '../../components/admin/AdminShell';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -252,23 +253,20 @@ export const AdminUsersScreen: React.FC<Props> = ({ navigation, route }) => {
   // Access-denied guard for non-administrators
   if (!isAdmin) {
     return (
-      <EcoSetuBackground>
-        <SafeAreaView style={styles.safeArea}>
-          <TopAppBar
-            title={t('admin.users.title')}
-            showBack={Boolean(navigation?.canGoBack && navigation.canGoBack())}
-            onBack={() => navigation?.goBack()}
+      <AdminShell
+        title={t('admin.users.title')}
+        activeScreen="AdminUsers"
+        navigation={navigation}
+      >
+        <View style={styles.centerContainer}>
+          <EmptyState
+            title={t('admin.users.selfStatusForbidden')}
+            message={t('admin.governance.accessRestrictedMessage')}
+            actionLabel={t('common.back')}
+            onAction={() => navigation?.goBack()}
           />
-          <View style={styles.centerContainer}>
-            <EmptyState
-              title={t('admin.users.selfStatusForbidden')}
-              message={t('admin.governance.accessRestrictedMessage')}
-              actionLabel={t('common.back')}
-              onAction={() => navigation?.goBack()}
-            />
-          </View>
-        </SafeAreaView>
-      </EcoSetuBackground>
+        </View>
+      </AdminShell>
     );
   }
 
@@ -310,14 +308,11 @@ export const AdminUsersScreen: React.FC<Props> = ({ navigation, route }) => {
   );
 
   return (
-    <EcoSetuBackground>
-      <SafeAreaView style={styles.safeArea}>
-        <TopAppBar
-          title={t('admin.users.title')}
-          subtitle={t('admin.users.subtitle')}
-          showBack={Boolean(navigation?.canGoBack && navigation.canGoBack())}
-          onBack={() => navigation?.goBack()}
-        />
+    <AdminShell
+      screenKey="AdminUsers"
+      breadcrumb={['Ecosystem', 'Users']}
+      navigation={navigation}
+    >
 
         {fromCache && <OfflineBanner />}
 
@@ -582,8 +577,7 @@ export const AdminUsersScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
-  </EcoSetuBackground>
+    </AdminShell>
   );
 };
 

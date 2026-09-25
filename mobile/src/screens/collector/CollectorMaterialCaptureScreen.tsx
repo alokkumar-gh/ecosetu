@@ -23,6 +23,7 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useI18n } from '../../i18n';
@@ -46,6 +47,7 @@ import {
   MaterialSubcategory,
 } from '../../config/materialTaxonomy';
 import { capturePhoto } from '../../services/cameraService';
+import { aiService, AIPrediction } from '../../services/aiService';
 
 interface CollectorMaterialCaptureScreenProps {
   navigation: any;
@@ -65,6 +67,13 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
   const [photos, setPhotos] = useState<string[]>([]);
   const [isCapturing, setIsCapturing] = useState<boolean>(false);
 
+  // AI Assistive state
+  const [aiPrediction, setAiPrediction] = useState<AIPrediction | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState<boolean>(false);
+  const [aiSuggestionDismissed, setAiSuggestionDismissed] = useState<boolean>(false);
+  const activeAiImageUri = React.useRef<string | null>(null);
+
   const activeCategoryDef: MaterialCategoryDef =
     MATERIAL_TAXONOMY[selectedCategory] || MATERIAL_TAXONOMY_LIST[0];
 
@@ -78,16 +87,75 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
     }
   };
 
+  const handleAcceptAiSuggestion = (catId: string) => {
+    handleSelectCategory(catId);
+    setAiSuggestionDismissed(true);
+  };
+
+  const handleDismissAiSuggestion = () => {
+    setAiSuggestionDismissed(true);
+  };
+
+  const runAiAnalysis = (imageUri: string, filename?: string, mimeType?: string) => {
+    activeAiImageUri.current = imageUri;
+    setIsAiAnalyzing(true);
+    setAiError(null);
+    setAiPrediction(null);
+    setAiSuggestionDismissed(false);
+    console.log(`[EcoSetu AI MOBILE DEBUG] Collector runAiAnalysis called with URI: ${imageUri}`);
+
+    aiService
+      .predictMaterial(imageUri, filename, mimeType)
+      .then((aiRes) => {
+        if (activeAiImageUri.current === imageUri) {
+          setIsAiAnalyzing(false);
+          if (aiRes.success && aiRes.prediction) {
+            console.log(
+              `[EcoSetu AI MOBILE DEBUG] Collector received valid AI prediction: has_detection=${aiRes.prediction.has_detection}, category=${aiRes.prediction.category}`
+            );
+            setAiPrediction(aiRes.prediction);
+            setAiError(null);
+          } else {
+            console.log(`[EcoSetu AI MOBILE DEBUG] Collector AI request failed: ${aiRes.error}`);
+            setAiPrediction(null);
+            setAiError(aiRes.error || 'AI_SERVICE_UNAVAILABLE');
+          }
+        } else {
+          console.log('[EcoSetu AI MOBILE DEBUG] Stale image URI match ignored in Collector screen');
+        }
+      })
+      .catch((err) => {
+        console.warn('[EcoSetu AI MOBILE DEBUG] Collector AI request rejected:', err?.message || err);
+        if (activeAiImageUri.current === imageUri) {
+          setIsAiAnalyzing(false);
+          setAiPrediction(null);
+          setAiError(err?.message || 'AI_SERVICE_UNAVAILABLE');
+        }
+      });
+  };
+
+  const handleRetryAi = () => {
+    if (photos.length > 0) {
+      runAiAnalysis(photos[photos.length - 1]);
+    }
+  };
+
   const handleTakePhoto = async () => {
     try {
       setIsCapturing(true);
+      console.log('[EcoSetu AI MOBILE DEBUG] Collector photo capture initiated');
       const result = await capturePhoto();
       if (result.success && result.uri) {
-        setPhotos((prev) => [...prev, result.uri!]);
+        const newUri = result.uri;
+        console.log(`[EcoSetu AI MOBILE DEBUG] Collector photo captured successfully: ${newUri}`);
+        setPhotos((prev) => [...prev, newUri]);
+        runAiAnalysis(newUri, result.fileName, result.type);
       } else if (result.error && result.error !== 'USER_CANCELLED') {
+        console.warn(`[EcoSetu AI MOBILE DEBUG] Camera capture error: ${result.error}`);
         Alert.alert(t('common.error'), result.error);
       }
     } catch (err: any) {
+      console.error('[EcoSetu AI DEBUG] handleTakePhoto uncaught exception:', err);
       Alert.alert(t('common.error'), err.message || 'Camera capture failed');
     } finally {
       setIsCapturing(false);
@@ -95,7 +163,15 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
   };
 
   const handleRemovePhoto = (index: number) => {
-    setPhotos((prev) => prev.filter((_, i) => i !== index));
+    setPhotos((prev) => {
+      const updated = prev.filter((_, i) => i !== index);
+      if (updated.length === 0) {
+        activeAiImageUri.current = null;
+        setAiPrediction(null);
+        setIsAiAnalyzing(false);
+      }
+      return updated;
+    });
   };
 
   const handleProceed = () => {
@@ -105,6 +181,7 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
       condition,
       sourceType,
       photos,
+      aiPrediction: aiPrediction || undefined,
     });
   };
 
@@ -138,6 +215,19 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
         >
+          {/* AI Vision Assist Banner */}
+          <View style={styles.aiHelperBanner}>
+            <View style={styles.aiBannerBadgeRow}>
+              <View style={styles.aiBannerBadge}>
+                <Text style={styles.aiBannerBadgeText}>✨ {t('admin.systemHealth.aiServiceTitle') || 'AI Vision Assist'}</Text>
+              </View>
+              <Text style={styles.aiBannerLiveStatus}>● YOLOv8 Active</Text>
+            </View>
+            <Text style={styles.aiBannerDesc}>
+              {t('admin.systemHealth.aiServiceDesc') || 'Take a photo of collected scrap to automatically detect category (Smartphones, PCBs, Tablets, Keyboards & more).'}
+            </Text>
+          </View>
+
           {/* Section 1: Photos Capture Strip */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeaderRow}>
@@ -178,6 +268,144 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
               ))}
             </ScrollView>
           </View>
+
+          {/* AI Assistive Suggestion Box (Non-blocking, assistive only) */}
+          {isAiAnalyzing && (
+            <View style={styles.aiAnalyzingCard}>
+              <ActivityIndicator size="small" color="#10B981" style={{ marginRight: 10 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.aiAnalyzingText}>{t('ai.checkingPhoto') || 'Analyzing photo with AI model...'}</Text>
+                <Text style={styles.aiAnalyzingSubText}>
+                  {t('ai.aiProcessingTimeNotice') || 'AI analysis on Render cloud may take up to a minute...'}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {!isAiAnalyzing && !aiSuggestionDismissed && (aiPrediction || aiError) && photos.length > 0 && (
+            <View style={[styles.aiSuggestionCard, Boolean(aiError) && styles.aiErrorCard]}>
+              {aiPrediction && aiPrediction.has_detection && aiPrediction.category && MATERIAL_TAXONOMY[aiPrediction.category] ? (
+                (() => {
+                  console.log('[EcoSetu AI MOBILE DEBUG] final UI branch selected: SUCCESS_WITH_DETECTION');
+                  const catDef = MATERIAL_TAXONOMY[aiPrediction.category];
+                  const percent = Math.round(aiPrediction.confidence * 100);
+                  const isLowConf = aiPrediction.confidence_level === 'LOW' || aiPrediction.review_required;
+                  return (
+                    <View>
+                      <View style={styles.aiCardHeaderRow}>
+                        <View style={styles.aiTitleRow}>
+                          <Text style={styles.aiSparkleIcon}>✨</Text>
+                          <Text style={styles.aiCardTitle}>
+                            {isLowConf ? t('ai.possibleMatch') : t('ai.suggestion')}
+                          </Text>
+                        </View>
+                        <Text style={styles.aiPercentBadge}>
+                          {t('ai.matchConfidence', { percent }) || `${percent}% match`}
+                        </Text>
+                      </View>
+
+                      <View style={styles.aiSuggestionBody}>
+                        <View
+                          style={[
+                            styles.aiSymbolContainer,
+                            { backgroundColor: catDef.color + '25', borderColor: catDef.color },
+                          ]}
+                        >
+                          <Text style={styles.aiSymbolText}>{catDef.symbol}</Text>
+                        </View>
+                        <View style={styles.aiInfoCol}>
+                          <Text style={styles.aiCategoryName}>
+                            {t(catDef.i18nKey) || catDef.defaultName}
+                          </Text>
+                          <Text style={styles.aiCategorySubtitle}>
+                            {isLowConf ? t('ai.manualVerificationNeeded') : t('materialLots.tapToSelect')}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.aiActionRow}>
+                        <TouchableOpacity
+                          style={styles.aiUseButton}
+                          onPress={() => handleAcceptAiSuggestion(aiPrediction.category!)}
+                          activeOpacity={0.7}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('ai.useSuggestion')}
+                        >
+                          <Text style={styles.aiUseButtonText}>✓ {t('ai.useSuggestion')}</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={styles.aiDismissButton}
+                          onPress={handleDismissAiSuggestion}
+                          activeOpacity={0.7}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('ai.chooseManually')}
+                        >
+                          <Text style={styles.aiDismissButtonText}>{t('ai.chooseManually')}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                })()
+              ) : aiPrediction ? (
+                // CASE A: VALID AI NO DETECTION (AI responded successfully, no supported e-waste found)
+                (() => {
+                  console.log('[EcoSetu AI MOBILE DEBUG] final UI branch selected: SUCCESS_NO_DETECTION');
+                  return (
+                    <View>
+                      <View style={styles.aiCardHeaderRow}>
+                        <Text style={styles.aiNoDetTitle}>🔍 {t('ai.couldNotConfidentlyIdentify', "Couldn't confidently identify this item")}</Text>
+                      </View>
+                      <Text style={styles.aiNoDetSubtitle}>{t('ai.noMatchingEwaste', 'No supported e-waste detected. Please select category manually.')}</Text>
+                      <TouchableOpacity
+                        style={styles.aiDismissButtonSingle}
+                        onPress={handleDismissAiSuggestion}
+                        activeOpacity={0.7}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('ai.chooseManually')}
+                      >
+                        <Text style={styles.aiDismissButtonText}>{t('ai.chooseManually')}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })()
+              ) : (
+                // CASE B: AI SERVICE UNAVAILABLE / TIMEOUT / NETWORK ERROR
+                (() => {
+                  console.log('[EcoSetu AI MOBILE DEBUG] final UI branch selected: AI_SERVICE_ERROR');
+                  return (
+                    <View>
+                      <View style={styles.aiCardHeaderRow}>
+                        <Text style={styles.aiErrorTitle}>⚠️ {t('ai.serviceUnavailableTitle', 'AI Service Unavailable')}</Text>
+                      </View>
+                      <Text style={styles.aiNoDetSubtitle}>{t('ai.suggestionUnavailable', 'AI service is temporarily unavailable. Select material manually.')}</Text>
+                      <View style={styles.aiActionRow}>
+                        <TouchableOpacity
+                          style={styles.aiRetryButton}
+                          onPress={handleRetryAi}
+                          activeOpacity={0.7}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('ai.retryAnalysis', 'Retry AI')}
+                        >
+                          <Text style={styles.aiRetryButtonText}>🔄 {t('ai.retryAnalysis', 'Retry AI')}</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={styles.aiDismissButton}
+                          onPress={handleDismissAiSuggestion}
+                          activeOpacity={0.7}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('ai.chooseManually')}
+                        >
+                          <Text style={styles.aiDismissButtonText}>{t('ai.chooseManually')}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                })()
+              )}
+            </View>
+          )}
 
           {/* Section 2: Pictorial Category Picker (15 SIH Types, >=64dp cards, >=48dp touch) */}
           <View style={styles.sectionCard}>
@@ -532,5 +760,208 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
   },
+  aiHelperBanner: {
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: space.sm,
+    marginBottom: space.sm,
+  },
+  aiBannerBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  aiBannerBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#10B981',
+  },
+  aiBannerBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#10B981',
+  },
+  aiBannerLiveStatus: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#34D399',
+  },
+  aiBannerDesc: {
+    fontSize: 12,
+    color: colors.textSecondary || '#94A3B8',
+    lineHeight: 17,
+  },
+  aiAnalyzingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(20, 184, 166, 0.12)',
+    borderColor: 'rgba(20, 184, 166, 0.3)',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: space.sm,
+    marginBottom: space.md,
+  },
+  aiAnalyzingIcon: {
+    fontSize: 18,
+    marginRight: space.xs,
+  },
+  aiAnalyzingText: {
+    fontSize: 13,
+    color: colors.primary || '#14B8A6',
+    fontWeight: '600',
+  },
+  aiAnalyzingSubText: {
+    fontSize: 11,
+    color: colors.textSecondary || '#94A3B8',
+    marginTop: 2,
+  },
+  aiSuggestionCard: {
+    backgroundColor: 'rgba(20, 184, 166, 0.15)',
+    borderColor: 'rgba(20, 184, 166, 0.4)',
+    borderWidth: 1.5,
+    borderRadius: 16,
+    padding: space.md,
+    marginBottom: space.md,
+  },
+  aiCardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: space.xs,
+  },
+  aiTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  aiSparkleIcon: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  aiCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary || '#14B8A6',
+  },
+  aiPercentBadge: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#071E22',
+    backgroundColor: colors.primary || '#14B8A6',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  aiSuggestionBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: space.xs,
+  },
+  aiSymbolContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    marginRight: space.sm,
+  },
+  aiSymbolText: {
+    fontSize: 24,
+  },
+  aiInfoCol: {
+    flex: 1,
+  },
+  aiCategoryName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary || '#FFFFFF',
+  },
+  aiCategorySubtitle: {
+    fontSize: 11,
+    color: colors.textSecondary || '#94A3B8',
+    marginTop: 2,
+  },
+  aiActionRow: {
+    flexDirection: 'row',
+    gap: space.xs,
+    marginTop: space.sm,
+  },
+  aiUseButton: {
+    flex: 1.2,
+    backgroundColor: colors.primary || '#14B8A6',
+    minHeight: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aiUseButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#071E22',
+  },
+  aiDismissButton: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    minHeight: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aiDismissButtonSingle: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    minHeight: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: space.xs,
+  },
+  aiDismissButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary || '#CBD5E1',
+  },
+  aiNoDetTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary || '#FFFFFF',
+  },
+  aiNoDetSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary || '#94A3B8',
+    marginVertical: 4,
+  },
+  aiErrorCard: {
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+  },
+  aiErrorTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#F59E0B',
+  },
+  aiRetryButton: {
+    flex: 1.2,
+    backgroundColor: '#F59E0B',
+    minHeight: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aiRetryButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#071E22',
+  },
 });
+
 

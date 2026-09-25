@@ -27,7 +27,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { EcoSetuBackground } from '../../components/eco';
-import { TopAppBar } from '../../components/layout/TopAppBar';
+import { AdminShell } from '../../components/admin/AdminShell';
 import { Skeleton } from '../../components/common/Skeleton';
 import { EmptyState } from '../../components/common/EmptyState';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
@@ -36,7 +36,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 
-export const AdminAuditLogsScreen: React.FC = () => {
+export const AdminAuditLogsScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const [logs, setLogs] = useState<any[]>([]);
   const [pagination, setPagination] = useState<any>(null);
   const [page, setPage] = useState<number>(1);
@@ -157,13 +157,12 @@ export const AdminAuditLogsScreen: React.FC = () => {
   };
 
   return (
-    <EcoSetuBackground>
-      <SafeAreaView style={styles.safeArea}>
-        <TopAppBar
-          title="System Audit Trail"
-          subtitle="Immutable compliance & event logs"
-          showBack={false}
-        />
+    <AdminShell
+      title="System Audit Trail"
+      subtitle="Immutable compliance & event logs"
+      activeScreen="AdminAuditLogs"
+      navigation={navigation}
+    >
 
         <OfflineBanner />
 
@@ -232,8 +231,7 @@ export const AdminAuditLogsScreen: React.FC = () => {
           }
         />
       )}
-    </SafeAreaView>
-  </EcoSetuBackground>
+    </AdminShell>
   );
 };
 

@@ -35,6 +35,7 @@ import { EcoSetuBackground } from '../../components/eco';
 import { ewasteService } from '../../services/ewasteService';
 import { requestService } from '../../services/requestService';
 import { capturePhoto } from '../../services/cameraService';
+import { aiService, AIPrediction } from '../../services/aiService';
 import { reverseGeocode, getCurrentLocation, ResolvedAddress } from '../../services/locationService';
 import { EcoSetuMap } from '../../components/map/EcoSetuMap';
 import { EWASTE_CATEGORIES, ITEM_CONDITIONS, ADDRESS_TYPES } from '../../utils/constants';
@@ -162,6 +163,13 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
   const [photoUri, setPhotoUri] = useState<string | undefined>(undefined);
   const [isTakingPhoto, setIsTakingPhoto] = useState(false);
 
+  // AI Assistive state (Step 2 non-blocking material suggestion)
+  const [aiPrediction, setAiPrediction] = useState<AIPrediction | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState<boolean>(false);
+  const [aiDismissed, setAiDismissed] = useState<boolean>(false);
+  const activeAiPhotoUri = useRef<string | null>(null);
+
   // Step 3 — Condition
   const [condition, setCondition] = useState<string>(ITEM_CONDITIONS.UNKNOWN);
 
@@ -250,6 +258,10 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
   const resetCurrentDraft = () => {
     setCategory(null);
     setPhotoUri(undefined);
+    setAiPrediction(null);
+    setIsAiAnalyzing(false);
+    setAiDismissed(false);
+    activeAiPhotoUri.current = null;
     setCondition(ITEM_CONDITIONS.UNKNOWN);
     setQuantity(1);
     setWeight('');
@@ -376,17 +388,66 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
 
   // ── Photo ──────────────────────────────────────────────────────────────────
 
+  const runAiAnalysis = (imageUri: string, filename?: string, mimeType?: string) => {
+    activeAiPhotoUri.current = imageUri;
+    setIsAiAnalyzing(true);
+    setAiError(null);
+    setAiPrediction(null);
+    setAiDismissed(false);
+    console.log(`[EcoSetu AI MOBILE DEBUG] Citizen runAiAnalysis called with URI: ${imageUri}`);
+
+    aiService
+      .predictMaterial(imageUri, filename, mimeType)
+      .then((aiRes) => {
+        if (activeAiPhotoUri.current === imageUri) {
+          setIsAiAnalyzing(false);
+          if (aiRes.success && aiRes.prediction) {
+            console.log(
+              `[EcoSetu AI MOBILE DEBUG] Citizen received valid AI prediction: has_detection=${aiRes.prediction.has_detection}, category=${aiRes.prediction.category}`
+            );
+            setAiPrediction(aiRes.prediction);
+            setAiError(null);
+          } else {
+            console.log(`[EcoSetu AI MOBILE DEBUG] Citizen AI request failed: ${aiRes.error}`);
+            setAiPrediction(null);
+            setAiError(aiRes.error || 'AI_SERVICE_UNAVAILABLE');
+          }
+        } else {
+          console.log('[EcoSetu AI MOBILE DEBUG] Stale image URI match ignored in Citizen screen');
+        }
+      })
+      .catch((err) => {
+        console.warn('[EcoSetu AI MOBILE DEBUG] Citizen AI request rejected:', err?.message || err);
+        if (activeAiPhotoUri.current === imageUri) {
+          setIsAiAnalyzing(false);
+          setAiPrediction(null);
+          setAiError(err?.message || 'AI_SERVICE_UNAVAILABLE');
+        }
+      });
+  };
+
+  const handleRetryAi = () => {
+    if (photoUri) {
+      runAiAnalysis(photoUri);
+    }
+  };
+
   const handleTakePhoto = async () => {
     setIsTakingPhoto(true);
     try {
+      console.log('[EcoSetu AI MOBILE DEBUG] Citizen photo capture initiated');
       const result = await capturePhoto();
       if (result.success && result.uri) {
-        setPhotoUri(result.uri);
+        const newUri = result.uri;
+        console.log(`[EcoSetu AI MOBILE DEBUG] Citizen photo captured: ${newUri}`);
+        setPhotoUri(newUri);
+        runAiAnalysis(newUri, result.fileName, result.type);
       } else if (result.error === 'CAMERA_PERMISSION_DENIED') {
+        console.warn('[EcoSetu AI MOBILE DEBUG] Citizen camera permission denied');
         Alert.alert('Permission Required', 'Camera permission is needed to take a photo.');
       }
-    } catch {
-      // silent
+    } catch (err: any) {
+      console.error('[EcoSetu AI DEBUG] Citizen handleTakePhoto uncaught exception:', err);
     } finally {
       setIsTakingPhoto(false);
     }
@@ -606,7 +667,7 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
       // ── STEP 2: Photo ─────────────────────────────────────────────────────
       case 2:
         return (
-          <View style={styles.stepContent}>
+          <ScrollView style={styles.stepContent} showsVerticalScrollIndicator={false}>
             <Text style={styles.stepQuestion}>{t('common.takePhoto', 'Take a photo')}</Text>
             <Text style={styles.stepHint}>
               {t('common.photoHint', 'A photo helps collectors identify your item accurately. You can skip this step.')}
@@ -641,6 +702,144 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
               )}
             </TouchableOpacity>
 
+            {/* AI Checking State */}
+            {isAiAnalyzing && (
+              <View style={styles.aiAnalyzingCard}>
+                <ActivityIndicator size="small" color="#10B981" style={{ marginRight: 10 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.aiAnalyzingText}>{t('ai.checkingPhoto') || 'Analyzing photo with AI model...'}</Text>
+                  <Text style={styles.aiAnalyzingSubText}>
+                    {t('ai.aiProcessingTimeNotice') || 'AI analysis on Render cloud may take up to a minute...'}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* AI Assistive Suggestion */}
+            {!isAiAnalyzing && !aiDismissed && (aiPrediction || aiError) && photoUri && (
+              <View style={[styles.aiSuggestionCard, Boolean(aiError) && styles.aiErrorCard]}>
+                {aiPrediction && aiPrediction.has_detection && aiPrediction.category && CATEGORY_MAP[aiPrediction.category] ? (
+                  (() => {
+                    console.log('[EcoSetu AI MOBILE DEBUG] final UI branch selected: SUCCESS_WITH_DETECTION');
+                    const catInfo = CATEGORY_MAP[aiPrediction.category];
+                    const percent = Math.round(aiPrediction.confidence * 100);
+                    const isLowConf = aiPrediction.confidence_level === 'LOW' || aiPrediction.review_required;
+                    const isDifferent = category !== aiPrediction.category;
+                    return (
+                      <View>
+                        <View style={styles.aiCardHeaderRow}>
+                          <View style={styles.aiTitleRow}>
+                            <Text style={styles.aiSparkleIcon}>✨</Text>
+                            <Text style={styles.aiCardTitle}>
+                              {isLowConf ? t('ai.possibleMatch') : t('ai.suggestion')}
+                            </Text>
+                          </View>
+                          <Text style={styles.aiPercentBadge}>
+                            {t('ai.matchConfidence', { percent }) || `${percent}% match`}
+                          </Text>
+                        </View>
+
+                        <View style={styles.aiSuggestionBody}>
+                          <Text style={styles.aiSymbolText}>{catInfo.icon}</Text>
+                          <View style={styles.aiInfoCol}>
+                            <Text style={styles.aiCategoryName}>
+                              {t(catInfo.i18nKey, catInfo.defaultLabel)}
+                            </Text>
+                            <Text style={styles.aiCategorySubtitle}>
+                              {isLowConf ? t('ai.manualVerificationNeeded') : t('common.tapToSelect')}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.aiActionRow}>
+                          {isDifferent && (
+                            <TouchableOpacity
+                              style={styles.aiUseButton}
+                              onPress={() => {
+                                setCategory(aiPrediction.category!);
+                                setAiDismissed(true);
+                              }}
+                              activeOpacity={0.7}
+                              accessibilityRole="button"
+                              accessibilityLabel={t('ai.useSuggestion')}
+                            >
+                              <Text style={styles.aiUseButtonText}>✓ {t('ai.useSuggestion')}</Text>
+                            </TouchableOpacity>
+                          )}
+
+                          <TouchableOpacity
+                            style={styles.aiDismissButton}
+                            onPress={() => setAiDismissed(true)}
+                            activeOpacity={0.7}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('ai.chooseManually')}
+                          >
+                            <Text style={styles.aiDismissButtonText}>{t('ai.chooseManually')}</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    );
+                  })()
+                ) : aiPrediction ? (
+                  // CASE A: VALID AI NO DETECTION (AI responded successfully, no supported e-waste found)
+                  (() => {
+                    console.log('[EcoSetu AI MOBILE DEBUG] final UI branch selected: SUCCESS_NO_DETECTION');
+                    return (
+                      <View>
+                        <View style={styles.aiCardHeaderRow}>
+                          <Text style={styles.aiNoDetTitle}>🔍 {t('ai.couldNotConfidentlyIdentify', "Couldn't confidently identify this item")}</Text>
+                        </View>
+                        <Text style={styles.aiNoDetSubtitle}>{t('ai.noMatchingEwaste', 'No supported e-waste detected. Please select category manually.')}</Text>
+                        <TouchableOpacity
+                          style={styles.aiDismissButtonSingle}
+                          onPress={() => setAiDismissed(true)}
+                          activeOpacity={0.7}
+                          accessibilityRole="button"
+                          accessibilityLabel={t('ai.chooseManually')}
+                        >
+                          <Text style={styles.aiDismissButtonText}>{t('ai.chooseManually')}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })()
+                ) : (
+                  // CASE B: AI SERVICE UNAVAILABLE / TIMEOUT / NETWORK ERROR
+                  (() => {
+                    console.log('[EcoSetu AI MOBILE DEBUG] final UI branch selected: AI_SERVICE_ERROR');
+                    return (
+                      <View>
+                        <View style={styles.aiCardHeaderRow}>
+                          <Text style={styles.aiErrorTitle}>⚠️ {t('ai.serviceUnavailableTitle', 'AI Service Unavailable')}</Text>
+                        </View>
+                        <Text style={styles.aiNoDetSubtitle}>{t('ai.suggestionUnavailable', 'AI service is temporarily unavailable. Select material manually.')}</Text>
+                        <View style={styles.aiActionRow}>
+                          <TouchableOpacity
+                            style={styles.aiRetryButton}
+                            onPress={handleRetryAi}
+                            activeOpacity={0.7}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('ai.retryAnalysis', 'Retry AI')}
+                          >
+                            <Text style={styles.aiRetryButtonText}>🔄 {t('ai.retryAnalysis', 'Retry AI')}</Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={styles.aiDismissButton}
+                            onPress={() => setAiDismissed(true)}
+                            activeOpacity={0.7}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('ai.chooseManually')}
+                          >
+                            <Text style={styles.aiDismissButtonText}>{t('ai.chooseManually')}</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    );
+                  })()
+                )}
+              </View>
+            )}
+
             <TouchableOpacity
               style={styles.skipPhotoBtn}
               onPress={goNext}
@@ -648,7 +847,8 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
             >
               <Text style={styles.skipPhotoText}>{t('common.skipPhoto', 'Skip — I don\'t want to add a photo')}</Text>
             </TouchableOpacity>
-          </View>
+            <View style={{ height: 30 }} />
+          </ScrollView>
         );
 
       // ── STEP 3: Condition ─────────────────────────────────────────────────
@@ -1659,6 +1859,163 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+
+  // ── AI Suggestion Styles ──
+  aiAnalyzingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(20, 184, 166, 0.12)',
+    borderColor: 'rgba(20, 184, 166, 0.3)',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  aiAnalyzingText: {
+    fontSize: 13,
+    color: '#14B8A6',
+    fontWeight: '600',
+  },
+  aiAnalyzingSubText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  aiSuggestionCard: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: 'rgba(16, 185, 129, 0.35)',
+    borderWidth: 1.5,
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  aiCardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  aiTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  aiSparkleIcon: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  aiCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  aiPercentBadge: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#071E22',
+    backgroundColor: '#10B981',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  aiSuggestionBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  aiSymbolText: {
+    fontSize: 28,
+    marginRight: 10,
+  },
+  aiInfoCol: {
+    flex: 1,
+  },
+  aiCategoryName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  aiCategorySubtitle: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: 2,
+  },
+  aiActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  aiUseButton: {
+    flex: 1.2,
+    backgroundColor: '#10B981',
+    minHeight: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aiUseButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#071E22',
+  },
+  aiDismissButton: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    minHeight: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aiDismissButtonSingle: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    minHeight: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  aiDismissButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.75)',
+  },
+  aiNoDetTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  aiNoDetSubtitle: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
+    marginVertical: 4,
+  },
+  aiErrorCard: {
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+  },
+  aiErrorTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#F59E0B',
+  },
+  aiRetryButton: {
+    flex: 1.2,
+    backgroundColor: '#F59E0B',
+    minHeight: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aiRetryButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#071E22',
   },
 });
 

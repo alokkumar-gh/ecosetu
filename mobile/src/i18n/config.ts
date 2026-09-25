@@ -2065,6 +2065,7 @@ export interface TranslationSchema {
     noPurchases: string;
     exploreStore: string;
   };
+  saathi?: Record<string, any>;
 };
 
 

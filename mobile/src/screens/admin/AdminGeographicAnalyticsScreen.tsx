@@ -26,6 +26,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { TopAppBar } from '../../components/layout/TopAppBar';
+import { AdminShell } from '../../components/admin/AdminShell';
 import { MetricCard } from '../../components/common/MetricCard';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Skeleton } from '../../components/common/Skeleton';
@@ -252,14 +253,12 @@ export const AdminGeographicAnalyticsScreen: React.FC<Props> = ({ navigation }) 
   const verifiedRecyclersCount = recyclers.length;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <TopAppBar
-        title={t('admin.geographic.title') || 'Geographic Analytics'}
-        subtitle={t('admin.geographic.subtitle') || 'Regional Activity & Facility Map'}
-        showBack={true}
-        onBack={() => navigation?.goBack?.()}
-      />
-
+    <AdminShell
+      title={t('admin.geographic.title') || 'Geographic Analytics'}
+      subtitle={t('admin.geographic.subtitle') || 'Regional Activity & Facility Map'}
+      activeScreen="AdminGeographicAnalytics"
+      navigation={navigation}
+    >
       <OfflineBanner />
 
       {/* Segmented View Controls: [ Overview ] [ Map ] */}
@@ -640,7 +639,7 @@ export const AdminGeographicAnalyticsScreen: React.FC<Props> = ({ navigation }) 
           </View>
         </View>
       )}
-    </SafeAreaView>
+    </AdminShell>
   );
 };
 

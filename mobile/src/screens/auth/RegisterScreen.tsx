@@ -1,36 +1,46 @@
 /**
- * RegisterScreen — Premium SaaS Glassmorphism Edition
+ * RegisterScreen — Progressive 3-step signup v2
  *
- * Unified with LoginScreen design language:
- * - EcoSetu atmospheric background
- * - Translucent glass registration card
- * - Emerald glowing primary CTA button
- * - Translucent role selector chips
- * - Crisp white typography and accessible touch targets
- * - All business logic (useAuth, validation, register payload, role constraints) 100% preserved
+ * All auth logic (useAuth.register, ROLES, validation) 100% preserved.
+ *
+ * Step 1: Role selection + Contact (email / phone)
+ * Step 2: Password creation
+ * Step 3: Identity (full name)
+ *
+ * Visual: EcoStepIndicator + EcoInput + EcoRoleCard + animated step transitions.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
   StyleSheet,
-  TouchableOpacity,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
+  TouchableOpacity,
+  Animated,
+  Easing,
+  SafeAreaView,
+  StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { AuthStackParamList } from '../../navigation/types';
 import { useAuth } from '../../hooks/useAuth';
 import { useI18n } from '../../i18n';
-import { LanguageSelector } from '../../components/common/LanguageSelector';
-import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { ROLES } from '../../utils/constants';
+import { AuthBackground } from '../../components/auth/design/AuthBackground';
+import { EcoInput } from '../../components/auth/design/EcoInput';
+import { EcoButton, EcoSecondaryButton } from '../../components/auth/design/EcoButton';
+import {
+  EcoGlassCard,
+  EcoStepIndicator,
+  EcoRoleCard,
+  EcoPasswordStrength,
+} from '../../components/auth/design/EcoAuthWidgets';
+import { LanguageSelector } from '../../components/common/LanguageSelector';
+import { AUTH_COLORS, AUTH_ORBS, AUTH_SPACE, AUTH_RADIUS, AUTH_TIMING } from '../../components/auth/design/AuthTheme';
 
 interface Props {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Register'>;
@@ -39,46 +49,158 @@ interface Props {
 
 type AllowedRole = typeof ROLES.CITIZEN | typeof ROLES.INFORMAL_COLLECTOR | typeof ROLES.RECYCLER;
 
-const ROLE_OPTIONS: { key: AllowedRole; label: string; icon: string }[] = [
-  { key: ROLES.CITIZEN, label: 'Citizen', icon: '🏠' },
-  { key: ROLES.INFORMAL_COLLECTOR, label: 'Collector', icon: '🚚' },
-  { key: ROLES.RECYCLER, label: 'Recycler', icon: '♻' },
+const ROLE_OPTIONS: {
+  key: AllowedRole;
+  icon: string;
+  label: string;
+  description: string;
+  accent: string;
+}[] = [
+  {
+    key: ROLES.CITIZEN,
+    icon: '🏠',
+    label: 'Citizen',
+    description: 'Dispose & track your e-waste responsibly.',
+    accent: AUTH_COLORS.primary,
+  },
+  {
+    key: ROLES.INFORMAL_COLLECTOR,
+    icon: '🚚',
+    label: 'Collector',
+    description: 'Find & manage collection opportunities.',
+    accent: AUTH_COLORS.secondary,
+  },
+  {
+    key: ROLES.RECYCLER,
+    icon: '♻️',
+    label: 'Recycler',
+    description: 'Manage recycling & processing workflows.',
+    accent: '#A78BFA',
+  },
 ];
+
+const TOTAL_STEPS = 3;
 
 export const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
   const { register } = useAuth();
   const { t } = useI18n();
   const initialRole: AllowedRole = (route.params?.initialRole as AllowedRole) || ROLES.CITIZEN;
 
+  // Form state — all preserved from original
+  const [currentStep, setCurrentStep] = useState(0);
   const [role, setRole] = useState<AllowedRole>(initialRole);
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [phone, setPhone] = useState('');
+  const [name, setName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Per-field errors
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+
+  // Step transition animation
+  const stepOpacity = useRef(new Animated.Value(1)).current;
+  const stepTranslateX = useRef(new Animated.Value(0)).current;
+
+  // Entrance animation
+  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const headerTranslateY = useRef(new Animated.Value(-16)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(headerOpacity, { toValue: 1, duration: 450, useNativeDriver: true }),
+      Animated.spring(headerTranslateY, { toValue: 0, friction: 7, tension: 80, useNativeDriver: true }),
+    ]).start();
+  }, [headerOpacity, headerTranslateY]);
+
+  const animateStepTransition = (direction: 'forward' | 'back', callback: () => void) => {
+    const outX = direction === 'forward' ? -30 : 30;
+    const inX = direction === 'forward' ? 30 : -30;
+
+    Animated.timing(stepOpacity, {
+      toValue: 0,
+      duration: AUTH_TIMING.micro,
+      useNativeDriver: true,
+    }).start(() => {
+      stepTranslateX.setValue(inX);
+      callback();
+      Animated.parallel([
+        Animated.timing(stepOpacity, { toValue: 1, duration: 260, useNativeDriver: true }),
+        Animated.spring(stepTranslateX, { toValue: 0, friction: 7, tension: 100, useNativeDriver: true }),
+      ]).start();
+    });
+  };
+
+  const validateStep1 = (): boolean => {
+    let valid = true;
+    if (!email.trim() || !email.includes('@')) {
+      setEmailError('Please enter a valid email address.');
+      valid = false;
+    } else {
+      setEmailError(null);
+    }
+    return valid;
+  };
+
+  const validateStep2 = (): boolean => {
+    let valid = true;
+    if (!password || password.length < 8) {
+      setPasswordError('Password must be at least 8 characters.');
+      valid = false;
+    } else if (!/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
+      setPasswordError('Include both letters and numbers for a stronger password.');
+      valid = false;
+    } else {
+      setPasswordError(null);
+    }
+
+    if (password !== confirmPassword) {
+      setConfirmPasswordError('Passwords don\'t match. Please try again.');
+      valid = false;
+    } else {
+      setConfirmPasswordError(null);
+    }
+    return valid;
+  };
+
+  const validateStep3 = (): boolean => {
+    if (!name.trim() || name.trim().length < 2) {
+      setNameError('Please enter your full name (at least 2 characters).');
+      return false;
+    }
+    setNameError(null);
+    return true;
+  };
+
+  const handleNext = () => {
+    setErrorMessage(null);
+    if (currentStep === 0 && !validateStep1()) return;
+    if (currentStep === 1 && !validateStep2()) return;
+
+    if (currentStep < TOTAL_STEPS - 1) {
+      animateStepTransition('forward', () => setCurrentStep((s) => s + 1));
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep === 0) {
+      navigation.goBack();
+      return;
+    }
+    setErrorMessage(null);
+    animateStepTransition('back', () => setCurrentStep((s) => s - 1));
+  };
+
   const handleRegister = async () => {
     setErrorMessage(null);
-
-    // Client-side validations (100% preserved)
-    if (!name.trim() || name.trim().length < 2) {
-      setErrorMessage('Full name must be at least 2 characters long.');
-      return;
-    }
-    if (!email.trim() || !email.includes('@')) {
-      setErrorMessage('Please enter a valid email address.');
-      return;
-    }
-    if (!password || password.length < 8 || !/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
-      setErrorMessage('Password must be at least 8 characters and contain both letters and numbers.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setErrorMessage('Passwords do not match.');
-      return;
-    }
+    if (!validateStep3()) return;
 
     setIsLoading(true);
     try {
@@ -88,412 +210,337 @@ export const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
         password,
         role,
       };
-      if (phone.trim()) {
-        payload.phone = phone.trim();
-      }
+      if (phone.trim()) payload.phone = phone.trim();
       await register(payload);
     } catch (err: any) {
-      const msg = err?.message || 'Registration failed. Please check your details.';
-      setErrorMessage(msg);
+      const msg = err?.message || '';
+      if (msg.includes('email') || msg.includes('already')) {
+        setErrorMessage('An account with this email already exists. Try signing in instead.');
+      } else if (msg.includes('network')) {
+        setErrorMessage('We couldn\'t reach ECOSETU right now. Check your connection and try again.');
+      } else {
+        setErrorMessage('Registration didn\'t go through. Please check your details and try again.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  return (
-    <EcoSetuBackground>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        {/* Top Bar: Back, Branding & Language Selector */}
-        <View style={styles.topBar}>
-          <View style={styles.topBarLeft}>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={styles.backButton}
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <Text style={styles.backButtonText}>←</Text>
-            </TouchableOpacity>
-            <View style={styles.govMarkSmall}>
-              <Text style={styles.govMarkSmallText}>♻</Text>
-            </View>
-            <Text style={styles.topBarTitle}>ECOSETU</Text>
-          </View>
-          <LanguageSelector variant="compact" />
-        </View>
+  const STEP_HEADLINES = [
+    { title: 'LET\'S BUILD\nA BETTER CYCLE.', subtitle: 'Create your ECOSETU account and join the circular economy.' },
+    { title: 'SECURE YOUR\nACCOUNT.', subtitle: 'Choose a strong password to protect your data.' },
+    { title: 'ONE LAST\nSTEP.', subtitle: 'Tell us what to call you.' },
+  ];
 
+  return (
+    <AuthBackground orbs={AUTH_ORBS.register}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
+          style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.keyboardView}
         >
+          {/* Top Bar */}
+          <View style={styles.topBar}>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={handleBack}
+              accessibilityRole="button"
+              accessibilityLabel={currentStep === 0 ? 'Go back' : `Back to step ${currentStep}`}
+            >
+              <Text style={styles.backArrow}>←</Text>
+            </TouchableOpacity>
+            <View style={styles.spacer} />
+            <LanguageSelector variant="compact" />
+          </View>
+
+          {/* Step Indicator */}
+          <Animated.View style={{ opacity: headerOpacity, transform: [{ translateY: headerTranslateY }] }}>
+            <EcoStepIndicator totalSteps={TOTAL_STEPS} currentStep={currentStep} />
+          </Animated.View>
+
           <ScrollView
             contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            {/* Header */}
-            <View style={styles.headerSection}>
-              <View style={styles.welcomeLabelBadge}>
-                <Text style={styles.welcomeLabelText}>ECOSETU • PUBLIC SERVICE E-WASTE</Text>
-              </View>
-              <Text style={styles.headline}>Create an Account</Text>
-              <Text style={styles.subtitle}>
-                Join ECOSETU to participate in formal, verified e-waste collection and circular recycling.
-              </Text>
-            </View>
+            {/* Headline */}
+            <Animated.View style={[styles.headline, { opacity: stepOpacity, transform: [{ translateX: stepTranslateX }] }]}>
+              <Text style={styles.headlineTitle}>{STEP_HEADLINES[currentStep].title}</Text>
+              <Text style={styles.headlineSubtitle}>{STEP_HEADLINES[currentStep].subtitle}</Text>
+            </Animated.View>
 
-            {/* Glass Form Card */}
-            <View style={styles.formCard}>
-              {/* Error Banner */}
-              {errorMessage && (
-                <View style={styles.errorBox} accessibilityRole="alert">
-                  <Text style={styles.errorIcon}>⚠</Text>
-                  <Text style={styles.errorText}>{errorMessage}</Text>
-                </View>
+            {/* Error Banner */}
+            {errorMessage ? (
+              <View style={styles.errorBanner} accessibilityRole="alert">
+                <Text style={styles.errorText}>⚠ {errorMessage}</Text>
+              </View>
+            ) : null}
+
+            {/* Step Content */}
+            <Animated.View style={{ opacity: stepOpacity, transform: [{ translateX: stepTranslateX }] }}>
+              <EcoGlassCard>
+                {/* ── STEP 1: Role + Email ── */}
+                {currentStep === 0 && (
+                  <View>
+                    <Text style={styles.sectionLabel}>HOW WILL YOU USE ECOSETU?</Text>
+                    <View style={styles.rolesRow}>
+                      {ROLE_OPTIONS.map((opt) => (
+                        <EcoRoleCard
+                          key={opt.key}
+                          icon={opt.icon}
+                          title={opt.label}
+                          description={opt.description}
+                          selected={role === opt.key}
+                          onPress={() => setRole(opt.key)}
+                          accentColor={opt.accent}
+                          accessibilityLabel={`Select ${opt.label} role`}
+                        />
+                      ))}
+                    </View>
+
+                    <EcoInput
+                      label={t('auth.email', 'Email address')}
+                      icon="✉"
+                      value={email}
+                      onChangeText={(v) => { setEmail(v); if (emailError) setEmailError(null); }}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      returnKeyType="next"
+                      error={emailError}
+                      accessibilityLabel="Email address"
+                    />
+
+                    <EcoInput
+                      label={t('auth.phone', 'Phone number (optional)')}
+                      icon="📱"
+                      value={phone}
+                      onChangeText={setPhone}
+                      keyboardType="phone-pad"
+                      returnKeyType="done"
+                      accessibilityLabel="Phone number (optional)"
+                    />
+                  </View>
+                )}
+
+                {/* ── STEP 2: Password ── */}
+                {currentStep === 1 && (
+                  <View>
+                    <EcoInput
+                      label={t('auth.password', 'Create a password')}
+                      icon="🔑"
+                      value={password}
+                      onChangeText={(v) => { setPassword(v); if (passwordError) setPasswordError(null); }}
+                      secureTextEntry={!showPassword}
+                      returnKeyType="next"
+                      error={passwordError}
+                      accessibilityLabel="Create a password"
+                      rightElement={
+                        <TouchableOpacity
+                          onPress={() => setShowPassword(!showPassword)}
+                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                          accessibilityRole="button"
+                          accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                        >
+                          <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁'}</Text>
+                        </TouchableOpacity>
+                      }
+                    />
+                    <EcoPasswordStrength password={password} />
+
+                    <EcoInput
+                      label={t('auth.confirmPassword', 'Confirm password')}
+                      icon="🔒"
+                      value={confirmPassword}
+                      onChangeText={(v) => { setConfirmPassword(v); if (confirmPasswordError) setConfirmPasswordError(null); }}
+                      secureTextEntry={!showConfirmPassword}
+                      returnKeyType="done"
+                      error={confirmPasswordError}
+                      accessibilityLabel="Confirm password"
+                      rightElement={
+                        <TouchableOpacity
+                          onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                          accessibilityRole="button"
+                          accessibilityLabel={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                        >
+                          <Text style={styles.eyeIcon}>{showConfirmPassword ? '🙈' : '👁'}</Text>
+                        </TouchableOpacity>
+                      }
+                    />
+
+                    <Text style={styles.passwordHint}>
+                      💡 Use at least 8 characters with letters and numbers for a strong password.
+                    </Text>
+                  </View>
+                )}
+
+                {/* ── STEP 3: Name ── */}
+                {currentStep === 2 && (
+                  <View>
+                    <EcoInput
+                      label={t('auth.name', 'Your full name')}
+                      icon="👤"
+                      value={name}
+                      onChangeText={(v) => { setName(v); if (nameError) setNameError(null); }}
+                      autoCapitalize="words"
+                      returnKeyType="done"
+                      onSubmitEditing={handleRegister}
+                      error={nameError}
+                      accessibilityLabel="Full name"
+                    />
+
+                    <Text style={styles.roleConfirm}>
+                      Joining as: <Text style={styles.roleConfirmValue}>
+                        {ROLE_OPTIONS.find(r => r.key === role)?.label}
+                      </Text>
+                    </Text>
+                  </View>
+                )}
+              </EcoGlassCard>
+            </Animated.View>
+
+            {/* Action Buttons */}
+            <View style={styles.actionsArea}>
+              {currentStep < TOTAL_STEPS - 1 ? (
+                <EcoButton
+                  label="Continue"
+                  onPress={handleNext}
+                  accessibilityLabel={`Continue to step ${currentStep + 2}`}
+                />
+              ) : (
+                <EcoButton
+                  label="Create Account"
+                  loadingLabel="Creating your account..."
+                  onPress={handleRegister}
+                  loading={isLoading}
+                  accessibilityLabel="Create your ECOSETU account"
+                />
               )}
 
-              {/* Role Selector */}
-              <Text style={styles.inputLabel}>SELECT YOUR ROLE *</Text>
-              <View style={styles.roleSelector}>
-                {ROLE_OPTIONS.map((opt) => {
-                  const isSelected = role === opt.key;
-                  return (
-                    <TouchableOpacity
-                      key={opt.key}
-                      style={[styles.roleOption, isSelected && styles.roleOptionSelected]}
-                      onPress={() => setRole(opt.key)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${opt.label} Role`}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.roleIcon}>{opt.icon}</Text>
-                      <Text style={[styles.roleOptionText, isSelected && styles.roleOptionTextSelected]}>
-                        {opt.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Full Name */}
-              <Text style={styles.inputLabel}>FULL NAME *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. Ramesh Kumar"
-                placeholderTextColor="rgba(255, 255, 255, 0.40)"
-                value={name}
-                onChangeText={setName}
-                accessibilityLabel="Full Name"
-              />
-
-              {/* Email */}
-              <Text style={styles.inputLabel}>EMAIL ADDRESS *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. ramesh@ecosetu.org"
-                placeholderTextColor="rgba(255, 255, 255, 0.40)"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                accessibilityLabel="Email Address"
-              />
-
-              {/* Phone */}
-              <Text style={styles.inputLabel}>PHONE NUMBER (OPTIONAL)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. +91 9876543210"
-                placeholderTextColor="rgba(255, 255, 255, 0.40)"
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-                accessibilityLabel="Phone Number"
-              />
-
-              {/* Password */}
-              <Text style={styles.inputLabel}>PASSWORD * (MIN 8 CHARACTERS, LETTER + NUMBER)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Create a strong password"
-                placeholderTextColor="rgba(255, 255, 255, 0.40)"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                accessibilityLabel="Password"
-              />
-
-              {/* Confirm Password */}
-              <Text style={styles.inputLabel}>CONFIRM PASSWORD *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Re-enter password"
-                placeholderTextColor="rgba(255, 255, 255, 0.40)"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-                accessibilityLabel="Confirm Password"
-              />
-
-              {/* Submit Button */}
-              <TouchableOpacity
-                style={[styles.primaryBtn, isLoading && styles.btnDisabled]}
-                onPress={handleRegister}
-                disabled={isLoading}
-                accessibilityRole="button"
-                accessibilityLabel="Create Account"
-                activeOpacity={0.85}
-              >
-                {isLoading ? (
-                  <ActivityIndicator size="small" color="#051417" />
-                ) : (
-                  <Text style={styles.primaryBtnText}>Create Account →</Text>
-                )}
-              </TouchableOpacity>
-
-              {/* Login Link */}
-              <View style={styles.footerRow}>
-                <Text style={styles.footerText}>Already have an account? </Text>
+              <View style={styles.signInRow}>
+                <Text style={styles.signInText}>Already have an account? </Text>
                 <TouchableOpacity
                   onPress={() => navigation.navigate('Login')}
-                  accessibilityRole="link"
-                  accessibilityLabel="Go to Log In"
+                  accessibilityRole="button"
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Text style={styles.linkText}>Log In</Text>
+                  <Text style={styles.signInLink}>Sign In</Text>
                 </TouchableOpacity>
               </View>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </EcoSetuBackground>
+    </AuthBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
+  safeArea: { flex: 1 },
+  flex: { flex: 1 },
   topBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: AUTH_SPACE.screenH,
     paddingTop: 8,
-    paddingBottom: 8,
+    paddingBottom: 4,
   },
-  topBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  backButton: {
-    minHeight: 48,
-    minWidth: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+  backBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(255,255,255,0.09)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: AUTH_COLORS.borderSubtle,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
   },
-  backButtonText: {
-    fontSize: 20,
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-  },
-  govMarkSmall: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(16, 185, 129, 0.20)',
-    borderWidth: 1,
-    borderColor: 'rgba(52, 211, 153, 0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  govMarkSmallText: {
-    color: '#34D399',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  topBarTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.8,
-  },
-  keyboardView: {
-    flex: 1,
-  },
+  backArrow: { fontSize: 18, color: '#FFFFFF', fontWeight: 'bold' },
+  spacer: { flex: 1 },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 36,
+    paddingHorizontal: AUTH_SPACE.screenH,
+    paddingBottom: 40,
     flexGrow: 1,
-  },
-  headerSection: {
-    marginBottom: 14,
-  },
-  welcomeLabelBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(52, 211, 153, 0.35)',
-    borderRadius: 9999,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    marginBottom: 8,
-  },
-  welcomeLabelText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#34D399',
-    letterSpacing: 0.8,
+    gap: 14,
   },
   headline: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.3,
     marginBottom: 4,
   },
-  subtitle: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: 'rgba(255, 255, 255, 0.65)',
+  headlineTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: AUTH_COLORS.textPrimary,
+    letterSpacing: -0.3,
+    lineHeight: 34,
+    marginBottom: 8,
   },
-  formCard: {
-    width: '100%',
-    backgroundColor: 'rgba(16, 44, 48, 0.72)',
-    borderRadius: 22,
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
-    padding: 18,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 6,
+  headlineSubtitle: {
+    fontSize: 14,
+    color: AUTH_COLORS.textSecondary,
+    lineHeight: 20,
   },
-  errorBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+  errorBanner: {
+    backgroundColor: AUTH_COLORS.errorBg,
     borderWidth: 1,
-    borderColor: 'rgba(248, 113, 113, 0.4)',
-    borderRadius: 12,
-    padding: 10,
-    marginBottom: 14,
-  },
-  errorIcon: {
-    color: '#F87171',
-    fontSize: 16,
-    marginRight: 8,
-    fontWeight: 'bold',
+    borderColor: AUTH_COLORS.errorBorder,
+    borderRadius: AUTH_RADIUS.md,
+    padding: 12,
   },
   errorText: {
-    flex: 1,
     fontSize: 13,
-    color: '#FCA5A5',
-    lineHeight: 18,
     fontWeight: '500',
+    color: AUTH_COLORS.error,
+    lineHeight: 18,
   },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-    color: 'rgba(255, 255, 255, 0.85)',
-    marginBottom: 6,
+  sectionLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    color: AUTH_COLORS.textMuted,
+    marginBottom: 12,
   },
-  roleSelector: {
+  rolesRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 14,
+    marginBottom: 18,
   },
-  roleOption: {
-    flex: 1,
-    minHeight: 52,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
-    backgroundColor: 'rgba(7, 30, 34, 0.75)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-    gap: 2,
-  },
-  roleOptionSelected: {
-    backgroundColor: 'rgba(16, 185, 129, 0.20)',
-    borderColor: '#34D399',
-  },
-  roleIcon: {
-    fontSize: 18,
-  },
-  roleOptionText: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-    color: 'rgba(255, 255, 255, 0.65)',
-  },
-  roleOptionTextSelected: {
-    color: '#34D399',
-  },
-  input: {
-    backgroundColor: 'rgba(7, 30, 34, 0.75)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    minHeight: 48,
-    fontSize: 14,
-    color: '#FFFFFF',
-    marginBottom: 14,
-  },
-  primaryBtn: {
-    minHeight: 50,
-    backgroundColor: '#10B981',
-    borderRadius: 16,
-    borderWidth: 1.2,
-    borderColor: '#34D399',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 4,
-    marginBottom: 14,
-    elevation: 4,
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-  },
-  btnDisabled: {
-    opacity: 0.6,
-  },
-  primaryBtnText: {
-    color: '#051417',
+  eyeIcon: {
     fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 0.3,
+    color: AUTH_COLORS.textMuted,
   },
-  footerRow: {
+  passwordHint: {
+    fontSize: 12,
+    color: AUTH_COLORS.textMuted,
+    lineHeight: 17,
+  },
+  roleConfirm: {
+    fontSize: 13,
+    color: AUTH_COLORS.textSecondary,
+    marginTop: 4,
+  },
+  roleConfirmValue: {
+    fontWeight: '700',
+    color: AUTH_COLORS.primaryLight,
+  },
+  actionsArea: {
+    gap: 10,
+  },
+  signInRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 4,
+    minHeight: 44,
   },
-  footerText: {
+  signInText: {
     fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.65)',
+    color: AUTH_COLORS.textSecondary,
   },
-  linkText: {
+  signInLink: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#34D399',
+    color: AUTH_COLORS.primaryLight,
   },
 });
 

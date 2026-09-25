@@ -1,7 +1,26 @@
+/**
+ * AdminNavigator — ECOSETU Admin Control Center Navigation
+ *
+ * ARCHITECTURE CHANGE (Redesign):
+ * Previous: BottomTabNavigator with 5 visible tabs + 9 hidden screens
+ * New: NativeStackNavigator — navigation is handled by the AdminShell sidebar.
+ *      All 12 admin screens accessible from sidebar. No bottom tab bar.
+ *
+ * The AdminShell provides:
+ * - Collapsible sidebar navigation (expanded 220px / collapsed 60px)
+ * - Top bar with breadcrumbs, search, notifications, profile
+ * - Global search palette (Ctrl/Cmd+K)
+ *
+ * All screens that used AdminTabParamList now use AdminStackParamList.
+ * The AdminTabParamList type is preserved for backward compatibility with
+ * any existing navigation.navigate('AdminHome') calls.
+ */
+
 import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text } from 'react-native';
-import { AdminTabParamList } from './types';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { AdminTabParamList } from './types'; // reuse existing type
+
+// ─── Admin screens ────────────────────────────────────────────────────────────
 import { AdminDashboardScreen } from '../screens/admin/AdminDashboardScreen';
 import { AdminVerificationsScreen } from '../screens/admin/AdminVerificationsScreen';
 import { AdminUsersScreen } from '../screens/admin/AdminUsersScreen';
@@ -16,156 +35,47 @@ import { AdminHistoricalAnalyticsScreen } from '../screens/admin/AdminHistorical
 import { AdminDisputesScreen } from '../screens/admin/AdminDisputesScreen';
 import { BillsScreen } from '../screens/billing/BillsScreen';
 import { BillDetailScreen } from '../screens/billing/BillDetailScreen';
-import { colors } from '../theme/colors';
-import { useI18n } from '../i18n';
 
-const Tab = createBottomTabNavigator<AdminTabParamList>();
-
-// AdminVerificationsTab mounts the production AdminVerificationsScreen
-const AdminVerificationsTab = AdminVerificationsScreen;
+// Using the existing AdminTabParamList so navigation.navigate() calls throughout
+// the codebase continue to work without changes.
+const Stack = createNativeStackNavigator<AdminTabParamList>();
 
 export const AdminNavigator: React.FC = () => {
-  const { t } = useI18n();
-
   return (
-    <Tab.Navigator
+    <Stack.Navigator
       initialRouteName="AdminHome"
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textSecondary,
-        tabBarStyle: {
-          backgroundColor: 'rgba(7, 30, 34, 0.94)',
-          borderTopColor: 'rgba(255, 255, 255, 0.12)',
-          borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 8,
-          paddingTop: 6,
-          elevation: 8,
-          shadowColor: '#000000',
-          shadowOffset: { width: 0, height: -3 },
-          shadowOpacity: 0.35,
-          shadowRadius: 8,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
-        },
+        animation: 'fade',
+        contentStyle: { backgroundColor: 'transparent' },
       }}
     >
-      <Tab.Screen
-        name="AdminHome"
-        component={AdminDashboardScreen}
-        options={{
-          tabBarLabel: t('navigation.home') || 'Home',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>🛡️</Text>,
-        }}
-      />
-      <Tab.Screen
-        name="AdminVerifications"
-        component={AdminVerificationsScreen}
-        options={{
-          tabBarLabel: t('admin.users.reviewVerification') || 'Verify',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>📑</Text>,
-        }}
-      />
-      <Tab.Screen
-        name="AdminUsers"
-        component={AdminUsersScreen}
-        options={{
-          tabBarLabel: t('admin.users.title') || 'Users',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>👥</Text>,
-        }}
-      />
-      <Tab.Screen
-        name="AdminAuditLogs"
-        component={AdminAuditLogsScreen}
-        options={{
-          tabBarLabel: t('admin.governance.auditTab') || 'Audit',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>📜</Text>,
-        }}
-      />
-      <Tab.Screen
-        name="AdminProfile"
-        component={AdminProfileScreen}
-        options={{
-          tabBarLabel: t('navigation.profile') || 'Profile',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>👤</Text>,
-        }}
-      />
-      <Tab.Screen
-        name="AdminGeographicAnalytics"
-        component={AdminGeographicAnalyticsScreen}
-        options={{
-          tabBarButton: () => null,
-          tabBarItemStyle: { display: 'none' },
-        }}
-      />
-      <Tab.Screen
-        name="AdminReports"
-        component={AdminReportsScreen}
-        options={{
-          tabBarButton: () => null,
-          tabBarItemStyle: { display: 'none' },
-        }}
-      />
-      <Tab.Screen
-        name="AdminGovernance"
-        component={AdminGovernanceScreen}
-        options={{
-          tabBarButton: () => null,
-          tabBarItemStyle: { display: 'none' },
-        }}
-      />
-      <Tab.Screen
-        name="AdminSystemHealth"
-        component={AdminSystemHealthScreen}
-        options={{
-          tabBarButton: () => null,
-          tabBarItemStyle: { display: 'none' },
-        }}
-      />
-      <Tab.Screen
-        name="AdminNotificationCenter"
-        component={AdminNotificationCenterScreen}
-        options={{
-          tabBarButton: () => null,
-          tabBarItemStyle: { display: 'none' },
-        }}
-      />
-      <Tab.Screen
-        name="AdminHistoricalAnalytics"
-        component={AdminHistoricalAnalyticsScreen}
-        options={{
-          tabBarButton: () => null,
-          tabBarItemStyle: { display: 'none' },
-        }}
-      />
-      <Tab.Screen
-        name="AdminDisputes"
-        component={AdminDisputesScreen}
-        options={{
-          tabBarButton: () => null,
-          tabBarItemStyle: { display: 'none' },
-        }}
-      />
-      <Tab.Screen
-        name="AdminBills"
-        component={BillsScreen}
-        options={{
-          tabBarButton: () => null,
-          tabBarItemStyle: { display: 'none' },
-        }}
-      />
-      <Tab.Screen
-        name="AdminBillDetail"
-        component={BillDetailScreen}
-        options={{
-          tabBarButton: () => null,
-          tabBarItemStyle: { display: 'none' },
-        }}
-      />
-    </Tab.Navigator>
+      {/* ── Overview ─────────────────────────────────────────────────────── */}
+      <Stack.Screen name="AdminHome" component={AdminDashboardScreen} />
+
+      {/* ── Operations ───────────────────────────────────────────────────── */}
+      <Stack.Screen name="AdminVerifications" component={AdminVerificationsScreen} />
+      <Stack.Screen name="AdminDisputes" component={AdminDisputesScreen} />
+      <Stack.Screen name="AdminReports" component={AdminReportsScreen} />
+
+      {/* ── Ecosystem ────────────────────────────────────────────────────── */}
+      <Stack.Screen name="AdminUsers" component={AdminUsersScreen} />
+      <Stack.Screen name="AdminGovernance" component={AdminGovernanceScreen} />
+
+      {/* ── Insights ─────────────────────────────────────────────────────── */}
+      <Stack.Screen name="AdminHistoricalAnalytics" component={AdminHistoricalAnalyticsScreen} />
+      <Stack.Screen name="AdminGeographicAnalytics" component={AdminGeographicAnalyticsScreen} />
+
+      {/* ── System ───────────────────────────────────────────────────────── */}
+      <Stack.Screen name="AdminNotificationCenter" component={AdminNotificationCenterScreen} />
+      <Stack.Screen name="AdminAuditLogs" component={AdminAuditLogsScreen} />
+      <Stack.Screen name="AdminSystemHealth" component={AdminSystemHealthScreen} />
+      <Stack.Screen name="AdminProfile" component={AdminProfileScreen} />
+
+      {/* ── Billing (preserved) ──────────────────────────────────────────── */}
+      <Stack.Screen name="AdminBills" component={BillsScreen} />
+      <Stack.Screen name="AdminBillDetail" component={BillDetailScreen} />
+    </Stack.Navigator>
   );
 };
 

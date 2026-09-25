@@ -29,6 +29,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { TopAppBar } from '../../components/layout/TopAppBar';
+import { AdminShell } from '../../components/admin/AdminShell';
 import { MetricCard } from '../../components/common/MetricCard';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { analyticsService } from '../../services/analyticsService';
@@ -173,12 +174,12 @@ export const AdminHistoricalAnalyticsScreen: React.FC<Props> = ({ navigation, ro
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <TopAppBar
-        title={t('admin.analytics.title') || 'Historical Analytics'}
-        showBack
-        onBack={() => navigation.goBack()}
-      />
+    <AdminShell
+      title={t('admin.analytics.title') || 'Historical Analytics'}
+      subtitle={t('admin.analytics.subtitle') || 'Factual System Telemetry'}
+      activeScreen="AdminHistoricalAnalytics"
+      navigation={navigation}
+    >
 
       <View style={styles.subHeaderBar}>
         <View style={styles.subHeaderLeft}>
@@ -674,7 +675,7 @@ export const AdminHistoricalAnalyticsScreen: React.FC<Props> = ({ navigation, ro
           </>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </AdminShell>
   );
 };
 

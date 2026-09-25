@@ -1,3 +1,20 @@
+/**
+ * EcoCarousel — Premium 5-slide Onboarding Carousel
+ *
+ * Entry point for the EcoSetu onboarding experience.
+ *
+ * Architecture:
+ *  - Data-driven: all slide content comes from `slideData.ts`
+ *  - Full-bleed layout: background fills screen, content layers on top
+ *  - Per-slide: animated background glow pools + graphic + stats + text
+ *  - Controls: pill-dot progress + Skip/Next/GetStarted
+ *  - Performance: GPU-only transforms (opacity, scale, translate)
+ *  - Swipe support: native ScrollView with pagingEnabled
+ *
+ * DO NOT import graphics from the old `graphics/` directory here.
+ * All graphics now live in `graphics2/`.
+ */
+
 import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
@@ -9,17 +26,11 @@ import {
   SafeAreaView,
   StatusBar,
 } from 'react-native';
-import { EcoCarouselBackground } from './EcoCarouselBackground';
-import { EcoCarouselProgress } from './EcoCarouselProgress';
-import { EcoCarouselControls } from './EcoCarouselControls';
-import { SlideEwasteProblem } from './slides/SlideEwasteProblem';
-import { SlideEcosetuNetwork } from './slides/SlideEcosetuNetwork';
-import { SlideSmartCollection } from './slides/SlideSmartCollection';
-import { SlideTraceability } from './slides/SlideTraceability';
-import { SlideImpact } from './slides/SlideImpact';
-import { SlideEcosetuHero } from './slides/SlideEcosetuHero';
-
-const TOTAL_SLIDES = 6;
+import { SLIDE_DATA, TOTAL_SLIDES } from './data/slideData';
+import { OnboardingBackground } from './OnboardingBackground';
+import { OnboardingSlide } from './OnboardingSlide';
+import { OnboardingProgress } from './OnboardingProgress';
+import { OnboardingControls } from './OnboardingControls';
 
 export interface EcoCarouselProps {
   onComplete: () => void;
@@ -74,17 +85,18 @@ export const EcoCarousel: React.FC<EcoCarouselProps> = ({
     }
   }, [onSkip, onComplete]);
 
+  const activeSlide = SLIDE_DATA[activeIndex];
   const isLastSlide = activeIndex === TOTAL_SLIDES - 1;
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#041216" translucent />
+    <View style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor="#020C14" translucent />
 
-      {/* Atmospheric Fullscreen Background */}
-      <EcoCarouselBackground />
+      {/* Full-screen atmospheric background (slide-tinted glow pools) */}
+      <OnboardingBackground slide={activeSlide} />
 
       <SafeAreaView style={styles.safeArea}>
-        {/* Horizontal Slides View */}
+        {/* Scrollable slides */}
         <ScrollView
           ref={scrollViewRef}
           horizontal
@@ -96,29 +108,32 @@ export const EcoCarousel: React.FC<EcoCarouselProps> = ({
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
         >
-          <SlideEwasteProblem width={width} active={activeIndex === 0} />
-          <SlideEcosetuNetwork width={width} active={activeIndex === 1} />
-          <SlideSmartCollection width={width} active={activeIndex === 2} />
-          <SlideTraceability width={width} active={activeIndex === 3} />
-          <SlideImpact width={width} active={activeIndex === 4} />
-          <SlideEcosetuHero width={width} active={activeIndex === 5} />
+          {SLIDE_DATA.map((slide, index) => (
+            <OnboardingSlide
+              key={slide.id}
+              slide={slide}
+              active={index === activeIndex}
+            />
+          ))}
         </ScrollView>
 
-        {/* Bottom Control Deck */}
+        {/* Bottom control deck */}
         <View style={styles.bottomDeck}>
-          {/* Progress Indicator */}
-          <EcoCarouselProgress
+          {/* Pill-dot progress */}
+          <OnboardingProgress
             total={TOTAL_SLIDES}
             activeIndex={activeIndex}
             onSelectIndex={scrollToSlide}
+            accentColor={activeSlide.tagColor}
           />
 
-          {/* Action Buttons */}
-          <EcoCarouselControls
+          {/* Skip / Next / Get Started */}
+          <OnboardingControls
             isLastSlide={isLastSlide}
             onSkip={handleSkip}
             onNext={handleNext}
             onGetStarted={onComplete}
+            activeSlide={activeSlide}
           />
         </View>
       </SafeAreaView>
@@ -127,9 +142,9 @@ export const EcoCarousel: React.FC<EcoCarouselProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: '#041216',
+    backgroundColor: '#020C14',
   },
   safeArea: {
     flex: 1,
@@ -138,9 +153,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    alignItems: 'center',
+    alignItems: 'stretch',
   },
   bottomDeck: {
-    paddingBottom: 8,
+    paddingTop: 4,
+    paddingBottom: 10,
   },
 });
+
+export default EcoCarousel;

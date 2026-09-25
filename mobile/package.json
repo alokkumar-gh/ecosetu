@@ -1,11 +1,12 @@
 {
   "name": "EcoSetu",
-  "version": "1.0.4",
+  "version": "1.0.6",
   "private": true,
   "scripts": {
     "android": "react-native run-android",
     "start": "react-native start",
     "typecheck": "tsc --noEmit",
+    "test:saathi": "npx -y tsx --test src/services/__tests__/ecoSaathiMatcher.test.ts src/services/__tests__/ecoSaathiUI.test.ts src/services/__tests__/ecoSaathiDynamicService.test.ts",
     "lint": "eslint ."
   },
   "dependencies": {
