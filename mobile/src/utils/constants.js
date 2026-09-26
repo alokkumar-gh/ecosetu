@@ -251,12 +251,7 @@ export const LAN_DEV_API_BASE_URL = 'http://10.242.155.183:3001/api/v1';
 
 // Dynamic Base URL Resolution:
 // 1. Explicit environment variable overrides: process.env.PRODUCTION_API_BASE_URL or process.env.API_BASE_URL
-// 2. Production build resolution: if process.env.NODE_ENV === 'production' or (typeof __DEV__ !== 'undefined' && !__DEV__)
-// 3. Development default: LOCAL_DEV_API_BASE_URL (10.0.2.2:3001 for Android Emulator loopback)
-const isProductionBuild =
-  (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'production') ||
-  (typeof __DEV__ !== 'undefined' && !__DEV__);
-
+// 2. Production & default resolution: PRODUCTION_API_BASE_URL (https://ecosetu-backend.onrender.com/api/v1)
 const envOverride =
   typeof process !== 'undefined' && process.env
     ? (process.env.PRODUCTION_API_BASE_URL || process.env.API_BASE_URL)
@@ -264,7 +259,7 @@ const envOverride =
 
 const configuredBaseUrl = (
   (envOverride ? envOverride.trim().replace(/\/+$/, '') : null) ||
-  (isProductionBuild ? PRODUCTION_API_BASE_URL : LOCAL_DEV_API_BASE_URL)
+  PRODUCTION_API_BASE_URL
 ).replace(/\/+$/, '');
 
 // Network and API Defaults

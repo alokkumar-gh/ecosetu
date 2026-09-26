@@ -295,9 +295,9 @@ export const EcoSaathiProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         },
       })
       .then((res) => {
-        const responseData = res?.data || res;
-        const msgText = responseData?.message || res?.message || answerText;
-        const actionObj = responseData?.action || res?.action;
+        const responseData = (res && typeof res === 'object' && res.data && typeof res.data === 'object') ? res.data : res;
+        const msgText = res?.message || responseData?.message || responseData?.answer || responseData?.cleanSpeechText || answerText;
+        const actionObj = res?.action || responseData?.action;
 
         const aiSaathiMessage: EcoSaathiMessage = {
           id: 'msg_saathi_' + Date.now(),
@@ -314,13 +314,43 @@ export const EcoSaathiProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         };
         setMessages((prev) => [...prev, aiSaathiMessage]);
       })
-      .catch((err) => {
+      .catch((err: any) => {
         console.warn('[EcoSaathiContext] Backend orchestrator request failed:', err?.message || err);
-        // Local fallback when offline
+
+        const status = err?.status || err?.statusCode;
+        const errMessage = err?.message || '';
+
+        let failureText = '';
+        if (!isOnline || errMessage.includes('Network') || errMessage.includes('Failed to fetch') || errMessage.includes('network') || errMessage.includes('timeout') || errMessage.includes('timed out')) {
+          failureText = language === 'hi'
+            ? 'नेटवर्क कनेक्शन विफल रहा। कृपया अपना इंटरनेट कनेक्शन जांचें और पुनः प्रयास करें।'
+            : language === 'or'
+            ? 'ନେଟୱାର୍କ ସଂଯୋଗ ବିଫଳ ହେଲା। ଦୟାକରି ଆପଣଙ୍କ ଇଣ୍ଟରନେଟ୍ ସଂଯୋଗ ଯାଞ୍ଚ କରନ୍ତୁ।'
+            : 'Network connection failed. Please check your internet connection and try again.';
+        } else if (status === 401 || status === 403 || errMessage.includes('auth') || errMessage.includes('token')) {
+          failureText = language === 'hi'
+            ? 'सत्र समाप्त हो गया है। कृपया पुनः लॉगिन करें।'
+            : language === 'or'
+            ? 'ଅଧିବେଶନ ସମାପ୍ତ ହୋଇଛି। ଦୟାକରି ପୁନର୍ବାର ଲଗଇନ୍ କରନ୍ତୁ।'
+            : 'Session expired or authentication failed. Please sign in again.';
+        } else if (status === 429 || errMessage.includes('rate limit')) {
+          failureText = language === 'hi'
+            ? 'इको-साथी व्यस्त है। कृपया कुछ क्षण प्रतीक्षा करें और पुनः प्रयास करें।'
+            : language === 'or'
+            ? 'ଇକୋ-ସାଥୀ ବ୍ୟସ୍ତ ଅଛନ୍ତି। ଦୟାକରି କିଛି ସମୟ ଅପେକ୍ଷା କରନ୍ତୁ।'
+            : 'Eco-Saathi AI is currently busy. Please wait a moment and try again.';
+        } else {
+          failureText = language === 'hi'
+            ? 'इको-साथी से संपर्क नहीं हो सका। कृपया पुनः प्रयास करें।'
+            : language === 'or'
+            ? 'ଇକୋ-ସାଥୀ ସହିତ ସଂଯୋଗ ବିଫଳ ହେଲା। ଦୟାକରି ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।'
+            : 'Eco-Saathi connection failed. Please try again.';
+        }
+
         const fallbackMsg: EcoSaathiMessage = {
           id: 'msg_saathi_' + Date.now(),
           sender: 'saathi',
-          text: answerText,
+          text: failureText,
           timestamp: Date.now(),
         };
         setMessages((prev) => [...prev, fallbackMsg]);

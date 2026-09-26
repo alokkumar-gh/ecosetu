@@ -3,7 +3,9 @@
  * Connects the mobile frontend to the backend Eco-Saathi Orchestrator (/api/v1/eco-saathi)
  */
 
-import { apiClient } from './apiClient';
+import { apiClient } from './apiClient.js';
+import { storage } from '../utils/storage.js';
+import { STORAGE_KEYS } from '../utils/constants.js';
 
 export interface EcoSaathiAction {
   type: string;
@@ -18,6 +20,10 @@ export interface EcoSaathiAction {
 export interface EcoSaathiResponse {
   success: boolean;
   message: string;
+  answer?: string;
+  cleanSpeechText?: string;
+  responseType?: string;
+  type?: string;
   intent: string;
   action: EcoSaathiAction | null;
   requiresConfirmation: boolean;
@@ -51,8 +57,19 @@ class EcoSaathiService {
    * Send user natural language query to the backend Eco-Saathi Orchestrator
    */
   async sendMessage(options: SendMessageOptions): Promise<EcoSaathiResponse> {
+    const activeContext = options.context || options.conversationContext || {};
+    const baseUrl = apiClient.getBaseUrl();
+    const endpoint = '/eco-saathi/message';
+    const cleanEndpoint = baseUrl.endsWith('/api/v1') && endpoint.startsWith('/api/v1/') ? endpoint.substring('/api/v1'.length) : endpoint;
+    const resolvedUrl = cleanEndpoint.startsWith('http') ? cleanEndpoint : `${baseUrl}${cleanEndpoint.startsWith('/') ? '' : '/'}${cleanEndpoint}`;
+
+    const hasAuthToken = Boolean(await storage.getItem(STORAGE_KEYS.ACCESS_TOKEN).catch(() => null));
+
+    console.log(`[ECOSAATHI_MOBILE] URL: ${resolvedUrl}`);
+    console.log(`[ECOSAATHI_MOBILE] message: ${options.message}`);
+    console.log(`[ECOSAATHI_MOBILE] auth present: ${hasAuthToken}`);
+
     try {
-      const activeContext = options.context || options.conversationContext || {};
       const response = await apiClient.post('/eco-saathi/message', {
         message: options.message,
         language: options.language || 'en',
@@ -60,12 +77,33 @@ class EcoSaathiService {
         conversationContext: activeContext,
       });
 
-      if (response && response.data) {
-        return response.data;
-      }
-      return response as any;
+      const rawPayload = response;
+      const dataPayload = (response && typeof response === 'object' && response.data) ? response.data : response;
+
+      const provider = dataPayload?.provider || response?.provider || 'unknown';
+      const responseType = dataPayload?.responseType || dataPayload?.type || response?.responseType || response?.type || 'TEXT';
+      const answer = dataPayload?.message || dataPayload?.answer || dataPayload?.cleanSpeechText || response?.message || '';
+
+      console.log(`[ECOSAATHI_MOBILE] HTTP status: 200`);
+      console.log(`[ECOSAATHI_MOBILE] raw response: ${JSON.stringify(rawPayload)}`);
+      console.log(`[ECOSAATHI_MOBILE] provider: ${provider}`);
+      console.log(`[ECOSAATHI_MOBILE] response type: ${responseType}`);
+      console.log(`[ECOSAATHI_MOBILE] answer: ${answer}`);
+
+      return {
+        success: true,
+        message: answer,
+        intent: dataPayload?.intent || response?.intent || 'GENERAL_KNOWLEDGE',
+        action: dataPayload?.action || response?.action || null,
+        requiresConfirmation: Boolean(dataPayload?.requiresConfirmation || response?.requiresConfirmation),
+        data: dataPayload?.data !== undefined ? dataPayload.data : dataPayload,
+        provider,
+        latencyMs: dataPayload?.latencyMs || response?.latencyMs,
+      };
     } catch (error: any) {
-      console.warn('[EcoSaathiService] sendMessage error:', error?.message || error);
+      const httpStatus = error?.status || error?.statusCode || (error?.name === 'AppError' ? error.status : 'NETWORK_ERROR');
+      console.warn(`[ECOSAATHI_MOBILE] HTTP status: ${httpStatus}`);
+      console.warn(`[ECOSAATHI_MOBILE] request error: ${error?.message || error}`);
       throw error;
     }
   }
