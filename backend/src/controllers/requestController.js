@@ -71,6 +71,46 @@ class RequestController {
   }
 
   /**
+   * Collector submits or updates an offer on a collection request
+   * POST /api/v1/collection-requests/:id/offers
+   */
+  async submitOffer(req, res, next) {
+    try {
+      const offer = await requestService.submitOffer(req.user.id, req.params.id, req.body);
+      return sendSuccess(res, { offer }, 201);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * List offers on a collection request
+   * GET /api/v1/collection-requests/:id/offers
+   */
+  async listOffers(req, res, next) {
+    try {
+      const result = await requestService.listOffers(req.user, req.params.id);
+      return sendSuccess(res, result, 200);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Citizen accepts a collector offer
+   * POST /api/v1/collection-requests/:id/offers/:offerId/accept
+   */
+  async acceptOffer(req, res, next) {
+    try {
+      const offerId = req.params.offerId || req.body.offerId;
+      const result = await requestService.acceptOffer(req.user.id, req.params.id, offerId);
+      return sendSuccess(res, result, 200);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
    * Collector accepts a request
    * POST /api/v1/collection-requests/:id/accept
    */

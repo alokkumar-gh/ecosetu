@@ -56,6 +56,20 @@ class CollectorController {
       next(err);
     }
   }
+
+  /**
+   * Get collector's own submitted offers on pickup requests
+   * GET /api/v1/collectors/my-offers
+   */
+  async getMyOffers(req, res, next) {
+    try {
+      const requestService = require('../services/requestService');
+      const result = await requestService.listCollectorOffers(req.user.id);
+      return sendSuccess(res, result, 200);
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = new CollectorController();

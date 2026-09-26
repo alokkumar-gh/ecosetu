@@ -89,10 +89,16 @@ export const ADMIN_LAYOUT = Object.freeze({
   sidebarExpandedWidth: 220,
   sidebarCollapsedWidth: 60,
   topbarHeight: 52,
+  topbarHeightMobile: 48,
   contentPaddingH: 20,
+  contentPaddingHMobile: 12,
   contentPaddingV: 20,
   cardGap: 14,
+  cardGapMobile: 10,
   sectionGap: 24,
+  sectionGapMobile: 16,
+  /** Screens narrower than this are treated as mobile phones. */
+  mobileBreakpoint: 900,
 });
 
 // ── Radius ─────────────────────────────────────────────────────────────────────

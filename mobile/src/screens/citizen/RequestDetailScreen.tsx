@@ -169,6 +169,8 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [request, setRequest] = useState<any | null>(null);
+  const [offers, setOffers] = useState<any[]>([]);
+  const [acceptingOfferId, setAcceptingOfferId] = useState<string | null>(null);
 
   const [cancelVisible, setCancelVisible] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
@@ -202,11 +204,14 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     },
   ];
 
-  const getNextActionText = (statusVal: string, req?: any): string | null => {
+  const getNextActionText = (statusVal: string, req?: any, offersList?: any[]): string | null => {
     const s = (statusVal || '').toUpperCase();
     switch (s) {
       case REQUEST_STATUS.SUBMITTED:
-        return t('status.submittedNext', "Nothing needed from you right now. We're finding a collector in your area.");
+        if (offersList && offersList.length > 0) {
+          return `You have received ${offersList.length} collector ${offersList.length === 1 ? 'offer' : 'offers'}. Review and accept an offer below.`;
+        }
+        return t('status.submittedNext', "Nothing needed from you right now. We're broadcasting your request to nearby collectors.");
       case REQUEST_STATUS.ACCEPTED:
         return t('status.acceptedNext', 'A collector has been assigned. They will contact you to confirm pickup.');
       case REQUEST_STATUS.PICKUP_SCHEDULED:
@@ -237,6 +242,16 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         setErrorMessage('Request not found.');
       } else {
         setRequest(data);
+        // Load collector offers if request is open or accepted
+        const st = (data.status || '').toUpperCase();
+        if (st === REQUEST_STATUS.SUBMITTED || st === REQUEST_STATUS.ACCEPTED) {
+          try {
+            const fetchedOffers = await requestService.getOffers(requestId);
+            setOffers(Array.isArray(fetchedOffers) ? fetchedOffers : []);
+          } catch {
+            // Non-fatal if offers cannot be fetched
+          }
+        }
       }
     } catch (err: any) {
       if (!request) {
@@ -256,6 +271,45 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   }, [requestId]);
 
   useEffect(() => { loadRequest(true); }, [loadRequest]);
+
+  const handleAcceptOffer = useCallback((offer: any) => {
+    if (!isConnected) {
+      Alert.alert('Offline', 'Accepting an offer requires an internet connection.');
+      return;
+    }
+
+    const collectorName = offer.collector?.name || 'Local Collector';
+    const price = offer.offeredPrice;
+
+    Alert.alert(
+      'Accept Collector Offer',
+      `Accept offer of ₹${price} from ${collectorName}?\n\nThis will assign ${collectorName} to collect your e-waste and close all other offers.`,
+      [
+        { text: t('common.cancel') || 'Cancel', style: 'cancel' },
+        {
+          text: 'Accept Offer',
+          style: 'default',
+          onPress: async () => {
+            setAcceptingOfferId(offer.id);
+            try {
+              await requestService.acceptOffer(requestId, offer.id);
+              await loadRequest();
+              Alert.alert(
+                'Collector Selected',
+                `${collectorName} has been assigned for your pickup. They will contact you shortly to schedule pickup.`,
+                [{ text: t('common.done') || 'OK' }]
+              );
+            } catch (err: any) {
+              const msg = err?.response?.data?.message || err?.message || 'Failed to accept offer.';
+              Alert.alert('Error', msg, [{ text: t('common.done') || 'OK' }]);
+            } finally {
+              setAcceptingOfferId(null);
+            }
+          },
+        },
+      ]
+    );
+  }, [isConnected, requestId, loadRequest, t]);
 
   const handleConfirmCancel = async () => {
     if (!cancelReason.trim()) {
@@ -455,6 +509,112 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             )}
           </View>
         </View>
+
+        {/* ── Offers Received Section (Visible for OPEN/SUBMITTED requests) ── */}
+        {status === REQUEST_STATUS.SUBMITTED && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>
+                {t('offers.receivedTitle', 'Offers Received')} ({offers.length})
+              </Text>
+              {offers.length > 0 && (
+                <View style={styles.liveOfferBadge}>
+                  <View style={styles.liveOfferDot} />
+                  <Text style={styles.liveOfferText}>ACTIVE OFFERS</Text>
+                </View>
+              )}
+            </View>
+
+            {offers.length === 0 ? (
+              <View style={styles.emptyOffersCard}>
+                <AppIcon name="clock" size={24} color="#38BDF8" style={{ marginBottom: 8 }} />
+                <Text style={styles.emptyOffersTitle}>
+                  {t('offers.waitingTitle', 'Awaiting Collector Offers')}
+                </Text>
+                <Text style={styles.emptyOffersMsg}>
+                  {t('offers.waitingDesc', 'Your request has been broadcast to active local collectors. Custom price offers will appear here for you to compare and accept.')}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.offersList}>
+                {offers.map((offer) => {
+                  const collector = offer.collector || {};
+                  const isAcceptingThis = acceptingOfferId === offer.id;
+                  const isAcceptedOffer = offer.status === 'ACCEPTED';
+                  const isRejectedOffer = offer.status === 'REJECTED';
+
+                  return (
+                    <View key={offer.id} style={styles.offerCard}>
+                      <View style={styles.offerCardHeader}>
+                        <View style={styles.offerCollectorAvatar}>
+                          <Text style={styles.offerAvatarText}>
+                            {(collector.name || 'C').charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={styles.offerCollectorInfo}>
+                          <View style={styles.rowCentered}>
+                            <Text style={styles.offerCollectorName}>{collector.name || 'Local Collector'}</Text>
+                            <View style={styles.verifiedBadge}>
+                              <AppIcon name="check" size={10} color="#10B981" />
+                              <Text style={styles.verifiedText}>Verified</Text>
+                            </View>
+                          </View>
+                          <Text style={styles.offerCollectorSub}>
+                            Informal Collector · Kabadiwala
+                          </Text>
+                        </View>
+                        <View style={styles.offerPriceBlock}>
+                          <Text style={styles.offerPriceText}>₹{offer.offeredPrice}</Text>
+                          <Text style={styles.offerPriceLabel}>Offered</Text>
+                        </View>
+                      </View>
+
+                      {Boolean(offer.notes) && (
+                        <View style={styles.offerNotesBox}>
+                          <Text style={styles.offerNotesText}>"{offer.notes}"</Text>
+                        </View>
+                      )}
+
+                      <View style={styles.offerCardFooter}>
+                        <Text style={styles.offerTimeText}>
+                          Submitted {new Date(offer.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </Text>
+                        
+                        {offer.status === 'PENDING' && (
+                          <TouchableOpacity
+                            style={[styles.acceptOfferBtn, isAcceptingThis && { opacity: 0.6 }]}
+                            onPress={() => handleAcceptOffer(offer)}
+                            disabled={Boolean(acceptingOfferId)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Accept offer of ${offer.offeredPrice} rupees from ${collector.name}`}
+                          >
+                            {isAcceptingThis ? (
+                              <ActivityIndicator size="small" color="#FFFFFF" />
+                            ) : (
+                              <View style={styles.btnRow}>
+                                <AppIcon name="check" size={14} color="#FFFFFF" />
+                                <Text style={styles.acceptOfferBtnText}>Accept Offer</Text>
+                              </View>
+                            )}
+                          </TouchableOpacity>
+                        )}
+                        {isAcceptedOffer && (
+                          <View style={styles.acceptedOfferBadge}>
+                            <AppIcon name="checkCircle" size={14} color="#10B981" />
+                            <Text style={styles.acceptedOfferText}>Accepted</Text>
+                          </View>
+                        )}
+                        {isRejectedOffer && (
+                          <Text style={styles.rejectedOfferText}>Closed</Text>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        )}
 
         {/* ── Items ── */}
         {items.length > 0 && (
@@ -922,6 +1082,197 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalDestructiveText: { fontSize: 15, color: '#FFFFFF', fontWeight: '700' },
+  // ── Offers Received Styles ──
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  liveOfferBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(16,185,129,0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.3)',
+  },
+  liveOfferDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+  },
+  liveOfferText: {
+    fontSize: 10,
+    color: '#34D399',
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  emptyOffersCard: {
+    backgroundColor: 'rgba(16,44,48,0.60)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 20,
+    alignItems: 'center',
+    textAlign: 'center',
+  },
+  emptyOffersTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  emptyOffersMsg: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.60)',
+    textAlign: 'center',
+    lineHeight: 19,
+  },
+  offersList: {
+    gap: 12,
+  },
+  offerCard: {
+    backgroundColor: 'rgba(16,44,48,0.90)',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(16,185,129,0.35)',
+    padding: 14,
+  },
+  offerCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  offerCollectorAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(16,185,129,0.20)',
+    borderWidth: 1.5,
+    borderColor: '#34D399',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  offerAvatarText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#34D399',
+  },
+  offerCollectorInfo: {
+    flex: 1,
+  },
+  offerCollectorName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(16,185,129,0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 6,
+  },
+  verifiedText: {
+    fontSize: 10,
+    color: '#10B981',
+    fontWeight: '700',
+  },
+  offerCollectorSub: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.50)',
+    marginTop: 2,
+  },
+  offerPriceBlock: {
+    alignItems: 'flex-end',
+  },
+  offerPriceText: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#34D399',
+  },
+  offerPriceLabel: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.50)',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  offerNotesBox: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginTop: 10,
+  },
+  offerNotesText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.80)',
+    fontStyle: 'italic',
+  },
+  offerCardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  offerTimeText: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.40)',
+  },
+  acceptOfferBtn: {
+    backgroundColor: '#10B981',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    minHeight: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  rowCentered: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  acceptOfferBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  acceptedOfferBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(16,185,129,0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  acceptedOfferText: {
+    fontSize: 12,
+    color: '#10B981',
+    fontWeight: '700',
+  },
+  rejectedOfferText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.40)',
+    fontStyle: 'italic',
+  },
 });
 
 export default RequestDetailScreen;

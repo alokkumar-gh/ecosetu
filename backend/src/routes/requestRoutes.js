@@ -58,6 +58,34 @@ router.post(
   (req, res, next) => requestController.submitRequest(req, res, next)
 );
 
+// Collector submits or updates an offer for a collection request
+router.post(
+  '/:id/offers',
+  authenticate,
+  authorize(ROLES.INFORMAL_COLLECTOR),
+  checkVerified,
+  validate(requestValidators.submitOffer),
+  (req, res, next) => requestController.submitOffer(req, res, next)
+);
+
+// List offers for a collection request (Citizen owner, Collector self, Admin)
+router.get(
+  '/:id/offers',
+  authenticate,
+  authorize(ROLES.CITIZEN, ROLES.INFORMAL_COLLECTOR, ROLES.ADMIN),
+  validate(requestValidators.listOffers),
+  (req, res, next) => requestController.listOffers(req, res, next)
+);
+
+// Citizen accepts a specific collector offer (Transactional)
+router.post(
+  '/:id/offers/:offerId/accept',
+  authenticate,
+  authorize(ROLES.CITIZEN),
+  validate(requestValidators.acceptOffer),
+  (req, res, next) => requestController.acceptOffer(req, res, next)
+);
+
 // Cancel collection request (Citizen owner or Admin)
 router.post(
   '/:id/cancel',
@@ -67,7 +95,7 @@ router.post(
   (req, res, next) => requestController.cancelRequest(req, res, next)
 );
 
-// Collector accepts a request (Verified Informal Collector only)
+// Collector accepts a request directly (Legacy fallback)
 router.post(
   '/:id/accept',
   authenticate,

@@ -1,50 +1,75 @@
 /**
  * VoiceInput.tsx
- * Collector-First Vernacular Voice Input component for ECOSETU.
- * 
- * Supports: Odia (or), Hindi (hi), Marathi (mr), English (en).
- * 
- * Accessible State Machine:
- * 1. READY: Prompts collector to tap and speak in their native tongue.
- * 2. PERMISSION_EXPLAIN: Clear vernacular explanation of WHY microphone is needed before system prompt.
- * 3. RECORDING: Active audio listening with clear visual indicator ("Listening...").
- * 4. PROCESSING: High-contrast vernacular loader ("Understanding voice...").
- * 5. RECOGNIZED: Displays "You said..." + preview with "✓ Use this" and "↻ Try again" verification buttons.
- * 6. ERROR: High-contrast error message with friendly vernacular retry.
+ * Professional BHASHINI-Powered Multilingual Voice Input Component for ECOSETU.
+ *
+ * Architecture:
+ * - Direct integration with ECOSETU Backend BHASHINI ASR & Audio Language Detection.
+ * - Zero Google/browser SpeechRecognition dependencies.
+ * - Supports Auto-Detection and 12+ Indic languages:
+ *   Auto Detect, Odia (or), Hindi (hi), Bengali (bn), Telugu (te), Tamil (ta),
+ *   Kannada (kn), Malayalam (ml), Marathi (mr), Gujarati (gu), Punjabi (pa), Assamese (as), English (en).
+ *
+ * Professional UX State Machine:
+ * 1. IDLE / READY: Clean, non-intrusive voice activation button with language selector pill.
+ * 2. LISTENING: Visual pulse indicator ("Listening...").
+ * 3. PROCESSING / TRANSCRIBING: High-contrast vernacular loader ("Understanding your request...").
+ * 4. RECOGNIZED: Displays "You said..." + detected language tag + preview with confirmation & retry options.
+ * 5. ERROR: High-contrast error message with friendly vernacular retry.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  NativeModules,
-  Platform,
-  PermissionsAndroid,
-  ViewStyle,
   Modal,
+  ScrollView,
+  ViewStyle,
 } from 'react-native';
 import { useI18n } from '../../i18n';
 import { AppIcon } from '../ui/AppIcon';
-
-const { EcoSetuSpeech } = NativeModules;
+import { bhashiniClientService, ASRResponse } from '../../services/bhashiniClientService';
+import { voiceRecordingService } from '../../services/voiceRecordingService';
 
 export type VoiceInputState =
-  | 'READY'
-  | 'PERMISSION_EXPLAIN'
-  | 'RECORDING'
+  | 'IDLE'
+  | 'LISTENING'
   | 'PROCESSING'
+  | 'TRANSCRIBING'
   | 'RECOGNIZED'
   | 'ERROR';
 
+export interface LanguageOption {
+  code: string;
+  name: string;
+  nativeName: string;
+}
+
+const LANGUAGE_OPTIONS: LanguageOption[] = [
+  { code: 'auto', name: 'Auto Detect', nativeName: 'Auto Detect (ସ୍ୱତଃ / स्वचालित)' },
+  { code: 'en', name: 'English', nativeName: 'English' },
+  { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' },
+  { code: 'or', name: 'Odia', nativeName: 'ଓଡ଼ିଆ' },
+  { code: 'bn', name: 'Bengali', nativeName: 'বাংলা' },
+  { code: 'te', name: 'Telugu', nativeName: 'తెలుగు' },
+  { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்' },
+  { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ' },
+  { code: 'ml', name: 'Malayalam', nativeName: 'മലയാളം' },
+  { code: 'mr', name: 'Marathi', nativeName: 'मराठी' },
+  { code: 'gu', name: 'Gujarati', nativeName: 'ગુજરાતી' },
+  { code: 'pa', name: 'Punjabi', nativeName: 'ਪੰਜਾਬੀ' },
+  { code: 'as', name: 'Assamese', nativeName: 'অসমীয়া' },
+];
+
 interface Props {
-  onTextRecognized: (text: string) => void;
+  onTextRecognized: (text: string, metadata?: { language: string; confidence: number | null }) => void;
   language?: string;
   placeholder?: string;
   style?: ViewStyle;
   autoSubmit?: boolean;
+  showLanguageSelector?: boolean;
 }
 
 export const VoiceInput: React.FC<Props> = ({
@@ -53,306 +78,324 @@ export const VoiceInput: React.FC<Props> = ({
   placeholder,
   style,
   autoSubmit = false,
+  showLanguageSelector = true,
 }) => {
-  const { language: currentLang } = useI18n();
-  const activeLang = propLang || currentLang || 'en';
+  const { language: currentAppLang } = useI18n();
 
-  const [state, setState] = useState<VoiceInputState>('READY');
+  const [selectedLang, setSelectedLang] = useState<string>(propLang || 'auto');
+  const [state, setState] = useState<VoiceInputState>('IDLE');
   const [recognizedText, setRecognizedText] = useState<string>('');
+  const [detectedLangInfo, setDetectedLangInfo] = useState<{ code: string; name: string } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [isLangModalOpen, setIsLangModalOpen] = useState<boolean>(false);
+  const recordingTimeoutRef = useRef<any>(null);
 
-  // 1. Vernacular Copy Dictionary
+  // Active language for prompt display
+  const activePromptLang = selectedLang === 'auto' ? currentAppLang || 'en' : selectedLang;
+
   const copy = {
     tapToSpeak:
-      activeLang === 'or'
+      activePromptLang === 'or'
         ? 'କହିବା ପାଇଁ ମାଇକ୍ ଦବାନ୍ତୁ'
-        : activeLang === 'hi'
+        : activePromptLang === 'hi'
         ? 'बोलने के लिए माइक दबाएं'
-        : activeLang === 'mr'
+        : activePromptLang === 'mr'
         ? 'बोलण्यासाठी माइक दाबा'
         : 'Tap to speak',
     subPrompt:
       placeholder ||
-      (activeLang === 'or'
-        ? 'ଟାଇପ୍ କରିବା ଆବଶ୍ୟକ ନାହିଁ'
-        : activeLang === 'hi'
-        ? 'टाइप करने की ज़रूरत नहीं है'
-        : activeLang === 'mr'
-        ? 'टाइप करण्याची गरज नाही'
-        : 'No typing needed'),
+      (activePromptLang === 'or'
+        ? 'ଭାଷିଣୀ ସ୍ୱର ସହାୟତା (Auto Detect)'
+        : activePromptLang === 'hi'
+        ? 'भाषिणी वॉइस सेवा (Auto Detect)'
+        : activePromptLang === 'mr'
+        ? 'भाषिणी व्हॉइस सेवा (Auto Detect)'
+        : 'BHASHINI Voice Assistant'),
     listening:
-      activeLang === 'or'
-        ? 'ଶୁଣୁଛି... ଆପଣଙ୍କ ସାମଗ୍ରୀ ବା ପ୍ରଶ୍ନ କୁହନ୍ତୁ'
-        : activeLang === 'hi'
-        ? 'सुन रहा हूँ... अपने सामान या सवाल के बारे में बोलें'
-        : activeLang === 'mr'
-        ? 'ऐकत आहे... आपल्या साहित्याबद्दल किंवा प्रश्नाबद्दल बोला'
-        : 'Listening... Speak clearly now',
+      activePromptLang === 'or'
+        ? 'ଶୁଣୁଛି... କୁହନ୍ତୁ'
+        : activePromptLang === 'hi'
+        ? 'सुन रहा हूँ... बोलें'
+        : activePromptLang === 'mr'
+        ? 'ऐकत आहे... बोला'
+        : 'Listening... Speak now',
     stopRecording:
-      activeLang === 'or'
+      activePromptLang === 'or'
         ? 'ବନ୍ଦ କରିବାକୁ ଦବାନ୍ତୁ'
-        : activeLang === 'hi'
+        : activePromptLang === 'hi'
         ? 'रोकने के लिए दबाएं'
-        : activeLang === 'mr'
-        ? 'थांबवण्यासाठी दाबा'
         : 'Tap to stop',
     processing:
-      activeLang === 'or'
-        ? 'ଭାଷା ଯାଞ୍ଚ ହେଉଛି...'
-        : activeLang === 'hi'
-        ? 'आवाज़ पहचानी जा रही है...'
-        : activeLang === 'mr'
-        ? 'आवाज समजून घेत आहे...'
-        : 'Understanding your voice...',
+      activePromptLang === 'or'
+        ? 'ଆପଣଙ୍କ ଅନୁରୋଧ ବୁଝାଯାଉଛି...'
+        : activePromptLang === 'hi'
+        ? 'आपकी बात समझी जा रही है...'
+        : activePromptLang === 'mr'
+        ? 'आपला संदेश समजून घेत आहे...'
+        : 'Understanding your request...',
+    transcribing:
+      activePromptLang === 'or'
+        ? 'ଭାଷିଣୀ ASR ଯାଞ୍ଚ ହେଉଛି...'
+        : activePromptLang === 'hi'
+        ? 'भाषिणी ASR रूपांतरण...'
+        : 'Transcribing via BHASHINI...',
     youSaid:
-      activeLang === 'or'
+      activePromptLang === 'or'
         ? 'ଆପଣ କହିଲେ:'
-        : activeLang === 'hi'
+        : activePromptLang === 'hi'
         ? 'आपने कहा:'
-        : activeLang === 'mr'
+        : activePromptLang === 'mr'
         ? 'तुम्ही म्हणालात:'
         : 'You said:',
     useThis:
-      activeLang === 'or'
-        ? '✓ ଏହା ବ୍ୟବହାର କରନ୍ତୁ'
-        : activeLang === 'hi'
-        ? '✓ इसे इस्तेमाल करें'
-        : activeLang === 'mr'
-        ? '✓ हे वापरा'
+      activePromptLang === 'or'
+        ? '✓ ବ୍ୟବହାର କରନ୍ତୁ'
+        : activePromptLang === 'hi'
+        ? '✓ इस्तेमाल करें'
         : '✓ Use this',
     tryAgain:
-      activeLang === 'or'
+      activePromptLang === 'or'
         ? '↻ ପୁଣି କୁହନ୍ତୁ'
-        : activeLang === 'hi'
+        : activePromptLang === 'hi'
         ? '↻ फिर से बोलें'
-        : activeLang === 'mr'
-        ? '↻ पुन्हा बोला'
         : '↻ Try again',
-    permissionTitle:
-      activeLang === 'or'
-        ? 'ମାଇକ୍ରୋଫୋନ୍ ବ୍ୟବହାର'
-        : activeLang === 'hi'
-        ? 'माइक्रोफ़ोन का उपयोग'
-        : activeLang === 'mr'
-        ? 'मायक्रोफोनचा वापर'
-        : 'Microphone Access',
-    permissionWhy:
-      activeLang === 'or'
-        ? 'ଆପଣ ଟାଇପ୍ ନକରି ନିଜ ସ୍ୱରରେ ECOSETU ସହିତ କଥା ହୋଇପାରିବେ।'
-        : activeLang === 'hi'
-        ? 'आप टाइप किए बिना अपनी आवाज़ में ECOSETU से बात कर सकते हैं।'
-        : activeLang === 'mr'
-        ? 'तुम्ही टाइप न करता आपल्या आवाजात ECOSETU शी बोलू शकता.'
-        : 'You can speak directly to ECOSETU instead of typing.',
-    permissionContinue:
-      activeLang === 'or'
-        ? 'ଅନୁମତି ଦିଅନ୍ତୁ'
-        : activeLang === 'hi'
-        ? 'अनुमति दें'
-        : activeLang === 'mr'
-        ? 'परवानगी द्या'
-        : 'Allow Access',
-    permissionCancel:
-      activeLang === 'or'
-        ? 'ଟାଇପ୍ କରିବି'
-        : activeLang === 'hi'
-        ? 'टाइप करूँगा'
-        : activeLang === 'mr'
-        ? 'टाइप करेन'
-        : 'Use Keyboard',
-    deniedMsg:
-      activeLang === 'or'
-        ? 'ମାଇକ୍ରୋଫୋନ୍ ଅନୁମତି ମିଳିଲା ନାହିଁ। ଆପଣ ଟାଇପ୍ କରି ଚାଲୁ ରଖିପାରିବେ।'
-        : activeLang === 'hi'
-        ? 'माइक्रोफ़ोन अनुमति नहीं मिली। आप टाइप करके जारी रख सकते हैं।'
-        : activeLang === 'mr'
-        ? 'मायक्रोफोन परवानगी मिळाली नाही. आपण टाइप करून वापरू शकता.'
-        : 'Microphone permission denied. You can continue typing.',
-    noSpeechMsg:
-      activeLang === 'or'
-        ? 'କିଛି ଶୁଣାଗଲା ନାହିଁ। ଦୟାକରି ପୁଣି କୁହନ୍ତୁ।'
-        : activeLang === 'hi'
-        ? 'कोई आवाज़ सुनाई नहीं दी। कृपया पुनः बोलें।'
-        : activeLang === 'mr'
-        ? 'काहीही ऐकू आले नाही. कृपया पुन्हा बोला.'
-        : 'No speech detected. Please speak clearly.',
-    errorMsg:
-      activeLang === 'or'
-        ? 'ଆବାଜ୍ ଚିହ୍ନିବାରେ ସମସ୍ୟା ହେଲା। ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।'
-        : activeLang === 'hi'
-        ? 'आवाज़ पहचानने में समस्या हुई। पुनः प्रयास करें।'
-        : activeLang === 'mr'
-        ? 'आवाज ओळखण्यात अडचण आली. पुन्हा प्रयत्न करा.'
-        : 'Unable to recognize voice. Please try again.',
+    selectLanguage:
+      activePromptLang === 'or'
+        ? 'ଭାଷା ବାଛନ୍ତୁ'
+        : activePromptLang === 'hi'
+        ? 'भाषा चुनें'
+        : 'Select Voice Language',
   };
 
-  const checkHasPermission = async (): Promise<boolean> => {
-    if (Platform.OS !== 'android') return true;
-    try {
-      return await PermissionsAndroid.check(
-        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
-      );
-    } catch {
-      return false;
-    }
-  };
-
-  const handleMicPress = async () => {
+  const handleStartRecording = async () => {
     setErrorMessage('');
-    const hasPerm = await checkHasPermission();
+    setRecognizedText('');
+    setDetectedLangInfo(null);
+
+    const hasPerm = await voiceRecordingService.requestMicrophonePermission();
     if (!hasPerm) {
-      setState('PERMISSION_EXPLAIN');
-    } else {
-      startListeningFlow();
-    }
-  };
-
-  const handleGrantPermission = async () => {
-    setState('READY');
-    try {
-      const result = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-        {
-          title: copy.permissionTitle,
-          message: copy.permissionWhy,
-          buttonPositive: copy.permissionContinue,
-          buttonNegative: copy.permissionCancel,
-        }
-      );
-      if (result === PermissionsAndroid.RESULTS.GRANTED) {
-        startListeningFlow();
-      } else {
-        setState('ERROR');
-        setErrorMessage(copy.deniedMsg);
-      }
-    } catch {
       setState('ERROR');
-      setErrorMessage(copy.deniedMsg);
-    }
-  };
-
-  const startListeningFlow = async () => {
-    if (!EcoSetuSpeech?.startListening) {
-      setState('ERROR');
-      setErrorMessage('Voice recognition module unavailable on this device.');
+      setErrorMessage('Microphone permission is required to use voice assistance.');
       return;
     }
 
-    setState('RECORDING');
+    setState('LISTENING');
 
-    try {
-      const matches: string[] = await EcoSetuSpeech.startListening(activeLang);
-      setState('PROCESSING');
-
-      if (matches && matches.length > 0 && matches[0].trim()) {
-        const text = matches[0].trim();
-        setRecognizedText(text);
-        if (autoSubmit) {
-          setState('READY');
-          onTextRecognized(text);
-        } else {
-          setState('RECOGNIZED');
-        }
-      } else {
-        setState('ERROR');
-        setErrorMessage(copy.noSpeechMsg);
-      }
-    } catch {
+    const started = await voiceRecordingService.startRecording();
+    if (!started) {
       setState('ERROR');
-      setErrorMessage(copy.errorMsg);
+      setErrorMessage("We couldn't access the microphone. Please try again.");
+      return;
     }
+
+    // Auto-stop after 6 seconds of speech
+    if (recordingTimeoutRef.current) {
+      clearTimeout(recordingTimeoutRef.current);
+    }
+    recordingTimeoutRef.current = setTimeout(() => {
+      handleStopRecording();
+    }, 6000);
   };
 
   const handleStopRecording = async () => {
-    if (EcoSetuSpeech?.stopListening) {
-      try {
-        await EcoSetuSpeech.stopListening();
-      } catch {}
+    if (recordingTimeoutRef.current) {
+      clearTimeout(recordingTimeoutRef.current);
+      recordingTimeoutRef.current = null;
     }
-    setState('READY');
+
+    setState('PROCESSING');
+
+    try {
+      const recording = await voiceRecordingService.stopRecording();
+      if (!recording || !recording.audioBase64 || !recording.audioBase64.trim()) {
+        setState('ERROR');
+        setErrorMessage("We couldn't hear anything. Please try again.");
+        return;
+      }
+
+      setState('TRANSCRIBING');
+
+      // Dispatch to ECOSETU Backend BHASHINI ASR
+      const response: ASRResponse | null = await bhashiniClientService.transcribe(
+        recording.audioBase64,
+        selectedLang,
+        {
+          audioFormat: recording.audioFormat,
+          samplingRate: recording.samplingRate,
+        }
+      );
+
+      if (!response || !response.transcript || !response.transcript.trim()) {
+        setState('ERROR');
+        setErrorMessage("We couldn't understand the audio. Please try again.");
+        return;
+      }
+
+      const text = response.transcript.trim();
+      setRecognizedText(text);
+      if (response.language) {
+        setDetectedLangInfo({
+          code: response.language.code,
+          name: response.language.name,
+        });
+      }
+
+      if (autoSubmit) {
+        setState('IDLE');
+        onTextRecognized(text, {
+          language: response.language?.code || selectedLang,
+          confidence: response.confidence,
+        });
+      } else {
+        setState('RECOGNIZED');
+      }
+    } catch (err: any) {
+      setState('ERROR');
+      setErrorMessage(
+        'Voice assistance is temporarily unavailable. You can continue using ECOSETU with text input.'
+      );
+    }
   };
 
-  const handleConfirmRecognized = () => {
+  const handleConfirm = () => {
     const text = recognizedText;
+    const metadata = detectedLangInfo
+      ? { language: detectedLangInfo.code, confidence: null }
+      : undefined;
     setRecognizedText('');
-    setState('READY');
-    onTextRecognized(text);
+    setState('IDLE');
+    onTextRecognized(text, metadata);
   };
 
   const handleReset = () => {
     setRecognizedText('');
     setErrorMessage('');
-    setState('READY');
+    setDetectedLangInfo(null);
+    setState('IDLE');
   };
+
+  const currentLangLabel =
+    LANGUAGE_OPTIONS.find((l) => l.code === selectedLang)?.nativeName || 'Auto Detect';
 
   return (
     <View style={[styles.container, style]}>
-      {/* 1. Pre-Permission Explanation Modal */}
+      {/* Language Selector Pill */}
+      {showLanguageSelector && state === 'IDLE' && (
+        <View style={styles.langSelectorRow}>
+          <TouchableOpacity
+            style={styles.langPill}
+            onPress={() => setIsLangModalOpen(true)}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`Selected voice language: ${currentLangLabel}`}
+          >
+            <AppIcon name="globe" size={14} color="#10B981" />
+            <Text style={styles.langPillText}>{currentLangLabel}</Text>
+            <AppIcon name="chevron-down" size={12} color="#6EE7B7" />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Language Selection Modal */}
       <Modal
-        visible={state === 'PERMISSION_EXPLAIN'}
+        visible={isLangModalOpen}
         transparent={true}
-        animationType="fade"
-        onRequestClose={() => setState('READY')}
+        animationType="slide"
+        onRequestClose={() => setIsLangModalOpen(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalIconWrap}>
-              <AppIcon name="mic" size={28} color="#10B981" />
-            </View>
-            <Text style={styles.modalTitle}>{copy.permissionTitle}</Text>
-            <Text style={styles.modalBody}>{copy.permissionWhy}</Text>
-            <View style={styles.modalActionRow}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{copy.selectLanguage}</Text>
               <TouchableOpacity
-                style={styles.modalSecondaryBtn}
-                onPress={() => setState('READY')}
-                activeOpacity={0.8}
+                onPress={() => setIsLangModalOpen(false)}
+                style={styles.modalCloseBtn}
                 accessibilityRole="button"
-                accessibilityLabel={copy.permissionCancel}
+                accessibilityLabel="Close language selector"
               >
-                <Text style={styles.modalSecondaryBtnText}>{copy.permissionCancel}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalPrimaryBtn}
-                onPress={handleGrantPermission}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel={copy.permissionContinue}
-              >
-                <Text style={styles.modalPrimaryBtnText}>{copy.permissionContinue}</Text>
+                <Text style={styles.modalCloseText}>✕</Text>
               </TouchableOpacity>
             </View>
+            <ScrollView style={styles.langList} showsVerticalScrollIndicator={false}>
+              {LANGUAGE_OPTIONS.map((lang) => {
+                const isSelected = selectedLang === lang.code;
+                return (
+                  <TouchableOpacity
+                    key={lang.code}
+                    style={[styles.langOptionItem, isSelected && styles.langOptionSelected]}
+                    onPress={() => {
+                      setSelectedLang(lang.code);
+                      setIsLangModalOpen(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View>
+                      <Text style={[styles.langOptionNative, isSelected && styles.langOptionTextActive]}>
+                        {lang.nativeName}
+                      </Text>
+                      {lang.code !== 'auto' && (
+                        <Text style={styles.langOptionSub}>{lang.name}</Text>
+                      )}
+                    </View>
+                    {isSelected && <AppIcon name="check" size={18} color="#10B981" />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </View>
         </View>
       </Modal>
 
-      {/* 2. Recording Status Banner */}
-      {state === 'RECORDING' && (
-        <View style={styles.recordingBanner}>
-          <View style={styles.recordingPulse} />
-          <Text style={styles.recordingText}>{copy.listening}</Text>
-        </View>
+      {/* 1. LISTENING State Banner */}
+      {state === 'LISTENING' && (
+        <TouchableOpacity
+          style={[styles.micButtonLarge, styles.micButtonRecording]}
+          onPress={handleStopRecording}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={copy.stopRecording}
+        >
+          <View style={[styles.micIconWrap, styles.micIconWrapRecording]}>
+            <View style={styles.pulseDot} />
+          </View>
+          <View style={styles.micLabelContainer}>
+            <Text style={[styles.micTitle, { color: '#EF4444' }]}>{copy.listening}</Text>
+            <Text style={styles.micSubtitle}>{copy.stopRecording}</Text>
+          </View>
+        </TouchableOpacity>
       )}
 
-      {/* 3. Processing Status Banner */}
-      {state === 'PROCESSING' && (
+      {/* 2. PROCESSING / TRANSCRIBING State Banner */}
+      {(state === 'PROCESSING' || state === 'TRANSCRIBING') && (
         <View style={styles.processingBanner}>
           <ActivityIndicator size="small" color="#10B981" />
-          <Text style={styles.processingText}>{copy.processing}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.processingText}>
+              {state === 'TRANSCRIBING' ? copy.transcribing : copy.processing}
+            </Text>
+          </View>
         </View>
       )}
 
-      {/* 4. Recognized Text Preview with Confirm / Retry */}
+      {/* 3. RECOGNIZED Transcript Preview */}
       {state === 'RECOGNIZED' && (
         <View style={styles.recognizedCard}>
           <View style={styles.recognizedHeader}>
-            <AppIcon name="mic" size={16} color="#10B981" />
-            <Text style={styles.recognizedLabel}>{copy.youSaid}</Text>
+            <View style={styles.recognizedHeaderLeft}>
+              <AppIcon name="mic" size={16} color="#10B981" />
+              <Text style={styles.recognizedLabel}>{copy.youSaid}</Text>
+            </View>
+            {detectedLangInfo && (
+              <View style={styles.detectedBadge}>
+                <Text style={styles.detectedBadgeText}>{detectedLangInfo.name} detected</Text>
+              </View>
+            )}
           </View>
           <Text style={styles.recognizedContentText}>"{recognizedText}"</Text>
           <View style={styles.recognizedActionRow}>
             <TouchableOpacity
               style={styles.confirmBtn}
-              onPress={handleConfirmRecognized}
+              onPress={handleConfirm}
               activeOpacity={0.8}
               accessibilityRole="button"
               accessibilityLabel={copy.useThis}
@@ -374,7 +417,7 @@ export const VoiceInput: React.FC<Props> = ({
         </View>
       )}
 
-      {/* 5. Error State Card */}
+      {/* 4. ERROR State Card */}
       {state === 'ERROR' && (
         <View style={styles.errorCard}>
           <View style={styles.errorHeader}>
@@ -383,7 +426,7 @@ export const VoiceInput: React.FC<Props> = ({
           </View>
           <TouchableOpacity
             style={styles.errorRetryBtn}
-            onPress={handleMicPress}
+            onPress={handleStartRecording}
             activeOpacity={0.8}
             accessibilityRole="button"
             accessibilityLabel={copy.tryAgain}
@@ -394,11 +437,11 @@ export const VoiceInput: React.FC<Props> = ({
         </View>
       )}
 
-      {/* 6. Main Tap to Speak Button */}
-      {state === 'READY' && (
+      {/* 5. IDLE Main Button */}
+      {state === 'IDLE' && (
         <TouchableOpacity
           style={styles.micButtonLarge}
-          onPress={handleMicPress}
+          onPress={handleStartRecording}
           activeOpacity={0.8}
           accessibilityRole="button"
           accessibilityLabel={copy.tapToSpeak}
@@ -412,29 +455,6 @@ export const VoiceInput: React.FC<Props> = ({
           </View>
         </TouchableOpacity>
       )}
-
-      {/* 7. Active Recording Stop Button */}
-      {state === 'RECORDING' && (
-        <TouchableOpacity
-          style={[styles.micButtonLarge, styles.micButtonRecording]}
-          onPress={handleStopRecording}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel={copy.stopRecording}
-        >
-          <View style={[styles.micIconWrap, styles.micIconWrapRecording]}>
-            <AppIcon name="square" size={20} color="#EF4444" />
-          </View>
-          <View style={styles.micLabelContainer}>
-            <Text style={[styles.micTitle, { color: '#EF4444' }]}>
-              {copy.stopRecording}
-            </Text>
-            <Text style={styles.micSubtitle}>
-              {copy.listening}
-            </Text>
-          </View>
-        </TouchableOpacity>
-      )}
     </View>
   );
 };
@@ -442,6 +462,27 @@ export const VoiceInput: React.FC<Props> = ({
 const styles = StyleSheet.create({
   container: {
     marginVertical: 8,
+  },
+  langSelectorRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 6,
+  },
+  langPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  langPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6EE7B7',
   },
   micButtonLarge: {
     flexDirection: 'row',
@@ -470,6 +511,12 @@ const styles = StyleSheet.create({
   micIconWrapRecording: {
     backgroundColor: 'rgba(239, 68, 68, 0.25)',
   },
+  pulseDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#EF4444',
+  },
   micLabelContainer: {
     flex: 1,
   },
@@ -483,42 +530,19 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     marginTop: 2,
   },
-  recordingBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: 'rgba(239, 68, 68, 0.20)',
-    borderWidth: 1,
-    borderColor: '#EF4444',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 8,
-  },
-  recordingPulse: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#EF4444',
-  },
-  recordingText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FCA5A5',
-    flex: 1,
-  },
   processingBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
     backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.40)',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   processingText: {
-    fontSize: 13,
+    fontSize: 13.5,
     color: '#6EE7B7',
     fontWeight: '600',
   },
@@ -533,11 +557,27 @@ const styles = StyleSheet.create({
   recognizedHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  recognizedHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
   },
   recognizedLabel: {
     fontSize: 12.5,
     color: '#6EE7B7',
+    fontWeight: '700',
+  },
+  detectedBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.20)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  detectedBadgeText: {
+    fontSize: 11,
+    color: '#A7F3D0',
     fontWeight: '700',
   },
   recognizedContentText: {
@@ -626,75 +666,66 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(2, 8, 13, 0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    justifyContent: 'flex-end',
   },
-  modalCard: {
-    width: '100%',
-    maxWidth: 360,
+  modalContent: {
     backgroundColor: '#071E22',
-    borderWidth: 1.5,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1.5,
     borderColor: '#10B981',
-    borderRadius: 20,
-    padding: 20,
-    alignItems: 'center',
-    gap: 12,
+    maxHeight: '75%',
+    padding: 18,
   },
-  modalIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(16, 185, 129, 0.18)',
-    justifyContent: 'center',
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 14,
   },
   modalTitle: {
-    fontSize: 17,
+    fontSize: 16.5,
     fontWeight: '800',
     color: '#FFFFFF',
-    textAlign: 'center',
   },
-  modalBody: {
-    fontSize: 14,
-    color: '#CBD5E1',
-    textAlign: 'center',
-    lineHeight: 21,
+  modalCloseBtn: {
+    padding: 6,
   },
-  modalActionRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 8,
-    width: '100%',
-  },
-  modalSecondaryBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  modalSecondaryBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
+  modalCloseText: {
+    fontSize: 16,
     color: '#94A3B8',
+    fontWeight: '700',
   },
-  modalPrimaryBtn: {
-    flex: 1.2,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: '#10B981',
+  langList: {
+    marginBottom: 14,
+  },
+  langOptionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginBottom: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
-  modalPrimaryBtnText: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: '#02080D',
+  langOptionSelected: {
+    backgroundColor: 'rgba(16, 185, 129, 0.18)',
+    borderWidth: 1,
+    borderColor: '#10B981',
+  },
+  langOptionNative: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#CBD5E1',
+  },
+  langOptionTextActive: {
+    color: '#6EE7B7',
+  },
+  langOptionSub: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 2,
   },
 });
 

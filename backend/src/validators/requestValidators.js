@@ -226,6 +226,40 @@ const acceptRequest = [
   }),
 ];
 
+const submitOffer = [
+  param('id')
+    .isUUID()
+    .withMessage('Request ID must be a valid UUID'),
+
+  body('offeredPrice')
+    .exists({ checkNull: true })
+    .withMessage('offeredPrice is required')
+    .isFloat({ min: 0.01 })
+    .withMessage('offeredPrice must be a positive number greater than 0'),
+
+  body('notes')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('notes must not exceed 500 characters'),
+];
+
+const listOffers = [
+  param('id')
+    .isUUID()
+    .withMessage('Request ID must be a valid UUID'),
+];
+
+const acceptOffer = [
+  param('id')
+    .isUUID()
+    .withMessage('Request ID must be a valid UUID'),
+
+  param('offerId')
+    .isUUID()
+    .withMessage('Offer ID must be a valid UUID'),
+];
+
 module.exports = {
   createRequest,
   listRequests,
@@ -234,4 +268,7 @@ module.exports = {
   submitRequest,
   cancelRequest,
   acceptRequest,
+  submitOffer,
+  listOffers,
+  acceptOffer,
 };

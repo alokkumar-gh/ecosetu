@@ -30,6 +30,10 @@ interface AdminTopBarProps {
   onSearchOpen: () => void;
   onNavigate: (screen: string) => void;
   notificationCount?: number;
+  /** True when rendering on a mobile phone (< 600px). */
+  isMobile?: boolean;
+  /** Called when the hamburger / menu button is tapped (mobile only). */
+  onMenuToggle?: () => void;
 }
 
 export const AdminTopBar: React.FC<AdminTopBarProps> = ({
@@ -37,6 +41,8 @@ export const AdminTopBar: React.FC<AdminTopBarProps> = ({
   onSearchOpen,
   onNavigate,
   notificationCount = 0,
+  isMobile = false,
+  onMenuToggle,
 }) => {
   const { user, logout } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
@@ -48,13 +54,31 @@ export const AdminTopBar: React.FC<AdminTopBarProps> = ({
   }, []);
 
   return (
-    <View style={styles.topbar}>
+    <View style={[styles.topbar, isMobile && styles.topbarMobile]}>
+      {/* ── Hamburger (mobile) ───────────────────────────────────────────── */}
+      {isMobile && (
+        <TouchableOpacity
+          style={styles.hamburgerBtn}
+          onPress={onMenuToggle}
+          accessibilityRole="button"
+          accessibilityLabel="Open navigation menu"
+          activeOpacity={0.75}
+        >
+          <View style={styles.hamburgerLines}>
+            <View style={styles.hamburgerLine} />
+            <View style={[styles.hamburgerLine, styles.hamburgerLineMid]} />
+            <View style={styles.hamburgerLine} />
+          </View>
+        </TouchableOpacity>
+      )}
+
       {/* ── Breadcrumb ────────────────────────────────────────────────────── */}
       <View style={styles.breadcrumb}>
-        <Text style={styles.breadcrumbRoot}>ECOSETU</Text>
+        {!isMobile && <Text style={styles.breadcrumbRoot}>ECOSETU</Text>}
+        {!isMobile && <Text style={styles.breadcrumbSep}>/</Text>}
         {breadcrumb.map((crumb, i) => (
           <React.Fragment key={i}>
-            <Text style={styles.breadcrumbSep}>/</Text>
+            {(i > 0 || isMobile) && i > 0 && <Text style={styles.breadcrumbSep}>/</Text>}
             <Text
               style={[
                 styles.breadcrumbItem,
@@ -70,19 +94,23 @@ export const AdminTopBar: React.FC<AdminTopBarProps> = ({
 
       {/* ── Right Controls ────────────────────────────────────────────────── */}
       <View style={styles.rightRow}>
-        {/* Search trigger */}
+        {/* Search trigger — icon only on mobile, full bar on tablet */}
         <TouchableOpacity
-          style={styles.searchTrigger}
+          style={[styles.searchTrigger, isMobile && styles.searchTriggerMobile]}
           onPress={onSearchOpen}
           accessibilityRole="search"
-          accessibilityLabel="Search (Ctrl+K)"
+          accessibilityLabel="Search"
           activeOpacity={0.75}
         >
           <AppIcon name="search" size={14} color={ADMIN_COLOR.textMid} />
-          <Text style={styles.searchLabel}>Search...</Text>
-          <View style={styles.searchKbd}>
-            <Text style={styles.searchKbdText}>Ctrl+K</Text>
-          </View>
+          {!isMobile && (
+            <>
+              <Text style={styles.searchLabel}>Search...</Text>
+              <View style={styles.searchKbd}>
+                <Text style={styles.searchKbdText}>Ctrl+K</Text>
+              </View>
+            </>
+          )}
         </TouchableOpacity>
 
         {/* Notifications */}
@@ -103,21 +131,23 @@ export const AdminTopBar: React.FC<AdminTopBarProps> = ({
           )}
         </TouchableOpacity>
 
-        {/* System Health quick-link */}
-        <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={() => onNavigate('AdminSystemHealth')}
-          accessibilityRole="button"
-          accessibilityLabel="System health"
-          activeOpacity={0.75}
-        >
-          <AppIcon name="activity" size={16} color={ADMIN_COLOR.textMid} />
-        </TouchableOpacity>
+        {/* System Health quick-link — hidden on mobile to save space */}
+        {!isMobile && (
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => onNavigate('AdminSystemHealth')}
+            accessibilityRole="button"
+            accessibilityLabel="System health"
+            activeOpacity={0.75}
+          >
+            <AppIcon name="activity" size={16} color={ADMIN_COLOR.textMid} />
+          </TouchableOpacity>
+        )}
 
         {/* Profile dropdown */}
         <View>
           <TouchableOpacity
-            style={styles.profileBtn}
+            style={[styles.profileBtn, isMobile && styles.profileBtnMobile]}
             onPress={toggleProfile}
             accessibilityRole="button"
             accessibilityLabel="Admin profile menu"
@@ -128,15 +158,20 @@ export const AdminTopBar: React.FC<AdminTopBarProps> = ({
                 {adminName.charAt(0)}
               </Text>
             </View>
-            <Text style={styles.profileName} numberOfLines={1}>
-              {adminName}
-            </Text>
-            <AppIcon name={profileOpen ? 'chevronUp' : 'chevronDown'} size={12} color={ADMIN_COLOR.textLow} />
+            {/* Hide name on mobile to save horizontal space */}
+            {!isMobile && (
+              <>
+                <Text style={styles.profileName} numberOfLines={1}>
+                  {adminName}
+                </Text>
+                <AppIcon name={profileOpen ? 'chevronUp' : 'chevronDown'} size={12} color={ADMIN_COLOR.textLow} />
+              </>
+            )}
           </TouchableOpacity>
 
           {/* Dropdown */}
           {profileOpen && (
-            <View style={styles.profileDropdown}>
+            <View style={[styles.profileDropdown, isMobile && styles.profileDropdownMobile]}>
               {/* Identity */}
               <View style={styles.dropdownIdentity}>
                 <View style={styles.dropdownAvatarLg}>
@@ -211,6 +246,38 @@ const styles = StyleSheet.create({
     gap: 12,
     zIndex: 100,
   },
+  topbarMobile: {
+    height: ADMIN_LAYOUT.topbarHeightMobile,
+    paddingHorizontal: 10,
+    gap: 8,
+  },
+
+  // ── Hamburger ─────────────────────────────────────────────────────────
+  hamburgerBtn: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: ADMIN_RADIUS.sm,
+    backgroundColor: ADMIN_COLOR.card,
+    borderWidth: 1,
+    borderColor: ADMIN_COLOR.cardBorder,
+    flexShrink: 0,
+  },
+  hamburgerLines: {
+    gap: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  hamburgerLine: {
+    width: 16,
+    height: 2,
+    backgroundColor: ADMIN_COLOR.textMid,
+    borderRadius: 2,
+  },
+  hamburgerLineMid: {
+    width: 12, // slightly shorter middle bar
+  },
 
   // ── Breadcrumb ──────────────────────────────────────────────────────────────
   breadcrumb: {
@@ -258,6 +325,14 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     gap: 7,
     minWidth: 160,
+  },
+  searchTriggerMobile: {
+    minWidth: 0,
+    width: 36,
+    height: 36,
+    paddingHorizontal: 0,
+    justifyContent: 'center',
+    paddingVertical: 0,
   },
   searchIcon: {
     fontSize: 14,
@@ -329,6 +404,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: ADMIN_COLOR.cardBorder,
   },
+  profileBtnMobile: {
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    gap: 0,
+  },
   profileAvatar: {
     width: 22,
     height: 22,
@@ -373,6 +453,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.40,
     shadowRadius: 16,
     elevation: 12,
+  },
+  profileDropdownMobile: {
+    right: -10, // clamp closer to right edge on mobile
+    width: 190,
   },
   dropdownIdentity: {
     flexDirection: 'row',

@@ -31,9 +31,9 @@ import { useAuth } from '../../hooks/useAuth';
 import { useI18n } from '../../i18n';
 import { navigateSafely } from '../../navigation/navigationRef';
 import { voiceService } from '../../services/voiceService';
+import { bhashiniClientService } from '../../services/bhashiniClientService';
+import { voiceRecordingService } from '../../services/voiceRecordingService';
 import { AppIcon } from '../ui/AppIcon';
-
-const { EcoSetuSpeech } = NativeModules;
 
 const sanitizeTextForSpeech = (text: string): string => {
   return text
@@ -197,10 +197,8 @@ export const EcoSaathiChatModal: React.FC = () => {
   const handleClose = () => {
     voiceService.stop();
     setPlayingMessageId(null);
-    if (isListening && EcoSetuSpeech?.stopListening) {
-      try {
-        EcoSetuSpeech.stopListening();
-      } catch {}
+    if (isListening) {
+      voiceRecordingService.cancelRecording();
       setIsListening(false);
     }
     closeChat();
@@ -222,25 +220,12 @@ export const EcoSaathiChatModal: React.FC = () => {
   };
 
   const checkHasPermission = async (): Promise<boolean> => {
-    if (Platform.OS !== 'android') return true;
-    try {
-      return await PermissionsAndroid.check(
-        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
-      );
-    } catch {
-      return false;
-    }
+    return await voiceRecordingService.requestMicrophonePermission();
   };
 
   const handleMicPress = async () => {
     if (isListening) {
-      if (EcoSetuSpeech?.stopListening) {
-        try {
-          await EcoSetuSpeech.stopListening();
-        } catch {}
-      }
-      setIsListening(false);
-      setSpeechStatus(null);
+      handleStopAndTranscribe();
       return;
     }
 
@@ -255,56 +240,65 @@ export const EcoSaathiChatModal: React.FC = () => {
 
   const handleGrantPermission = async () => {
     setShowPermissionModal(false);
-    try {
-      const result = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-        {
-          title: copy.permissionTitle,
-          message: copy.permissionWhy,
-          buttonPositive: copy.permissionAllow,
-          buttonNegative: copy.permissionCancel,
-        }
-      );
-      if (result === PermissionsAndroid.RESULTS.GRANTED) {
-        startListeningFlow();
-      } else {
-        setSpeechStatus(copy.permissionCancel);
-        setTimeout(() => setSpeechStatus(null), 2500);
-      }
-    } catch {
-      setShowPermissionModal(false);
+    const granted = await voiceRecordingService.requestMicrophonePermission();
+    if (granted) {
+      startListeningFlow();
+    } else {
+      setSpeechStatus(copy.permissionCancel);
+      setTimeout(() => setSpeechStatus(null), 2500);
     }
   };
 
   const startListeningFlow = async () => {
-    if (!EcoSetuSpeech?.startListening) {
-      setSpeechStatus('Voice recognition not supported on this device.');
-      setTimeout(() => setSpeechStatus(null), 3000);
-      return;
-    }
-
     voiceService.stop();
     setPlayingMessageId(null);
     setIsListening(true);
     setSpeechStatus(copy.listeningStatus);
 
-    try {
-      const matches: string[] = await EcoSetuSpeech.startListening(activeLang);
+    const started = await voiceRecordingService.startRecording();
+    if (!started) {
       setIsListening(false);
-      setSpeechStatus(copy.understandingStatus);
+      setSpeechStatus('Microphone permission required for voice input.');
+      setTimeout(() => setSpeechStatus(null), 3000);
+      return;
+    }
+  };
 
-      if (matches && matches.length > 0 && matches[0].trim()) {
-        const recognizedText = matches[0].trim();
-        setInputText(recognizedText);
-        setSpeechStatus(copy.preparingStatus);
-        sendMessage(recognizedText);
-        setTimeout(() => setSpeechStatus(null), 1500);
-      } else {
-        setSpeechStatus(null);
+  const handleStopAndTranscribe = async () => {
+    setIsListening(false);
+    setSpeechStatus(copy.understandingStatus);
+
+    try {
+      const recording = await voiceRecordingService.stopRecording();
+      if (!recording || !recording.audioBase64 || !recording.audioBase64.trim()) {
+        setSpeechStatus('No speech detected. Please try again.');
+        setTimeout(() => setSpeechStatus(null), 2500);
+        return;
       }
-    } catch (err: any) {
-      setIsListening(false);
-      setSpeechStatus(null);
+
+      setSpeechStatus(copy.preparingStatus);
+
+      const asrResult = await bhashiniClientService.transcribe(
+        recording.audioBase64,
+        activeLang || 'auto',
+        {
+          audioFormat: recording.audioFormat,
+          samplingRate: recording.samplingRate,
+        }
+      );
+
+      if (asrResult && asrResult.transcript && asrResult.transcript.trim()) {
+        const recognizedText = asrResult.transcript.trim();
+        setInputText(recognizedText);
+        setSpeechStatus(null);
+        sendMessage(recognizedText);
+      } else {
+        setSpeechStatus('No speech detected. Please try again.');
+        setTimeout(() => setSpeechStatus(null), 2500);
+      }
+    } catch {
+      setSpeechStatus('Voice assistance is temporarily unavailable.');
+      setTimeout(() => setSpeechStatus(null), 3000);
     }
   };
 

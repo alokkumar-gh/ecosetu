@@ -26,6 +26,8 @@ import {
   RefreshControl,
   TouchableOpacity,
   Animated,
+  useWindowDimensions,
+  PixelRatio,
 } from 'react-native';
 import { adminService } from '../../services/adminService';
 import { AdminShell } from '../../components/admin/AdminShell';
@@ -67,6 +69,9 @@ function getGreeting(): string {
 
 export const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
+  const { width: screenWidth } = useWindowDimensions();
+  const dpWidth = screenWidth / PixelRatio.get();
+  const isMobile = dpWidth < ADMIN_LAYOUT.mobileBreakpoint || screenWidth < 1300;
   const [analytics, setAnalytics] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -184,7 +189,10 @@ export const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
     >
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          isMobile && styles.contentMobile,
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -196,7 +204,7 @@ export const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
         }
       >
         {/* ── Welcome Header ──────────────────────────────────────────────── */}
-        <View style={styles.welcomeRow}>
+        <View style={[styles.welcomeRow, isMobile && styles.welcomeRowMobile]}>
           <View>
             <Text style={styles.greeting}>
               {getGreeting()}, {adminName}
@@ -346,7 +354,7 @@ export const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* ── Activity Feed + Funnel ──────────────────────────────────────── */}
         {!isLoading && !error && (
-          <View style={styles.twoColRow}>
+          <View style={[styles.twoColRow, isMobile && styles.twoColRowMobile]}>
             {/* Activity Feed */}
             <View style={styles.twoColLeft}>
               <AdminSectionHeader
@@ -430,7 +438,7 @@ export const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* ── Collector & Recycler Snapshot ────────────────────────────────── */}
         {!isLoading && !error && (
-          <View style={styles.twoColRow}>
+          <View style={[styles.twoColRow, isMobile && styles.twoColRowMobile]}>
             {/* Collector stats */}
             <View style={styles.twoColLeft}>
               <AdminSectionHeader
@@ -544,7 +552,7 @@ export const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
               title="Quick Actions"
               subtitle="Common admin operations"
             />
-            <View style={styles.quickNavGrid}>
+            <View style={[styles.quickNavGrid, isMobile && styles.quickNavGridMobile]}>
               {[
                 { label: 'Verifications', icon: '◎', screen: 'AdminVerifications', color: '#818CF8' },
                 { label: 'Users', icon: '◈', screen: 'AdminUsers', color: ADMIN_COLOR.brand },
@@ -557,7 +565,7 @@ export const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
               ].map((item) => (
                 <TouchableOpacity
                   key={item.screen}
-                  style={styles.quickNavItem}
+                  style={[styles.quickNavItem, isMobile && styles.quickNavItemMobile]}
                   onPress={() => navigation?.navigate?.(item.screen)}
                   accessibilityRole="button"
                   activeOpacity={0.75}
@@ -651,6 +659,10 @@ const styles = StyleSheet.create({
     padding: ADMIN_LAYOUT.contentPaddingH,
     gap: ADMIN_LAYOUT.sectionGap,
   },
+  contentMobile: {
+    padding: ADMIN_LAYOUT.contentPaddingHMobile,
+    gap: ADMIN_LAYOUT.sectionGapMobile,
+  },
 
   // Welcome
   welcomeRow: {
@@ -659,6 +671,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 16,
     flexWrap: 'wrap',
+  },
+  welcomeRowMobile: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 10,
   },
   greeting: {
     ...ADMIN_TYPE.h2,
@@ -728,6 +745,10 @@ const styles = StyleSheet.create({
     gap: ADMIN_LAYOUT.cardGap,
     flexWrap: 'wrap',
   },
+  twoColRowMobile: {
+    flexDirection: 'column',
+    flexWrap: 'nowrap',
+  },
   twoColLeft: {
     flex: 1.4,
     minWidth: 220,
@@ -786,6 +807,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 10,
   },
+  quickNavGridMobile: {
+    gap: 8,
+  },
   quickNavItem: {
     width: 88,
     alignItems: 'center',
@@ -796,6 +820,18 @@ const styles = StyleSheet.create({
     borderColor: ADMIN_COLOR.cardBorder,
     borderRadius: ADMIN_RADIUS.md,
     ...ADMIN_SHADOW.card,
+  },
+  quickNavItemMobile: {
+    // On mobile: 4 items per row with dynamic sizing
+    // (screenWidth - padding*2 - gap*3) / 4
+    // Use percentage-based flex instead to stay dynamic
+    width: undefined,
+    flex: undefined,
+    // ~22% of screen width = 4 per row on 390px phone
+    minWidth: '22%' as any,
+    maxWidth: '25%' as any,
+    padding: 10,
+    gap: 6,
   },
   quickNavIcon: {
     width: 36,

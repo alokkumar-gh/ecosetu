@@ -283,7 +283,7 @@ class CollectorService {
           : '/collection-requests/available';
         const response = await apiClient.get(endpoint);
         const fetched = response.data?.requests || response.data || [];
-        const requests = Array.isArray(fetched) && fetched.length > 0 ? fetched : DEFAULT_AVAILABLE_REQUESTS;
+        const requests = Array.isArray(fetched) ? fetched : [];
         const pagination = response.data?.pagination || null;
         // Cache requests array for offline fallback
         await _writeCache(CACHE_AVAILABLE_REQUESTS, requests);
@@ -303,7 +303,36 @@ class CollectorService {
   }
 
   /**
-   * Accept an available collection request.
+   * Submit an offer for an open pickup request
+   * @param {string} requestId
+   * @param {object} payload - { offeredPrice: number, notes?: string }
+   * @returns {Promise<object>}
+   */
+  async submitOffer(requestId, payload) {
+    if (!networkService.isConnected()) {
+      throw Object.assign(
+        new Error('Submitting offers requires an internet connection.'),
+        { isOfflineError: true }
+      );
+    }
+    const response = await apiClient.post(`/collection-requests/${requestId}/offers`, payload);
+    return response.data?.offer || response.data;
+  }
+
+  /**
+   * Get all offers placed by this collector
+   * @returns {Promise<Array>}
+   */
+  async getMyOffers() {
+    if (!networkService.isConnected()) {
+      return [];
+    }
+    const response = await apiClient.get('/collectors/my-offers');
+    return response.data?.offers || response.data || [];
+  }
+
+  /**
+   * Accept an available collection request (Direct assignment fallback).
    * Server-authoritative — requires connectivity.
    * Backend performs atomic transaction to prevent double-acceptance (409 conflict).
    * MUST NOT be queued for offline execution.

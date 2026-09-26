@@ -41,6 +41,10 @@ interface AdminSidebarProps {
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   sidebarAnim: Animated.Value; // animated width value from parent
+  /** True when rendering as a mobile drawer overlay (full width, no collapse). */
+  isMobile?: boolean;
+  /** Width to fill when isMobile=true. Defaults to 260. */
+  mobileDrawerWidth?: number;
 }
 
 export const AdminSidebar: React.FC<AdminSidebarProps> = ({
@@ -49,6 +53,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   isCollapsed,
   onToggleCollapse,
   sidebarAnim,
+  isMobile = false,
+  mobileDrawerWidth = 260,
 }) => {
   const { user, logout } = useAuth();
   const adminName = user?.name?.split(' ')[0] || 'Admin';
@@ -83,7 +89,14 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   });
 
   return (
-    <Animated.View style={[styles.sidebar, { width: sidebarAnim }]}>
+    <Animated.View
+      style={[
+        styles.sidebar,
+        isMobile
+          ? { width: mobileDrawerWidth }
+          : { width: sidebarAnim },
+      ]}
+    >
       {/* ── Logo / Brand ───────────────────────────────────────── */}
       <View style={styles.brand}>
         <EcoSetuLogo size={28} bordered={false} style={styles.brandLogoCircle} />
@@ -198,18 +211,32 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         </TouchableOpacity>
       </ScrollView>
 
-      {/* ── Collapse Toggle Button ─────────────────────────────── */}
-      <TouchableOpacity
-        style={styles.collapseBtn}
-        onPress={onToggleCollapse}
-        accessibilityRole="button"
-        accessibilityLabel={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        activeOpacity={0.75}
-      >
-        <Text style={styles.collapseIcon}>
-          {isCollapsed ? '›' : '‹'}
-        </Text>
-      </TouchableOpacity>
+      {/* ── Bottom: Close (mobile) or Collapse (tablet) toggle ──────── */}
+      {isMobile ? (
+        /* Mobile: close drawer button */
+        <TouchableOpacity
+          style={styles.collapseBtn}
+          onPress={onToggleCollapse}
+          accessibilityRole="button"
+          accessibilityLabel="Close navigation menu"
+          activeOpacity={0.75}
+        >
+          <Text style={styles.collapseIcon}>✕</Text>
+        </TouchableOpacity>
+      ) : (
+        /* Tablet: expand / collapse button */
+        <TouchableOpacity
+          style={styles.collapseBtn}
+          onPress={onToggleCollapse}
+          accessibilityRole="button"
+          accessibilityLabel={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          activeOpacity={0.75}
+        >
+          <Text style={styles.collapseIcon}>
+            {isCollapsed ? '›' : '‹'}
+          </Text>
+        </TouchableOpacity>
+      )}
     </Animated.View>
   );
 };

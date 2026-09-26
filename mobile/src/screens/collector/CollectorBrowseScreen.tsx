@@ -47,6 +47,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Platform,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
@@ -131,6 +133,20 @@ const totalEstimatedWeight = (ewasteItems: any[]): string => {
   return total > 0 ? `~${total.toFixed(1)} kg` : '';
 };
 
+const fmtStandardPrice = (priceObj: any): string | null => {
+  if (!priceObj) return null;
+  if (priceObj.minEstimate && priceObj.maxEstimate) {
+    if (priceObj.minEstimate === priceObj.maxEstimate) {
+      return `₹${priceObj.minEstimate}`;
+    }
+    return `₹${priceObj.minEstimate} - ₹${priceObj.maxEstimate}`;
+  }
+  if (priceObj.estimatedTotal) {
+    return `₹${priceObj.estimatedTotal}`;
+  }
+  return null;
+};
+
 // ─── Loading Skeletons ─────────────────────────────────────────────────────────
 
 const RequestCardSkeleton: React.FC = () => (
@@ -162,6 +178,230 @@ const skeletonStyles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
 });
 
+// ─── Offer Modal Component ───────────────────────────────────────────────────
+
+interface OfferModalProps {
+  visible: boolean;
+  request: any;
+  isSubmitting: boolean;
+  error: string | null;
+  offeredPrice: string;
+  notes: string;
+  onChangePrice: (val: string) => void;
+  onChangeNotes: (val: string) => void;
+  onSubmit: () => void;
+  onClose: () => void;
+}
+
+const OfferModal: React.FC<OfferModalProps> = ({
+  visible,
+  request,
+  isSubmitting,
+  error,
+  offeredPrice,
+  notes,
+  onChangePrice,
+  onChangeNotes,
+  onSubmit,
+  onClose,
+}) => {
+  const { t } = useI18n();
+  if (!request) return null;
+
+  const categories = summarizeCategories(request.ewasteItems);
+  const itemCount = countTotalItems(request.ewasteItems);
+  const standardPriceStr = fmtStandardPrice(request.standardPrice);
+  const hasExistingOffer = Boolean(request.myOffer);
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={modalStyles.overlay} activeOpacity={1} onPress={onClose} />
+      <View style={modalStyles.sheet}>
+        <View style={modalStyles.sheetHandle} />
+        
+        <View style={modalStyles.header}>
+          <Text style={modalStyles.title}>
+            {hasExistingOffer ? 'Update Your Offer' : 'Place Pickup Offer'}
+          </Text>
+          <Text style={modalStyles.subtitle}>
+            {categories} ({itemCount} {itemCount === 1 ? 'item' : 'items'})
+          </Text>
+        </View>
+
+        {/* Reference standard price banner if available */}
+        {Boolean(standardPriceStr) && (
+          <View style={modalStyles.standardPriceBox}>
+            <AppIcon name="award" size={16} color="#10B981" />
+            <View style={{ flex: 1 }}>
+              <Text style={modalStyles.standardPriceLabel}>Standard Reference Price</Text>
+              <Text style={modalStyles.standardPriceValue}>{standardPriceStr}</Text>
+            </View>
+          </View>
+        )}
+
+        {hasExistingOffer && (
+          <View style={modalStyles.existingOfferNotice}>
+            <AppIcon name="info" size={14} color="#38BDF8" />
+            <Text style={modalStyles.existingOfferText}>
+              Current offer: ₹{request.myOffer.offeredPrice} ({request.myOffer.status}). You can update your price.
+            </Text>
+          </View>
+        )}
+
+        {/* Offered Price Input */}
+        <Text style={modalStyles.inputLabel}>Offered Price (₹) *</Text>
+        <TextInput
+          style={modalStyles.priceInput}
+          value={offeredPrice}
+          onChangeText={onChangePrice}
+          placeholder="e.g. 250"
+          placeholderTextColor="#64748B"
+          keyboardType="numeric"
+          autoFocus
+        />
+
+        {/* Notes Input */}
+        <Text style={modalStyles.inputLabel}>Notes for Citizen (Optional)</Text>
+        <TextInput
+          style={modalStyles.notesInput}
+          value={notes}
+          onChangeText={onChangeNotes}
+          placeholder="e.g. Can collect today with digital weighing scale."
+          placeholderTextColor="#64748B"
+          multiline
+          numberOfLines={3}
+          textAlignVertical="top"
+        />
+
+        {Boolean(error) && <Text style={modalStyles.errorText}>{error}</Text>}
+
+        <View style={modalStyles.actionsRow}>
+          <TouchableOpacity
+            style={modalStyles.cancelBtn}
+            onPress={onClose}
+            disabled={isSubmitting}
+          >
+            <Text style={modalStyles.cancelBtnText}>{t('common.cancel') || 'Cancel'}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[modalStyles.submitBtn, isSubmitting && { opacity: 0.6 }]}
+            onPress={onSubmit}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={modalStyles.submitBtnText}>
+                {hasExistingOffer ? 'Update Offer' : 'Submit Offer'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const modalStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
+  sheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: spacing.spaceMd,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    borderWidth: 1,
+    borderColor: colors.divider,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#64748B',
+    alignSelf: 'center',
+    marginBottom: spacing.spaceSm,
+  },
+  header: { marginBottom: spacing.spaceSm },
+  title: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
+  subtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+  standardPriceBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(16,185,129,0.1)',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: spacing.spaceSm,
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.25)',
+  },
+  standardPriceLabel: { fontSize: 11, color: colors.primary, fontWeight: '600' },
+  standardPriceValue: { fontSize: 14, color: colors.primary, fontWeight: '700' },
+  existingOfferNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(56,189,248,0.1)',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: spacing.spaceSm,
+  },
+  existingOfferText: { fontSize: 12, color: '#38BDF8', flex: 1 },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 4,
+    marginTop: 4,
+  },
+  priceInput: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: colors.textPrimary,
+    fontWeight: '700',
+    marginBottom: spacing.spaceSm,
+  },
+  notesInput: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: colors.textPrimary,
+    height: 70,
+    marginBottom: spacing.spaceSm,
+  },
+  errorText: { fontSize: 12, color: colors.error, marginBottom: spacing.spaceSm },
+  actionsRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  cancelBtn: {
+    flex: 1,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    minHeight: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtnText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
+  submitBtn: {
+    flex: 1.5,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    minHeight: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submitBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+});
+
 // ─── Request Item Card ─────────────────────────────────────────────────────────
 
 interface RequestCardProps {
@@ -170,16 +410,20 @@ interface RequestCardProps {
   isConnected: boolean;
   isVerified: boolean;
   onAccept: (requestId: string) => void;
+  onOpenOfferModal: (request: any) => void;
   onReadAloud?: (request: any) => void;
 }
 
 const RequestCard = React.memo<RequestCardProps>(
-  ({ request, isAccepting, isConnected, isVerified, onAccept, onReadAloud }) => {
+  ({ request, isAccepting, isConnected, isVerified, onAccept, onOpenOfferModal, onReadAloud }) => {
     const { t } = useI18n();
     const itemCount = countTotalItems(request.ewasteItems);
     const categories = summarizeCategories(request.ewasteItems);
     const estWeight = totalEstimatedWeight(request.ewasteItems);
     const canAccept = isConnected && isVerified && !isAccepting;
+    const standardPriceStr = fmtStandardPrice(request.standardPrice);
+    const offersCount = request.offersCount || 0;
+    const myOffer = request.myOffer;
 
     const preferredDateLabel =
       request.preferredDate ? fmtDate(request.preferredDate) : null;
@@ -221,12 +465,39 @@ const RequestCard = React.memo<RequestCardProps>(
               {estWeight ? ` · ${estWeight}` : ''}
             </Text>
           </View>
-          <StatusBadge status="SUBMITTED" />
+          <View style={cardStyles.badgeCol}>
+            <StatusBadge status="SUBMITTED" />
+            <View style={cardStyles.offersPill}>
+              <Text style={cardStyles.offersPillText}>
+                {offersCount} {offersCount === 1 ? 'Offer' : 'Offers'}
+              </Text>
+            </View>
+          </View>
         </View>
 
         <View style={cardStyles.divider} />
 
-        {/* ── Doorstep pickup address (Privacy-safe: structured address without live GPS coordinates) ── */}
+        {/* ── Standard Reference Price badge if available ── */}
+        {Boolean(standardPriceStr) && (
+          <View style={cardStyles.standardPriceRow}>
+            <AppIcon name="award" size={13} color="#10B981" />
+            <Text style={cardStyles.standardPriceText}>
+              Standard Price: <Text style={{ fontWeight: '700', color: colors.primary }}>{standardPriceStr}</Text>
+            </Text>
+          </View>
+        )}
+
+        {/* ── My existing offer banner ── */}
+        {Boolean(myOffer) && (
+          <View style={cardStyles.myOfferBanner}>
+            <AppIcon name="check" size={13} color="#38BDF8" />
+            <Text style={cardStyles.myOfferText}>
+              Your Offer: <Text style={{ fontWeight: '700' }}>₹{myOffer.offeredPrice}</Text> ({myOffer.status})
+            </Text>
+          </View>
+        )}
+
+        {/* ── Doorstep pickup address (Privacy-safe) ── */}
         <View style={cardStyles.infoRow}>
           <AppIcon name="location" size={14} color="#10B981" style={{ marginTop: 2 }} />
           <Text style={cardStyles.infoText} numberOfLines={4}>
@@ -281,7 +552,7 @@ const RequestCard = React.memo<RequestCardProps>(
           </View>
         )}
 
-        {/* ── Actions: Read Aloud & Accept ── */}
+        {/* ── Actions: Read Aloud & Place Offer ── */}
         <View style={cardStyles.actionsRow}>
           {Boolean(onReadAloud) && (
             <TouchableOpacity
@@ -299,54 +570,35 @@ const RequestCard = React.memo<RequestCardProps>(
             </TouchableOpacity>
           )}
 
+          {/* Place / Edit Offer button (Primary Bidding Workflow) */}
           <TouchableOpacity
             style={[
-              cardStyles.acceptButton,
-              Boolean(onReadAloud) && cardStyles.acceptButtonFlex,
+              cardStyles.offerButton,
               !canAccept && cardStyles.acceptButtonDisabled,
             ]}
-            onPress={() => onAccept(request.id)}
+            onPress={() => onOpenOfferModal(request)}
             disabled={!canAccept}
-            accessibilityRole="button"
-            accessibilityLabel={
-              isAccepting
-                ? (t('collector.browse.accepting') || 'Accepting this request, please wait')
-                : !isVerified
-                ? (t('collector.browse.verificationRequiredDesc') || 'Account verification required to accept requests')
-                : !isConnected
-                ? (t('collector.browse.offlineAcceptMessage') || 'Internet connection required to accept request')
-                : `Accept ${categories} collection request`
-            }
-            accessibilityState={{
-              disabled: !canAccept,
-              busy: isAccepting,
-            }}
-            accessibilityHint={
-              canAccept ? 'Double tap to accept this collection request' : undefined
-            }
             activeOpacity={0.75}
           >
-            {isAccepting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <View style={styles.btnRow}>
-                <AppIcon name="check" size={15} color="#FFFFFF" />
-                <Text style={cardStyles.acceptButtonText}>{t('collector.browse.acceptRequest') || 'Accept Request'}</Text>
-              </View>
-            )}
+            <View style={styles.btnRow}>
+              <AppIcon name="award" size={15} color="#FFFFFF" />
+              <Text style={cardStyles.offerButtonText}>
+                {myOffer ? `Edit Offer (₹${myOffer.offeredPrice})` : 'Place Offer'}
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
 
-        {/* ── Contextual disable hints (color-independent text) ── */}
+        {/* ── Contextual disable hints ── */}
         {!isConnected && (
           <View style={[styles.rowCentered, { marginTop: 4 }]}>
             <AppIcon name="refresh" size={13} color="#94A3B8" />
             <Text
               style={cardStyles.disabledHint}
               accessibilityRole="text"
-              accessibilityLabel="Internet connection required to accept this request"
+              accessibilityLabel="Internet connection required to place offers"
             >
-              {t('collector.dashboard.offlineHint') || 'Internet required to accept'}
+              {t('collector.dashboard.offlineHint') || 'Internet required to place offers'}
             </Text>
           </View>
         )}
@@ -356,9 +608,9 @@ const RequestCard = React.memo<RequestCardProps>(
             <Text
               style={[cardStyles.disabledHint, { color: colors.warning }]}
               accessibilityRole="text"
-              accessibilityLabel="Account verification required to accept requests"
+              accessibilityLabel="Account verification required to place offers"
             >
-              {t('collector.browse.verificationRequired') || 'Verification required'}
+              {t('collector.browse.verificationRequired') || 'Verification required to place offers'}
             </Text>
           </View>
         )}
@@ -366,138 +618,6 @@ const RequestCard = React.memo<RequestCardProps>(
     );
   },
 );
-
-const cardStyles = StyleSheet.create({
-  container: {
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    padding: spacing.spaceMd,
-    marginBottom: spacing.spaceSm,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 3,
-    borderWidth: 1,
-    borderColor: colors.divider,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.spaceXs,
-  },
-  iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: `${colors.primary}15`,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconText: { fontSize: 18 },
-  categoryText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  subText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.divider,
-    marginVertical: spacing.spaceXs,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
-    marginBottom: 4,
-  },
-  infoIcon: { fontSize: 12, marginTop: 2 },
-  infoText: {
-    flex: 1,
-    fontSize: 12,
-    color: colors.textSecondary,
-    lineHeight: 18,
-  },
-  notesText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-    marginTop: spacing.spaceXs,
-    marginBottom: spacing.spaceXs,
-    lineHeight: 18,
-  },
-  itemsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-    marginTop: spacing.spaceXs,
-    marginBottom: spacing.spaceXs,
-  },
-  itemChip: {
-    backgroundColor: `${colors.primary}12`,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  itemChipMore: {
-    backgroundColor: `${colors.textSecondary}12`,
-  },
-  itemChipText: {
-    fontSize: 11,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.spaceSm,
-    gap: spacing.spaceSm,
-  },
-  readAloudBtn: {
-    backgroundColor: '#E8F5E9',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    minHeight: 48,
-    paddingHorizontal: spacing.spaceSm + 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  readAloudBtnText: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  acceptButton: {
-    marginTop: spacing.spaceSm,
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  acceptButtonFlex: {
-    flex: 1,
-    marginTop: 0,
-  },
-  acceptButtonDisabled: { opacity: 0.4 },
-  acceptButtonText: {
-    color: '#FFFFFF',
-    fontSize: typography.Button.fontSize,
-    fontWeight: '700',
-  },
-  disabledHint: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 4,
-  },
-});
 
 // ─── Load-more footer ─────────────────────────────────────────────────────────
 
@@ -579,6 +699,99 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
   const acceptingRef = useRef<boolean>(false);
   const refreshingRef = useRef<boolean>(false);
   const loadingMoreRef = useRef<boolean>(false);
+
+  // ── Offer Modal state ──────────────────────────────────────────────────────
+  const [offerModalVisible, setOfferModalVisible] = useState<boolean>(false);
+  const [offerTargetRequest, setOfferTargetRequest] = useState<any | null>(null);
+  const [offeredPrice, setOfferedPrice] = useState<string>('');
+  const [offerNotes, setOfferNotes] = useState<string>('');
+  const [isSubmittingOffer, setIsSubmittingOffer] = useState<boolean>(false);
+  const [offerError, setOfferError] = useState<string | null>(null);
+
+  const handleOpenOfferModal = useCallback((req: any) => {
+    setOfferTargetRequest(req);
+    setOfferedPrice(req?.myOffer?.offeredPrice ? String(req.myOffer.offeredPrice) : '');
+    setOfferNotes(req?.myOffer?.notes || '');
+    setOfferError(null);
+    setOfferModalVisible(true);
+  }, []);
+
+  const handleSubmitOffer = useCallback(async () => {
+    if (!offerTargetRequest) return;
+    const priceNum = parseFloat(offeredPrice);
+    if (isNaN(priceNum) || priceNum <= 0) {
+      setOfferError('Please enter a valid positive offer price in ₹.');
+      return;
+    }
+    if (!isConnected) {
+      setOfferError('An internet connection is required to submit offers.');
+      return;
+    }
+
+    setIsSubmittingOffer(true);
+    setOfferError(null);
+
+    try {
+      const payload: any = {
+        offeredPrice: priceNum,
+        notes: offerNotes.trim() || undefined,
+      };
+      const resultOffer = await collectorService.submitOffer(offerTargetRequest.id, payload);
+
+      // Update state locally
+      setRequests((prev) =>
+        prev.map((r) => {
+          if (r.id === offerTargetRequest.id) {
+            const hadOffer = Boolean(r.myOffer);
+            return {
+              ...r,
+              myOffer: resultOffer,
+              offersCount: hadOffer ? r.offersCount : (r.offersCount || 0) + 1,
+            };
+          }
+          return r;
+        }),
+      );
+
+      if (selectedMapRequest?.id === offerTargetRequest.id) {
+        setSelectedMapRequest((prev: any) =>
+          prev
+            ? {
+                ...prev,
+                myOffer: resultOffer,
+                offersCount: prev.myOffer ? prev.offersCount : (prev.offersCount || 0) + 1,
+              }
+            : null,
+        );
+      }
+
+      setOfferModalVisible(false);
+      setOfferTargetRequest(null);
+      setOfferedPrice('');
+      setOfferNotes('');
+
+      if (isVoiceEnabled) {
+        voiceService.speak('Offer submitted successfully.', {
+          priority: AnnouncementPriority.HIGH,
+          language,
+        });
+      }
+
+      Alert.alert(
+        'Offer Submitted',
+        `Your offer of ₹${priceNum} has been sent to the citizen. You will be notified when they accept.`,
+        [{ text: t('common.done') || 'OK' }],
+      );
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to submit offer. Please check your price and try again.';
+      setOfferError(msg);
+    } finally {
+      setIsSubmittingOffer(false);
+    }
+  }, [offerTargetRequest, offeredPrice, offerNotes, isConnected, selectedMapRequest, isVoiceEnabled, language, t]);
 
   // ── Verification check ─────────────────────────────────────────────────────
   // Backend enforces this via checkVerified — we provide a UI hint only.
@@ -691,7 +904,7 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [isVoiceEnabled, language, t]);
 
   useEffect(() => {
     loadRequests(false);
@@ -735,7 +948,6 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
         return [...prev, ...newItems];
       });
       setPagination(result.pagination);
-      // Do NOT update fromCache here — page 1 cache is the baseline
     } catch {
       // Non-fatal — just stop loading more
     } finally {
@@ -877,7 +1089,7 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
         { cancelable: true },
       );
     },
-    [isConnected, isVerified, isVoiceEnabled, language, t],
+    [isConnected, isVerified, isVoiceEnabled, language, navigation, t],
   );
 
   // ── Render helpers ─────────────────────────────────────────────────────────
@@ -890,10 +1102,11 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
         isConnected={isConnected}
         isVerified={isVerified}
         onAccept={handleAccept}
+        onOpenOfferModal={handleOpenOfferModal}
         onReadAloud={handleReadAloudRequest}
       />
     ),
-    [acceptingId, isConnected, isVerified, handleAccept, handleReadAloudRequest],
+    [acceptingId, isConnected, isVerified, handleAccept, handleOpenOfferModal, handleReadAloudRequest],
   );
 
   const keyExtractor = useCallback((item: any) => item.id, []);
@@ -973,7 +1186,7 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
           <View style={styles.rowCentered}>
             <AppIcon name="warning" size={15} color="#B71C1C" />
             <Text style={[styles.alertText, { color: '#B71C1C' }]}>
-              {t('collector.dashboard.suspendedNotice') || 'Your account is suspended. You cannot accept requests. Contact support.'}
+              {t('collector.dashboard.suspendedNotice') || 'Your account is suspended. You cannot place offers. Contact support.'}
             </Text>
           </View>
         </View>
@@ -1007,7 +1220,7 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
               <View style={styles.rowCentered}>
                 <AppIcon name="refresh" size={12} color="#FFFFFF" />
                 <Text style={styles.mapOfflineNoticeText}>
-                  {t('collector.dashboard.offlineHint') || 'Internet required to accept requests'}
+                  {t('collector.dashboard.offlineHint') || 'Internet required to place offers'}
                 </Text>
               </View>
             </View>
@@ -1078,6 +1291,26 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
 
               <View style={styles.selectedDivider} />
 
+              {/* Standard Price in Map detail if present */}
+              {Boolean(fmtStandardPrice(selectedMapRequest.standardPrice)) && (
+                <View style={styles.selectedInfoRow}>
+                  <AppIcon name="award" size={14} color="#10B981" style={{ marginTop: 2, marginRight: 6 }} />
+                  <Text style={styles.selectedInfoText}>
+                    Standard Price: <Text style={{ fontWeight: '700', color: colors.primary }}>{fmtStandardPrice(selectedMapRequest.standardPrice)}</Text>
+                  </Text>
+                </View>
+              )}
+
+              {/* My Offer if present */}
+              {Boolean(selectedMapRequest.myOffer) && (
+                <View style={styles.selectedInfoRow}>
+                  <AppIcon name="check" size={14} color="#38BDF8" style={{ marginTop: 2, marginRight: 6 }} />
+                  <Text style={[styles.selectedInfoText, { color: '#38BDF8' }]}>
+                    Your Offer: ₹{selectedMapRequest.myOffer.offeredPrice} ({selectedMapRequest.myOffer.status})
+                  </Text>
+                </View>
+              )}
+
               <View style={styles.selectedInfoRow}>
                 <AppIcon name="location" size={14} color="#10B981" style={{ marginTop: 2, marginRight: 6 }} />
                 <Text style={styles.selectedInfoText} numberOfLines={2}>
@@ -1124,33 +1357,18 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
                   style={[
                     styles.selectedAcceptBtn,
                     { flex: 1, marginTop: 0 },
-                    (!isConnected || !isVerified || acceptingId === selectedMapRequest.id) &&
-                      styles.selectedAcceptBtnDisabled,
+                    (!isConnected || !isVerified) && styles.selectedAcceptBtnDisabled,
                   ]}
-                  onPress={() => handleAccept(selectedMapRequest.id)}
-                  disabled={!isConnected || !isVerified || acceptingId === selectedMapRequest.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    acceptingId === selectedMapRequest.id
-                      ? (t('collector.browse.accepting') || 'Accepting request')
-                      : (t('collector.browse.acceptRequest') || 'Accept Request')
-                  }
-                  accessibilityState={{
-                    disabled: !isConnected || !isVerified || acceptingId === selectedMapRequest.id,
-                    busy: acceptingId === selectedMapRequest.id,
-                  }}
+                  onPress={() => handleOpenOfferModal(selectedMapRequest)}
+                  disabled={!isConnected || !isVerified}
                   activeOpacity={0.8}
                 >
-                  {acceptingId === selectedMapRequest.id ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <View style={styles.btnRow}>
-                      <AppIcon name="check" size={15} color="#FFFFFF" />
-                      <Text style={styles.selectedAcceptBtnText}>
-                        {t('collector.browse.acceptRequest') || 'Accept Request'}
-                      </Text>
-                    </View>
-                  )}
+                  <View style={styles.btnRow}>
+                    <AppIcon name="award" size={15} color="#FFFFFF" />
+                    <Text style={styles.selectedAcceptBtnText}>
+                      {selectedMapRequest.myOffer ? `Edit Offer (₹${selectedMapRequest.myOffer.offeredPrice})` : 'Place Offer'}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1177,7 +1395,7 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
                 </View>
                 <Text style={styles.mapSummarySub}>
                   {mapPins.length > 0
-                    ? 'Each green zone is a ~1.1 km approximate area where citizens have requested doorstep pickup. Tap a zone to inspect items & accept.'
+                    ? 'Each green zone is a ~1.1 km approximate area where citizens have requested doorstep pickup. Tap a zone to inspect items & place offer.'
                     : 'Searching for open collection requests nearby. Tap Locate Me or pull list to scan for new pickups.'}
                 </Text>
               </View>
@@ -1247,7 +1465,7 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
                 <View style={styles.rowCentered}>
                   <AppIcon name="lock" size={14} color="#10B981" />
                   <Text style={styles.privacyNoteText}>
-                    {t('collector.browse.privacyBanner') || 'Exact pickup address is revealed only after you accept a request.'}
+                    {t('collector.browse.privacyBanner') || 'Exact pickup address is revealed only after an offer is accepted.'}
                   </Text>
                 </View>
               </View>
@@ -1307,6 +1525,23 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
           removeClippedSubviews={Platform.OS === 'android'}
         />
       )}
+
+      {/* ── Offer Modal ── */}
+      <OfferModal
+        visible={offerModalVisible}
+        request={offerTargetRequest}
+        isSubmitting={isSubmittingOffer}
+        error={offerError}
+        offeredPrice={offeredPrice}
+        notes={offerNotes}
+        onChangePrice={setOfferedPrice}
+        onChangeNotes={setOfferNotes}
+        onSubmit={handleSubmitOffer}
+        onClose={() => {
+          setOfferModalVisible(false);
+          setOfferTargetRequest(null);
+        }}
+      />
     </SafeAreaView>
   );
 };

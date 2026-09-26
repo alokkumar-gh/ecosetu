@@ -524,6 +524,7 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
         pickupLat: pickupLat || 0,
         pickupLng: pickupLng || 0,
         addressType,
+        autoSubmit: true,
       };
       if (houseNumber.trim()) requestPayload.houseNumber = houseNumber.trim();
       if (street.trim()) requestPayload.street = street.trim();

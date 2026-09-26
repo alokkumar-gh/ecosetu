@@ -36,7 +36,7 @@ function check(condition, testId, description, detail = '') {
 }
 
 function readFile(relPath) {
-  const absPath = path.isAbsolute(relPath) ? relPath : path.join(__dirname, relPath);
+  const absPath = path.isAbsolute(relPath) ? relPath : path.join(__dirname, '..', relPath);
   if (!fs.existsSync(absPath)) return { exists: false, content: '' };
   return { exists: true, content: fs.readFileSync(absPath, 'utf8') };
 }

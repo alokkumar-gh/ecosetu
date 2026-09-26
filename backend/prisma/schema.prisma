@@ -89,6 +89,16 @@ enum RequestStatus {
   @@map("request_status")
 }
 
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+  EXPIRED
+
+  @@map("offer_status")
+}
+
 enum PickupStatus {
   SCHEDULED
   IN_PROGRESS
@@ -472,6 +482,7 @@ model CollectorProfile {
   transactions       TransactionRecord[] @relation("CollectorTransactionsList")
   pickupBatches      PickupBatch[]       @relation("CollectorPickupBatches")
   sourcingResponses  SourcingResponse[]  @relation("CollectorSourcingResponses")
+  pickupOffers       PickupOffer[]       @relation("CollectorPickupOffers")
 
   @@index([isAvailable], map: "idx_cp_available")
   @@index([serviceAreaLat, serviceAreaLng], map: "idx_cp_location")
@@ -588,6 +599,7 @@ model CollectionRequest {
   collector   CollectorProfile? @relation("CollectorAssignedRequests", fields: [collectorId], references: [id], onDelete: SetNull)
   ewasteItems EwasteItem[]      @relation("RequestItems")
   pickup      Pickup?           @relation("RequestPickup")
+  pickupOffers PickupOffer[]    @relation("RequestOffers")
 
   @@index([citizenId], map: "idx_cr_citizen")
   @@index([status], map: "idx_cr_status")
@@ -1423,6 +1435,27 @@ model TransactionBill {
   @@index([paymentStatus], map: "idx_bill_status")
   @@index([generatedAt], map: "idx_bill_generated")
   @@map("transaction_bills")
+}
+
+model PickupOffer {
+  id                  String           @id @default(uuid()) @db.Uuid
+  collectionRequestId String           @map("collection_request_id") @db.Uuid
+  collectorId         String           @map("collector_id") @db.Uuid
+  offeredPrice        Decimal          @map("offered_price") @db.Decimal(10, 2)
+  standardPrice       Decimal?         @map("standard_price") @db.Decimal(10, 2)
+  notes               String?          @db.Text
+  status              OfferStatus      @default(PENDING)
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  collectionRequest   CollectionRequest @relation("RequestOffers", fields: [collectionRequestId], references: [id], onDelete: Cascade)
+  collector           CollectorProfile  @relation("CollectorPickupOffers", fields: [collectorId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionRequestId, collectorId])
+  @@index([collectionRequestId], map: "idx_po_request")
+  @@index([collectorId], map: "idx_po_collector")
+  @@index([status], map: "idx_po_status")
+  @@map("pickup_offers")
 }
 
 

@@ -2,10 +2,10 @@
  * bhashiniClientService.ts
  * Mobile Vernacular Client communicating strictly with the ECOSETU Backend Engine.
  * 
- * Security:
- * - NEVER contacts BHASHINI directly from mobile
- * - Zero API keys stored or hardcoded on device
- * - Communicates with backend endpoints (/voice/tts, /voice/asr, /language/detect, /ocr, /language/translate)
+ * Architecture & Security:
+ * - NEVER contacts BHASHINI directly from mobile.
+ * - Zero API keys stored or hardcoded on device.
+ * - Communicates with backend endpoints (/voice/transcribe, /voice/synthesize, /voice/detect-audio-language, /language/detect, /ocr, /language/translate).
  */
 
 import { apiClient } from './apiClient';
@@ -20,9 +20,25 @@ export interface TTSResponse {
 }
 
 export interface ASRResponse {
-  text: string;
-  language: string;
+  success: boolean;
+  language: {
+    code: string;
+    name: string;
+    nativeName: string;
+  };
+  transcript: string;
+  originalTranscript: string;
   confidence: number | null;
+  latencyMs: number;
+}
+
+export interface ALDResponse {
+  success: boolean;
+  language: string;
+  languageName: string;
+  nativeName: string;
+  confidence: number | null;
+  isFallback?: boolean;
   latencyMs: number;
 }
 
@@ -47,6 +63,29 @@ export interface TranslateResponse {
   latencyMs: number;
 }
 
+export interface SupportedLanguageItem {
+  code: string;
+  name: string;
+  nativeName: string;
+  isAuto?: boolean;
+  script?: string;
+}
+
+export interface VoiceProcessResponse {
+  success: boolean;
+  language: {
+    code: string;
+    name: string;
+    nativeName: string;
+  };
+  transcript: string;
+  originalTranscript: string;
+  confidence: number | null;
+  asrLatencyMs: number;
+  audioResponse: string | null;
+  ttsLatencyMs: number | null;
+}
+
 export interface EngineStatusResponse {
   service: string;
   status: string;
@@ -57,6 +96,7 @@ export interface EngineStatusResponse {
   capabilities: {
     tts: boolean;
     asr: boolean;
+    audioLanguageDetection?: boolean;
     tld: boolean;
     ocr: boolean;
     translation: boolean;
@@ -67,7 +107,7 @@ export interface EngineStatusResponse {
 
 class BhashiniClientService {
   /**
-   * Request Text-to-Speech audio from ECOSETU Backend
+   * Request Text-to-Speech audio from ECOSETU Backend using BHASHINI TTS
    */
   async textToSpeech(
     text: string,
@@ -85,7 +125,7 @@ class BhashiniClientService {
     }
 
     try {
-      const response = await apiClient.post('/voice/tts', {
+      const response = await apiClient.post('/voice/synthesize', {
         text: text.trim(),
         language,
         gender: options.gender || 'female',
@@ -105,13 +145,29 @@ class BhashiniClientService {
   }
 
   /**
-   * Request Automatic Speech Recognition from ECOSETU Backend
+   * Alias for textToSpeech
+   */
+  async synthesize(
+    text: string,
+    language: string = 'or',
+    options?: {
+      gender?: 'female' | 'male';
+      audioFormat?: 'wav' | 'mp3';
+      samplingRate?: number;
+      bypassCache?: boolean;
+    }
+  ): Promise<TTSResponse | null> {
+    return this.textToSpeech(text, language, options);
+  }
+
+  /**
+   * Request Automatic Speech Recognition from ECOSETU Backend using BHASHINI ASR
    */
   async speechToText(
     audioBase64: string,
-    language: string = 'or',
+    language: string = 'auto',
     options: {
-      audioFormat?: 'wav' | 'mp3' | 'aac';
+      audioFormat?: 'wav' | 'mp3' | 'aac' | 'webm';
       samplingRate?: number;
     } = {}
   ): Promise<ASRResponse | null> {
@@ -121,9 +177,9 @@ class BhashiniClientService {
     }
 
     try {
-      const response = await apiClient.post('/voice/asr', {
+      const response = await apiClient.post('/voice/transcribe', {
         audioBase64: audioBase64.trim(),
-        language,
+        language: language || 'auto',
         audioFormat: options.audioFormat || 'wav',
         samplingRate: options.samplingRate,
       }, { timeoutMs: 25000 });
@@ -134,6 +190,82 @@ class BhashiniClientService {
       return null;
     } catch (err) {
       console.warn('[BhashiniClient] ASR request error:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Alias for speechToText
+   */
+  async transcribe(
+    audioBase64: string,
+    language: string = 'auto',
+    options?: {
+      audioFormat?: 'wav' | 'mp3' | 'aac' | 'webm';
+      samplingRate?: number;
+    }
+  ): Promise<ASRResponse | null> {
+    return this.speechToText(audioBase64, language, options);
+  }
+
+  /**
+   * Detect language directly from audio recording using BHASHINI Audio Language Detection
+   */
+  async detectAudioLanguage(
+    audioBase64: string,
+    options: {
+      audioFormat?: 'wav' | 'mp3' | 'aac' | 'webm';
+      samplingRate?: number;
+    } = {}
+  ): Promise<ALDResponse | null> {
+    if (!audioBase64 || !audioBase64.trim()) return null;
+
+    try {
+      const response = await apiClient.post('/voice/detect-audio-language', {
+        audioBase64: audioBase64.trim(),
+        audioFormat: options.audioFormat || 'wav',
+        samplingRate: options.samplingRate,
+      }, { timeoutMs: 12000 });
+
+      if (response && response.success && response.data) {
+        return response.data as ALDResponse;
+      }
+      return null;
+    } catch (err) {
+      console.warn('[BhashiniClient] Audio Language detection error:', err);
+      return null;
+    }
+  }
+
+  /**
+   * End-to-End Voice Processing Pipeline
+   */
+  async processVoice(
+    audioBase64: string,
+    language: string = 'auto',
+    options: {
+      generateAudioResponse?: boolean;
+      responseText?: string;
+      audioFormat?: 'wav' | 'mp3' | 'aac' | 'webm';
+    } = {}
+  ): Promise<VoiceProcessResponse | null> {
+    if (!audioBase64 || !audioBase64.trim()) return null;
+
+    try {
+      const response = await apiClient.post('/voice/process', {
+        audioBase64: audioBase64.trim(),
+        language: language || 'auto',
+        generateAudioResponse: options.generateAudioResponse,
+        responseText: options.responseText,
+        audioFormat: options.audioFormat || 'wav',
+      }, { timeoutMs: 30000 });
+
+      if (response && response.success && response.data) {
+        return response.data as VoiceProcessResponse;
+      }
+      return null;
+    } catch (err) {
+      console.warn('[BhashiniClient] Voice process error:', err);
       return null;
     }
   }
@@ -156,6 +288,21 @@ class BhashiniClientService {
     } catch (err) {
       console.warn('[BhashiniClient] Language detection error:', err);
       return null;
+    }
+  }
+
+  /**
+   * Retrieve list of supported Indian languages
+   */
+  async getSupportedLanguages(): Promise<SupportedLanguageItem[]> {
+    try {
+      const response = await apiClient.get('/voice/languages', { timeoutMs: 8000 });
+      if (response && response.success && response.data?.languages) {
+        return response.data.languages as SupportedLanguageItem[];
+      }
+      return [];
+    } catch {
+      return [];
     }
   }
 

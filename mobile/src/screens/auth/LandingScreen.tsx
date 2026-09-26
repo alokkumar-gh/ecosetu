@@ -11,8 +11,8 @@ import { useI18n, SupportedLanguage, LANGUAGE_OPTIONS } from '../../i18n';
 import { AppIcon } from '../../components/ui/AppIcon';
 import { EcoSetuLogo } from '../../components/common/EcoSetuLogo';
 import voiceService from '../../services/voiceService';
-
-const { EcoSetuSpeech } = NativeModules;
+import { bhashiniClientService } from '../../services/bhashiniClientService';
+import { voiceRecordingService } from '../../services/voiceRecordingService';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Landing'>;
 
@@ -139,41 +139,13 @@ export const LandingScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const handleTrySpeaking = async (code: SupportedLanguage) => {
     if (isListeningTest) {
-      if (EcoSetuSpeech?.stopListening) {
-        try {
-          await EcoSetuSpeech.stopListening();
-        } catch {}
-      }
+      voiceRecordingService.cancelRecording();
       setIsListeningTest(false);
       return;
     }
 
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-          {
-            title: 'Microphone Permission',
-            message:
-              code === 'or'
-                ? 'ଆପଣ ଟାଇପ୍ ନକରି ନିଜ ସ୍ୱରରେ ECOSETU ସହିତ କଥା ହୋଇପାରିବେ।'
-                : code === 'hi'
-                ? 'आप टाइप न करके अपनी आवाज़ में ECOSETU से बात कर सकते हैं।'
-                : code === 'mr'
-                ? 'तुम्ही टाइप न करता आपल्या आवाजात ECOSETU शी बोलू शकता.'
-                : 'You can speak to ECOSETU using your voice instead of typing.',
-            buttonPositive: code === 'or' ? 'ଅନୁମତି ଦିଅନ୍ତୁ' : code === 'hi' ? 'अनुमति दें' : code === 'mr' ? 'परवानगी द्या' : 'Allow',
-            buttonNegative: code === 'or' ? 'ବାତିଲ୍' : code === 'hi' ? 'रद्द करें' : code === 'mr' ? 'रद्द करा' : 'Cancel',
-          }
-        );
-        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-          return;
-        }
-      } catch {}
-    }
-
-    if (!EcoSetuSpeech?.startListening) {
-      setTestedSpeechText(code === 'hi' ? 'आवाज़ पहचान समर्थित नहीं है' : 'Voice input not supported on this device');
+    const hasPerm = await voiceRecordingService.requestMicrophonePermission();
+    if (!hasPerm) {
       return;
     }
 
@@ -181,15 +153,27 @@ export const LandingScreen: React.FC<Props> = ({ navigation, route }) => {
     setIsListeningTest(true);
     setTestedSpeechText(null);
 
-    try {
-      const matches: string[] = await EcoSetuSpeech.startListening(code);
+    const started = await voiceRecordingService.startRecording();
+    if (!started) {
       setIsListeningTest(false);
-      if (matches && matches.length > 0 && matches[0].trim()) {
-        setTestedSpeechText(matches[0].trim());
-      }
-    } catch {
-      setIsListeningTest(false);
+      return;
     }
+
+    // Auto-stop preview recording after 3.5 seconds
+    setTimeout(async () => {
+      try {
+        const recording = await voiceRecordingService.stopRecording();
+        setIsListeningTest(false);
+        if (recording && recording.audioBase64) {
+          const res = await bhashiniClientService.transcribe(recording.audioBase64, code);
+          if (res && res.transcript && res.transcript.trim()) {
+            setTestedSpeechText(res.transcript.trim());
+          }
+        }
+      } catch {
+        setIsListeningTest(false);
+      }
+    }, 3500);
   };
 
   const handleProceedAfterLanguage = async () => {

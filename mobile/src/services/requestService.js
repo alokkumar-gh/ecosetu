@@ -149,6 +149,47 @@ class RequestService {
 
     return cancelledRequest;
   }
+
+  /**
+   * Collector submits or updates an offer for a collection request
+   * @param {string} requestId
+   * @param {Object} payload - { offeredPrice: number, notes?: string }
+   * @returns {Promise<Object>}
+   */
+  async submitOffer(requestId, payload) {
+    const response = await apiClient.post(`/collection-requests/${requestId}/offers`, payload);
+    return response.data?.offer || response.data;
+  }
+
+  /**
+   * List offers for a collection request
+   * @param {string} requestId
+   * @returns {Promise<Array<Object>>}
+   */
+  async getOffers(requestId) {
+    const response = await apiClient.get(`/collection-requests/${requestId}/offers`);
+    return response.data?.offers || response.data || [];
+  }
+
+  /**
+   * Citizen accepts a collector offer
+   * @param {string} requestId
+   * @param {string} offerId
+   * @returns {Promise<Object>}
+   */
+  async acceptOffer(requestId, offerId) {
+    const response = await apiClient.post(`/collection-requests/${requestId}/offers/${offerId}/accept`);
+    return response.data;
+  }
+
+  /**
+   * Collector gets their own submitted offers
+   * @returns {Promise<Array<Object>>}
+   */
+  async getMyOffers() {
+    const response = await apiClient.get('/collectors/my-offers');
+    return response.data?.offers || response.data || [];
+  }
 }
 
 export const requestService = new RequestService();

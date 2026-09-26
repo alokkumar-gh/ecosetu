@@ -9,12 +9,13 @@ import com.facebook.react.uimanager.ViewManager
 
 /**
  * EcoSetuTTSPackage
- * Registers EcoSetuTTSModule with the React Native application runtime.
+ * Registers EcoSetuTTSModule, EcoSetuAudioRecorderModule, and EcoSetuLocationModule.
  */
 class EcoSetuTTSPackage : ReactPackage {
     override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
         return listOf(
             EcoSetuTTSModule(reactContext),
+            EcoSetuAudioRecorderModule(reactContext),
             EcoSetuSpeechModule(reactContext),
             EcoSetuLocationModule(reactContext)
         )

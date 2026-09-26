@@ -57,6 +57,14 @@ router.get(
   (req, res, next) => collectorController.getStats(req, res, next)
 );
 
+// Get collector's own submitted offers on collection requests
+router.get(
+  '/my-offers',
+  authenticate,
+  authorize(ROLES.INFORMAL_COLLECTOR),
+  (req, res, next) => collectorController.getMyOffers(req, res, next)
+);
+
 // Get collector personal historical analytics (JWT tenancy isolated)
 router.get(
   '/analytics',
