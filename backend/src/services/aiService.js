@@ -33,12 +33,20 @@ class AiService {
       console.log(`[EcoSetu AI DEBUG] Backend aiService: Using Roboflow inference provider (model: ${roboflowService.modelId})`);
       const roboflowResult = await roboflowService.predict(imageBuffer, options);
 
-      if (roboflowResult) {
+      if (roboflowResult && roboflowResult.success) {
         console.log(`[EcoSetu AI DEBUG] Backend aiService: Roboflow returned category: ${roboflowResult.category}, conf: ${roboflowResult.confidence}`);
         return roboflowResult;
       }
 
-      console.warn('[EcoSetu AI DEBUG] Backend aiService: Roboflow inference returned null, attempting legacy fallback if available...');
+      if (roboflowResult && roboflowResult.errorType) {
+        console.warn(`[EcoSetu AI DEBUG] Backend aiService: Roboflow returned error [${roboflowResult.errorType}]: ${roboflowResult.message}`);
+        // If legacy fallback is not configured or disabled, propagate the Roboflow error directly
+        if (!environment.aiServiceUrl || provider === 'roboflow') {
+          return roboflowResult;
+        }
+      }
+
+      console.warn('[EcoSetu AI DEBUG] Backend aiService: Roboflow inference unavailable, attempting legacy fallback if available...');
     }
 
     // ── Fallback / Legacy: FastAPI Microservice (material-detection-v0.2.0) ──
@@ -117,6 +125,12 @@ class AiService {
       provider: environment.aiProvider || 'roboflow',
       modelId: roboflowService.modelId,
       apiKeyStatus: isConfigured ? 'CONFIGURED' : 'NOT_CONFIGURED',
+      endpoint: `https://detect.roboflow.com/${roboflowService.modelId}`,
+      architecture: {
+        inferenceProvider: 'Roboflow Hosted Inference API',
+        backendHost: 'Render (Node.js Express API Bridge)',
+        mobileClient: 'EcoSetu Android Native',
+      },
       legacyFallbackAvailable: Boolean(environment.aiServiceUrl),
     };
   }

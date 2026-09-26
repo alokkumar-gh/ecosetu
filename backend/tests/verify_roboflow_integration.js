@@ -167,7 +167,8 @@ async function runAsyncTest(testName, fn) {
     roboflowService.timeoutMs = savedTimeout;
     roboflowService.apiKey = savedKey;
 
-    assert.strictEqual(res, null, 'Timeout must result in null return (handled gracefully)');
+    assert.ok(res && res.success === false, 'Timeout must result in graceful false success');
+    assert.strictEqual(res.errorType, 'ROBOFLOW_TIMEOUT', 'Timeout errorType must be ROBOFLOW_TIMEOUT');
   });
 
   // ── Test 14: Missing API Key → Configuration Failure Handled Safely ──
@@ -180,7 +181,8 @@ async function runAsyncTest(testName, fn) {
 
     roboflowService.apiKey = savedKey;
 
-    assert.strictEqual(res, null, 'Missing API key must return null and prevent outbound network call');
+    assert.ok(res && res.success === false, 'Missing API key must result in graceful false success');
+    assert.strictEqual(res.errorType, 'ROBOFLOW_AUTH_ERROR', 'Auth failure errorType must be ROBOFLOW_AUTH_ERROR');
   });
 
   // ── Test 15: Multi-Detection Prioritization: Container Device > Component ──

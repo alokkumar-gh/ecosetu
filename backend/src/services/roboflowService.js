@@ -107,15 +107,15 @@ class RoboflowService {
    */
   async predict(imageBuffer, options = {}) {
     if (!imageBuffer || imageBuffer.length === 0) {
-      console.warn('[EcoSetu AI DEBUG] RoboflowService: Empty image buffer provided');
-      return null;
+      console.warn('[EcoSetu AI DEBUG] RoboflowService: Empty image buffer provided [INVALID_IMAGE]');
+      return { success: false, errorType: 'INVALID_IMAGE', message: 'Empty image buffer provided' };
     }
 
     const apiKey = this.apiKey || process.env.ROBOFLOW_API_KEY;
     if (!apiKey || apiKey.trim().length === 0) {
-      logger.error('[EcoSetu AI] Roboflow API key is missing or unconfigured in environment (ROBOFLOW_API_KEY)');
-      console.warn('[EcoSetu AI DEBUG] RoboflowService: ROBOFLOW_API_KEY is missing');
-      return null;
+      logger.error('[EcoSetu AI] Roboflow API key is missing or unconfigured in environment (ROBOFLOW_API_KEY) [ROBOFLOW_AUTH_ERROR]');
+      console.warn('[EcoSetu AI DEBUG] RoboflowService: ROBOFLOW_API_KEY is missing [ROBOFLOW_AUTH_ERROR]');
+      return { success: false, errorType: 'ROBOFLOW_AUTH_ERROR', message: 'Roboflow API key is unconfigured' };
     }
 
     const confidenceThresh = options.confidenceThreshold || 40; // 40%
@@ -154,9 +154,19 @@ class RoboflowService {
           errBody = await response.text();
         } catch (_) {}
         const safeError = this._sanitize(errBody);
-        logger.warn(`[EcoSetu AI] Roboflow API error HTTP ${response.status}: ${safeError}`);
-        console.warn(`[EcoSetu AI DEBUG] Roboflow HTTP error ${response.status}: ${safeError}`);
-        return null;
+
+        let errorType = 'BACKEND_ERROR';
+        if (response.status === 401 || response.status === 403) {
+          errorType = 'ROBOFLOW_AUTH_ERROR';
+        } else if (response.status === 404) {
+          errorType = 'ROBOFLOW_MODEL_NOT_FOUND';
+        } else if (response.status === 429) {
+          errorType = 'ROBOFLOW_RATE_LIMIT';
+        }
+
+        logger.warn(`[EcoSetu AI] Roboflow API error HTTP ${response.status} [${errorType}]: ${safeError}`);
+        console.warn(`[EcoSetu AI DEBUG] Roboflow HTTP error ${response.status} [${errorType}]: ${safeError}`);
+        return { success: false, errorType, status: response.status, message: safeError };
       }
 
       const rawData = await response.json();
@@ -164,8 +174,8 @@ class RoboflowService {
 
       // Handle malformed response structures
       if (!rawData || !Array.isArray(rawData.predictions)) {
-        logger.warn('[EcoSetu AI] Roboflow returned unexpected payload structure');
-        return null;
+        logger.warn('[EcoSetu AI] Roboflow returned unexpected payload structure [BACKEND_ERROR]');
+        return { success: false, errorType: 'BACKEND_ERROR', message: 'Unexpected payload structure' };
       }
 
       const normalizedDetections = this.normalizeDetections(rawData.predictions, rawData.image || {});
@@ -256,13 +266,14 @@ class RoboflowService {
       clearTimeout(timeoutId);
       const safeMessage = this._sanitize(err.message);
       if (err.name === 'AbortError') {
-        logger.warn(`[EcoSetu AI] Roboflow request timed out after ${this.timeoutMs / 1000}s`);
-        console.warn(`[EcoSetu AI DEBUG] Roboflow request timed out after ${this.timeoutMs / 1000}s`);
+        logger.warn(`[EcoSetu AI] Roboflow request timed out after ${this.timeoutMs / 1000}s [ROBOFLOW_TIMEOUT]`);
+        console.warn(`[EcoSetu AI DEBUG] Roboflow request timed out after ${this.timeoutMs / 1000}s [ROBOFLOW_TIMEOUT]`);
+        return { success: false, errorType: 'ROBOFLOW_TIMEOUT', message: 'Request timed out' };
       } else {
-        logger.warn(`[EcoSetu AI] Roboflow inference unreachable/error: ${safeMessage}`);
-        console.warn(`[EcoSetu AI DEBUG] Roboflow inference unreachable/error: ${safeMessage}`);
+        logger.warn(`[EcoSetu AI] Roboflow inference unreachable/error: ${safeMessage} [ROBOFLOW_NETWORK_ERROR]`);
+        console.warn(`[EcoSetu AI DEBUG] Roboflow inference unreachable/error: ${safeMessage} [ROBOFLOW_NETWORK_ERROR]`);
+        return { success: false, errorType: 'ROBOFLOW_NETWORK_ERROR', message: safeMessage };
       }
-      return null;
     }
   }
 }

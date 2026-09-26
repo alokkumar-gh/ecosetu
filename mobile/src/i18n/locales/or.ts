@@ -2235,7 +2235,7 @@ export const or = {
     "useSuggestion": "ପରାମର୍ଶ ବ୍ୟବହାର କରନ୍ତୁ",
     "chooseManually": "ନିଜେ ବାଛନ୍ତୁ",
     "checkingPhoto": "ଫଟୋ ଯାଞ୍ଚ ହେଉଛି...",
-    "aiProcessingTimeNotice": "ରେଣ୍ଡର କ୍ଲାଉଡରେ AI ବିଶ୍ଳେଷଣ ପାଇଁ ଗୋଟିଏ ମିନିଟ୍ ପର୍ଯ୍ୟନ୍ତ ସମୟ ଲାଗିପାରେ...",
+    "aiProcessingTimeNotice": "AI ସାହାଯ୍ୟରେ ଆପଣଙ୍କ ଫଟୋ ଯାଞ୍ଚ ହେଉଛି...",
     "suggestionUnavailable": "ଏଆଇ ସେବା ଅସ୍ଥାୟୀ ଭାବରେ ଅନୁପଲବ୍ଧ | ସାମଗ୍ରୀ ନିଜେ ବାଛନ୍ତୁ |",
     "serviceUnavailableTitle": "ଏଆଇ ସେବା ଅନୁପଲବ୍ଧ",
     "couldNotIdentify": "ଏହି ଜିନିଷ ଚିହ୍ନଟ ହୋଇପାରିଲା ନାହିଁ",

@@ -31,10 +31,12 @@ class AiController {
         req.file.mimetype
       );
 
-      // If microservice is unavailable or model weights missing, return 503 (docs/05_API_SPECIFICATION.md)
-      if (!prediction) {
-        console.warn('[EcoSetu AI DEBUG] Backend: aiService returned null (service unavailable or model uninitialized)');
-        throw AppError.serviceUnavailable('AI service is temporarily unavailable. Please select category manually.');
+      // If inference is unavailable or failed, log detailed errorType and return 503 (docs/05_API_SPECIFICATION.md)
+      if (!prediction || !prediction.success) {
+        const errType = prediction?.errorType || 'AI_SERVICE_UNAVAILABLE';
+        const errMsg = prediction?.message || 'Inference service unavailable';
+        console.warn(`[EcoSetu AI DEBUG] Backend: aiService returned error [${errType}]: ${errMsg}`);
+        throw AppError.serviceUnavailable(`AI service is temporarily unavailable (${errType}). Please select category manually.`);
       }
 
       console.log(`[EcoSetu AI DEBUG] Backend: response returned to mobile -> category: ${prediction.category}, confidence: ${prediction.confidence}, has_detection: ${prediction.has_detection}`);

@@ -2235,7 +2235,7 @@ export const en = {
     "useSuggestion": "Use suggestion",
     "chooseManually": "Choose manually",
     "checkingPhoto": "Checking photo...",
-    "aiProcessingTimeNotice": "AI analysis on Render cloud may take up to a minute...",
+    "aiProcessingTimeNotice": "Checking your photo with AI...",
     "suggestionUnavailable": "AI service is temporarily unavailable. Select material manually.",
     "serviceUnavailableTitle": "AI Service Unavailable",
     "couldNotIdentify": "Couldn't identify this item",

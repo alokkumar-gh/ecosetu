@@ -2235,7 +2235,7 @@ export const hi = {
     "useSuggestion": "सुझाव चुनें",
     "chooseManually": "खुद चुनें",
     "checkingPhoto": "फ़ोटो की जाँच हो रही है...",
-    "aiProcessingTimeNotice": "रेंडर क्लाउड पर AI विश्लेषण में एक मिनट तक का समय लग सकता है...",
+    "aiProcessingTimeNotice": "AI से आपकी फोटो की जांच हो रही है...",
     "suggestionUnavailable": "एआई सेवा अस्थायी रूप से अनुपलब्ध है। सामग्री खुद चुनें।",
     "serviceUnavailableTitle": "एआई सेवा अनुपलब्ध",
     "couldNotIdentify": "इस वस्तु की पहचान नहीं हो सकी",

@@ -2235,7 +2235,7 @@ export const mr = {
     "useSuggestion": "सूचना वापरा",
     "chooseManually": "स्वतः निवडा",
     "checkingPhoto": "फोटो तपासत आहे...",
-    "aiProcessingTimeNotice": "रेंडर क्लाउडवर AI विश्लेषणासाठी एक मिनिटापर्यंत वेळ लागू शकतो...",
+    "aiProcessingTimeNotice": "AI द्वारे तुमच्या फोटोची तपासणी सुरू आहे...",
     "suggestionUnavailable": "एआय सेवा तात्पुरती अनुपलब्ध आहे. सामग्री स्वतः निवडा.",
     "serviceUnavailableTitle": "एआय सेवा उपलब्ध नाही",
     "couldNotIdentify": "ही वस्तू ओळखता आली नाही",

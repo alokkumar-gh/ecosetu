@@ -714,7 +714,7 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.aiAnalyzingText}>{t('ai.checkingPhoto') || 'Analyzing photo with AI model...'}</Text>
                   <Text style={styles.aiAnalyzingSubText}>
-                    {t('ai.aiProcessingTimeNotice') || 'AI analysis on Render cloud may take up to a minute...'}
+                    {t('ai.aiProcessingTimeNotice') || 'Checking your photo with AI...'}
                   </Text>
                 </View>
               </View>
