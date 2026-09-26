@@ -51,6 +51,13 @@ export interface EcoSaathiContextValue {
 
 const EcoSaathiContext = createContext<EcoSaathiContextValue | null>(null);
 
+export const getEcoSaathiGreetingText = (lang: string): string => {
+  if (lang === 'or') return '👋 ନମସ୍କାର! ମୁଁ Eco-Saathi। ଆପଣଙ୍କ ଇ-ବର୍ଜ୍ୟ ସଂଗ୍ରହ କାର୍ଯ୍ୟରେ ସାହାଯ୍ୟ କରିବି।';
+  if (lang === 'hi') return '👋 नमस्ते! मैं Eco-Saathi हूँ। आपके ई-कचरा संग्रह कार्य में मदद करूँगा।';
+  if (lang === 'mr') return '👋 नमस्कार! मी Eco-Saathi आहे. तुमच्या ई-कचरा संग्रह कार्यात मदत करेन.';
+  return '👋 Namaste! I am Eco-Saathi. I help you manage pickup requests, offers, and recycling work.';
+};
+
 export const EcoSaathiProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isAuthenticated } = useAuth();
   const { t, language } = useI18n();
@@ -74,10 +81,7 @@ export const EcoSaathiProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Compute Initial Greeting message
   const getInitialGreeting = useCallback((): EcoSaathiMessage => {
-    let greetingText = t('saathi.intents.who_is_eco_saathi.answer');
-    if (!greetingText) {
-      greetingText = 'Namaste! I am Eco-Saathi, your EcoSetu assistant. How can I help you today?';
-    }
+    const greetingText = getEcoSaathiGreetingText(language || 'or');
 
     return {
       id: 'msg_welcome_' + Date.now(),
@@ -87,7 +91,7 @@ export const EcoSaathiProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       category: 'GENERAL',
       safetySensitivity: 'STANDARD',
     };
-  }, [t]);
+  }, [language]);
 
   // Reset or initialize conversation
   const clearChat = useCallback(() => {

@@ -57,7 +57,7 @@ import {
   Animated,
   ScrollView,
 } from 'react-native';
-import { useEcoSaathi, EcoSaathiMessage, QuickReplyOption } from '../../context/EcoSaathiContext';
+import { useEcoSaathi, EcoSaathiMessage, QuickReplyOption, getEcoSaathiGreetingText } from '../../context/EcoSaathiContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useI18n } from '../../i18n';
 import { navigateSafely } from '../../navigation/navigationRef';
@@ -319,30 +319,16 @@ interface HomeStateProps {
   lang: LangCode;
 }
 const SaathiHomeState = memo(({ quickReplies, onQuickReply, lang }: HomeStateProps) => {
-  const greetings: Record<LangCode, { hello: string; intro: string; prompt: string }> = {
-    or: {
-      hello: '👋 ନମସ୍କାର!',
-      intro: 'ମୁଁ Eco-Saathi। ଆପଣଙ୍କ ଇ-ବର୍ଜ୍ୟ ସଂଗ୍ରହ କାର୍ଯ୍ୟରେ ସାହାଯ୍ୟ କରିବି।',
-      prompt: 'ଆଜି କ\'ଣ ଦେଖିବା?',
-    },
-    hi: {
-      hello: '👋 नमस्ते!',
-      intro: 'मैं Eco-Saathi हूँ। आपके ई-कचरा संग्रह कार्य में मदद करूँगा।',
-      prompt: 'आज क्या देखना है?',
-    },
-    mr: {
-      hello: '👋 नमस्कार!',
-      intro: 'मी Eco-Saathi आहे. तुमच्या ई-कचरा संग्रह कार्यात मदत करेन.',
-      prompt: 'आज काय पहायचे आहे?',
-    },
-    en: {
-      hello: '👋 Namaste!',
-      intro: 'I am Eco-Saathi. I help you manage pickup requests, offers, and recycling work.',
-      prompt: 'What would you like to see today?',
-    },
+  const fullGreetingText = getEcoSaathiGreetingText(lang);
+
+  const prompts: Record<LangCode, string> = {
+    or: 'ଆଜି କ\'ଣ ଦେଖିବା?',
+    hi: 'आज क्या देखना है?',
+    mr: 'आज काय पहायचे आहे?',
+    en: 'What would you like to see today?',
   };
 
-  const g = greetings[lang];
+  const promptText = prompts[lang];
 
   // Map quick replies to icon hints
   const getIcon = (label: string): string => {
@@ -368,15 +354,14 @@ const SaathiHomeState = memo(({ quickReplies, onQuickReply, lang }: HomeStatePro
           <Text style={styles.homeAvatarEmoji}>🌱</Text>
         </View>
         <View style={styles.homeGreetingBubble}>
-          <Text style={styles.homeHello}>{g.hello}</Text>
-          <Text style={styles.homeIntro}>{g.intro}</Text>
+          <Text style={styles.homeIntro}>{fullGreetingText}</Text>
         </View>
       </View>
 
       {/* Contextual prompt */}
       {quickReplies.length > 0 && (
         <View style={styles.homePromptSection}>
-          <Text style={styles.homePromptLabel}>{g.prompt}</Text>
+          <Text style={styles.homePromptLabel}>{promptText}</Text>
           <View style={styles.quickActionGrid}>
             {quickReplies.slice(0, 6).map((qr) => (
               <QuickActionChip
@@ -1046,8 +1031,15 @@ export const EcoSaathiChatModal: React.FC = () => {
               value={inputText}
               onChangeText={setInputText}
               onSubmitEditing={handleSend}
+              onFocus={() => {
+                if (voiceState === 'SPEAKING') {
+                  voiceService.stop();
+                  setPlayingMessageId(null);
+                  setVoiceState('IDLE');
+                }
+              }}
               returnKeyType="send"
-              editable={voiceState === 'IDLE' || voiceState === 'ERROR' || voiceState === 'RECOGNIZED'}
+              editable={!isRecording && voiceState !== 'TRANSCRIBING' && voiceState !== 'UPLOADING'}
               accessibilityLabel="Type your message"
               multiline={false}
             />
