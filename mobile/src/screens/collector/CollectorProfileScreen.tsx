@@ -33,6 +33,7 @@ import { LANGUAGE_OPTIONS, SupportedLanguage } from '../../i18n/config';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { colors } from '../../theme/colors';
 import { collectorService } from '../../services/collectorService';
+import { collectorSyncService } from '../../services/collectorSyncService';
 import { getCurrentLocation, reverseGeocode } from '../../services/locationService';
 import { useEcoSaathi } from '../../context/EcoSaathiContext';
 import { AppIcon, AppIconName } from '../../components/ui/AppIcon';
@@ -173,8 +174,12 @@ export const CollectorProfileScreen: React.FC<{ navigation?: any }> = ({
 
   const handleAvailabilityToggle = async (val: boolean) => {
     setIsAvailable(val);
-    try { await (collectorService as any).toggleAvailability(val); }
-    catch { setIsAvailable(!val); }
+    try {
+      await (collectorService as any).toggleAvailability(val);
+      collectorSyncService.fetchAuthoritative(true).catch(() => {});
+    } catch {
+      setIsAvailable(!val);
+    }
   };
 
   const handleLanguageSelect = async (code: SupportedLanguage) => {

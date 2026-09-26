@@ -3,6 +3,9 @@
 
 const prisma = require('../config/database');
 const AppError = require('../utils/AppError');
+const logger = require('../config/logger');
+const eventBus = require('./eventBus');
+const { NOTIFICATION_TYPES, REQUEST_STATUS } = require('../utils/constants');
 
 class CollectorService {
   static USER_INCLUDE_FIELDS = {
@@ -16,6 +19,108 @@ class CollectorService {
       avatarUrl: true,
     },
   };
+
+  /**
+   * Re-evaluate all active submitted collection requests for a newly available collector.
+   * Matches requests using EcoMatch eligibility rules without duplicating notifications.
+   * @param {object} profile - CollectorProfile record with user relation
+   * @returns {Promise<{ evaluated: number, matched: number, notificationsSent: number }>}
+   */
+  async reEvaluateActiveRequestsForCollector(profile) {
+    if (!profile || !profile.userId || profile.isAvailable === false) {
+      return { evaluated: 0, matched: 0, notificationsSent: 0 };
+    }
+
+    const ecoMatchService = require('./matching/EcoMatchService');
+    const notificationService = require('./notificationService');
+
+    const openRequests = await prisma.collectionRequest.findMany({
+      where: {
+        status: REQUEST_STATUS.SUBMITTED,
+      },
+      include: {
+        ewasteItems: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    let matchedCount = 0;
+    let notificationsSent = 0;
+
+    for (const req of openRequests) {
+      const eligibility = ecoMatchService.checkEligibility(profile, req);
+      if (!eligibility.eligible) continue;
+
+      matchedCount++;
+
+      // Check if notification already exists for this collector + request
+      const existingNotif = await prisma.notification.findFirst({
+        where: {
+          userId: profile.userId,
+          referenceType: 'collection_request',
+          referenceId: req.id,
+          type: {
+            in: [
+              NOTIFICATION_TYPES.REQUEST_AVAILABLE,
+              NOTIFICATION_TYPES.COLLECTOR_PICKUP_REQUEST_AVAILABLE || 'COLLECTOR_PICKUP_REQUEST_AVAILABLE',
+            ],
+          },
+        },
+      });
+
+      const primaryItem = req.ewasteItems?.[0] || null;
+      const categories = Array.isArray(req.ewasteItems) && req.ewasteItems.length > 0
+        ? [...new Set(req.ewasteItems.map((i) => i.category))].join(', ')
+        : 'E-Waste Items';
+
+      const totalWeight = Array.isArray(req.ewasteItems)
+        ? req.ewasteItems.reduce((acc, i) => acc + (parseFloat(i.estimatedWeightKg || i.actualWeightKg) || 0), 0)
+        : 0;
+
+      const area = req.district || req.city || req.landmark || 'your area';
+
+      if (!existingNotif) {
+        await notificationService.createNotification({
+          userId: profile.userId,
+          type: NOTIFICATION_TYPES.REQUEST_AVAILABLE,
+          title: 'New Pickup Request Available',
+          message: `New pickup request for ${categories} (~${totalWeight > 0 ? totalWeight + 'kg' : '1 lot'}) in ${area}. Tap to view & submit an offer.`,
+          referenceType: 'collection_request',
+          referenceId: req.id,
+        });
+        notificationsSent++;
+      }
+
+      // Emit realtime event for connected clients (sanitized payload protecting citizen privacy)
+      const realtimePayload = {
+        requestId: req.id,
+        category: primaryItem?.category || 'OTHER',
+        condition: primaryItem?.condition || 'UNKNOWN',
+        estimatedWeightKg: totalWeight > 0 ? totalWeight : null,
+        imageUrl: primaryItem?.imageUrl || null,
+        distanceKm: eligibility.distanceKm,
+        createdAt: req.createdAt,
+      };
+
+      eventBus.emit('COLLECTOR_PICKUP_REQUEST_AVAILABLE', {
+        collectorId: profile.id,
+        userId: profile.userId,
+        request: realtimePayload,
+      });
+    }
+
+    logger.info(`[COLLECTOR_AVAILABILITY] collector: ${profile.id} (${profile.userId})`);
+    logger.info(`[COLLECTOR_AVAILABILITY] available: true`);
+    logger.info(`[COLLECTOR_AVAILABILITY] active requests re-evaluated: ${openRequests.length}`);
+    logger.info(`[COLLECTOR_AVAILABILITY] eligible matched requests: ${matchedCount}`);
+    logger.info(`[COLLECTOR_AVAILABILITY] realtime notifications sent: ${notificationsSent}`);
+
+    return {
+      evaluated: openRequests.length,
+      matched: matchedCount,
+      notificationsSent,
+    };
+  }
 
   /**
    * Get collector profile by user ID
@@ -120,6 +225,9 @@ class CollectorService {
   async toggleAvailability(userId, isAvailable) {
     const existing = await prisma.collectorProfile.findUnique({
       where: { userId },
+      include: {
+        user: CollectorService.USER_INCLUDE_FIELDS,
+      },
     });
 
     if (!existing) {
@@ -133,6 +241,21 @@ class CollectorService {
         user: CollectorService.USER_INCLUDE_FIELDS,
       },
     });
+
+    // Emit availability changed event
+    eventBus.emit('COLLECTOR_AVAILABILITY_CHANGED', {
+      collectorId: profile.id,
+      userId: profile.userId,
+      availableForPickups: isAvailable,
+      timestamp: new Date().toISOString(),
+    });
+
+    // When transitioning to available (false -> true), re-evaluate all active submitted requests
+    if (isAvailable) {
+      this.reEvaluateActiveRequestsForCollector(profile).catch((err) => {
+        logger.warn(`[CollectorService] Failed to re-evaluate active requests for collector ${userId}: ${err.message}`);
+      });
+    }
 
     return profile;
   }

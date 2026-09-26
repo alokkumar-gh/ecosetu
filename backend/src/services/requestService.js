@@ -223,6 +223,9 @@ class RequestService {
       logger.info(`[PICKUP_FLOW] collector IDs: ${eligibleCollectors.map((c) => c.id.substring(0, 8)).join(', ')}`);
 
       let notificationsCreated = 0;
+      const eventBus = require('./eventBus');
+      const primaryItem = Array.isArray(ewasteItems) ? ewasteItems[0] : null;
+
       for (const collector of eligibleCollectors) {
         const notif = await notificationService.createNotification({
           userId: collector.id,
@@ -233,6 +236,20 @@ class RequestService {
           referenceId: request.id,
         });
         if (notif) notificationsCreated++;
+
+        eventBus.emit('COLLECTOR_PICKUP_REQUEST_AVAILABLE', {
+          collectorId: collector.collectorProfile?.id || collector.id,
+          userId: collector.id,
+          request: {
+            requestId: request.id,
+            category: primaryItem?.category || 'OTHER',
+            condition: primaryItem?.condition || 'UNKNOWN',
+            estimatedWeightKg: approxWeight > 0 ? approxWeight : null,
+            imageUrl: primaryItem?.imageUrl || null,
+            distanceKm: null,
+            createdAt: request.createdAt,
+          },
+        });
       }
 
       logger.info(`[PICKUP_FLOW] notifications created: ${notificationsCreated}`);
@@ -327,6 +344,18 @@ class RequestService {
       where: { userId: collectorUser.id },
     });
     if (profile) {
+      if (profile.isAvailable === false) {
+        return {
+          requests: [],
+          pagination: {
+            page: pageNum,
+            limit: limitNum,
+            total: 0,
+            totalPages: 0,
+          },
+        };
+      }
+
       collectorProfileId = profile.id;
       if (searchLat === null && profile.serviceAreaLat !== null) {
         searchLat = parseFloat(profile.serviceAreaLat);

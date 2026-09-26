@@ -53,6 +53,7 @@ import {
 
 import { colors } from '../../theme/colors';
 import { collectorService } from '../../services/collectorService';
+import { collectorSyncService } from '../../services/collectorSyncService';
 import { materialLotService, MaterialLotItem } from '../../services/materialLotService';
 import earningsService from '../../services/earningsService';
 import voiceService, { AnnouncementPriority } from '../../services/voiceService';
@@ -148,7 +149,36 @@ export const CollectorDashboardScreen: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    loadData();
+
+    // Subscribe to dynamic realtime feed updates
+    const unsub = collectorSyncService.subscribe((syncData) => {
+      if (syncData) {
+        if (typeof syncData.isAvailable === 'boolean') {
+          setIsAvailable(syncData.isAvailable);
+        }
+        if (Array.isArray(syncData.availableRequests)) {
+          setAvailableRequests(syncData.availableRequests);
+        }
+        if (Array.isArray(syncData.pendingPickups) && syncData.pendingPickups.length > 0) {
+          setActivePickups(
+            syncData.pendingPickups.filter(
+              (p: any) =>
+                p.status === 'SCHEDULED' ||
+                p.status === 'IN_PROGRESS' ||
+                p.status === 'PENDING' ||
+                p.status === 'ASSIGNED',
+            ),
+          );
+        }
+      }
+    });
+
+    return () => {
+      unsub();
+    };
+  }, [loadData]);
 
   const onRefresh = () => { setIsRefreshing(true); loadData(true); };
 
@@ -163,6 +193,11 @@ export const CollectorDashboardScreen: React.FC = () => {
     setIsTogglingAvail(true);
     try {
       await (collectorService as any).toggleAvailability(next);
+      // Immediately fetch newly matched available requests
+      const res = await (collectorService as any).getAvailableRequests({ limit: 10 });
+      const reqs = res?.requests || res?.data || [];
+      setAvailableRequests(Array.isArray(reqs) ? reqs : []);
+      collectorSyncService.fetchAuthoritative(true).catch(() => {});
     } catch {
       setIsAvailable(!next);
     } finally {

@@ -62,6 +62,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { EcoSetuMap, EcoSetuPin } from '../../components/map/EcoSetuMap';
 import { getCurrentLocation } from '../../services/locationService';
 import { collectorService } from '../../services/collectorService';
+import { collectorSyncService } from '../../services/collectorSyncService';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { useI18n } from '../../i18n';
@@ -1285,6 +1286,30 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
 
   useEffect(() => {
     loadRequests(false);
+
+    // Subscribe to dynamic realtime feed updates (from FCM / CollectorSyncService)
+    const unsubscribeSync = collectorSyncService.subscribe((syncData) => {
+      if (syncData && Array.isArray(syncData.availableRequests) && syncData.availableRequests.length > 0) {
+        setRequests((prev) => {
+          const map = new Map<string, any>();
+          // Existing items
+          prev.forEach((r) => map.set(String(r.id || r.requestId), r));
+          // Merge newly available items
+          syncData.availableRequests.forEach((r) => {
+            const id = String(r.id || r.requestId);
+            const existing = map.get(id);
+            map.set(id, { ...existing, ...r });
+          });
+          const merged = Array.from(map.values());
+          merged.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+          return merged;
+        });
+      }
+    });
+
+    return () => {
+      unsubscribeSync();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
