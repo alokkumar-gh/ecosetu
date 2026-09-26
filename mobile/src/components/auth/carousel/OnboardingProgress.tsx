@@ -26,29 +26,32 @@ export const OnboardingProgress: React.FC<Props> = ({
   onSelectIndex,
   accentColor = '#10B981',
 }) => {
-  // Animated width for each dot
-  const widthAnims = Array.from({ length: total }, () =>
-    useRef(new Animated.Value(DOT_W)).current
-  );
-  const opacityAnims = Array.from({ length: total }, (_, i) =>
-    useRef(new Animated.Value(i === 0 ? 1 : 0.35)).current
-  );
+  // Stable animated values ref
+  const widthAnims = useRef<Animated.Value[]>([]);
+  const opacityAnims = useRef<Animated.Value[]>([]);
+
+  if (widthAnims.current.length !== total) {
+    widthAnims.current = Array.from({ length: total }, (_, i) => new Animated.Value(i === activeIndex ? DOT_W_ACTIVE : DOT_W));
+  }
+  if (opacityAnims.current.length !== total) {
+    opacityAnims.current = Array.from({ length: total }, (_, i) => new Animated.Value(i === activeIndex ? 1 : i < activeIndex ? 0.6 : 0.35));
+  }
 
   useEffect(() => {
-    widthAnims.forEach((anim, i) => {
+    widthAnims.current.forEach((anim, i) => {
       Animated.timing(anim, {
         toValue: i === activeIndex ? DOT_W_ACTIVE : DOT_W,
         duration: 320,
         easing: Easing.out(Easing.cubic),
-        useNativeDriver: false, // width animation needs layout driver
+        useNativeDriver: false,
       }).start();
     });
 
-    opacityAnims.forEach((anim, i) => {
+    opacityAnims.current.forEach((anim, i) => {
       Animated.timing(anim, {
         toValue: i === activeIndex ? 1 : i < activeIndex ? 0.6 : 0.30,
         duration: 280,
-        useNativeDriver: true,
+        useNativeDriver: false, // Must be false when sharing same Animated.View with width
       }).start();
     });
   }, [activeIndex]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -66,8 +69,8 @@ export const OnboardingProgress: React.FC<Props> = ({
             style={[
               styles.dot,
               {
-                width: widthAnims[i],
-                opacity: opacityAnims[i],
+                width: widthAnims.current[i] || DOT_W,
+                opacity: opacityAnims.current[i] || 0.35,
                 backgroundColor: i <= activeIndex ? accentColor : 'rgba(255,255,255,0.55)',
               },
             ]}
