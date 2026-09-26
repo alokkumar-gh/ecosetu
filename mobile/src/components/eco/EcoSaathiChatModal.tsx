@@ -588,6 +588,8 @@ export const EcoSaathiChatModal: React.FC = () => {
     setVoiceState('IDLE');
     setSpeechStatus(null);
     setIsThinking(false);
+    setInputText('');
+    inputRef.current?.blur();
     clearChat();
   };
 
@@ -742,6 +744,8 @@ export const EcoSaathiChatModal: React.FC = () => {
   const isConversationEmpty = messages.length === 0 ||
     (messages.length === 1 && messages[0].sender === 'saathi');
 
+  const displayMessages = isConversationEmpty ? [] : messages;
+
   const renderMessageItem = ({ item }: { item: EcoSaathiMessage }) => {
     if (item.sender === 'user') {
       return <UserMessage item={item} />;
@@ -837,7 +841,7 @@ export const EcoSaathiChatModal: React.FC = () => {
         {/* ── Main Layout ── */}
         <KeyboardAvoidingView
           style={styles.container}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
         >
 
@@ -981,7 +985,7 @@ export const EcoSaathiChatModal: React.FC = () => {
           <FlatList
             ref={flatListRef}
             style={styles.conversationList}
-            data={messages}
+            data={displayMessages}
             renderItem={renderMessageItem}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.conversationContent}
