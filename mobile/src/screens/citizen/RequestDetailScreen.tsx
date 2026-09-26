@@ -158,6 +158,94 @@ const CancelModal: React.FC<CancelModalProps> = ({
   );
 };
 
+// ─── Negotiate / Counter-Offer Modal ──────────────────────────────────────────
+
+interface NegotiateModalProps {
+  visible: boolean;
+  offer: any;
+  isCountering: boolean;
+  counterError: string | null;
+  counterPrice: string;
+  counterNotes: string;
+  onChangePrice: (val: string) => void;
+  onChangeNotes: (val: string) => void;
+  onConfirm: () => void;
+  onClose: () => void;
+}
+
+const NegotiateModal: React.FC<NegotiateModalProps> = ({
+  visible,
+  offer,
+  isCountering,
+  counterError,
+  counterPrice,
+  counterNotes,
+  onChangePrice,
+  onChangeNotes,
+  onConfirm,
+  onClose,
+}) => {
+  const { t } = useI18n();
+  if (!offer) return null;
+
+  const collectorName = offer.collector?.name || 'Collector';
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose} />
+      <View style={styles.modalSheet}>
+        <View style={styles.sheetHandle} />
+        <Text style={styles.modalTitle}>Negotiate / Counter-Offer</Text>
+        <Text style={styles.modalSubtitle}>
+          Propose your desired price to {collectorName}. Current offer is ₹{offer.offeredPrice}.
+        </Text>
+
+        <Text style={styles.inputLabel}>Your Counter Price (₹) *</Text>
+        <TextInput
+          style={styles.modalInput}
+          value={counterPrice}
+          onChangeText={onChangePrice}
+          placeholder="e.g. 3100"
+          placeholderTextColor="rgba(255,255,255,0.35)"
+          keyboardType="numeric"
+          autoFocus
+        />
+
+        <Text style={styles.inputLabel}>Message / Note for Collector (Optional)</Text>
+        <TextInput
+          style={styles.modalTextArea}
+          value={counterNotes}
+          onChangeText={onChangeNotes}
+          multiline
+          numberOfLines={3}
+          placeholder="e.g. Material is tested and in good condition."
+          placeholderTextColor="rgba(255,255,255,0.30)"
+          textAlignVertical="top"
+        />
+
+        {counterError && (
+          <Text style={styles.modalError}>{counterError}</Text>
+        )}
+
+        <View style={styles.modalActions}>
+          <TouchableOpacity style={styles.modalCancelBtn} onPress={onClose} disabled={isCountering}>
+            <Text style={styles.modalCancelText}>{t('common.cancel', 'Cancel')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modalNegotiateBtn, isCountering && { opacity: 0.6 }]}
+            onPress={onConfirm}
+            disabled={isCountering}
+          >
+            {isCountering
+              ? <ActivityIndicator size="small" color="#FFF" />
+              : <Text style={styles.modalNegotiateBtnText}>Send Counter Offer</Text>}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
@@ -172,10 +260,19 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const [offers, setOffers] = useState<any[]>([]);
   const [acceptingOfferId, setAcceptingOfferId] = useState<string | null>(null);
 
+  // Cancel Modal state
   const [cancelVisible, setCancelVisible] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+
+  // Negotiate Modal state
+  const [negotiateVisible, setNegotiateVisible] = useState(false);
+  const [selectedOffer, setSelectedOffer] = useState<any | null>(null);
+  const [counterPrice, setCounterPrice] = useState('');
+  const [counterNotes, setCounterNotes] = useState('');
+  const [isCountering, setIsCountering] = useState(false);
+  const [counterError, setCounterError] = useState<string | null>(null);
 
   const timelineSteps: Array<{ id: string; icon: IconName; label: string; next: string }> = [
     {
@@ -243,7 +340,7 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       } else {
         setRequest(data);
         // Load collector offers if request is open or accepted
-        const st = (data.status || '').toUpperCase();
+        const st = ((data as any)?.status || '').toUpperCase();
         if (st === REQUEST_STATUS.SUBMITTED || st === REQUEST_STATUS.ACCEPTED) {
           try {
             const fetchedOffers = await requestService.getOffers(requestId);
@@ -270,7 +367,14 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   }, [requestId]);
 
-  useEffect(() => { loadRequest(true); }, [loadRequest]);
+  useEffect(() => {
+    loadRequest(true);
+    // Realtime polling interval for active offers
+    const pollInterval = setInterval(() => {
+      loadRequest(false);
+    }, 10000);
+    return () => clearInterval(pollInterval);
+  }, [loadRequest]);
 
   const handleAcceptOffer = useCallback((offer: any) => {
     if (!isConnected) {
@@ -283,7 +387,7 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
     Alert.alert(
       'Accept Collector Offer',
-      `Accept offer of ₹${price} from ${collectorName}?\n\nThis will assign ${collectorName} to collect your e-waste and close all other offers.`,
+      `Accept offer of ₹${price} from ${collectorName}?\n\nThis will assign ${collectorName} to collect your e-waste and schedule the pickup.`,
       [
         { text: t('common.cancel') || 'Cancel', style: 'cancel' },
         {
@@ -310,6 +414,69 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       ]
     );
   }, [isConnected, requestId, loadRequest, t]);
+
+  const handleOpenNegotiate = (offer: any) => {
+    setSelectedOffer(offer);
+    setCounterPrice(offer.offeredPrice ? String(offer.offeredPrice) : '');
+    setCounterNotes('');
+    setCounterError(null);
+    setNegotiateVisible(true);
+  };
+
+  const handleSubmitCounter = async () => {
+    if (!counterPrice || isNaN(Number(counterPrice)) || Number(counterPrice) <= 0) {
+      setCounterError('Please enter a valid counter price.');
+      return;
+    }
+    if (!isConnected) {
+      Alert.alert('Offline', 'Counter-offering requires an internet connection.');
+      return;
+    }
+    setIsCountering(true);
+    setCounterError(null);
+    try {
+      await requestService.counterOffer(requestId, selectedOffer.id, {
+        counterPrice: Number(counterPrice),
+        notes: counterNotes.trim(),
+      });
+      setNegotiateVisible(false);
+      await loadRequest();
+      Alert.alert('Counter Offer Sent', `Your counter-offer of ₹${counterPrice} has been sent to the collector.`);
+    } catch (err: any) {
+      setCounterError(err?.response?.data?.message || err?.message || 'Failed to submit counter offer.');
+    } finally {
+      setIsCountering(false);
+    }
+  };
+
+  const handleRejectOffer = (offer: any) => {
+    if (!isConnected) {
+      Alert.alert('Offline', 'Rejecting an offer requires an internet connection.');
+      return;
+    }
+    const collectorName = offer.collector?.name || 'Collector';
+    Alert.alert(
+      'Decline Offer',
+      `Are you sure you want to decline the offer of ₹${offer.offeredPrice} from ${collectorName}?`,
+      [
+        { text: t('common.cancel') || 'Cancel', style: 'cancel' },
+        {
+          text: 'Decline Offer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await requestService.rejectOffer(requestId, offer.id, { reason: 'Declined by citizen' });
+              await loadRequest();
+              Alert.alert('Offer Declined', 'The offer has been closed.');
+            } catch (err: any) {
+              const msg = err?.response?.data?.message || err?.message || 'Failed to decline offer.';
+              Alert.alert('Error', msg);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleConfirmCancel = async () => {
     if (!cancelReason.trim()) {
@@ -542,6 +709,8 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                   const isAcceptingThis = acceptingOfferId === offer.id;
                   const isAcceptedOffer = offer.status === 'ACCEPTED';
                   const isRejectedOffer = offer.status === 'REJECTED';
+                  const isPending = offer.status === 'PENDING' || offer.status === 'SUBMITTED';
+                  const materialName = items[0]?.category?.replace(/_/g, ' ') || 'E-waste';
 
                   return (
                     <View key={offer.id} style={styles.offerCard}>
@@ -560,7 +729,8 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                             </View>
                           </View>
                           <Text style={styles.offerCollectorSub}>
-                            Informal Collector · Kabadiwala
+                            Material: <Text style={{ color: '#34D399', fontWeight: '700' }}>{materialName}</Text>
+                            {collector.distanceKm ? ` · ${collector.distanceKm} km away` : ''}
                           </Text>
                         </View>
                         <View style={styles.offerPriceBlock}>
@@ -580,23 +750,41 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                           Submitted {new Date(offer.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </Text>
                         
-                        {offer.status === 'PENDING' && (
-                          <TouchableOpacity
-                            style={[styles.acceptOfferBtn, isAcceptingThis && { opacity: 0.6 }]}
-                            onPress={() => handleAcceptOffer(offer)}
-                            disabled={Boolean(acceptingOfferId)}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Accept offer of ${offer.offeredPrice} rupees from ${collector.name}`}
-                          >
-                            {isAcceptingThis ? (
-                              <ActivityIndicator size="small" color="#FFFFFF" />
-                            ) : (
-                              <View style={styles.btnRow}>
-                                <AppIcon name="check" size={14} color="#FFFFFF" />
-                                <Text style={styles.acceptOfferBtnText}>Accept Offer</Text>
-                              </View>
-                            )}
-                          </TouchableOpacity>
+                        {isPending && (
+                          <View style={styles.offerActionsGroup}>
+                            <TouchableOpacity
+                              style={styles.rejectOfferBtn}
+                              onPress={() => handleRejectOffer(offer)}
+                              disabled={Boolean(acceptingOfferId)}
+                            >
+                              <Text style={styles.rejectOfferBtnText}>Reject</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              style={styles.negotiateOfferBtn}
+                              onPress={() => handleOpenNegotiate(offer)}
+                              disabled={Boolean(acceptingOfferId)}
+                            >
+                              <Text style={styles.negotiateOfferBtnText}>Negotiate</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              style={[styles.acceptOfferBtn, isAcceptingThis && { opacity: 0.6 }]}
+                              onPress={() => handleAcceptOffer(offer)}
+                              disabled={Boolean(acceptingOfferId)}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Accept offer of ${offer.offeredPrice} rupees from ${collector.name}`}
+                            >
+                              {isAcceptingThis ? (
+                                <ActivityIndicator size="small" color="#FFFFFF" />
+                              ) : (
+                                <View style={styles.btnRow}>
+                                  <AppIcon name="check" size={13} color="#FFFFFF" />
+                                  <Text style={styles.acceptOfferBtnText}>Accept</Text>
+                                </View>
+                              )}
+                            </TouchableOpacity>
+                          </View>
                         )}
                         {isAcceptedOffer && (
                           <View style={styles.acceptedOfferBadge}>
@@ -605,7 +793,7 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                           </View>
                         )}
                         {isRejectedOffer && (
-                          <Text style={styles.rejectedOfferText}>Closed</Text>
+                          <Text style={styles.rejectedOfferText}>Declined</Text>
                         )}
                       </View>
                     </View>
@@ -629,19 +817,22 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                   <Text style={styles.itemCategory}>
                     {item.category?.replace(/_/g, ' ') || 'Electronics'}
                   </Text>
-                  <Text style={styles.itemCondition}>{item.condition || '—'}</Text>
+                  <Text style={styles.itemCondition}>
+                    {item.condition || '—'}
+                    {item.estimatedWeightKg ? ` · ~${item.estimatedWeightKg} kg` : ''}
+                  </Text>
                   {item.quantity > 1 && (
                     <Text style={styles.itemQty}>×{item.quantity}</Text>
                   )}
                 </View>
-                {status === REQUEST_STATUS.PICKED_UP && item.id && (
+                {item.id && (
                   <TouchableOpacity
                     style={styles.traceBtn}
                     onPress={() => navigation.navigate('ItemTraceability', { itemId: item.id })}
                     accessibilityRole="button"
                     accessibilityLabel={t('traceability.viewTraceability', 'View traceability')}
                   >
-                    <Text style={styles.traceBtnText}>{t('common.track', 'Track')} ↗</Text>
+                    <Text style={styles.traceBtnText}>{t('common.track', 'Track Journey')} ↗</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -712,6 +903,20 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         onChangeReason={setCancelReason}
         onConfirm={handleConfirmCancel}
         onClose={() => setCancelVisible(false)}
+      />
+
+      {/* ── Negotiate / Counter-Offer Modal ── */}
+      <NegotiateModal
+        visible={negotiateVisible}
+        offer={selectedOffer}
+        isCountering={isCountering}
+        counterError={counterError}
+        counterPrice={counterPrice}
+        counterNotes={counterNotes}
+        onChangePrice={setCounterPrice}
+        onChangeNotes={setCounterNotes}
+        onConfirm={handleSubmitCounter}
+        onClose={() => setNegotiateVisible(false)}
       />
     </EcoSetuBackground>
   );
@@ -1272,6 +1477,75 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255,255,255,0.40)',
     fontStyle: 'italic',
+  },
+  offerActionsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  rejectOfferBtn: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.35)',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    minHeight: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239,68,68,0.1)',
+  },
+  rejectOfferBtnText: {
+    fontSize: 12,
+    color: '#F87171',
+    fontWeight: '700',
+  },
+  negotiateOfferBtn: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(56,189,248,0.4)',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    minHeight: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(56,189,248,0.12)',
+  },
+  negotiateOfferBtnText: {
+    fontSize: 12,
+    color: '#38BDF8',
+    fontWeight: '700',
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.7)',
+    marginBottom: 6,
+    marginTop: 6,
+  },
+  modalInput: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.35)',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  modalNegotiateBtn: {
+    flex: 1.5,
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: '#0284C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalNegotiateBtnText: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
 });
 

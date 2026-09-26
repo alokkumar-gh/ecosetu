@@ -260,6 +260,44 @@ const acceptOffer = [
     .withMessage('Offer ID must be a valid UUID'),
 ];
 
+const counterOffer = [
+  param('id')
+    .isUUID()
+    .withMessage('Request ID must be a valid UUID'),
+
+  param('offerId')
+    .isUUID()
+    .withMessage('Offer ID must be a valid UUID'),
+
+  body('counterPrice')
+    .exists({ checkNull: true })
+    .withMessage('counterPrice is required')
+    .isFloat({ min: 0.01 })
+    .withMessage('counterPrice must be a positive number greater than 0'),
+
+  body('notes')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('notes must not exceed 500 characters'),
+];
+
+const rejectOffer = [
+  param('id')
+    .isUUID()
+    .withMessage('Request ID must be a valid UUID'),
+
+  param('offerId')
+    .isUUID()
+    .withMessage('Offer ID must be a valid UUID'),
+
+  body('reason')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('reason must not exceed 500 characters'),
+];
+
 module.exports = {
   createRequest,
   listRequests,
@@ -271,4 +309,6 @@ module.exports = {
   submitOffer,
   listOffers,
   acceptOffer,
+  counterOffer,
+  rejectOffer,
 };

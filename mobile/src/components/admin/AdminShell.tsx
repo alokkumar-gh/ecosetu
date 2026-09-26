@@ -348,6 +348,8 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     bottom: 0,
+    height: '100%',
+    width: MOBILE_DRAWER_WIDTH,
     zIndex: 300,
     shadowColor: '#000',
     shadowOffset: { width: 4, height: 0 },

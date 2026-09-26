@@ -183,6 +183,30 @@ class RequestService {
   }
 
   /**
+   * Citizen counters / negotiates a collector offer
+   * @param {string} requestId
+   * @param {string} offerId
+   * @param {Object} payload - { counterPrice: number, notes?: string }
+   * @returns {Promise<Object>}
+   */
+  async counterOffer(requestId, offerId, payload) {
+    const response = await apiClient.post(`/collection-requests/${requestId}/offers/${offerId}/counter`, payload);
+    return response.data?.offer || response.data;
+  }
+
+  /**
+   * Citizen rejects a collector offer
+   * @param {string} requestId
+   * @param {string} offerId
+   * @param {Object} [payload] - { reason?: string }
+   * @returns {Promise<Object>}
+   */
+  async rejectOffer(requestId, offerId, payload = {}) {
+    const response = await apiClient.post(`/collection-requests/${requestId}/offers/${offerId}/reject`, payload);
+    return response.data?.offer || response.data;
+  }
+
+  /**
    * Collector gets their own submitted offers
    * @returns {Promise<Array<Object>>}
    */

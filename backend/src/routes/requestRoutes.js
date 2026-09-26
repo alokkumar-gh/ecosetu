@@ -86,6 +86,24 @@ router.post(
   (req, res, next) => requestController.acceptOffer(req, res, next)
 );
 
+// Citizen counter-offers / negotiates a specific collector offer
+router.post(
+  '/:id/offers/:offerId/counter',
+  authenticate,
+  authorize(ROLES.CITIZEN),
+  validate(requestValidators.counterOffer),
+  (req, res, next) => requestController.counterOffer(req, res, next)
+);
+
+// Citizen rejects a specific collector offer
+router.post(
+  '/:id/offers/:offerId/reject',
+  authenticate,
+  authorize(ROLES.CITIZEN),
+  validate(requestValidators.rejectOffer),
+  (req, res, next) => requestController.rejectOffer(req, res, next)
+);
+
 // Cancel collection request (Citizen owner or Admin)
 router.post(
   '/:id/cancel',

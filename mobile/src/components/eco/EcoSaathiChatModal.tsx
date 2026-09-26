@@ -1,15 +1,46 @@
 /**
- * EcoSetu — Eco-Saathi In-App Interactive Chat Modal with Vernacular Voice Assistant
- * 
- * Collector-First Voice & Conversational Assistant:
- * - Natural 4-language support: Odia (or), Hindi (hi), Marathi (mr), English (en)
- * - Auto-speak preference toggle with manual "Listen" button on each message
- * - Pre-permission explanation dialog in native language
- * - Human-friendly processing states ("Listening...", "Understanding...", "Preparing answer...")
- * - High-contrast institutional dark emerald design (no AI sparkle gimmicks)
+ * EcoSetu — Eco-Saathi In-App Interactive Chat Modal
+ *
+ * COMPLETE REDESIGN — Collector-First Conversational Assistant
+ *
+ * Design Philosophy:
+ * - Human, warm, approachable — NOT a ChatGPT clone
+ * - Voice-first: microphone is the primary input control
+ * - No hardcoded fixed widths/heights — fully responsive flex layout
+ * - Low-literacy friendly: large targets, short labels, visual icons
+ * - Vernacular-first: Odia / Hindi / Hinglish / Marathi / English
+ * - Contextual home state with real collector quick-actions
+ * - Structured "thinking" state (not generic spinner)
+ * - TTS playback with sanitized text (no markdown in speech)
+ *
+ * Architecture:
+ * - EcoSaathiModal (root, safe-area, keyboard-aware)
+ *   ├─ EcoSaathiHeader (identity, voice-toggle, close)
+ *   ├─ EcoSaathiLangBar (language selector pills)
+ *   ├─ EcoSaathiStatusBanner (listening / offline banners)
+ *   ├─ EcoSaathiConversation (flex-grow FlatList)
+ *   │    ├─ SaathiHomeState (empty conversation welcome)
+ *   │    ├─ SaathiMessage (assistant bubble + TTS button)
+ *   │    ├─ UserMessage (collector bubble)
+ *   │    ├─ SaathiTypingIndicator (thinking state)
+ *   │    └─ QuickActionGrid (context-aware suggestion grid)
+ *   └─ EcoSaathiComposer (voice mic + text input + send)
+ *
+ * Preserved without modification:
+ * - EcoSaathiContext (messages, sendMessage, quickReplies, etc.)
+ * - voiceService (TTS via Bhashini / native fallback)
+ * - voiceRecordingService (mic capture)
+ * - bhashiniClientService (ASR transcription)
+ * - All confirmation / security workflows
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  memo,
+} from 'react';
 import {
   Modal,
   View,
@@ -22,9 +53,9 @@ import {
   Platform,
   SafeAreaView,
   StatusBar,
-  NativeModules,
-  PermissionsAndroid,
   ActivityIndicator,
+  Animated,
+  ScrollView,
 } from 'react-native';
 import { useEcoSaathi, EcoSaathiMessage, QuickReplyOption } from '../../context/EcoSaathiContext';
 import { useAuth } from '../../hooks/useAuth';
@@ -35,18 +66,418 @@ import { bhashiniClientService } from '../../services/bhashiniClientService';
 import { voiceRecordingService } from '../../services/voiceRecordingService';
 import { AppIcon } from '../ui/AppIcon';
 
-const sanitizeTextForSpeech = (text: string): string => {
-  return text
-    .replace(/[\u{1F600}-\u{1F6FF}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+// ─── Text Sanitisation ────────────────────────────────────────────────────────
+
+/**
+ * Strip emojis and markdown artifacts before passing text to TTS.
+ * Markdown must NEVER reach the speech synthesiser.
+ */
+const sanitizeTextForSpeech = (text: string): string =>
+  text
+    .replace(
+      /[\u{1F600}-\u{1F6FF}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu,
+      ''
+    )
     .replace(/[*_#`~]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
-};
+
+// ─── Voice State ──────────────────────────────────────────────────────────────
+
+export type VoiceState =
+  | 'IDLE'
+  | 'REQUESTING_PERMISSION'
+  | 'STARTING_RECORDING'
+  | 'LISTENING'
+  | 'STOPPING_RECORDING'
+  | 'UPLOADING'
+  | 'DETECTING_LANGUAGE'
+  | 'TRANSCRIBING'
+  | 'RECOGNIZED'
+  | 'PROCESSING'
+  | 'SPEAKING'
+  | 'ERROR';
+
+const MAX_RECORDING_DURATION_MS = 10000;
+const HARD_SAFETY_TIMEOUT_MS = 25000;
+
+// ─── Language Configuration ───────────────────────────────────────────────────
+
+const LANGUAGES = [
+  { code: 'or', label: 'ଓଡ଼ିଆ', fullLabel: 'ଓଡ଼ିଆ (Odia)' },
+  { code: 'hi', label: 'हिन्दी', fullLabel: 'हिन्दी (Hindi)' },
+  { code: 'mr', label: 'मराठी', fullLabel: 'मराठी (Marathi)' },
+  { code: 'en', label: 'EN', fullLabel: 'English' },
+] as const;
+
+type LangCode = 'or' | 'hi' | 'mr' | 'en';
+
+/** Minimal localised copy — UI labels only, not content */
+const getCopy = (lang: LangCode) => ({
+  subtitle:
+    lang === 'or'
+      ? 'ଆପଣଙ୍କ ସ୍ୱର ସହାୟକ'
+      : lang === 'hi'
+      ? 'आपका संग्रह साथी'
+      : lang === 'mr'
+      ? 'तुमचा संग्रह साथी'
+      : 'Your collection companion',
+  voiceOn:
+    lang === 'or' ? 'ସ୍ୱର: ଚାଲୁ' : lang === 'hi' ? 'आवाज़: चालू' : lang === 'mr' ? 'आवाज: चालू' : 'Voice: ON',
+  voiceOff:
+    lang === 'or' ? 'ସ୍ୱର: ବନ୍ଦ' : lang === 'hi' ? 'आवाज़: बंद' : lang === 'mr' ? 'आवाज: बंद' : 'Voice: OFF',
+  newChat:
+    lang === 'or' ? 'ନୂଆ' : lang === 'hi' ? 'नया' : lang === 'mr' ? 'नवीन' : 'New',
+  listening:
+    lang === 'or'
+      ? 'ଶୁଣୁଛି...'
+      : lang === 'hi'
+      ? 'सुन रहा हूँ...'
+      : lang === 'mr'
+      ? 'ऐकत आहे...'
+      : 'Listening...',
+  transcribing:
+    lang === 'or'
+      ? 'ସ୍ୱର ବୁଝୁଛି...'
+      : lang === 'hi'
+      ? 'आवाज़ समझ रहा हूँ...'
+      : lang === 'mr'
+      ? 'आवाज समजून घेत आहे...'
+      : 'Understanding your voice...',
+  thinking:
+    lang === 'or'
+      ? 'Eco-Saathi ଭାବୁଛି...'
+      : lang === 'hi'
+      ? 'Eco-Saathi सोच रहा है...'
+      : lang === 'mr'
+      ? 'Eco-Saathi विचार करत आहे...'
+      : 'Eco-Saathi is thinking…',
+  speaking:
+    lang === 'or'
+      ? 'ବୋଲୁଛି...'
+      : lang === 'hi'
+      ? 'बोल रहा है...'
+      : lang === 'mr'
+      ? 'बोलत आहे...'
+      : 'Speaking…',
+  placeholder:
+    lang === 'or'
+      ? 'ବୋଲନ୍ତୁ ବା ଟାଇପ୍ କରନ୍ତୁ...'
+      : lang === 'hi'
+      ? 'बोलें या टाइप करें...'
+      : lang === 'mr'
+      ? 'बोला किंवा टाइप करा...'
+      : 'Speak or type here…',
+  listenBtn:
+    lang === 'or' ? 'ଶୁଣନ୍ତୁ' : lang === 'hi' ? 'सुनें' : lang === 'mr' ? 'ऐका' : 'Listen',
+  stopBtn:
+    lang === 'or' ? 'ଥାଆନ୍ତୁ' : lang === 'hi' ? 'रोकें' : lang === 'mr' ? 'थांबवा' : 'Stop',
+  hazardAlert:
+    lang === 'or'
+      ? 'ସୁରକ୍ଷା ଚେତାବନୀ'
+      : lang === 'hi'
+      ? 'सुरक्षा चेतावनी'
+      : lang === 'mr'
+      ? 'सुरक्षा सूचना'
+      : 'SAFETY NOTICE',
+  offline:
+    lang === 'or'
+      ? 'ଅଫଲାଇନ୍ — ସ୍ୱର ସହାୟତା ଉପଲବ୍ଧ'
+      : lang === 'hi'
+      ? 'ऑफ़लाइन — आवाज़ सहायता उपलब्ध'
+      : lang === 'mr'
+      ? 'ऑफलाइन — आवाज मदत उपलब्ध'
+      : 'Offline — Voice assistant available',
+  permissionTitle:
+    lang === 'or'
+      ? 'ମାଇକ୍ ବ୍ୟବହାର'
+      : lang === 'hi'
+      ? 'माइक्रोफ़ोन'
+      : lang === 'mr'
+      ? 'मायक्रोफोन'
+      : 'Microphone',
+  permissionBody:
+    lang === 'or'
+      ? 'ଟାଇପ୍ ନ କରି ନିଜ ଭାଷାରେ Eco-Saathi କୁ ପ୍ରଶ୍ନ ପଚାରନ୍ତୁ।'
+      : lang === 'hi'
+      ? 'टाइप किए बिना अपनी भाषा में Eco-Saathi से बात करें।'
+      : lang === 'mr'
+      ? 'टाइप न करता आपल्या भाषेत Eco-Saathi शी बोला.'
+      : 'Ask Eco-Saathi questions in your language without typing.',
+  permissionAllow:
+    lang === 'or' ? 'ଅନୁମତି ଦିଅନ୍ତୁ' : lang === 'hi' ? 'अनुमति दें' : lang === 'mr' ? 'परवानगी द्या' : 'Allow',
+  permissionType:
+    lang === 'or' ? 'ଟାଇପ୍ କରିବି' : lang === 'hi' ? 'टाइप करूँगा' : lang === 'mr' ? 'टाइप करेन' : 'Type instead',
+  tapToSpeak:
+    lang === 'or' ? 'ବୋଲିବାକୁ ଦବାନ୍ତୁ' : lang === 'hi' ? 'बोलने के लिए दबाएं' : lang === 'mr' ? 'बोलण्यासाठी दाबा' : 'Tap to speak',
+  send:
+    lang === 'or' ? 'ପଠାନ୍ତୁ' : lang === 'hi' ? 'भेजें' : lang === 'mr' ? 'पाठवा' : 'Send',
+  retryVoice:
+    lang === 'or' ? 'ପୁଣି ଚେଷ୍ଟା' : lang === 'hi' ? 'फिर कोशिश' : lang === 'mr' ? 'पुन्हा प्रयत्न' : 'Try again',
+});
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+/** Pulsing recording dot animation */
+const RecordingPulse = memo(() => {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.4, duration: 600, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulseAnim]);
+
+  return (
+    <Animated.View
+      style={[styles.recordingDot, { transform: [{ scale: pulseAnim }] }]}
+    />
+  );
+});
+RecordingPulse.displayName = 'RecordingPulse';
+
+/** Animated typing dots (three dots bouncing) */
+const TypingDots = memo(() => {
+  const dot1 = useRef(new Animated.Value(0)).current;
+  const dot2 = useRef(new Animated.Value(0)).current;
+  const dot3 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animate = (dot: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(dot, { toValue: -6, duration: 300, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0, duration: 300, useNativeDriver: true }),
+          Animated.delay(600 - delay),
+        ])
+      );
+
+    const a1 = animate(dot1, 0);
+    const a2 = animate(dot2, 200);
+    const a3 = animate(dot3, 400);
+    a1.start(); a2.start(); a3.start();
+    return () => { a1.stop(); a2.stop(); a3.stop(); };
+  }, [dot1, dot2, dot3]);
+
+  return (
+    <View style={styles.typingDotsRow}>
+      {[dot1, dot2, dot3].map((dot, i) => (
+        <Animated.View
+          key={i}
+          style={[styles.typingDot, { transform: [{ translateY: dot }] }]}
+        />
+      ))}
+    </View>
+  );
+});
+TypingDots.displayName = 'TypingDots';
+
+/** Saathi thinking indicator bubble */
+const SaathiTypingIndicator = memo(({ label }: { label: string }) => (
+  <View style={styles.messageRow}>
+    <View style={styles.saathiAvatarMini}>
+      <Text style={styles.avatarEmoji}>🌱</Text>
+    </View>
+    <View style={[styles.messageBubble, styles.bubbleSaathi, styles.typingBubble]}>
+      <TypingDots />
+      <Text style={styles.typingLabel}>{label}</Text>
+    </View>
+  </View>
+));
+SaathiTypingIndicator.displayName = 'SaathiTypingIndicator';
+
+/** Quick action button for home/contextual state */
+interface QuickActionProps {
+  icon: string;
+  label: string;
+  onPress: () => void;
+}
+const QuickActionChip = memo(({ icon, label, onPress }: QuickActionProps) => (
+  <TouchableOpacity
+    style={styles.quickActionChip}
+    onPress={onPress}
+    activeOpacity={0.78}
+    accessibilityRole="button"
+    accessibilityLabel={label}
+  >
+    <Text style={styles.quickActionIcon}>{icon}</Text>
+    <Text style={styles.quickActionLabel} numberOfLines={2}>{label}</Text>
+  </TouchableOpacity>
+));
+QuickActionChip.displayName = 'QuickActionChip';
+
+/** Home / empty conversation state with contextual welcome */
+interface HomeStateProps {
+  quickReplies: QuickReplyOption[];
+  onQuickReply: (qr: QuickReplyOption) => void;
+  lang: LangCode;
+}
+const SaathiHomeState = memo(({ quickReplies, onQuickReply, lang }: HomeStateProps) => {
+  const greetings: Record<LangCode, { hello: string; intro: string; prompt: string }> = {
+    or: {
+      hello: '👋 ନମସ୍କାର!',
+      intro: 'ମୁଁ Eco-Saathi। ଆପଣଙ୍କ ଇ-ବର୍ଜ୍ୟ ସଂଗ୍ରହ କାର୍ଯ୍ୟରେ ସାହାଯ୍ୟ କରିବି।',
+      prompt: 'ଆଜି କ\'ଣ ଦେଖିବା?',
+    },
+    hi: {
+      hello: '👋 नमस्ते!',
+      intro: 'मैं Eco-Saathi हूँ। आपके ई-कचरा संग्रह कार्य में मदद करूँगा।',
+      prompt: 'आज क्या देखना है?',
+    },
+    mr: {
+      hello: '👋 नमस्कार!',
+      intro: 'मी Eco-Saathi आहे. तुमच्या ई-कचरा संग्रह कार्यात मदत करेन.',
+      prompt: 'आज काय पहायचे आहे?',
+    },
+    en: {
+      hello: '👋 Namaste!',
+      intro: 'I am Eco-Saathi. I help you manage pickup requests, offers, and recycling work.',
+      prompt: 'What would you like to see today?',
+    },
+  };
+
+  const g = greetings[lang];
+
+  // Map quick replies to icon hints
+  const getIcon = (label: string): string => {
+    const l = label.toLowerCase();
+    if (l.includes('request') || l.includes('scrap') || l.includes('lot')) return '📦';
+    if (l.includes('price') || l.includes('rate') || l.includes('price')) return '💰';
+    if (l.includes('offer') || l.includes('bid')) return '🤝';
+    if (l.includes('earn') || l.includes('wallet') || l.includes('pay')) return '💵';
+    if (l.includes('pickup') || l.includes('delivery')) return '🚚';
+    if (l.includes('negoti')) return '💬';
+    if (l.includes('safety') || l.includes('battery') || l.includes('सुरक्षा')) return '⚠️';
+    if (l.includes('help') || l.includes('contact')) return '❓';
+    if (l.includes('language') || l.includes('भाषा')) return '🌐';
+    if (l.includes('certificate') || l.includes('co2')) return '🏆';
+    return '✨';
+  };
+
+  return (
+    <View style={styles.homeState}>
+      {/* Greeting bubble */}
+      <View style={styles.homeGreetingRow}>
+        <View style={styles.homeAvatar}>
+          <Text style={styles.homeAvatarEmoji}>🌱</Text>
+        </View>
+        <View style={styles.homeGreetingBubble}>
+          <Text style={styles.homeHello}>{g.hello}</Text>
+          <Text style={styles.homeIntro}>{g.intro}</Text>
+        </View>
+      </View>
+
+      {/* Contextual prompt */}
+      {quickReplies.length > 0 && (
+        <View style={styles.homePromptSection}>
+          <Text style={styles.homePromptLabel}>{g.prompt}</Text>
+          <View style={styles.quickActionGrid}>
+            {quickReplies.slice(0, 6).map((qr) => (
+              <QuickActionChip
+                key={qr.id}
+                icon={getIcon(qr.label)}
+                label={qr.label}
+                onPress={() => onQuickReply(qr)}
+              />
+            ))}
+          </View>
+        </View>
+      )}
+    </View>
+  );
+});
+SaathiHomeState.displayName = 'SaathiHomeState';
+
+/** Individual message: Saathi (assistant) */
+interface SaathiMessageProps {
+  item: EcoSaathiMessage;
+  isPlaying: boolean;
+  copy: ReturnType<typeof getCopy>;
+  onPlay: () => void;
+  onAction: (action: NonNullable<EcoSaathiMessage['action']>) => void;
+}
+const SaathiMessage = memo(({ item, isPlaying, copy, onPlay, onAction }: SaathiMessageProps) => (
+  <View
+    style={styles.messageRow}
+    accessibilityRole="text"
+    accessibilityLabel={`Eco-Saathi: ${item.text}`}
+  >
+    <View style={styles.saathiAvatarMini}>
+      <Text style={styles.avatarEmoji}>🌱</Text>
+    </View>
+
+    <View style={[
+      styles.messageBubble,
+      styles.bubbleSaathi,
+      item.safetySensitivity === 'HAZARD_CRITICAL' && styles.bubbleHazard,
+    ]}>
+      {/* Safety badge */}
+      {item.safetySensitivity === 'HAZARD_CRITICAL' && (
+        <View style={styles.hazardBadge}>
+          <Text style={styles.hazardBadgeText}>⚠️ {copy.hazardAlert}</Text>
+        </View>
+      )}
+
+      <Text style={[styles.messageText, styles.textSaathi]}>{item.text}</Text>
+
+      {/* TTS button */}
+      <TouchableOpacity
+        style={[styles.ttsButton, isPlaying && styles.ttsButtonPlaying]}
+        onPress={onPlay}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel={isPlaying ? copy.stopBtn : copy.listenBtn}
+        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+      >
+        <Text style={styles.ttsButtonIcon}>{isPlaying ? '⏹' : '🔊'}</Text>
+        <Text style={[styles.ttsButtonText, isPlaying && styles.ttsButtonTextPlaying]}>
+          {isPlaying ? copy.stopBtn : copy.listenBtn}
+        </Text>
+      </TouchableOpacity>
+
+      {/* Navigation action */}
+      {item.action && (
+        <TouchableOpacity
+          style={styles.actionChip}
+          onPress={() => onAction(item.action!)}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={`Go to: ${item.action.label}`}
+        >
+          <Text style={styles.actionChipText}>↗ {item.action.label}</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  </View>
+));
+SaathiMessage.displayName = 'SaathiMessage';
+
+/** Individual message: User (collector) */
+const UserMessage = memo(({ item }: { item: EcoSaathiMessage }) => (
+  <View
+    style={[styles.messageRow, styles.messageRowUser]}
+    accessibilityRole="text"
+    accessibilityLabel={`You: ${item.text}`}
+  >
+    <View style={[styles.messageBubble, styles.bubbleUser]}>
+      <Text style={[styles.messageText, styles.textUser]}>{item.text}</Text>
+    </View>
+  </View>
+));
+UserMessage.displayName = 'UserMessage';
+
+// ─── Main Modal Component ─────────────────────────────────────────────────────
 
 export const EcoSaathiChatModal: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
-  const { language } = useI18n();
-  const activeLang = language || 'en';
+  const { language, setLanguage } = useI18n();
+  const activeLang = (language || 'or') as LangCode;
 
   const {
     isOpen,
@@ -58,363 +489,304 @@ export const EcoSaathiChatModal: React.FC = () => {
     quickReplies,
   } = useEcoSaathi();
 
+  // ── Local state ──
   const [inputText, setInputText] = useState('');
-  const [isListening, setIsListening] = useState(false);
+  const [voiceState, setVoiceState] = useState<VoiceState>('IDLE');
+  const [selectedLang, setSelectedLang] = useState<LangCode>(activeLang);
   const [isVoiceOutputEnabled, setIsVoiceOutputEnabled] = useState(true);
   const [speechStatus, setSpeechStatus] = useState<string | null>(null);
   const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
 
+  // ── Refs ──
   const flatListRef = useRef<FlatList>(null);
-  const lastSpokenMessageIdRef = useRef<string | null>(null);
+  const lastSpokenMsgIdRef = useRef<string | null>(null);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hardSafetyTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingStartTimeRef = useRef<number>(0);
+  const inputRef = useRef<TextInput>(null);
 
-  // Vernacular copy dictionary
-  const copy = {
-    title: 'Eco-Saathi',
-    subtitle:
-      activeLang === 'or'
-        ? 'ଆପଣଙ୍କ ସ୍ୱର ସହାୟକ'
-        : activeLang === 'hi'
-        ? 'आपका आवाज़ सहायक'
-        : activeLang === 'mr'
-        ? 'तुमचा आवाज सहाय्यक'
-        : 'Voice Assistant',
-    voiceOn:
-      activeLang === 'or' ? 'ସ୍ୱର: ଚାଲୁ' : activeLang === 'hi' ? 'आवाज़: चालू' : activeLang === 'mr' ? 'आवाज: चालू' : 'Voice: ON',
-    voiceOff:
-      activeLang === 'or' ? 'ସ୍ୱର: ବନ୍ଦ' : activeLang === 'hi' ? 'आवाज़: बंद' : activeLang === 'mr' ? 'आवाज: बंद' : 'Voice: OFF',
-    reset:
-      activeLang === 'or' ? 'ନୂଆ' : activeLang === 'hi' ? 'नया' : activeLang === 'mr' ? 'नवीन' : 'Reset',
-    listeningStatus:
-      activeLang === 'or'
-        ? 'ଶୁଣୁଛି... ଆପଣଙ୍କ ପ୍ରଶ୍ନ କୁହନ୍ତୁ'
-        : activeLang === 'hi'
-        ? 'सुन रहा हूँ... अपना सवाल बोलें'
-        : activeLang === 'mr'
-        ? 'ऐकत आहे... तुमचा प्रश्न बोला'
-        : 'Listening... Speak your question',
-    understandingStatus:
-      activeLang === 'or'
-        ? 'ବୁଝୁଛି...'
-        : activeLang === 'hi'
-        ? 'समझ रहा हूँ...'
-        : activeLang === 'mr'
-        ? 'समजून घेत आहे...'
-        : 'Understanding...',
-    preparingStatus:
-      activeLang === 'or'
-        ? 'ଉତ୍ତର ପ୍ରସ୍ତୁତ ହେଉଛି...'
-        : activeLang === 'hi'
-        ? 'उत्तर तैयार हो रहा है...'
-        : activeLang === 'mr'
-        ? 'उत्तर तयार होत आहे...'
-        : 'Preparing answer...',
-    inputPlaceholder:
-      activeLang === 'or'
-        ? 'କୁହନ୍ତୁ କିମ୍ବା ଟାଇପ୍ କରନ୍ତୁ...'
-        : activeLang === 'hi'
-        ? 'बोलें या टाइप करें...'
-        : activeLang === 'mr'
-        ? 'बोला किंवा टाइप करा...'
-        : 'Speak or type here...',
-    listenBtn:
-      activeLang === 'or' ? 'ଶୁଣନ୍ତୁ' : activeLang === 'hi' ? 'सुनें' : activeLang === 'mr' ? 'ऐका' : 'Listen',
-    stopBtn:
-      activeLang === 'or' ? 'ଥାଆନ୍ତୁ' : activeLang === 'hi' ? 'रोकें' : activeLang === 'mr' ? 'थांबवा' : 'Stop',
-    hazardAlert:
-      activeLang === 'or'
-        ? 'ସୁରକ୍ଷା ଚେତାବନୀ'
-        : activeLang === 'hi'
-        ? 'सुरक्षा चेतावनी'
-        : activeLang === 'mr'
-        ? 'सुरक्षा सूचना'
-        : 'SAFETY NOTICE',
-    offlineBanner:
-      activeLang === 'or'
-        ? 'ଅଫଲାଇନ୍ ମୋଡ୍ ଚାଲୁଅଛି — ସ୍ୱର ସହାୟତା ଉପଲବ୍ଧ।'
-        : activeLang === 'hi'
-        ? 'ऑफ़लाइन मोड सक्रिय — आवाज़ सहायता उपलब्ध है।'
-        : activeLang === 'mr'
-        ? 'ऑफलाइन मोड चालू आहे — आवाज मदत उपलब्ध आहे.'
-        : 'Offline mode active — Voice assistant available.',
-    permissionTitle:
-      activeLang === 'or'
-        ? 'ମାଇକ୍ରୋଫୋନ୍ ବ୍ୟବହାର'
-        : activeLang === 'hi'
-        ? 'माइक्रोफ़ोन का उपयोग'
-        : activeLang === 'mr'
-        ? 'मायक्रोफोनचा वापर'
-        : 'Microphone Permission',
-    permissionWhy:
-      activeLang === 'or'
-        ? 'ଆପଣ ଟାଇପ୍ ନକରି ନିଜ ସ୍ୱରରେ Eco-Saathi କୁ ପ୍ରଶ୍ନ ପଚାରିପାରିବେ।'
-        : activeLang === 'hi'
-        ? 'आप टाइप किए बिना अपनी आवाज़ में Eco-Saathi से सवाल पूछ सकते हैं।'
-        : activeLang === 'mr'
-        ? 'तुम्ही टाइप न करता आपल्या आवाजात Eco-Saathi ला प्रश्न विचारू शकता.'
-        : 'You can ask Eco-Saathi questions using your voice instead of typing.',
-    permissionAllow:
-      activeLang === 'or' ? 'ଅନୁମତି ଦିଅନ୍ତୁ' : activeLang === 'hi' ? 'अनुमति दें' : activeLang === 'mr' ? 'परवानगी द्या' : 'Allow',
-    permissionCancel:
-      activeLang === 'or' ? 'ଟାଇପ୍ କରିବି' : activeLang === 'hi' ? 'टाइप करूँगा' : activeLang === 'mr' ? 'टाइप करेन' : 'Type instead',
-  };
+  // ── Derived ──
+  const copy = getCopy(selectedLang);
+  const isRecording = voiceState === 'LISTENING';
+  const isVoiceBusy =
+    voiceState === 'TRANSCRIBING' ||
+    voiceState === 'UPLOADING' ||
+    voiceState === 'STOPPING_RECORDING' ||
+    voiceState === 'STARTING_RECORDING';
+  const showThinking = isThinking || voiceState === 'PROCESSING';
 
-  // Auto-scroll to bottom on new message
+  // ── Sync language ──
+  useEffect(() => {
+    if (language) setSelectedLang(language as LangCode);
+  }, [language]);
+
+  // ── Cleanup timers on unmount ──
+  useEffect(() => () => clearTimers(), []);
+
+  // ── Auto-scroll on new message ──
   useEffect(() => {
     if (messages.length > 0) {
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 120);
     }
   }, [messages]);
 
-  // Read out Eco-Saathi responses using Voice Assistant TTS when auto-speak is enabled
+  // ── Auto-TTS for Saathi responses ──
   useEffect(() => {
-    if (messages.length > 0) {
-      const lastMsg = messages[messages.length - 1];
-      if (
-        lastMsg.sender === 'saathi' &&
-        lastMsg.id !== lastSpokenMessageIdRef.current
-      ) {
-        lastSpokenMessageIdRef.current = lastMsg.id;
-        if (isVoiceOutputEnabled) {
-          const cleanText = sanitizeTextForSpeech(lastMsg.text);
-          setPlayingMessageId(lastMsg.id);
-          voiceService
-            .speak(cleanText, { force: true, language: activeLang })
-            .finally(() => {
-              setPlayingMessageId(null);
-            });
-        }
-      }
+    if (!messages.length) return;
+    const last = messages[messages.length - 1];
+    if (
+      last.sender === 'saathi' &&
+      last.id !== lastSpokenMsgIdRef.current &&
+      isVoiceOutputEnabled
+    ) {
+      lastSpokenMsgIdRef.current = last.id;
+      const clean = sanitizeTextForSpeech(last.text);
+      setPlayingMessageId(last.id);
+      setVoiceState('SPEAKING');
+      voiceService
+        .speak(clean, { force: true, language: selectedLang })
+        .finally(() => {
+          setPlayingMessageId(null);
+          if (voiceState === 'SPEAKING') setVoiceState('IDLE');
+        });
     }
-  }, [messages, isVoiceOutputEnabled, activeLang]);
+  }, [messages, isVoiceOutputEnabled, selectedLang]);
 
-  if (!isOpen || !isAuthenticated || !user) {
-    return null;
-  }
+  // ── Stop thinking indicator when saathi responds ──
+  useEffect(() => {
+    if (messages.length > 0 && messages[messages.length - 1].sender === 'saathi') {
+      setIsThinking(false);
+    }
+  }, [messages]);
+
+  if (!isOpen || !isAuthenticated || !user) return null;
+
+  // ── Handlers ──
+
+  const clearTimers = () => {
+    if (recordingTimerRef.current) { clearTimeout(recordingTimerRef.current); recordingTimerRef.current = null; }
+    if (hardSafetyTimerRef.current) { clearTimeout(hardSafetyTimerRef.current); hardSafetyTimerRef.current = null; }
+  };
 
   const handleClose = () => {
+    clearTimers();
     voiceService.stop();
     setPlayingMessageId(null);
-    if (isListening) {
-      voiceRecordingService.cancelRecording();
-      setIsListening(false);
-    }
+    if (isRecording) voiceRecordingService.cancelRecording();
+    setVoiceState('IDLE');
+    setSpeechStatus(null);
+    setIsThinking(false);
     closeChat();
   };
 
-  const handleClear = () => {
+  const handleNewChat = () => {
+    clearTimers();
     voiceService.stop();
     setPlayingMessageId(null);
+    setVoiceState('IDLE');
+    setSpeechStatus(null);
+    setIsThinking(false);
     clearChat();
   };
 
   const handleSend = () => {
     if (!inputText.trim()) return;
-    const textToSend = inputText;
+    const text = inputText.trim();
     setInputText('');
-    setSpeechStatus(copy.understandingStatus);
-    sendMessage(textToSend);
-    setTimeout(() => setSpeechStatus(null), 1500);
+    setIsThinking(true);
+    sendMessage(text);
   };
 
-  const checkHasPermission = async (): Promise<boolean> => {
-    return await voiceRecordingService.requestMicrophonePermission();
-  };
-
-  const handleMicPress = async () => {
-    if (isListening) {
-      handleStopAndTranscribe();
-      return;
-    }
-
-    const hasPerm = await checkHasPermission();
-    if (!hasPerm) {
-      setShowPermissionModal(true);
-      return;
-    }
-
-    startListeningFlow();
-  };
-
-  const handleGrantPermission = async () => {
-    setShowPermissionModal(false);
-    const granted = await voiceRecordingService.requestMicrophonePermission();
-    if (granted) {
-      startListeningFlow();
-    } else {
-      setSpeechStatus(copy.permissionCancel);
-      setTimeout(() => setSpeechStatus(null), 2500);
-    }
-  };
-
-  const startListeningFlow = async () => {
-    voiceService.stop();
-    setPlayingMessageId(null);
-    setIsListening(true);
-    setSpeechStatus(copy.listeningStatus);
-
-    const started = await voiceRecordingService.startRecording();
-    if (!started) {
-      setIsListening(false);
-      setSpeechStatus('Microphone permission required for voice input.');
-      setTimeout(() => setSpeechStatus(null), 3000);
-      return;
-    }
-  };
-
-  const handleStopAndTranscribe = async () => {
-    setIsListening(false);
-    setSpeechStatus(copy.understandingStatus);
-
-    try {
-      const recording = await voiceRecordingService.stopRecording();
-      if (!recording || !recording.audioBase64 || !recording.audioBase64.trim()) {
-        setSpeechStatus('No speech detected. Please try again.');
-        setTimeout(() => setSpeechStatus(null), 2500);
-        return;
-      }
-
-      setSpeechStatus(copy.preparingStatus);
-
-      const asrResult = await bhashiniClientService.transcribe(
-        recording.audioBase64,
-        activeLang || 'auto',
-        {
-          audioFormat: recording.audioFormat,
-          samplingRate: recording.samplingRate,
-        }
-      );
-
-      if (asrResult && asrResult.transcript && asrResult.transcript.trim()) {
-        const recognizedText = asrResult.transcript.trim();
-        setInputText(recognizedText);
-        setSpeechStatus(null);
-        sendMessage(recognizedText);
-      } else {
-        setSpeechStatus('No speech detected. Please try again.');
-        setTimeout(() => setSpeechStatus(null), 2500);
-      }
-    } catch {
-      setSpeechStatus('Voice assistance is temporarily unavailable.');
-      setTimeout(() => setSpeechStatus(null), 3000);
-    }
-  };
-
-  const handleQuickReplyPress = (qr: QuickReplyOption) => {
-    setSpeechStatus(copy.understandingStatus);
+  const handleQuickReply = (qr: QuickReplyOption) => {
+    setIsThinking(true);
     sendMessage(qr.query);
-    setTimeout(() => setSpeechStatus(null), 1200);
   };
 
-  const handleActionPress = (action: { route: string; params?: Record<string, any> }) => {
+  const handleAction = (action: NonNullable<EcoSaathiMessage['action']>) => {
     handleClose();
-    setTimeout(() => {
-      navigateSafely(action.route, action.params);
-    }, 200);
+    setTimeout(() => navigateSafely(action.route, action.params), 200);
   };
 
-  const handlePlayIndividualMessage = async (msg: EcoSaathiMessage) => {
+  const handlePlayMessage = async (msg: EcoSaathiMessage) => {
     if (playingMessageId === msg.id) {
       await voiceService.stop();
       setPlayingMessageId(null);
       return;
     }
-
     await voiceService.stop();
     setPlayingMessageId(msg.id);
-    const cleanText = sanitizeTextForSpeech(msg.text);
+    const clean = sanitizeTextForSpeech(msg.text);
     try {
-      await voiceService.speak(cleanText, { force: true, language: activeLang });
+      await voiceService.speak(clean, { force: true, language: activeLang });
     } finally {
       setPlayingMessageId(null);
     }
   };
 
+  const handleMicPress = async () => {
+    if (isRecording) { handleStopRecording(); return; }
+    if (voiceState !== 'IDLE' && voiceState !== 'ERROR' && voiceState !== 'SPEAKING') return;
+
+    voiceService.stop();
+    setPlayingMessageId(null);
+
+    setVoiceState('REQUESTING_PERMISSION');
+    const hasPermission = await voiceRecordingService.requestMicrophonePermission();
+    if (!hasPermission) {
+      setVoiceState('IDLE');
+      setShowPermissionModal(true);
+      return;
+    }
+    startRecording();
+  };
+
+  const startRecording = async () => {
+    clearTimers();
+    setVoiceState('STARTING_RECORDING');
+    setSpeechStatus(copy.listening);
+
+    const started = await voiceRecordingService.startRecording();
+    if (!started) {
+      setVoiceState('ERROR');
+      setSpeechStatus('Microphone not available.');
+      setTimeout(() => { setVoiceState('IDLE'); setSpeechStatus(null); }, 3000);
+      return;
+    }
+
+    recordingStartTimeRef.current = Date.now();
+    setVoiceState('LISTENING');
+
+    recordingTimerRef.current = setTimeout(() => {
+      if (voiceState === 'LISTENING') handleStopRecording();
+    }, MAX_RECORDING_DURATION_MS);
+
+    hardSafetyTimerRef.current = setTimeout(() => {
+      clearTimers();
+      voiceRecordingService.cancelRecording();
+      setVoiceState('IDLE');
+      setSpeechStatus(copy.retryVoice);
+      setTimeout(() => setSpeechStatus(null), 2500);
+    }, HARD_SAFETY_TIMEOUT_MS);
+  };
+
+  const handleStopRecording = async () => {
+    clearTimers();
+    if (voiceState !== 'LISTENING') return;
+
+    setVoiceState('STOPPING_RECORDING');
+    setSpeechStatus(copy.transcribing);
+
+    try {
+      const recording = await voiceRecordingService.stopRecording();
+
+      if (!recording?.audioBase64 || recording.audioBase64.trim().length < 50) {
+        setVoiceState('ERROR');
+        setSpeechStatus(copy.retryVoice);
+        setTimeout(() => { setVoiceState('IDLE'); setSpeechStatus(null); }, 2500);
+        return;
+      }
+
+      setVoiceState('TRANSCRIBING');
+      const targetLang = selectedLang || activeLang || 'or';
+
+      const asrResult = await bhashiniClientService.transcribe(
+        recording.audioBase64,
+        targetLang,
+        { audioFormat: 'wav', samplingRate: 16000 }
+      );
+
+      if (asrResult?.transcript?.trim()) {
+        const transcript = asrResult.transcript.trim();
+        setVoiceState('RECOGNIZED');
+        setInputText(transcript);
+        setSpeechStatus(null);
+        setIsThinking(true);
+        sendMessage(transcript);
+        setTimeout(() => setVoiceState('IDLE'), 1200);
+      } else {
+        setVoiceState('ERROR');
+        setSpeechStatus(copy.retryVoice);
+        setTimeout(() => { setVoiceState('IDLE'); setSpeechStatus(null); }, 2500);
+      }
+    } catch {
+      setVoiceState('ERROR');
+      setSpeechStatus(copy.retryVoice);
+      setTimeout(() => { setVoiceState('IDLE'); setSpeechStatus(null); }, 3000);
+    } finally {
+      clearTimers();
+    }
+  };
+
+  const handleGrantPermission = async () => {
+    setShowPermissionModal(false);
+    setVoiceState('REQUESTING_PERMISSION');
+    const granted = await voiceRecordingService.requestMicrophonePermission();
+    if (granted) {
+      startRecording();
+    } else {
+      setVoiceState('IDLE');
+      setSpeechStatus('Microphone permission required for voice input.');
+      setTimeout(() => setSpeechStatus(null), 2500);
+    }
+  };
+
+  const handleLangChange = (code: LangCode) => {
+    setSelectedLang(code);
+    if (code !== activeLang) setLanguage(code as any);
+  };
+
+  // ── Render helpers ──
+
+  const isConversationEmpty = messages.length === 0 ||
+    (messages.length === 1 && messages[0].sender === 'saathi');
+
   const renderMessageItem = ({ item }: { item: EcoSaathiMessage }) => {
-    const isUser = item.sender === 'user';
-    const isThisPlaying = playingMessageId === item.id;
-
+    if (item.sender === 'user') {
+      return <UserMessage item={item} />;
+    }
     return (
-      <View
-        style={[
-          styles.messageRow,
-          isUser ? styles.messageRowUser : styles.messageRowSaathi,
-        ]}
-        accessibilityRole="text"
-        accessibilityLabel={`${isUser ? 'You' : 'Eco-Saathi'}: ${item.text}`}
-      >
-        {!isUser && (
-          <View style={styles.saathiAvatarMini}>
-            <AppIcon name="eco" size={16} color="#10B981" />
-          </View>
-        )}
-
-        <View
-          style={[
-            styles.messageBubble,
-            isUser ? styles.bubbleUser : styles.bubbleSaathi,
-            item.safetySensitivity === 'HAZARD_CRITICAL' && styles.bubbleHazard,
-          ]}
-        >
-          {/* Hazard Alert Badge */}
-          {item.safetySensitivity === 'HAZARD_CRITICAL' && (
-            <View style={styles.hazardBadge}>
-              <AppIcon name="alert" size={12} color="#FCA5A5" />
-              <Text style={styles.hazardBadgeText}>{copy.hazardAlert}</Text>
-            </View>
-          )}
-
-          {/* Message Content */}
-          <Text style={[styles.messageText, isUser ? styles.textUser : styles.textSaathi]}>
-            {item.text}
-          </Text>
-
-          {/* Individual Listen / Stop Button on Bot Messages */}
-          {!isUser && (
-            <TouchableOpacity
-              style={[
-                styles.bubbleListenBtn,
-                isThisPlaying && styles.bubbleListenBtnPlaying,
-              ]}
-              onPress={() => handlePlayIndividualMessage(item)}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel={`${isThisPlaying ? copy.stopBtn : copy.listenBtn} response`}
-            >
-              <AppIcon
-                name={isThisPlaying ? 'square' : 'volume'}
-                size={14}
-                color={isThisPlaying ? '#EF4444' : '#6EE7B7'}
-              />
-              <Text
-                style={[
-                  styles.bubbleListenText,
-                  isThisPlaying && styles.bubbleListenTextPlaying,
-                ]}
-              >
-                {isThisPlaying ? copy.stopBtn : copy.listenBtn}
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Suggested Navigation Action Button */}
-          {item.action && (
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => handleActionPress(item.action!)}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel={`Navigate to ${item.action.label}`}
-            >
-              <Text style={styles.actionButtonText}>↗ {item.action.label}</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
+      <SaathiMessage
+        item={item}
+        isPlaying={playingMessageId === item.id}
+        copy={copy}
+        onPlay={() => handlePlayMessage(item)}
+        onAction={handleAction}
+      />
     );
   };
+
+  const renderListHeader = () => {
+    if (isConversationEmpty) {
+      return (
+        <SaathiHomeState
+          quickReplies={quickReplies}
+          onQuickReply={handleQuickReply}
+          lang={selectedLang}
+        />
+      );
+    }
+    return null;
+  };
+
+  const renderListFooter = () => {
+    if (showThinking) {
+      return <SaathiTypingIndicator label={copy.thinking} />;
+    }
+    return null;
+  };
+
+  // ── Mic button style ──
+  const micBtnStyle = [
+    styles.micButton,
+    isRecording && styles.micButtonRecording,
+    isVoiceBusy && styles.micButtonBusy,
+    voiceState === 'SPEAKING' && styles.micButtonSpeaking,
+  ];
+
+  const micIcon = isRecording ? '⏹' : isVoiceBusy ? '' : '🎙️';
+  const micLabel = isRecording ? copy.stopBtn : copy.tapToSpeak;
 
   return (
     <Modal
@@ -426,250 +798,326 @@ export const EcoSaathiChatModal: React.FC = () => {
       <SafeAreaView style={styles.safeArea}>
         <StatusBar barStyle="light-content" backgroundColor="#02080D" />
 
-        {/* Pre-Permission Explanation Modal */}
+        {/* ── Microphone Permission Dialog ── */}
         <Modal
           visible={showPermissionModal}
-          transparent={true}
+          transparent
           animationType="fade"
           onRequestClose={() => setShowPermissionModal(false)}
         >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <View style={styles.modalIconWrap}>
-                <AppIcon name="mic" size={28} color="#10B981" />
+          <View style={styles.permissionOverlay}>
+            <View style={styles.permissionCard}>
+              <View style={styles.permissionIconWrap}>
+                <Text style={styles.permissionIcon}>🎙️</Text>
               </View>
-              <Text style={styles.modalTitle}>{copy.permissionTitle}</Text>
-              <Text style={styles.modalBody}>{copy.permissionWhy}</Text>
-              <View style={styles.modalActionRow}>
+              <Text style={styles.permissionTitle}>{copy.permissionTitle}</Text>
+              <Text style={styles.permissionBody}>{copy.permissionBody}</Text>
+              <View style={styles.permissionActions}>
                 <TouchableOpacity
-                  style={styles.modalSecondaryBtn}
+                  style={styles.permissionSecondaryBtn}
                   onPress={() => setShowPermissionModal(false)}
-                  activeOpacity={0.8}
                   accessibilityRole="button"
-                  accessibilityLabel={copy.permissionCancel}
+                  accessibilityLabel={copy.permissionType}
                 >
-                  <Text style={styles.modalSecondaryBtnText}>{copy.permissionCancel}</Text>
+                  <Text style={styles.permissionSecondaryText}>{copy.permissionType}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.modalPrimaryBtn}
+                  style={styles.permissionPrimaryBtn}
                   onPress={handleGrantPermission}
-                  activeOpacity={0.8}
                   accessibilityRole="button"
                   accessibilityLabel={copy.permissionAllow}
                 >
-                  <Text style={styles.modalPrimaryBtnText}>{copy.permissionAllow}</Text>
+                  <Text style={styles.permissionPrimaryText}>{copy.permissionAllow}</Text>
                 </TouchableOpacity>
               </View>
             </View>
           </View>
         </Modal>
 
-        {/* Modal Container */}
+        {/* ── Main Layout ── */}
         <KeyboardAvoidingView
           style={styles.container}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
         >
-          {/* Header */}
+
+          {/* ── Header ── */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              <View style={styles.avatarContainer}>
-                <AppIcon name="eco" size={22} color="#10B981" />
+              {/* Avatar */}
+              <View style={styles.avatarWrap}>
+                <Text style={styles.avatarMainEmoji}>🌱</Text>
                 <View style={styles.onlineDot} />
               </View>
-              <View>
-                <Text style={styles.headerTitle}>{copy.title}</Text>
-                <Text style={styles.headerSubtitle}>{copy.subtitle}</Text>
+
+              {/* Identity */}
+              <View style={styles.headerIdentity}>
+                <Text style={styles.headerTitle}>Eco-Saathi</Text>
+                <Text style={styles.headerSubtitle} numberOfLines={1}>
+                  {copy.subtitle}
+                </Text>
               </View>
             </View>
 
+            {/* Header actions */}
             <View style={styles.headerRight}>
-              {/* Voice Readout Toggle Button */}
+              {/* Voice readout toggle */}
               <TouchableOpacity
                 style={[
-                  styles.voiceToggleButton,
-                  isVoiceOutputEnabled ? styles.voiceToggleActive : styles.voiceToggleMuted,
+                  styles.headerActionBtn,
+                  isVoiceOutputEnabled ? styles.headerActionBtnActive : styles.headerActionBtnMuted,
                 ]}
                 onPress={() => {
-                  const nextState = !isVoiceOutputEnabled;
-                  setIsVoiceOutputEnabled(nextState);
-                  if (!nextState) {
-                    voiceService.stop();
-                    setPlayingMessageId(null);
-                  }
+                  const next = !isVoiceOutputEnabled;
+                  setIsVoiceOutputEnabled(next);
+                  if (!next) { voiceService.stop(); setPlayingMessageId(null); }
                 }}
                 accessibilityRole="button"
                 accessibilityLabel={isVoiceOutputEnabled ? copy.voiceOn : copy.voiceOff}
               >
-                <AppIcon
-                  name={isVoiceOutputEnabled ? 'volume' : 'volumeMute'}
-                  size={14}
-                  color={isVoiceOutputEnabled ? '#6EE7B7' : '#94A3B8'}
-                />
-                <Text style={styles.voiceToggleText}>
+                <Text style={styles.headerActionIcon}>
+                  {isVoiceOutputEnabled ? '🔊' : '🔇'}
+                </Text>
+                <Text style={[
+                  styles.headerActionText,
+                  !isVoiceOutputEnabled && styles.headerActionTextMuted,
+                ]}>
                   {isVoiceOutputEnabled ? copy.voiceOn : copy.voiceOff}
                 </Text>
               </TouchableOpacity>
 
+              {/* New chat */}
               <TouchableOpacity
-                style={styles.resetButton}
-                onPress={handleClear}
+                style={styles.headerIconBtn}
+                onPress={handleNewChat}
                 accessibilityRole="button"
-                accessibilityLabel="Reset conversation"
+                accessibilityLabel="Start new conversation"
               >
-                <AppIcon name="refresh" size={13} color="#CBD5E1" />
-                <Text style={styles.resetButtonText}>{copy.reset}</Text>
+                <Text style={styles.headerIconBtnText}>🔄</Text>
               </TouchableOpacity>
 
+              {/* Close */}
               <TouchableOpacity
-                style={styles.closeButton}
+                style={[styles.headerIconBtn, styles.closeBtn]}
                 onPress={handleClose}
                 accessibilityRole="button"
                 accessibilityLabel="Close Eco-Saathi"
               >
-                <AppIcon name="close" size={16} color="#FFFFFF" />
+                <Text style={styles.closeBtnText}>✕</Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Speech Status Banner */}
-          {speechStatus && (
-            <View style={[styles.speechStatusBanner, isListening && styles.speechStatusBannerActive]}>
-              <View style={isListening ? styles.listeningPulse : styles.statusIconDot} />
-              <Text style={styles.speechStatusText}>{speechStatus}</Text>
+          {/* ── Language Selector ── */}
+          <View style={styles.langBar}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.langBarContent}
+            >
+              {LANGUAGES.map((l) => {
+                const active = selectedLang === l.code;
+                return (
+                  <TouchableOpacity
+                    key={l.code}
+                    style={[styles.langPill, active && styles.langPillActive]}
+                    onPress={() => handleLangChange(l.code as LangCode)}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Select ${l.fullLabel}`}
+                  >
+                    <Text style={[styles.langPillText, active && styles.langPillTextActive]}>
+                      {l.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* ── Listening / Status Banner ── */}
+          {(isRecording || isVoiceBusy || speechStatus) && (
+            <View
+              style={[
+                styles.statusBanner,
+                isRecording && styles.statusBannerRecording,
+                voiceState === 'ERROR' && styles.statusBannerError,
+              ]}
+            >
+              {isRecording ? (
+                <RecordingPulse />
+              ) : (
+                <View style={styles.statusDot} />
+              )}
+              <Text style={styles.statusBannerText} numberOfLines={1}>
+                {speechStatus ||
+                  (isRecording ? copy.listening : copy.transcribing)}
+              </Text>
+              {isRecording && (
+                <TouchableOpacity
+                  style={styles.stopPill}
+                  onPress={handleStopRecording}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={copy.stopBtn}
+                >
+                  <Text style={styles.stopPillText}>⏹ {copy.stopBtn}</Text>
+                </TouchableOpacity>
+              )}
+              {isVoiceBusy && (
+                <ActivityIndicator size="small" color="#10B981" style={{ marginLeft: 4 }} />
+              )}
             </View>
           )}
 
-          {/* Offline Banner */}
+          {/* ── Offline Banner ── */}
           {!isOnline && (
             <View style={styles.offlineBanner}>
-              <AppIcon name="alert" size={14} color="#FDE68A" />
-              <Text style={styles.offlineBannerText}>{copy.offlineBanner}</Text>
+              <Text style={styles.offlineBannerText}>🚫 {copy.offline}</Text>
             </View>
           )}
 
-          {/* Messages Stream */}
+          {/* ── Conversation ── */}
           <FlatList
             ref={flatListRef}
+            style={styles.conversationList}
             data={messages}
             renderItem={renderMessageItem}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.messageList}
+            contentContainerStyle={styles.conversationContent}
+            ListHeaderComponent={renderListHeader}
+            ListFooterComponent={renderListFooter}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           />
 
-          {/* Quick Replies Tray */}
-          {quickReplies.length > 0 && (
-            <View style={styles.quickRepliesContainer}>
-              <FlatList
+          {/* ── Quick Replies Tray (after conversation starts) ── */}
+          {!isConversationEmpty && quickReplies.length > 0 && (
+            <View style={styles.quickRepliesTray}>
+              <ScrollView
                 horizontal
-                data={quickReplies}
-                keyExtractor={(item) => item.id}
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.quickRepliesList}
-                renderItem={({ item }) => (
+                contentContainerStyle={styles.quickRepliesTrayContent}
+              >
+                {quickReplies.map((qr) => (
                   <TouchableOpacity
-                    style={styles.quickReplyChip}
-                    onPress={() => handleQuickReplyPress(item)}
+                    key={qr.id}
+                    style={styles.quickReplyPill}
+                    onPress={() => handleQuickReply(qr)}
                     activeOpacity={0.75}
                     accessibilityRole="button"
-                    accessibilityLabel={item.label}
+                    accessibilityLabel={qr.label}
                   >
-                    <Text style={styles.quickReplyText}>{item.label}</Text>
+                    <Text style={styles.quickReplyPillText}>{qr.label}</Text>
                   </TouchableOpacity>
-                )}
-              />
+                ))}
+              </ScrollView>
             </View>
           )}
 
-          {/* Input Bar with Voice Mic Button */}
-          <View style={styles.inputContainer}>
+          {/* ── Composer ── */}
+          <View style={styles.composer}>
+            {/* Mic button — prominent, voice-first */}
             <TouchableOpacity
-              style={[
-                styles.micButton,
-                isListening && styles.micButtonActive,
-              ]}
+              style={micBtnStyle}
               onPress={handleMicPress}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel={isListening ? 'Stop voice input' : 'Start voice input'}
+              accessibilityLabel={micLabel}
+              accessibilityHint="Tap to speak your question to Eco-Saathi"
             >
-              <AppIcon
-                name={isListening ? 'square' : 'mic'}
-                size={20}
-                color={isListening ? '#EF4444' : '#10B981'}
-              />
+              {isVoiceBusy ? (
+                <ActivityIndicator size="small" color="#10B981" />
+              ) : (
+                <Text style={styles.micIcon}>{micIcon}</Text>
+              )}
             </TouchableOpacity>
 
+            {/* Text input */}
             <TextInput
-              style={[styles.input, isListening && styles.inputListening]}
-              placeholder={isListening ? copy.listeningStatus : copy.inputPlaceholder}
-              placeholderTextColor={isListening ? '#10B981' : '#64748B'}
+              ref={inputRef}
+              style={[styles.textInput, isRecording && styles.textInputListening]}
+              placeholder={isRecording ? copy.listening : copy.placeholder}
+              placeholderTextColor={isRecording ? '#10B981' : '#64748B'}
               value={inputText}
               onChangeText={setInputText}
               onSubmitEditing={handleSend}
               returnKeyType="send"
-              accessibilityLabel="Chat input field"
+              editable={voiceState === 'IDLE' || voiceState === 'ERROR' || voiceState === 'RECOGNIZED'}
+              accessibilityLabel="Type your message"
+              multiline={false}
             />
 
+            {/* Send button */}
             <TouchableOpacity
-              style={[
-                styles.sendButton,
-                !inputText.trim() && styles.sendButtonDisabled,
-              ]}
+              style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
               onPress={handleSend}
               disabled={!inputText.trim()}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Send message"
+              accessibilityLabel={copy.send}
             >
-              <AppIcon
-                name="send"
-                size={18}
-                color={inputText.trim() ? '#02080D' : '#64748B'}
-              />
+              <Text style={[styles.sendIcon, !inputText.trim() && styles.sendIconDisabled]}>
+                📤
+              </Text>
             </TouchableOpacity>
           </View>
+
         </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
   );
 };
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+//
+// CRITICAL: No hardcoded modal width/height.
+// All sizing uses flex, min/max constraints, or content-driven sizing.
+// The modal fills the full native SafeAreaView on every screen size.
+
 const styles = StyleSheet.create({
+  // ── Foundation ──────────────────────────────────────────────────────────────
   safeArea: {
     flex: 1,
     backgroundColor: '#02080D',
   },
   container: {
     flex: 1,
-    backgroundColor: '#030C12',
+    backgroundColor: '#03080F',
   },
+
+  // ── Header ──────────────────────────────────────────────────────────────────
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: 'rgba(7, 30, 34, 0.96)',
+    paddingVertical: 11,
+    backgroundColor: '#041218',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.07)',
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flexShrink: 1,
   },
-  avatarContainer: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+  avatarWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
     borderWidth: 1.5,
     borderColor: '#10B981',
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    flexShrink: 0,
+  },
+  avatarMainEmoji: {
+    fontSize: 22,
+    lineHeight: 26,
   },
   onlineDot: {
     position: 'absolute',
@@ -682,294 +1130,527 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#02080D',
   },
+  headerIdentity: {
+    flexShrink: 1,
+  },
   headerTitle: {
-    fontSize: 16.5,
+    fontSize: 16,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   headerSubtitle: {
     fontSize: 11.5,
     color: '#94A3B8',
     fontWeight: '500',
+    marginTop: 1,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    flexShrink: 0,
   },
-  voiceToggleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 14,
-    borderWidth: 1,
-    minHeight: 36,
-  },
-  voiceToggleActive: {
-    backgroundColor: 'rgba(16, 185, 129, 0.20)',
-    borderColor: '#10B981',
-  },
-  voiceToggleMuted: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-  },
-  voiceToggleText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#6EE7B7',
-  },
-  resetButton: {
+  headerActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 9,
     paddingVertical: 6,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
     minHeight: 36,
   },
-  resetButtonText: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#CBD5E1',
+  headerActionBtnActive: {
+    backgroundColor: 'rgba(16, 185, 129, 0.14)',
+    borderColor: 'rgba(16, 185, 129, 0.45)',
   },
-  closeButton: {
+  headerActionBtnMuted: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  headerActionIcon: {
+    fontSize: 13,
+  },
+  headerActionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6EE7B7',
+  },
+  headerActionTextMuted: {
+    color: '#64748B',
+  },
+  headerIconBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  speechStatusBanner: {
+  headerIconBtnText: {
+    fontSize: 14,
+  },
+  closeBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+  },
+  closeBtnText: {
+    fontSize: 13,
+    color: '#CBD5E1',
+    fontWeight: '700',
+  },
+
+  // ── Language Bar ─────────────────────────────────────────────────────────────
+  langBar: {
+    backgroundColor: '#030E14',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  langBarContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    gap: 6,
+  },
+  langPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.09)',
+    minHeight: 30,
+    justifyContent: 'center',
+  },
+  langPillActive: {
+    backgroundColor: 'rgba(16, 185, 129, 0.18)',
+    borderColor: '#10B981',
+  },
+  langPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  langPillTextActive: {
+    color: '#6EE7B7',
+    fontWeight: '800',
+  },
+
+  // ── Status Banner ────────────────────────────────────────────────────────────
+  statusBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    backgroundColor: '#071C22',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
-    gap: 10,
+    borderBottomColor: 'rgba(255, 255, 255, 0.07)',
+    gap: 8,
   },
-  speechStatusBannerActive: {
-    backgroundColor: 'rgba(6, 78, 59, 0.95)',
+  statusBannerRecording: {
+    backgroundColor: 'rgba(6, 78, 59, 0.90)',
     borderBottomColor: '#10B981',
   },
-  listeningPulse: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#EF4444',
+  statusBannerError: {
+    backgroundColor: 'rgba(100, 20, 20, 0.80)',
+    borderBottomColor: '#EF4444',
   },
-  statusIconDot: {
+  statusDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: '#10B981',
+    flexShrink: 0,
   },
-  speechStatusText: {
+  recordingDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#EF4444',
+    flexShrink: 0,
+  },
+  statusBannerText: {
+    flex: 1,
     fontSize: 13,
     fontWeight: '600',
-    color: '#F1F5F9',
+    color: '#E2E8F0',
   },
+  stopPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    backgroundColor: '#EF4444',
+    flexShrink: 0,
+  },
+  stopPillText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+
+  // ── Offline Banner ───────────────────────────────────────────────────────────
   offlineBanner: {
+    backgroundColor: 'rgba(120, 80, 0, 0.25)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(245, 158, 11, 0.30)',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  offlineBannerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FDE68A',
+  },
+
+  // ── Conversation ─────────────────────────────────────────────────────────────
+  conversationList: {
+    flex: 1,
+  },
+  conversationContent: {
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 8,
+    gap: 10,
+    flexGrow: 1,
+  },
+
+  // ── Home State ───────────────────────────────────────────────────────────────
+  homeState: {
+    paddingBottom: 4,
+  },
+  homeGreetingRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 20,
+  },
+  homeAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(16, 185, 129, 0.14)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(16, 185, 129, 0.40)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+    marginTop: 2,
+  },
+  homeAvatarEmoji: {
+    fontSize: 24,
+    lineHeight: 28,
+  },
+  homeGreetingBubble: {
+    flex: 1,
+    backgroundColor: '#071E26',
+    borderRadius: 16,
+    borderBottomLeftRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.22)',
+    padding: 14,
+    gap: 6,
+  },
+  homeHello: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  homeIntro: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#CBD5E1',
+    lineHeight: 20,
+  },
+  homePromptSection: {
+    gap: 12,
+    paddingHorizontal: 2,
+  },
+  homePromptLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#94A3B8',
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
+  },
+  quickActionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+
+  // ── Quick Action Chip ─────────────────────────────────────────────────────────
+  quickActionChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(245, 158, 11, 0.35)',
+    backgroundColor: '#071E26',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.28)',
+    borderRadius: 14,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 12,
+    // Allow chips to grow but not overflow on very narrow screens
+    minWidth: '44%',
+    flexGrow: 1,
+    flexBasis: '44%',
+    maxWidth: '100%',
+    minHeight: 52,
   },
-  offlineBannerText: {
+  quickActionIcon: {
+    fontSize: 20,
+    flexShrink: 0,
+  },
+  quickActionLabel: {
     flex: 1,
-    fontSize: 12,
-    color: '#FDE68A',
+    fontSize: 13,
     fontWeight: '600',
+    color: '#A7F3D0',
+    lineHeight: 18,
   },
-  messageList: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 12,
-  },
+
+  // ── Message Rows ──────────────────────────────────────────────────────────────
   messageRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    marginVertical: 4,
+    gap: 8,
+    marginVertical: 2,
   },
   messageRowUser: {
     justifyContent: 'flex-end',
   },
-  messageRowSaathi: {
-    justifyContent: 'flex-start',
-    gap: 8,
-  },
   saathiAvatarMini: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(16, 185, 129, 0.20)',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4,
+    flexShrink: 0,
+    marginBottom: 2,
+  },
+  avatarEmoji: {
+    fontSize: 16,
+    lineHeight: 20,
   },
   messageBubble: {
-    maxWidth: '84%',
+    // No hardcoded maxWidth — use flex constraints
+    flexShrink: 1,
+    maxWidth: '82%',
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 11,
     borderRadius: 18,
+  },
+  bubbleSaathi: {
+    backgroundColor: '#071E26',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+    borderBottomLeftRadius: 4,
   },
   bubbleUser: {
     backgroundColor: '#059669',
     borderBottomRightRadius: 4,
-  },
-  bubbleSaathi: {
-    backgroundColor: '#071E22',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.30)',
-    borderBottomLeftRadius: 4,
+    alignSelf: 'flex-end',
   },
   bubbleHazard: {
+    backgroundColor: 'rgba(50, 10, 15, 0.96)',
     borderColor: '#EF4444',
-    backgroundColor: 'rgba(40, 10, 15, 0.95)',
-  },
-  hazardBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(239, 68, 68, 0.25)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-    marginBottom: 6,
-  },
-  hazardBadgeText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#FCA5A5',
-    letterSpacing: 0.3,
   },
   messageText: {
-    fontSize: 14.5,
-    lineHeight: 21,
-  },
-  textUser: {
-    color: '#FFFFFF',
-    fontWeight: '500',
+    fontSize: 15,
+    lineHeight: 22,
   },
   textSaathi: {
     color: '#F1F5F9',
     fontWeight: '400',
   },
-  bubbleListenBtn: {
+  textUser: {
+    color: '#FFFFFF',
+    fontWeight: '500',
+  },
+
+  // ── Hazard Badge ──────────────────────────────────────────────────────────────
+  hazardBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(239, 68, 68, 0.22)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginBottom: 6,
+  },
+  hazardBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FCA5A5',
+    letterSpacing: 0.2,
+  },
+
+  // ── TTS Button ────────────────────────────────────────────────────────────────
+  ttsButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: 'rgba(16, 185, 129, 0.10)',
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.35)',
+    borderColor: 'rgba(16, 185, 129, 0.28)',
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 14,
+    paddingVertical: 5,
+    borderRadius: 12,
     marginTop: 8,
-    minHeight: 32,
+    minHeight: 30,
   },
-  bubbleListenBtnPlaying: {
-    backgroundColor: 'rgba(239, 68, 68, 0.20)',
+  ttsButtonPlaying: {
+    backgroundColor: 'rgba(239, 68, 68, 0.16)',
     borderColor: '#EF4444',
   },
-  bubbleListenText: {
+  ttsButtonIcon: {
+    fontSize: 13,
+  },
+  ttsButtonText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#6EE7B7',
   },
-  bubbleListenTextPlaying: {
+  ttsButtonTextPlaying: {
     color: '#F87171',
   },
-  actionButton: {
+
+  // ── Action Chip ───────────────────────────────────────────────────────────────
+  actionChip: {
     marginTop: 10,
-    backgroundColor: 'rgba(16, 185, 129, 0.18)',
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(16, 185, 129, 0.14)',
     borderWidth: 1.2,
     borderColor: '#10B981',
-    paddingVertical: 8,
+    paddingVertical: 7,
     paddingHorizontal: 14,
     borderRadius: 20,
-    alignSelf: 'flex-start',
+    minHeight: 36,
+    justifyContent: 'center',
   },
-  actionButtonText: {
+  actionChipText: {
     fontSize: 13,
     fontWeight: '700',
     color: '#6EE7B7',
   },
-  quickRepliesContainer: {
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
-    backgroundColor: '#030C12',
-  },
-  quickRepliesList: {
+
+  // ── Typing Indicator ──────────────────────────────────────────────────────────
+  typingBubble: {
+    paddingVertical: 10,
     paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  typingDotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    height: 16,
+  },
+  typingDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#10B981',
+  },
+  typingLabel: {
+    fontSize: 13,
+    color: '#94A3B8',
+    fontWeight: '500',
+    fontStyle: 'italic',
+    flexShrink: 1,
+  },
+
+  // ── Quick Replies Tray ────────────────────────────────────────────────────────
+  quickRepliesTray: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#03080F',
+  },
+  quickRepliesTrayContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     gap: 8,
   },
-  quickReplyChip: {
-    backgroundColor: '#071E22',
+  quickReplyPill: {
+    backgroundColor: '#071E26',
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.35)',
+    borderColor: 'rgba(16, 185, 129, 0.30)',
     paddingHorizontal: 13,
     paddingVertical: 8,
-    borderRadius: 18,
+    borderRadius: 20,
+    minHeight: 36,
+    justifyContent: 'center',
   },
-  quickReplyText: {
-    fontSize: 12.5,
+  quickReplyPillText: {
+    fontSize: 13,
     fontWeight: '600',
     color: '#A7F3D0',
   },
-  inputContainer: {
+
+  // ── Composer ─────────────────────────────────────────────────────────────────
+  composer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#071E22',
+    backgroundColor: '#041218',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.10)',
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
     gap: 8,
   },
   micButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(16, 185, 129, 0.40)',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 2,
+    borderColor: 'rgba(16, 185, 129, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0,
+    // Voice is the primary affordance — give it visual weight
+    elevation: 3,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
   },
-  micButtonActive: {
-    backgroundColor: 'rgba(239, 68, 68, 0.25)',
+  micButtonRecording: {
+    backgroundColor: 'rgba(239, 68, 68, 0.22)',
     borderColor: '#EF4444',
+    shadowColor: '#EF4444',
   },
-  input: {
+  micButtonBusy: {
+    backgroundColor: 'rgba(16, 185, 129, 0.18)',
+    borderColor: '#10B981',
+  },
+  micButtonSpeaking: {
+    backgroundColor: 'rgba(6, 182, 212, 0.14)',
+    borderColor: '#06B6D4',
+    shadowColor: '#06B6D4',
+  },
+  micIcon: {
+    fontSize: 22,
+    lineHeight: 26,
+    textAlign: 'center',
+  },
+  textInput: {
     flex: 1,
-    height: 48,
+    // No hardcoded height — use minHeight and let content expand if needed
+    minHeight: 48,
+    maxHeight: 48,
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderRadius: 24,
     paddingHorizontal: 16,
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 15,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.10)',
   },
-  inputListening: {
+  textInputListening: {
     borderColor: '#10B981',
-    backgroundColor: 'rgba(16, 185, 129, 0.10)',
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
   },
   sendButton: {
     width: 48,
@@ -978,80 +1659,92 @@ const styles = StyleSheet.create({
     backgroundColor: '#10B981',
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0,
   },
   sendButtonDisabled: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
   },
-  modalOverlay: {
+  sendIcon: {
+    fontSize: 18,
+    lineHeight: 22,
+  },
+  sendIconDisabled: {
+    opacity: 0.4,
+  },
+
+  // ── Permission Modal ──────────────────────────────────────────────────────────
+  permissionOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(2, 8, 13, 0.85)',
+    backgroundColor: 'rgba(2, 8, 13, 0.88)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
-  modalCard: {
+  permissionCard: {
     width: '100%',
     maxWidth: 360,
-    backgroundColor: '#071E22',
+    backgroundColor: '#071E26',
     borderWidth: 1.5,
     borderColor: '#10B981',
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 22,
+    padding: 22,
     alignItems: 'center',
     gap: 12,
   },
-  modalIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(16, 185, 129, 0.18)',
+  permissionIconWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(16, 185, 129, 0.14)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 4,
   },
-  modalTitle: {
-    fontSize: 17,
+  permissionIcon: {
+    fontSize: 28,
+    lineHeight: 34,
+  },
+  permissionTitle: {
+    fontSize: 18,
     fontWeight: '800',
     color: '#FFFFFF',
     textAlign: 'center',
   },
-  modalBody: {
+  permissionBody: {
     fontSize: 14,
     color: '#CBD5E1',
     textAlign: 'center',
     lineHeight: 21,
   },
-  modalActionRow: {
+  permissionActions: {
     flexDirection: 'row',
     gap: 10,
     marginTop: 8,
     width: '100%',
   },
-  modalSecondaryBtn: {
+  permissionSecondaryBtn: {
     flex: 1,
-    paddingVertical: 12,
+    minHeight: 48,
     borderRadius: 12,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
+    alignItems: 'center',
   },
-  modalSecondaryBtnText: {
+  permissionSecondaryText: {
     fontSize: 13,
     fontWeight: '700',
     color: '#94A3B8',
   },
-  modalPrimaryBtn: {
+  permissionPrimaryBtn: {
     flex: 1.2,
-    paddingVertical: 12,
+    minHeight: 48,
     borderRadius: 12,
     backgroundColor: '#10B981',
-    alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
+    alignItems: 'center',
   },
-  modalPrimaryBtnText: {
-    fontSize: 13.5,
+  permissionPrimaryText: {
+    fontSize: 14,
     fontWeight: '800',
     color: '#02080D',
   },

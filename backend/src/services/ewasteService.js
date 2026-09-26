@@ -15,7 +15,23 @@ class EwasteService {
    * @param {object} [file] - Optional uploaded image file { filename, mimetype, buffer }
    * @returns {Promise<object>} Created item and AI prediction result
    */
-  async createItem(citizenId, { category, description, quantity, condition, estimatedWeightKg, imageUrl }, file = null) {
+  async createItem(
+    citizenId,
+    {
+      category,
+      description,
+      quantity,
+      condition,
+      estimatedWeightKg,
+      imageUrl,
+      aiDetectedCategory,
+      aiConfidence,
+      wasAccepted,
+      modelVersion,
+      allPredictions,
+    },
+    file = null
+  ) {
     if (!category || !EWASTE_CATEGORIES[category]) {
       throw AppError.validation(`Invalid e-waste category: ${category}`);
     }
@@ -46,11 +62,29 @@ class EwasteService {
       },
     });
 
-    // In accordance with docs/05_API_SPECIFICATION.md:
-    // aiPrediction is null if requestAiPrediction is false or AI service is unavailable (deferred microservice)
+    let createdAiPrediction = null;
+    if (aiDetectedCategory && EWASTE_CATEGORIES[aiDetectedCategory]) {
+      try {
+        createdAiPrediction = await prisma.aiPrediction.create({
+          data: {
+            ewasteItemId: item.id,
+            imageUrl: finalImageUrl || '',
+            predictedCategory: aiDetectedCategory,
+            confidence: aiConfidence !== undefined && aiConfidence !== null ? parseFloat(aiConfidence) : 0.85,
+            wasAccepted: wasAccepted !== undefined ? Boolean(wasAccepted) : (category === aiDetectedCategory),
+            userCorrectedCategory: category !== aiDetectedCategory ? category : null,
+            modelVersion: modelVersion || 'ecosetu-roboflow-v1',
+            allPredictions: allPredictions || null,
+          },
+        });
+      } catch (aiErr) {
+        console.warn('[EwasteService] AI prediction save warning:', aiErr?.message || aiErr);
+      }
+    }
+
     return {
       item,
-      aiPrediction: null,
+      aiPrediction: createdAiPrediction,
     };
   }
 
@@ -343,6 +377,7 @@ class EwasteService {
             role: true,
           },
         },
+        aiPredictions: true,
         collectionRequest: {
           include: {
             collector: {
@@ -353,6 +388,15 @@ class EwasteService {
               },
             },
             pickup: true,
+            pickupOffers: {
+              include: {
+                collector: {
+                  include: {
+                    user: { select: { id: true, name: true, role: true } },
+                  },
+                },
+              },
+            },
           },
         },
         consignmentItems: {
@@ -400,11 +444,11 @@ class EwasteService {
     // 1. ITEM_SUBMITTED
     events.push({
       event: 'ITEM_SUBMITTED',
+      stage: 'ITEM_SUBMITTED',
+      description: `E-waste item registered: ${item.category?.replace(/_/g, ' ') || 'Item'} (${item.condition || 'Unknown'})`,
       timestamp: item.createdAt,
-      actor: {
-        name: item.citizen?.name || 'Citizen',
-        role: ROLES.CITIZEN,
-      },
+      actor: item.citizen?.name || 'Citizen',
+      actorRole: ROLES.CITIZEN,
       details: {
         category: item.category,
         condition: item.condition,
@@ -412,30 +456,114 @@ class EwasteService {
       },
     });
 
-    // 2. REQUEST_SUBMITTED
+    // 1b. IMAGE_UPLOADED
+    if (item.imageUrl) {
+      events.push({
+        event: 'IMAGE_UPLOADED',
+        stage: 'IMAGE_UPLOADED',
+        description: 'Citizen captured and uploaded material photograph for verification',
+        timestamp: item.createdAt,
+        actor: item.citizen?.name || 'Citizen',
+        actorRole: ROLES.CITIZEN,
+        details: {
+          imageUrl: item.imageUrl,
+        },
+      });
+    }
+
+    // 1c. AI_CLASSIFIED
+    if (item.aiPredictions && item.aiPredictions.length > 0) {
+      for (const pred of item.aiPredictions) {
+        events.push({
+          event: 'AI_CLASSIFIED',
+          stage: 'AI_CLASSIFIED',
+          description: `EcoSetu AI detected material as ${pred.predictedCategory || item.category} (${Math.round((parseFloat(pred.confidence) || 0.85) * 100)}% confidence)`,
+          timestamp: pred.createdAt,
+          actor: 'EcoSetu AI Classifier',
+          actorRole: 'SYSTEM',
+          details: {
+            predictedCategory: pred.predictedCategory,
+            confidence: pred.confidence !== null ? parseFloat(pred.confidence) : 0.85,
+            wasAccepted: pred.wasAccepted,
+            userCorrectedCategory: pred.userCorrectedCategory,
+          },
+        });
+      }
+    }
+
+    // 1d. CITIZEN_CONFIRMED
+    events.push({
+      event: 'CITIZEN_CONFIRMED',
+      stage: 'CITIZEN_CONFIRMED',
+      description: `Citizen confirmed category as ${item.category?.replace(/_/g, ' ') || 'Item'}`,
+      timestamp: item.createdAt,
+      actor: item.citizen?.name || 'Citizen',
+      actorRole: ROLES.CITIZEN,
+      details: {
+        confirmedCategory: item.category,
+        condition: item.condition,
+      },
+    });
+
+    // 2. REQUEST_SUBMITTED / OFFERS_OPENED
     if (item.collectionRequest && item.collectionRequest.submittedAt) {
       events.push({
         event: 'REQUEST_SUBMITTED',
+        stage: 'REQUEST_SUBMITTED',
+        description: 'Pickup request broadcasted to active nearby collectors',
         timestamp: item.collectionRequest.submittedAt,
-        actor: {
-          name: item.citizen?.name || 'Citizen',
-          role: ROLES.CITIZEN,
-        },
+        actor: item.citizen?.name || 'Citizen',
+        actorRole: ROLES.CITIZEN,
         details: {
           pickupAddress: item.collectionRequest.pickupAddress,
         },
       });
     }
 
-    // 3. REQUEST_ACCEPTED
+    // 2b. COLLECTOR OFFERS & NEGOTIATION
+    if (item.collectionRequest && item.collectionRequest.pickupOffers) {
+      for (const off of item.collectionRequest.pickupOffers) {
+        events.push({
+          event: 'OFFER_SUBMITTED',
+          stage: 'OFFER_SUBMITTED',
+          description: `Collector ${off.collector?.user?.name || 'Collector'} submitted price offer of ₹${off.offeredPrice}`,
+          timestamp: off.createdAt,
+          actor: off.collector?.user?.name || 'Collector',
+          actorRole: ROLES.INFORMAL_COLLECTOR,
+          details: {
+            offerId: off.id,
+            offeredPrice: parseFloat(off.offeredPrice),
+            status: off.status,
+            notes: off.notes,
+          },
+        });
+
+        if (off.notes && off.notes.includes('Citizen Counter')) {
+          events.push({
+            event: 'OFFER_COUNTERED',
+            stage: 'OFFER_COUNTERED',
+            description: `Citizen negotiated counter-offer with collector: ${off.notes}`,
+            timestamp: off.updatedAt || off.createdAt,
+            actor: item.citizen?.name || 'Citizen',
+            actorRole: ROLES.CITIZEN,
+            details: {
+              offerId: off.id,
+              notes: off.notes,
+            },
+          });
+        }
+      }
+    }
+
+    // 3. REQUEST_ACCEPTED / OFFER_ACCEPTED
     if (item.collectionRequest && item.collectionRequest.acceptedAt) {
       events.push({
         event: 'REQUEST_ACCEPTED',
+        stage: 'REQUEST_ACCEPTED',
+        description: `Offer accepted and pickup assigned to collector ${item.collectionRequest.collector?.user?.name || 'Collector'}`,
         timestamp: item.collectionRequest.acceptedAt,
-        actor: {
-          name: item.collectionRequest.collector?.user?.name || 'Collector',
-          role: ROLES.INFORMAL_COLLECTOR,
-        },
+        actor: item.collectionRequest.collector?.user?.name || 'Collector',
+        actorRole: ROLES.INFORMAL_COLLECTOR,
         details: {},
       });
     }
@@ -444,11 +572,11 @@ class EwasteService {
     if (item.collectionRequest && item.collectionRequest.pickup && item.collectionRequest.pickup.completedAt) {
       events.push({
         event: 'PICKUP_COMPLETED',
+        stage: 'PICKUP_COMPLETED',
+        description: `Doorstep collection and digital weighing completed (${item.actualWeightKg || item.estimatedWeightKg || '—'} kg)`,
         timestamp: item.collectionRequest.pickup.completedAt,
-        actor: {
-          name: item.collectionRequest.collector?.user?.name || 'Collector',
-          role: ROLES.INFORMAL_COLLECTOR,
-        },
+        actor: item.collectionRequest.collector?.user?.name || 'Collector',
+        actorRole: ROLES.INFORMAL_COLLECTOR,
         details: {
           actualWeightKg: item.actualWeightKg !== null ? parseFloat(item.actualWeightKg) : null,
         },
@@ -468,11 +596,11 @@ class EwasteService {
         // CONSIGNMENT_CREATED
         events.push({
           event: 'CONSIGNMENT_CREATED',
+          stage: 'CONSIGNMENT_CREATED',
+          description: `Consigned to formal recycler facility ${c.recycler?.facilityName || 'Recycler Facility'}`,
           timestamp: c.createdAt,
-          actor: {
-            name: c.collector?.user?.name || 'Collector',
-            role: ROLES.INFORMAL_COLLECTOR,
-          },
+          actor: c.collector?.user?.name || 'Collector',
+          actorRole: ROLES.INFORMAL_COLLECTOR,
           details: {
             consignmentId: c.id,
             recyclerName: c.recycler?.facilityName || 'Recycler Facility',
@@ -483,11 +611,11 @@ class EwasteService {
         if (c.acceptedAt) {
           events.push({
             event: 'CONSIGNMENT_ACCEPTED',
+            stage: 'CONSIGNMENT_ACCEPTED',
+            description: `Recycler verified and accepted consignment at facility`,
             timestamp: c.acceptedAt,
-            actor: {
-              name: c.recycler?.facilityName || c.recycler?.user?.name || 'Recycler Facility',
-              role: ROLES.RECYCLER,
-            },
+            actor: c.recycler?.facilityName || c.recycler?.user?.name || 'Recycler Facility',
+            actorRole: ROLES.RECYCLER,
             details: {
               consignmentId: c.id,
             },
@@ -498,11 +626,11 @@ class EwasteService {
         if (c.recyclingRecord && c.recyclingRecord.processingStartedAt) {
           events.push({
             event: 'RECYCLING_STARTED',
+            stage: 'RECYCLING_STARTED',
+            description: 'Material recycling and formal processing started',
             timestamp: c.recyclingRecord.processingStartedAt,
-            actor: {
-              name: c.recycler?.facilityName || c.recycler?.user?.name || 'Recycler Facility',
-              role: ROLES.RECYCLER,
-            },
+            actor: c.recycler?.facilityName || c.recycler?.user?.name || 'Recycler Facility',
+            actorRole: ROLES.RECYCLER,
             details: {},
           });
         }
@@ -511,11 +639,11 @@ class EwasteService {
         if (c.recyclingRecord && c.recyclingRecord.completedAt) {
           events.push({
             event: 'RECYCLING_COMPLETED',
+            stage: 'RECYCLING_COMPLETED',
+            description: `Formal recycling completed (${c.recyclingRecord.outputWeightKg || '—'} kg recovered). Green Certificate generated.`,
             timestamp: c.recyclingRecord.completedAt,
-            actor: {
-              name: c.recycler?.facilityName || c.recycler?.user?.name || 'Recycler Facility',
-              role: ROLES.RECYCLER,
-            },
+            actor: c.recycler?.facilityName || c.recycler?.user?.name || 'Recycler Facility',
+            actorRole: ROLES.RECYCLER,
             details: {
               outputDescription: c.recyclingRecord.outputDescription,
               outputWeightKg:
@@ -538,6 +666,7 @@ class EwasteService {
         createdAt: item.createdAt,
       },
       events,
+      traceabilityChain: events,
       isComplete: item.status === ITEM_STATUS.RECYCLED,
     };
   }

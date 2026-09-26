@@ -52,13 +52,16 @@ async function speechToText({
 
   const langInfo = getLanguageInfo(targetLang);
 
+  // Normalize format strictly to 'wav' as required by BHASHINI Dhruva ASR models
+  const normalizedAudioFormat = 'wav';
+
   const asrTask = {
     taskType: 'asr',
     config: {
       language: {
         sourceLanguage: targetLang,
       },
-      audioFormat: audioFormat === 'webm' ? 'wav' : (audioFormat || 'wav'),
+      audioFormat: normalizedAudioFormat,
     },
   };
 
@@ -69,6 +72,18 @@ async function speechToText({
   if (environment.bhashiniAsrServiceId) {
     asrTask.config.serviceId = environment.bhashiniAsrServiceId;
   }
+
+  const rawBytesLength = Math.floor((cleanBase64.length * 3) / 4);
+  const approxDurationSec = (rawBytesLength / 32000).toFixed(2);
+
+  logger.info('[VOICE DEBUG] ASR Request Dispatched', {
+    language: targetLang,
+    audioFormat: normalizedAudioFormat,
+    samplingRate: samplingRate || 16000,
+    channels: 1,
+    audioSizeKb: (rawBytesLength / 1024).toFixed(1),
+    approxDurationSec: `${approxDurationSec}s`,
+  });
 
   const inputData = {
     audio: [

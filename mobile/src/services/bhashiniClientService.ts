@@ -167,7 +167,7 @@ class BhashiniClientService {
     audioBase64: string,
     language: string = 'auto',
     options: {
-      audioFormat?: 'wav' | 'mp3' | 'aac' | 'webm';
+      audioFormat?: 'wav' | 'mp3' | 'aac' | 'webm' | 'm4a';
       samplingRate?: number;
     } = {}
   ): Promise<ASRResponse | null> {
@@ -201,7 +201,7 @@ class BhashiniClientService {
     audioBase64: string,
     language: string = 'auto',
     options?: {
-      audioFormat?: 'wav' | 'mp3' | 'aac' | 'webm';
+      audioFormat?: 'wav' | 'mp3' | 'aac' | 'webm' | 'm4a';
       samplingRate?: number;
     }
   ): Promise<ASRResponse | null> {
@@ -214,7 +214,7 @@ class BhashiniClientService {
   async detectAudioLanguage(
     audioBase64: string,
     options: {
-      audioFormat?: 'wav' | 'mp3' | 'aac' | 'webm';
+      audioFormat?: 'wav' | 'mp3' | 'aac' | 'webm' | 'm4a';
       samplingRate?: number;
     } = {}
   ): Promise<ALDResponse | null> {
@@ -246,7 +246,7 @@ class BhashiniClientService {
     options: {
       generateAudioResponse?: boolean;
       responseText?: string;
-      audioFormat?: 'wav' | 'mp3' | 'aac' | 'webm';
+      audioFormat?: 'wav' | 'mp3' | 'aac' | 'webm' | 'm4a';
     } = {}
   ): Promise<VoiceProcessResponse | null> {
     if (!audioBase64 || !audioBase64.trim()) return null;

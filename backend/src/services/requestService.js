@@ -4,6 +4,7 @@
 const prisma = require('../config/database');
 const AppError = require('../utils/AppError');
 const notificationService = require('./notificationService');
+const auditService = require('./auditService');
 const { calculateDistanceKm, formatAddress, maskCoordinates } = require('../utils/locationHelper');
 const { ROLES, REQUEST_STATUS, ITEM_STATUS, PICKUP_STATUS, NOTIFICATION_TYPES } = require('../utils/constants');
 
@@ -628,7 +629,182 @@ class RequestService {
       referenceId: requestId,
     });
 
+    // 5. Immutable Traceability Event
+    await auditService.logAction({
+      actorId: collectorUserId,
+      action: 'OFFER_SUBMITTED',
+      entityType: 'collection_requests',
+      entityId: requestId,
+      details: {
+        offerId: offer.id,
+        offeredPrice: priceNum,
+        collectorName: profile.user?.name || 'Collector',
+        notes: notes ? notes.trim() : null,
+      },
+    });
+
     return offer;
+  }
+
+  /**
+   * Citizen counters / negotiates a collector offer
+   * @param {string} citizenId - Authenticated citizen UUID
+   * @param {string} requestId - Request UUID
+   * @param {string} offerId - Offer UUID
+   * @param {object} payload - { counterPrice, notes }
+   * @returns {Promise<object>} Updated offer
+   */
+  async counterOffer(citizenId, requestId, offerId, { counterPrice, notes }) {
+    const request = await prisma.collectionRequest.findUnique({
+      where: { id: requestId },
+      include: { ewasteItems: true },
+    });
+
+    if (!request) {
+      throw AppError.notFound('Collection request not found');
+    }
+
+    if (request.citizenId !== citizenId) {
+      throw AppError.forbidden('You can only negotiate offers on your own requests');
+    }
+
+    if (request.status !== REQUEST_STATUS.SUBMITTED) {
+      throw AppError.badRequest(`Cannot negotiate offer on request in status '${request.status}'.`);
+    }
+
+    const priceNum = parseFloat(counterPrice);
+    if (isNaN(priceNum) || priceNum <= 0) {
+      throw AppError.badRequest('Counter price must be a positive number greater than 0');
+    }
+
+    const offer = await prisma.pickupOffer.findUnique({
+      where: { id: offerId },
+      include: { collector: { include: { user: true } } },
+    });
+
+    if (!offer || offer.collectionRequestId !== requestId) {
+      throw AppError.notFound('Offer not found for this request');
+    }
+
+    const counterNote = `[Citizen Counter: ₹${priceNum}] ${notes ? notes.trim() : ''}`.trim();
+
+    const updatedOffer = await prisma.pickupOffer.update({
+      where: { id: offerId },
+      data: {
+        notes: counterNote,
+        updatedAt: new Date(),
+      },
+      include: {
+        collector: {
+          include: {
+            user: {
+              select: { id: true, name: true, phone: true, email: true },
+            },
+          },
+        },
+      },
+    });
+
+    // Notify collector
+    if (offer.collector?.userId) {
+      await notificationService.createNotification({
+        userId: offer.collector.userId,
+        type: NOTIFICATION_TYPES.OFFER_RECEIVED,
+        title: 'Counter Offer from Citizen',
+        message: `Citizen counter-offered ₹${priceNum} for collection request #${requestId.slice(0, 8)}.`,
+        referenceType: 'collection_request',
+        referenceId: requestId,
+      });
+    }
+
+    // Append-only audit log
+    await auditService.logAction({
+      actorId: citizenId,
+      action: 'OFFER_COUNTERED',
+      entityType: 'collection_requests',
+      entityId: requestId,
+      details: {
+        offerId,
+        counterPrice: priceNum,
+        collectorId: offer.collectorId,
+        notes: notes ? notes.trim() : null,
+      },
+    });
+
+    return updatedOffer;
+  }
+
+  /**
+   * Citizen rejects a collector offer
+   * @param {string} citizenId - Authenticated citizen UUID
+   * @param {string} requestId - Request UUID
+   * @param {string} offerId - Offer UUID
+   * @param {object} [payload] - { reason }
+   * @returns {Promise<object>} Updated offer
+   */
+  async rejectOffer(citizenId, requestId, offerId, { reason } = {}) {
+    const request = await prisma.collectionRequest.findUnique({
+      where: { id: requestId },
+    });
+
+    if (!request) {
+      throw AppError.notFound('Collection request not found');
+    }
+
+    if (request.citizenId !== citizenId) {
+      throw AppError.forbidden('You can only reject offers on your own requests');
+    }
+
+    const offer = await prisma.pickupOffer.findUnique({
+      where: { id: offerId },
+      include: { collector: { include: { user: true } } },
+    });
+
+    if (!offer || offer.collectionRequestId !== requestId) {
+      throw AppError.notFound('Offer not found for this request');
+    }
+
+    const updatedOffer = await prisma.pickupOffer.update({
+      where: { id: offerId },
+      data: {
+        status: 'REJECTED',
+        updatedAt: new Date(),
+      },
+      include: {
+        collector: {
+          include: {
+            user: { select: { id: true, name: true, phone: true } },
+          },
+        },
+      },
+    });
+
+    // Notify collector
+    if (offer.collector?.userId) {
+      await notificationService.createNotification({
+        userId: offer.collector.userId,
+        type: NOTIFICATION_TYPES.OFFER_REJECTED,
+        title: 'Offer Declined',
+        message: `Your offer of ₹${offer.offeredPrice} for request #${requestId.slice(0, 8)} was declined.`,
+        referenceType: 'collection_request',
+        referenceId: requestId,
+      });
+    }
+
+    // Append-only audit log
+    await auditService.logAction({
+      actorId: citizenId,
+      action: 'OFFER_REJECTED',
+      entityType: 'collection_requests',
+      entityId: requestId,
+      details: {
+        offerId,
+        collectorId: offer.collectorId,
+        reason: reason || null,
+      },
+    });
+
+    return updatedOffer;
   }
 
   /**

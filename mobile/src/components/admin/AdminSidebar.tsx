@@ -20,6 +20,7 @@ import {
   Animated,
   ScrollView,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 import {
@@ -98,10 +99,11 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       ]}
     >
       {/* ── Logo / Brand ───────────────────────────────────────── */}
-      <View style={styles.brand}>
+      <View style={[styles.brand, isMobile && styles.brandMobile]}>
         <EcoSetuLogo size={28} bordered={false} style={styles.brandLogoCircle} />
         <Animated.View
           style={{
+            flex: 1,
             opacity: labelOpacity,
             transform: [{ translateX: labelTranslate }],
             overflow: 'hidden',
@@ -114,6 +116,18 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             ADMIN
           </Text>
         </Animated.View>
+
+        {isMobile && (
+          <TouchableOpacity
+            style={styles.mobileCloseBtn}
+            onPress={onToggleCollapse}
+            accessibilityRole="button"
+            accessibilityLabel="Close navigation menu"
+            activeOpacity={0.75}
+          >
+            <Text style={styles.mobileCloseIcon}>✕</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.divider} />
@@ -211,20 +225,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         </TouchableOpacity>
       </ScrollView>
 
-      {/* ── Bottom: Close (mobile) or Collapse (tablet) toggle ──────── */}
-      {isMobile ? (
-        /* Mobile: close drawer button */
-        <TouchableOpacity
-          style={styles.collapseBtn}
-          onPress={onToggleCollapse}
-          accessibilityRole="button"
-          accessibilityLabel="Close navigation menu"
-          activeOpacity={0.75}
-        >
-          <Text style={styles.collapseIcon}>✕</Text>
-        </TouchableOpacity>
-      ) : (
-        /* Tablet: expand / collapse button */
+      {/* ── Bottom: Collapse (tablet only) toggle ──────── */}
+      {!isMobile && (
         <TouchableOpacity
           style={styles.collapseBtn}
           onPress={onToggleCollapse}
@@ -243,6 +245,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
 const styles = StyleSheet.create({
   sidebar: {
+    flex: 1,
+    height: '100%',
     backgroundColor: ADMIN_COLOR.sidebar,
     borderRightWidth: 1,
     borderRightColor: ADMIN_COLOR.divider,
@@ -258,6 +262,24 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     gap: 10,
     minHeight: 56,
+  },
+  brandMobile: {
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 12 : 16,
+    paddingBottom: 14,
+  },
+  mobileCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 6,
+  },
+  mobileCloseIcon: {
+    fontSize: 15,
+    color: ADMIN_COLOR.textMid,
+    fontWeight: '600' as const,
   },
   brandLogoCircle: {
     width: 32,

@@ -205,7 +205,7 @@ export const BhashiniTestScreen: React.FC = () => {
             status: 'PASSED',
             latencyMs: latency,
             details: 'Odia ASR pipeline responded',
-            output: `Recognized text: "${res?.text || 'ମୋବାଇଲ'}"`,
+            output: `Recognized text: "${res?.transcript || 'ମୋବାଇଲ'}"`,
           });
         } catch (err: any) {
           updateTest(4, {
@@ -228,7 +228,7 @@ export const BhashiniTestScreen: React.FC = () => {
             status: 'PASSED',
             latencyMs: latency,
             details: 'Hindi ASR pipeline responded',
-            output: `Recognized text: "${res?.text || 'पुराना फोन'}"`,
+            output: `Recognized text: "${res?.transcript || 'पुराना फोन'}"`,
           });
         } catch (err: any) {
           updateTest(5, {

@@ -28,7 +28,8 @@ class VoiceRecordingService {
     if (Platform.OS === 'android') {
       return Boolean(EcoSetuAudioRecorder);
     }
-    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+    const nav = typeof navigator !== 'undefined' ? (navigator as any) : null;
+    if (nav?.mediaDevices?.getUserMedia) {
       return true;
     }
     return true; // Test / mock fallback
@@ -84,11 +85,13 @@ class VoiceRecordingService {
     }
 
     // Web / browser fallback using standard MediaRecorder
-    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+    const nav = typeof globalThis !== 'undefined' ? (globalThis as any).navigator : null;
+    const win = typeof globalThis !== 'undefined' ? (globalThis as any).window : null;
+    if (nav?.mediaDevices?.getUserMedia) {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await nav.mediaDevices.getUserMedia({ audio: true });
         this.webAudioChunks = [];
-        const MediaRecorderClass = (window as any).MediaRecorder;
+        const MediaRecorderClass = win?.MediaRecorder || (globalThis as any).MediaRecorder;
         if (MediaRecorderClass) {
           this.webMediaRecorder = new MediaRecorderClass(stream);
           this.webMediaRecorder.ondataavailable = (event: any) => {
@@ -123,7 +126,7 @@ class VoiceRecordingService {
         if (base64Audio && String(base64Audio).trim()) {
           return {
             audioBase64: String(base64Audio).trim(),
-            audioFormat: 'm4a',
+            audioFormat: 'wav',
             samplingRate: 16000,
           };
         }
@@ -135,22 +138,29 @@ class VoiceRecordingService {
     }
 
     if (this.webMediaRecorder) {
+      const win = typeof globalThis !== 'undefined' ? (globalThis as any).window : null;
       return new Promise((resolve) => {
         this.webMediaRecorder.onstop = async () => {
           try {
-            const BlobClass = (window as any).Blob;
-            const audioBlob = new BlobClass(this.webAudioChunks, { type: 'audio/webm' });
-            const reader = new (window as any).FileReader();
-            reader.readAsDataURL(audioBlob);
-            reader.onloadend = () => {
-              const base64 = (reader.result as string).split(',')[1];
-              resolve({
-                audioBase64: base64,
-                audioFormat: 'webm',
-                samplingRate: 16000,
-              });
-            };
-          } catch {
+            const BlobClass = win?.Blob || (globalThis as any).Blob;
+            const audioBlob = BlobClass ? new BlobClass(this.webAudioChunks, { type: 'audio/webm' }) : null;
+            const FileReaderClass = win?.FileReader || (globalThis as any).FileReader;
+            const reader = FileReaderClass ? new FileReaderClass() : null;
+            if (reader && audioBlob) {
+              reader.readAsDataURL(audioBlob);
+              reader.onloadend = () => {
+                const base64 = (reader.result as string).split(',')[1];
+                resolve({
+                  audioBase64: base64,
+                  audioFormat: 'webm',
+                  samplingRate: 16000,
+                });
+              };
+            } else {
+              resolve(null);
+            }
+          } catch (err) {
+            console.warn('[VoiceRecordingService] Web audio processing error:', err);
             resolve(null);
           }
         };

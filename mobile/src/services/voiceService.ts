@@ -19,6 +19,7 @@ import { storage } from '../utils/storage';
 import { STORAGE_KEYS } from '../utils/constants';
 import { getLanguage } from '../i18n/core';
 import { bhashiniClientService } from './bhashiniClientService';
+import { cleanTextForTTS } from '../utils/ttsSanitizer';
 
 export const AnnouncementPriority = Object.freeze({
   HIGH: 'HIGH' as const,
@@ -153,11 +154,14 @@ class VoiceService {
     this.currentPriority = priority;
     this.isSpeaking = true;
 
+    const cleanText = cleanTextForTTS(text);
+    if (!cleanText || !cleanText.trim()) return false;
+
     const lang = options.language || (typeof getLanguage === 'function' ? getLanguage() : 'en');
 
     try {
       if (EcoSetuTTS?.speak) {
-        const res = await EcoSetuTTS.speak(text, lang);
+        const res = await EcoSetuTTS.speak(cleanText, lang);
         this.isSpeaking = false;
         return Boolean(res);
       } else {

@@ -111,6 +111,34 @@ class RequestController {
   }
 
   /**
+   * Citizen counters / negotiates a collector offer
+   * POST /api/v1/collection-requests/:id/offers/:offerId/counter
+   */
+  async counterOffer(req, res, next) {
+    try {
+      const offerId = req.params.offerId || req.body.offerId;
+      const result = await requestService.counterOffer(req.user.id, req.params.id, offerId, req.body);
+      return sendSuccess(res, { offer: result }, 200);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Citizen rejects a collector offer
+   * POST /api/v1/collection-requests/:id/offers/:offerId/reject
+   */
+  async rejectOffer(req, res, next) {
+    try {
+      const offerId = req.params.offerId || req.body.offerId;
+      const result = await requestService.rejectOffer(req.user.id, req.params.id, offerId, req.body);
+      return sendSuccess(res, { offer: result }, 200);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
    * Collector accepts a request
    * POST /api/v1/collection-requests/:id/accept
    */

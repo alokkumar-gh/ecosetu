@@ -418,6 +418,35 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
             </View>
           )}
 
+          {/* Chain Event Log (Append-Only Traceability) */}
+          {Array.isArray((data as any)?.traceabilityChain) && (data as any).traceabilityChain.length > 0 && (
+            <View style={styles.eventLogSection}>
+              <View style={styles.eventLogHeader}>
+                <AppIcon name="shieldCheck" size={16} color="#10B981" />
+                <Text style={styles.eventLogTitle}>Verified Audit Trail ({((data as any).traceabilityChain.length)} Events)</Text>
+              </View>
+              <View style={styles.eventLogList}>
+                {(data as any).traceabilityChain.map((ev: any, idx: number) => (
+                  <View key={idx} style={styles.eventLogRow}>
+                    <View style={styles.eventLogDot} />
+                    <View style={styles.eventLogBody}>
+                      <View style={styles.eventLogMetaRow}>
+                        <Text style={styles.eventLogStage}>{ev.stage?.replace(/_/g, ' ')}</Text>
+                        <Text style={styles.eventLogTime}>
+                          {ev.timestamp ? new Date(ev.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                        </Text>
+                      </View>
+                      <Text style={styles.eventLogDesc}>{ev.description}</Text>
+                      {Boolean(ev.actor) && (
+                        <Text style={styles.eventLogActor}>Actor: {ev.actor}</Text>
+                      )}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
           {/* Trust note */}
           <View style={styles.trustNote}>
             <AppIcon name="info" size={14} color="#38BDF8" style={{ marginRight: 8 }} />
@@ -627,6 +656,75 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.65)',
     textAlign: 'center',
     lineHeight: 20,
+  },
+
+  // ── Event Log Section ──
+  eventLogSection: {
+    backgroundColor: 'rgba(16,44,48,0.70)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.30)',
+    padding: 16,
+    marginBottom: 16,
+  },
+  eventLogHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 14,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  eventLogTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#34D399',
+  },
+  eventLogList: {
+    gap: 12,
+  },
+  eventLogRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  eventLogDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+    marginTop: 5,
+  },
+  eventLogBody: {
+    flex: 1,
+  },
+  eventLogMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  eventLogStage: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+  },
+  eventLogTime: {
+    fontSize: 10.5,
+    color: 'rgba(255,255,255,0.40)',
+  },
+  eventLogDesc: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.75)',
+    lineHeight: 17,
+  },
+  eventLogActor: {
+    fontSize: 10.5,
+    color: '#38BDF8',
+    marginTop: 2,
+    fontWeight: '600',
   },
 
   // ── Trust note ──

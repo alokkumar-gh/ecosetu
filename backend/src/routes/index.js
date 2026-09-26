@@ -127,10 +127,12 @@ const voiceRoutes = require('./voiceRoutes');
 const languageRoutes = require('./languageRoutes');
 const ocrRoutes = require('./ocrRoutes');
 const voiceController = require('../controllers/voiceController');
+const ecoSaathiRoutes = require('./ecoSaathiRoutes');
 
 router.use('/voice', voiceRoutes);
 router.use('/language', languageRoutes);
 router.use('/ocr', ocrRoutes);
+router.use('/eco-saathi', ecoSaathiRoutes);
 router.post('/translate', (req, res, next) => voiceController.translate(req, res, next));
 
 module.exports = router;

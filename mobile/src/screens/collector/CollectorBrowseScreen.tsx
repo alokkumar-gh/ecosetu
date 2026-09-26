@@ -42,6 +42,7 @@ import {
   Text,
   StyleSheet,
   FlatList,
+  ScrollView,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
@@ -63,10 +64,10 @@ import { getCurrentLocation } from '../../services/locationService';
 import { collectorService } from '../../services/collectorService';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
-import { typography } from '../../theme/typography';
 import { useI18n } from '../../i18n';
 import { voiceService, AnnouncementPriority } from '../../services/voiceService';
 import { AppIcon } from '../../components/ui/AppIcon';
+import { AuthorizedImage } from '../../components/common/AuthorizedImage';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -208,72 +209,131 @@ const OfferModal: React.FC<OfferModalProps> = ({
   const { t } = useI18n();
   if (!request) return null;
 
+  const firstItem = (request.ewasteItems || [])[0] || {};
+  const primaryImage = firstItem?.imageUrl || (request.ewasteItems || []).find((i: any) => i.imageUrl)?.imageUrl;
   const categories = summarizeCategories(request.ewasteItems);
   const itemCount = countTotalItems(request.ewasteItems);
   const standardPriceStr = fmtStandardPrice(request.standardPrice);
   const hasExistingOffer = Boolean(request.myOffer);
+  const aiPredCat = firstItem?.aiPredictions?.[0]?.predictedCategory || firstItem?.aiDetectedCategory;
+  const confirmedCat = firstItem?.category ? fmtCategory(firstItem.category) : categories;
+  const estWeight = totalEstimatedWeight(request.ewasteItems) || (firstItem?.estimatedWeightKg ? `~${firstItem.estimatedWeightKg} kg` : '');
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={modalStyles.overlay} activeOpacity={1} onPress={onClose} />
       <View style={modalStyles.sheet}>
         <View style={modalStyles.sheetHandle} />
-        
+
         <View style={modalStyles.header}>
           <Text style={modalStyles.title}>
             {hasExistingOffer ? 'Update Your Offer' : 'Place Pickup Offer'}
           </Text>
           <Text style={modalStyles.subtitle}>
-            {categories} ({itemCount} {itemCount === 1 ? 'item' : 'items'})
+            {confirmedCat} {estWeight ? `· ${estWeight}` : ''} ({itemCount} {itemCount === 1 ? 'item' : 'items'})
           </Text>
         </View>
 
-        {/* Reference standard price banner if available */}
-        {Boolean(standardPriceStr) && (
-          <View style={modalStyles.standardPriceBox}>
-            <AppIcon name="award" size={16} color="#10B981" />
-            <View style={{ flex: 1 }}>
-              <Text style={modalStyles.standardPriceLabel}>Standard Reference Price</Text>
-              <Text style={modalStyles.standardPriceValue}>{standardPriceStr}</Text>
+        <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+          {/* Citizen's Uploaded Image Preview */}
+          {primaryImage ? (
+            <View style={modalStyles.imageBox}>
+              <AuthorizedImage
+                uri={primaryImage}
+                style={modalStyles.imagePreview}
+                resizeMode="cover"
+                allowFullscreen={true}
+                categoryLabel={confirmedCat}
+              />
+              <View style={modalStyles.imageBadge}>
+                <AppIcon name="camera" size={12} color="#10B981" style={{ marginRight: 4 }} />
+                <Text style={modalStyles.imageBadgeText}>Citizen Uploaded Photo · Tap to Zoom</Text>
+              </View>
             </View>
+          ) : (
+            <View style={modalStyles.noImageBox}>
+              <AppIcon name="alert" size={16} color="#EF4444" style={{ marginRight: 6 }} />
+              <Text style={modalStyles.noImageText}>
+                Material image required before submitting an offer.
+              </Text>
+            </View>
+          )}
+
+          {/* AI vs Citizen Category Comparison */}
+          <View style={modalStyles.metaCard}>
+            <View style={modalStyles.metaRow}>
+              <Text style={modalStyles.metaLabel}>AI Suggestion:</Text>
+              <Text style={modalStyles.metaVal}>
+                {aiPredCat ? fmtCategory(aiPredCat) : 'Unclassified'}
+              </Text>
+            </View>
+            <View style={modalStyles.metaRow}>
+              <Text style={modalStyles.metaLabel}>Citizen Confirmed:</Text>
+              <Text style={[modalStyles.metaVal, { color: '#34D399', fontWeight: '700' }]}>
+                {confirmedCat}
+              </Text>
+            </View>
+            {Boolean(firstItem?.condition) && (
+              <View style={modalStyles.metaRow}>
+                <Text style={modalStyles.metaLabel}>Condition:</Text>
+                <Text style={modalStyles.metaVal}>{firstItem.condition}</Text>
+              </View>
+            )}
+            {Boolean(request.distanceKm) && (
+              <View style={modalStyles.metaRow}>
+                <Text style={modalStyles.metaLabel}>Distance:</Text>
+                <Text style={modalStyles.metaVal}>~{request.distanceKm} km away</Text>
+              </View>
+            )}
           </View>
-        )}
 
-        {hasExistingOffer && (
-          <View style={modalStyles.existingOfferNotice}>
-            <AppIcon name="info" size={14} color="#38BDF8" />
-            <Text style={modalStyles.existingOfferText}>
-              Current offer: ₹{request.myOffer.offeredPrice} ({request.myOffer.status}). You can update your price.
-            </Text>
-          </View>
-        )}
+          {/* Reference standard price banner if available */}
+          {Boolean(standardPriceStr) && (
+            <View style={modalStyles.standardPriceBox}>
+              <AppIcon name="award" size={16} color="#10B981" />
+              <View style={{ flex: 1 }}>
+                <Text style={modalStyles.standardPriceLabel}>Standard Reference Price</Text>
+                <Text style={modalStyles.standardPriceValue}>{standardPriceStr}</Text>
+              </View>
+            </View>
+          )}
 
-        {/* Offered Price Input */}
-        <Text style={modalStyles.inputLabel}>Offered Price (₹) *</Text>
-        <TextInput
-          style={modalStyles.priceInput}
-          value={offeredPrice}
-          onChangeText={onChangePrice}
-          placeholder="e.g. 250"
-          placeholderTextColor="#64748B"
-          keyboardType="numeric"
-          autoFocus
-        />
+          {hasExistingOffer && (
+            <View style={modalStyles.existingOfferNotice}>
+              <AppIcon name="info" size={14} color="#38BDF8" />
+              <Text style={modalStyles.existingOfferText}>
+                Current offer: ₹{request.myOffer.offeredPrice} ({request.myOffer.status}). You can update your price.
+              </Text>
+            </View>
+          )}
 
-        {/* Notes Input */}
-        <Text style={modalStyles.inputLabel}>Notes for Citizen (Optional)</Text>
-        <TextInput
-          style={modalStyles.notesInput}
-          value={notes}
-          onChangeText={onChangeNotes}
-          placeholder="e.g. Can collect today with digital weighing scale."
-          placeholderTextColor="#64748B"
-          multiline
-          numberOfLines={3}
-          textAlignVertical="top"
-        />
+          {/* Offered Price Input */}
+          <Text style={modalStyles.inputLabel}>Your Price Offer (₹) *</Text>
+          <TextInput
+            style={modalStyles.priceInput}
+            value={offeredPrice}
+            onChangeText={onChangePrice}
+            placeholder="e.g. 2850"
+            placeholderTextColor="#64748B"
+            keyboardType="numeric"
+            autoFocus
+          />
 
-        {Boolean(error) && <Text style={modalStyles.errorText}>{error}</Text>}
+          {/* Notes Input */}
+          <Text style={modalStyles.inputLabel}>Notes for Citizen (Optional)</Text>
+          <TextInput
+            style={modalStyles.notesInput}
+            value={notes}
+            onChangeText={onChangeNotes}
+            placeholder="e.g. Can collect today with digital weighing scale."
+            placeholderTextColor="#64748B"
+            multiline
+            numberOfLines={2}
+            textAlignVertical="top"
+          />
+
+          {Boolean(error) && <Text style={modalStyles.errorText}>{error}</Text>}
+        </ScrollView>
 
         <View style={modalStyles.actionsRow}>
           <TouchableOpacity
@@ -285,9 +345,12 @@ const OfferModal: React.FC<OfferModalProps> = ({
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[modalStyles.submitBtn, isSubmitting && { opacity: 0.6 }]}
+            style={[
+              modalStyles.submitBtn,
+              (isSubmitting || !primaryImage) && { opacity: 0.6 },
+            ]}
             onPress={onSubmit}
-            disabled={isSubmitting}
+            disabled={isSubmitting || !primaryImage}
           >
             {isSubmitting ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
@@ -304,15 +367,15 @@ const OfferModal: React.FC<OfferModalProps> = ({
 };
 
 const modalStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)' },
   sheet: {
-    backgroundColor: colors.surface,
+    backgroundColor: '#071E22',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: spacing.spaceMd,
     paddingBottom: Platform.OS === 'ios' ? 40 : 24,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
   },
   sheetHandle: {
     width: 40,
@@ -323,8 +386,56 @@ const modalStyles = StyleSheet.create({
     marginBottom: spacing.spaceSm,
   },
   header: { marginBottom: spacing.spaceSm },
-  title: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
-  subtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+  title: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
+  subtitle: { fontSize: 13, color: '#94A3B8', marginTop: 2 },
+  imageBox: {
+    height: 150,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.30)',
+  },
+  imagePreview: { width: '100%', height: '100%' },
+  imageBadge: {
+    position: 'absolute',
+    bottom: 6,
+    left: 8,
+    backgroundColor: 'rgba(7, 30, 34, 0.85)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  imageBadgeText: { fontSize: 10, color: '#34D399', fontWeight: '700' },
+  noImageBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239,68,68,0.15)',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.35)',
+  },
+  noImageText: { fontSize: 12, color: '#F87171', flex: 1, fontWeight: '600' },
+  metaCard: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 2,
+  },
+  metaLabel: { fontSize: 12, color: '#94A3B8' },
+  metaVal: { fontSize: 12, color: '#FFFFFF', fontWeight: '600' },
   standardPriceBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -350,56 +461,56 @@ const modalStyles = StyleSheet.create({
   existingOfferText: { fontSize: 12, color: '#38BDF8', flex: 1 },
   inputLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
+    fontWeight: '700',
+    color: '#CBD5E1',
     marginBottom: 4,
     marginTop: 4,
   },
   priceInput: {
-    backgroundColor: colors.background,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
-    color: colors.textPrimary,
-    fontWeight: '700',
+    color: '#FFFFFF',
+    fontWeight: '800',
     marginBottom: spacing.spaceSm,
   },
   notesInput: {
-    backgroundColor: colors.background,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(255,255,255,0.12)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 13,
-    color: colors.textPrimary,
-    height: 70,
+    color: '#FFFFFF',
+    height: 60,
     marginBottom: spacing.spaceSm,
   },
-  errorText: { fontSize: 12, color: colors.error, marginBottom: spacing.spaceSm },
-  actionsRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  errorText: { fontSize: 12, color: '#F87171', marginBottom: spacing.spaceSm },
+  actionsRow: { flexDirection: 'row', gap: 10, marginTop: 6 },
   cancelBtn: {
     flex: 1,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: 'rgba(255,255,255,0.15)',
     minHeight: 46,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cancelBtnText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
+  cancelBtnText: { color: '#94A3B8', fontSize: 14, fontWeight: '600' },
   submitBtn: {
     flex: 1.5,
-    backgroundColor: colors.primary,
+    backgroundColor: '#10B981',
     borderRadius: 8,
     minHeight: 46,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  submitBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  submitBtnText: { color: '#02080D', fontSize: 14, fontWeight: '800' },
 });
 
 // ─── Request Item Card ─────────────────────────────────────────────────────────
@@ -414,16 +525,247 @@ interface RequestCardProps {
   onReadAloud?: (request: any) => void;
 }
 
+const cardStyles = StyleSheet.create({
+  container: {
+    backgroundColor: '#071E22',
+    borderRadius: 16,
+    padding: spacing.spaceMd,
+    marginBottom: spacing.spaceMd,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  categoryText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  subText: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  badgeCol: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  offersPill: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.35)',
+  },
+  offersPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#38BDF8',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    marginVertical: 10,
+  },
+
+  // ── Image preview in card ──
+  cardImageBox: {
+    height: 140,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+  },
+  cardImagePreview: { width: '100%', height: '100%' },
+  cardImageBadge: {
+    position: 'absolute',
+    bottom: 6,
+    left: 8,
+    backgroundColor: 'rgba(7, 30, 34, 0.85)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardImageBadgeText: { fontSize: 10, color: '#34D399', fontWeight: '700' },
+  missingImageBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239,68,68,0.12)',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.25)',
+  },
+  missingImageText: { fontSize: 11.5, color: '#F87171', flex: 1, fontWeight: '600' },
+
+  // ── AI vs Confirmed Box ──
+  aiVsConfirmedBox: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  aiVsConfirmedText: {
+    fontSize: 11.5,
+    color: '#CBD5E1',
+  },
+
+  standardPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.10)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  standardPriceText: {
+    fontSize: 12,
+    color: '#CBD5E1',
+  },
+  myOfferBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.30)',
+  },
+  myOfferText: {
+    fontSize: 12,
+    color: '#38BDF8',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginVertical: 3,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#CBD5E1',
+    lineHeight: 18,
+  },
+  notesText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: '#94A3B8',
+    marginTop: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    padding: 8,
+    borderRadius: 6,
+  },
+  itemsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  itemChip: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
+  },
+  itemChipMore: {
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderColor: 'rgba(16, 185, 129, 0.30)',
+  },
+  itemChipText: {
+    fontSize: 11.5,
+    color: '#E2E8F0',
+    fontWeight: '500',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  readAloudBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 44,
+  },
+  readAloudBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6EE7B7',
+  },
+  offerButton: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#10B981',
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 44,
+  },
+  acceptButtonDisabled: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  offerButtonText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#02080D',
+  },
+  disabledHint: {
+    fontSize: 11,
+    color: '#94A3B8',
+  },
+});
+
 const RequestCard = React.memo<RequestCardProps>(
   ({ request, isAccepting, isConnected, isVerified, onAccept, onOpenOfferModal, onReadAloud }) => {
     const { t } = useI18n();
+    const firstItem = (request.ewasteItems || [])[0] || {};
+    const primaryImage = firstItem?.imageUrl || (request.ewasteItems || []).find((i: any) => i.imageUrl)?.imageUrl;
+    const hasImage = Boolean(primaryImage);
     const itemCount = countTotalItems(request.ewasteItems);
     const categories = summarizeCategories(request.ewasteItems);
-    const estWeight = totalEstimatedWeight(request.ewasteItems);
-    const canAccept = isConnected && isVerified && !isAccepting;
+    const estWeight = totalEstimatedWeight(request.ewasteItems) || (firstItem?.estimatedWeightKg ? `~${firstItem.estimatedWeightKg} kg` : '');
+    const canAccept = isConnected && isVerified && !isAccepting && hasImage;
     const standardPriceStr = fmtStandardPrice(request.standardPrice);
     const offersCount = request.offersCount || 0;
     const myOffer = request.myOffer;
+    const aiPredCat = firstItem?.aiPredictions?.[0]?.predictedCategory || firstItem?.aiDetectedCategory;
+    const confirmedCat = firstItem?.category ? fmtCategory(firstItem.category) : categories;
 
     const preferredDateLabel =
       request.preferredDate ? fmtDate(request.preferredDate) : null;
@@ -458,11 +800,12 @@ const RequestCard = React.memo<RequestCardProps>(
           </View>
           <View style={{ flex: 1, marginLeft: spacing.spaceSm }}>
             <Text style={cardStyles.categoryText} numberOfLines={1}>
-              {categories}
+              {confirmedCat}
             </Text>
             <Text style={cardStyles.subText}>
               {itemCount} {itemCount === 1 ? (t('collector.browse.item') || 'item') : (t('collector.browse.items') || 'items')}
               {estWeight ? ` · ${estWeight}` : ''}
+              {firstItem?.condition ? ` · ${firstItem.condition}` : ''}
             </Text>
           </View>
           <View style={cardStyles.badgeCol}>
@@ -476,6 +819,40 @@ const RequestCard = React.memo<RequestCardProps>(
         </View>
 
         <View style={cardStyles.divider} />
+
+        {/* ── Citizen Uploaded Image Preview (MANDATORY BEFORE OFFERING) ── */}
+        {hasImage ? (
+          <View style={cardStyles.cardImageBox}>
+            <AuthorizedImage
+              uri={primaryImage}
+              style={cardStyles.cardImagePreview}
+              resizeMode="cover"
+              allowFullscreen={true}
+              categoryLabel={confirmedCat}
+            />
+            <View style={cardStyles.cardImageBadge}>
+              <AppIcon name="camera" size={11} color="#10B981" style={{ marginRight: 4 }} />
+              <Text style={cardStyles.cardImageBadgeText}>Citizen Uploaded Photo · Tap to Zoom</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={cardStyles.missingImageBox}>
+            <AppIcon name="alert" size={15} color="#EF4444" style={{ marginRight: 6 }} />
+            <Text style={cardStyles.missingImageText}>
+              Material image required before submitting an offer.
+            </Text>
+          </View>
+        )}
+
+        {/* ── AI vs Confirmed Category Transparency ── */}
+        <View style={cardStyles.aiVsConfirmedBox}>
+          <Text style={cardStyles.aiVsConfirmedText}>
+            <Text style={{ color: '#94A3B8' }}>AI suggestion: </Text>
+            <Text style={{ fontWeight: '700', color: '#E2E8F0' }}>{aiPredCat ? fmtCategory(aiPredCat) : 'Unclassified'}</Text>
+            <Text style={{ color: '#94A3B8' }}> · Confirmed: </Text>
+            <Text style={{ fontWeight: '700', color: '#34D399' }}>{confirmedCat}</Text>
+          </Text>
+        </View>
 
         {/* ── Standard Reference Price badge if available ── */}
         {Boolean(standardPriceStr) && (
@@ -1865,7 +2242,7 @@ const styles = StyleSheet.create({
   },
   selectedAcceptBtnText: {
     color: '#FFFFFF',
-    fontSize: typography.Button.fontSize,
+    fontSize: 14,
     fontWeight: '700',
   },
 
