@@ -259,6 +259,10 @@ class VoiceController {
   async status(req, res, next) {
     try {
       const status = bhashiniService.getStatus();
+      if (req.query.probe === 'true') {
+        const probeResult = await bhashiniService.checkConnectivity();
+        status.connectivity = probeResult;
+      }
       return res.status(200).json({
         success: true,
         data: status,

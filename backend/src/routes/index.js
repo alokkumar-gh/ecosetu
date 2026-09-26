@@ -30,11 +30,19 @@ const recurringTradeRoutes = require('./recurringTradeRoutes');
 
 const router = express.Router();
 
+const { bhashiniService } = require('../services/bhashini');
+
 // Base API v1 status/health check
 router.get('/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
     version: 'v1',
+    bhashini: {
+      configured: bhashiniService.isConfigured(),
+      apiKey: Boolean(bhashiniService.getApiKey()),
+      userId: Boolean(bhashiniService.getUserId()),
+      pipelineId: Boolean(bhashiniService.client.getPipelineId()),
+    },
     timestamp: new Date().toISOString(),
   });
 });

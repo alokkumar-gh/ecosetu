@@ -205,12 +205,20 @@ class BhashiniService {
    * Health & Capability Diagnostics
    */
   getStatus() {
+    const isConf = this.isConfigured();
     return {
       service: 'ECOSETU Vernacular & Voice Engine (BHASHINI)',
-      status: this.isConfigured() ? 'READY' : 'UNCONFIGURED_CREDENTIALS',
-      configured: this.isConfigured(),
+      status: isConf ? 'READY' : 'UNCONFIGURED_CREDENTIALS',
+      configured: isConf,
       hasUserId: Boolean(this.getUserId()),
       hasUdyatKey: Boolean(this.getUdyatKey()),
+      bhashini: {
+        configured: isConf,
+        apiKey: Boolean(this.getApiKey()),
+        userId: Boolean(this.getUserId()),
+        pipelineId: Boolean(this.client.getPipelineId()),
+        udyatKey: Boolean(this.getUdyatKey()),
+      },
       endpoint: this.client.inferenceEndpoint,
       supportedLanguages: Object.keys(SUPPORTED_LANGUAGES).filter((k) => k !== 'auto'),
       capabilities: {
@@ -224,6 +232,48 @@ class BhashiniService {
       cachedTtsEntries: this.ttsMemoryCache.size,
       version: '2.0.0-bhashini',
     };
+  }
+
+  /**
+   * Safe live connectivity probe
+   */
+  async checkConnectivity() {
+    if (!this.isConfigured()) {
+      return {
+        status: 'MISSING',
+        configured: false,
+        connected: false,
+        message: 'BHASHINI credentials not configured',
+      };
+    }
+    try {
+      const response = await this.client.callPipeline(
+        [
+          {
+            taskType: 'tts',
+            config: {
+              language: { sourceLanguage: 'en' },
+              gender: 'female',
+            },
+          },
+        ],
+        { input: [{ source: 'EcoSetu' }] },
+        { timeoutMs: 8000 }
+      );
+      return {
+        status: 'CONFIGURED',
+        configured: true,
+        connected: true,
+        latencyMs: response.latencyMs,
+      };
+    } catch (err) {
+      return {
+        status: 'CONFIGURED BUT CONNECTION FAILED',
+        configured: true,
+        connected: false,
+        error: err.message,
+      };
+    }
   }
 }
 

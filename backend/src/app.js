@@ -43,10 +43,18 @@ app.use(requestLogger);
 app.use('/api', apiLimiter);
 
 // 5. Root Health Endpoint (Service verification)
+const { bhashiniService } = require('./services/bhashini');
+
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
     service: 'ecosetu-backend',
+    bhashini: {
+      configured: bhashiniService.isConfigured(),
+      apiKey: Boolean(bhashiniService.getApiKey()),
+      userId: Boolean(bhashiniService.getUserId()),
+      pipelineId: Boolean(bhashiniService.client.getPipelineId()),
+    },
     timestamp: new Date().toISOString(),
   });
 });
