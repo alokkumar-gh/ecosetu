@@ -32,5 +32,7 @@ router.post(
 
 // Diagnostic health and configuration status (Safe, non-authenticated for system diagnostics)
 router.get('/status', (req, res, next) => aiController.status(req, res, next));
+router.get('/health', (req, res, next) => aiController.health(req, res, next));
+router.get('/diagnostics', (req, res, next) => aiController.diagnostics(req, res, next));
 
 module.exports = router;

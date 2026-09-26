@@ -105,6 +105,33 @@ class AiController {
       next(err);
     }
   }
+
+  /**
+   * GET /api/v1/ai/health
+   * Fast non-blocking AI health check for both Vision and Eco-Saathi
+   */
+  async health(req, res, next) {
+    try {
+      const healthData = await aiService.getCompositeHealth({ checkConnectivity: false });
+      const statusCode = healthData.status === 'ok' ? 200 : 200; // Always 200 with degraded payload for informative diagnostics
+      return res.status(statusCode).json(healthData);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * GET /api/v1/ai/diagnostics
+   * Deep diagnostic check including active live Groq connectivity probe
+   */
+  async diagnostics(req, res, next) {
+    try {
+      const diagData = await aiService.getCompositeHealth({ checkConnectivity: true });
+      return res.status(200).json(diagData);
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = new AiController();

@@ -31,6 +31,8 @@ const recurringTradeRoutes = require('./recurringTradeRoutes');
 const router = express.Router();
 
 const { bhashiniService } = require('../services/bhashini');
+const aiService = require('../services/aiService');
+const aiIntelligenceService = require('../services/ai/AIService');
 
 // Base API v1 status/health check
 router.get('/health', (req, res) => {
@@ -43,8 +45,22 @@ router.get('/health', (req, res) => {
       userId: Boolean(bhashiniService.getUserId()),
       pipelineId: Boolean(bhashiniService.client.getPipelineId()),
     },
+    ai: {
+      vision: aiService.getVisionHealth(),
+      eco_saathi: aiIntelligenceService.getHealth(),
+    },
     timestamp: new Date().toISOString(),
   });
+});
+
+// Deep AI diagnostics check with live Groq probe
+router.get('/health/ai', async (req, res, next) => {
+  try {
+    const diag = await aiService.getCompositeHealth({ checkConnectivity: true });
+    res.status(200).json(diag);
+  } catch (err) {
+    next(err);
+  }
 });
 
 const verificationRoutes = require('./verificationRoutes');

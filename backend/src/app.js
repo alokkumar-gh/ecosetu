@@ -44,6 +44,8 @@ app.use('/api', apiLimiter);
 
 // 5. Root Health Endpoint (Service verification)
 const { bhashiniService } = require('./services/bhashini');
+const aiService = require('./services/aiService');
+const aiIntelligenceService = require('./services/ai/AIService');
 
 app.get('/health', (req, res) => {
   res.status(200).json({
@@ -55,8 +57,21 @@ app.get('/health', (req, res) => {
       userId: Boolean(bhashiniService.getUserId()),
       pipelineId: Boolean(bhashiniService.client.getPipelineId()),
     },
+    ai: {
+      vision: aiService.getVisionHealth(),
+      eco_saathi: aiIntelligenceService.getHealth(),
+    },
     timestamp: new Date().toISOString(),
   });
+});
+
+app.get('/health/ai', async (req, res, next) => {
+  try {
+    const diag = await aiService.getCompositeHealth({ checkConnectivity: true });
+    res.status(200).json(diag);
+  } catch (err) {
+    next(err);
+  }
 });
 
 // 6. API v1 Routes

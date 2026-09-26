@@ -136,6 +136,98 @@ class GroqProvider extends AIProvider {
       throw err;
     }
   }
+
+  /**
+   * Safe, lightweight connectivity check to verify Groq API connectivity without leaking secrets.
+   * Sends minimal payload (1-2 tokens) with short timeout.
+   * @param {object} [options]
+   * @param {number} [options.timeoutMs]
+   * @returns {Promise<{ ok: boolean, status: string, latencyMs?: number, error?: string }>}
+   */
+  async checkConnectivity(options = {}) {
+    if (!this.isConfigured()) {
+      return {
+        ok: false,
+        status: 'not_configured',
+        error: 'GROQ_API_KEY is not configured',
+      };
+    }
+
+    const startTime = Date.now();
+    const timeoutMs = options.timeoutMs || Math.min(this.timeoutMs || 8000, 8000);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(this.baseUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.model,
+          messages: [{ role: 'user', content: 'Respond with exactly: OK' }],
+          max_tokens: 5,
+          temperature: 0,
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      const latencyMs = Date.now() - startTime;
+
+      if (response.ok) {
+        return {
+          ok: true,
+          status: 'ok',
+          latencyMs,
+        };
+      }
+
+      if (response.status === 401 || response.status === 403) {
+        return {
+          ok: false,
+          status: 'authentication_error',
+          error: `HTTP ${response.status} Authentication Failure`,
+          latencyMs,
+        };
+      }
+
+      if (response.status === 429) {
+        return {
+          ok: false,
+          status: 'rate_limited',
+          error: 'HTTP 429 Rate Limit Exceeded',
+          latencyMs,
+        };
+      }
+
+      return {
+        ok: false,
+        status: 'api_error',
+        error: `HTTP ${response.status} API Error`,
+        latencyMs,
+      };
+    } catch (err) {
+      clearTimeout(timeoutId);
+      const latencyMs = Date.now() - startTime;
+      if (err.name === 'AbortError') {
+        return {
+          ok: false,
+          status: 'timeout',
+          error: `Request timed out after ${timeoutMs}ms`,
+          latencyMs,
+        };
+      }
+      return {
+        ok: false,
+        status: 'network_error',
+        error: err.message || 'Network connection error',
+        latencyMs,
+      };
+    }
+  }
 }
 
 module.exports = GroqProvider;

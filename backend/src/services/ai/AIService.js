@@ -122,6 +122,90 @@ class AIService {
   }
 
   /**
+   * Return comprehensive AI health and diagnostics for Eco-Saathi without leaking secrets.
+   * @param {object} [options]
+   * @param {boolean} [options.checkConnectivity=false] - Whether to execute active Groq API test
+   * @returns {Promise<object>} Diagnostics object
+   */
+  async getDiagnostics({ checkConnectivity = false } = {}) {
+    const isFreeOnly = (process.env.AI_BUDGET_MODE || 'FREE_ONLY').toUpperCase() === 'FREE_ONLY';
+    const activeProvider = this.getActiveProvider();
+    const groqProvider = this.providers.groq;
+    const ruleFallback = this.providers['rule-fallback'];
+
+    const groqConfigured = Boolean(groqProvider && groqProvider.isConfigured());
+    const groqModel = groqProvider ? groqProvider.model : (process.env.GROQ_MODEL || null);
+
+    let groqConnectivity = groqConfigured ? 'untested' : 'not_configured';
+    let groqLatencyMs = null;
+    let groqError = null;
+
+    if (checkConnectivity) {
+      if (groqConfigured && groqProvider && typeof groqProvider.checkConnectivity === 'function') {
+        const conn = await groqProvider.checkConnectivity();
+        groqConnectivity = conn.status;
+        groqLatencyMs = conn.latencyMs || null;
+        if (!conn.ok && conn.error) {
+          groqError = conn.error;
+        }
+      } else {
+        groqConnectivity = 'not_configured';
+      }
+    }
+
+    const isHealthy = activeProvider.name === 'groq'
+      ? (checkConnectivity ? groqConnectivity === 'ok' : groqConfigured)
+      : true;
+
+    return {
+      status: isHealthy ? 'ok' : 'degraded',
+      active_provider: activeProvider.name,
+      budget_mode: isFreeOnly ? 'FREE_ONLY' : 'FLEXIBLE',
+      paid_provider_blocking: isFreeOnly,
+      groq: {
+        configured: groqConfigured,
+        model: groqModel || 'not_configured',
+        model_configured: Boolean(groqModel),
+        connectivity: groqConnectivity,
+        latency_ms: groqLatencyMs,
+        ...(groqError ? { error: groqError } : {}),
+      },
+      fallback: {
+        provider: 'RuleFallbackProvider',
+        available: Boolean(ruleFallback),
+      },
+    };
+  }
+
+  /**
+   * Fast synchronous health check for basic configuration
+   */
+  getHealth() {
+    const isFreeOnly = (process.env.AI_BUDGET_MODE || 'FREE_ONLY').toUpperCase() === 'FREE_ONLY';
+    const activeProvider = this.getActiveProvider();
+    const groqProvider = this.providers.groq;
+    const ruleFallback = this.providers['rule-fallback'];
+    const groqConfigured = Boolean(groqProvider && groqProvider.isConfigured());
+
+    return {
+      status: groqConfigured || activeProvider.name === 'rule-fallback' ? 'ok' : 'degraded',
+      active_provider: activeProvider.name,
+      budget_mode: isFreeOnly ? 'FREE_ONLY' : 'FLEXIBLE',
+      paid_provider_blocking: isFreeOnly,
+      groq: {
+        configured: groqConfigured,
+        model: groqProvider?.model || process.env.GROQ_MODEL || 'not_configured',
+        model_configured: Boolean(groqProvider?.model || process.env.GROQ_MODEL),
+        connectivity: groqConfigured ? 'configured_ready' : 'not_configured',
+      },
+      fallback: {
+        provider: 'RuleFallbackProvider',
+        available: Boolean(ruleFallback),
+      },
+    };
+  }
+
+  /**
    * Sanitizer helper utilities
    */
   sanitizeAssistantResponse(text) {

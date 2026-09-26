@@ -116,12 +116,32 @@ class AiService {
   }
 
   /**
+   * Return EcoVision material detection health and configuration
+   * @returns {object}
+   */
+  getVisionHealth() {
+    const isRoboflow = roboflowService.isConfigured();
+    return {
+      status: isRoboflow || Boolean(environment.aiServiceUrl) ? 'ok' : 'unconfigured',
+      provider: isRoboflow ? 'roboflow' : (environment.aiServiceUrl ? 'legacy_fastapi' : 'none'),
+      model_loaded: true,
+      model_version: isRoboflow ? roboflowService.modelId : 'material-detection-v0.2.0',
+      configured: isRoboflow || Boolean(environment.aiServiceUrl),
+    };
+  }
+
+  /**
    * Diagnostic method reporting current AI provider and configuration status without leaking keys.
    * @returns {object} Status summary object
    */
   getStatus() {
     const isConfigured = roboflowService.isConfigured();
+    const aiIntelligenceService = require('./ai/AIService');
+    const ecoSaathiHealth = aiIntelligenceService.getHealth();
+
     return {
+      status: isConfigured ? 'ok' : 'degraded',
+      service: 'ecosetu-ai',
       provider: environment.aiProvider || 'roboflow',
       modelId: roboflowService.modelId,
       apiKeyStatus: isConfigured ? 'CONFIGURED' : 'NOT_CONFIGURED',
@@ -132,6 +152,37 @@ class AiService {
         mobileClient: 'EcoSetu Android Native',
       },
       legacyFallbackAvailable: Boolean(environment.aiServiceUrl),
+      vision: this.getVisionHealth(),
+      eco_saathi: ecoSaathiHealth,
+    };
+  }
+
+  /**
+   * Return comprehensive AI health diagnostics including optional live Groq connectivity check
+   * @param {object} [options]
+   * @param {boolean} [options.checkConnectivity=false]
+   * @returns {Promise<object>}
+   */
+  async getCompositeHealth({ checkConnectivity = false } = {}) {
+    const aiIntelligenceService = require('./ai/AIService');
+    const vision = this.getVisionHealth();
+    const ecoSaathi = await aiIntelligenceService.getDiagnostics({ checkConnectivity });
+
+    const isHealthy = vision.status === 'ok' && ecoSaathi.status === 'ok';
+
+    return {
+      status: isHealthy ? 'ok' : 'degraded',
+      service: 'ecosetu-ai',
+      timestamp: new Date().toISOString(),
+      vision,
+      eco_saathi: ecoSaathi,
+      model_loaded: vision.model_loaded,
+      model_version: vision.model_version,
+      architecture: {
+        inferenceProvider: vision.provider === 'roboflow' ? 'Roboflow Hosted Inference API (v43)' : 'Legacy FastAPI (YOLO)',
+        backendHost: 'Render (Node.js Express API Bridge)',
+        mobileClient: 'EcoSetu Android Native',
+      },
     };
   }
 
