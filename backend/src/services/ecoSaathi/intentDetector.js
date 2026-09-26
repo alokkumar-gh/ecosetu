@@ -62,7 +62,7 @@ const INTENT_DEFINITIONS = {
   },
   VIEW_OFFERS: {
     patterns: [
-      /\b(show( me)? (the )?offers|view offers|offers received|kitna offer (diya|mila)|kisi ne offer kiya|check offers)\b/i,
+      /\b(show( me)? (the )?offers|view offers|offers received|kitna offer (diya|mila)|kisi ne offer kiya|check offers|what offers|my offers|offers did i|received offers)\b/i,
       /\b(ଅଫର ଦେଖାନ୍ତୁ|କେତେ ଅଫର ମିଳିଛି)\b/i,
     ],
   },
@@ -183,6 +183,47 @@ const INTENT_DEFINITIONS = {
       /(ମୋ ପାଇଁ କଣ ବାକି ଅଛି|କଣ ପେଣ୍ଡିଂ ଅଛି|ମୋ ଧ୍ୟାନ ଆବଶ୍ୟକ)/i,
     ],
   },
+  CONVERSATIONAL: {
+    classification: 'CONVERSATIONAL',
+    patterns: [
+      /^(hello|hi|hey|namaste|namaskar|good\s*(morning|afternoon|evening)|how\s+are\s+you|who\s+are\s+you|what\s+can\s+you\s+do|thank\s*you|thanks|dhanyawad|dhanyabaad|kaise\s+ho|kaun\s+ho)\b/i,
+      /^(ନମସ୍କାର|ଧନ୍ୟବାଦ|କେମିତି\s+ଅଛନ୍ତି)\b/i,
+    ],
+  },
+  GENERAL_KNOWLEDGE: {
+    classification: 'GENERAL_KNOWLEDGE',
+    patterns: [
+      /\b(what\s+is\s+e-?waste|why\s+is\s+e-?waste|how\s+is\s+.*recycled|lithium|motherboard|circuit\s+board|copper\s+recovery|difference\s+between\s+recyclable|why\s+should\s+batteries|hazardous|toxic|precious\s+metals?|teach\s+me\s+about)\b/i,
+      /\b(e-?waste\s+(kya|kahan|kyu|kaise)|lithium\s+battery|metal\s+extraction)\b/i,
+    ],
+  },
+};
+
+const INTENT_CLASSIFICATION_MAP = {
+  WHAT_NEXT: 'DETERMINISTIC_APP',
+  OFFER_COMPARISON: 'DETERMINISTIC_APP',
+  PICKUP_STATUS: 'DETERMINISTIC_APP',
+  VIEW_OFFERS: 'DETERMINISTIC_APP',
+  ACCEPT_OFFER: 'ACTION',
+  NEGOTIATION: 'ACTION',
+  TRACEABILITY_EXPLANATION: 'DETERMINISTIC_APP',
+  VIEW_MATCHING_REQUESTS: 'DETERMINISTIC_APP',
+  COLLECTOR_ACTIVE_PICKUPS: 'DETERMINISTIC_APP',
+  COLLECTOR_NEGOTIATIONS: 'DETERMINISTIC_APP',
+  ATTENTION_SUMMARY: 'DETERMINISTIC_APP',
+  IDENTIFY_EWASTE: 'DETERMINISTIC_APP',
+  CONFIRM_CATEGORY: 'DETERMINISTIC_APP',
+  CHANGE_CATEGORY: 'DETERMINISTIC_APP',
+  PRICE_EXPLANATION: 'EXPLANATION',
+  EXPLAIN_VALUE: 'EXPLANATION',
+  COLLECTOR_OFFER_GUIDANCE: 'EXPLANATION',
+  ESTIMATE_VALUE: 'EXPLANATION',
+  E_WASTE_CONDITION: 'EXPLANATION',
+  E_WASTE_CATEGORY: 'GENERAL_KNOWLEDGE',
+  E_WASTE_PRICING: 'DETERMINISTIC_APP',
+  GENERAL_KNOWLEDGE: 'GENERAL_KNOWLEDGE',
+  CONVERSATIONAL: 'CONVERSATIONAL',
+  GENERAL_HELP: 'CONVERSATIONAL',
 };
 
 class IntentDetector {
@@ -190,11 +231,11 @@ class IntentDetector {
    * Detect intent from user query and optional context
    * @param {string} query - User natural language query
    * @param {object} [context] - Context with current screen and active state
-   * @returns {object} { intent: string, confidence: number, extractedEntities: object }
+   * @returns {object} { intent: string, classification: string, confidence: number, extractedEntities: object }
    */
   detect(query, context = {}) {
     if (!query || typeof query !== 'string' || !query.trim()) {
-      return { intent: 'UNKNOWN', confidence: 0.0, extractedEntities: {} };
+      return { intent: 'UNKNOWN', classification: 'GENERAL_KNOWLEDGE', confidence: 0.0, extractedEntities: {} };
     }
 
     const trimmed = query.trim();
@@ -204,8 +245,10 @@ class IntentDetector {
       for (const pattern of def.patterns) {
         if (pattern.test(trimmed)) {
           const entities = this._extractEntities(trimmed);
+          const classification = def.classification || INTENT_CLASSIFICATION_MAP[intentName] || 'GENERAL_KNOWLEDGE';
           return {
             intent: intentName,
+            classification,
             confidence: 0.95,
             extractedEntities: entities,
           };
@@ -217,17 +260,30 @@ class IntentDetector {
     if (context.currentScreen) {
       const lower = trimmed.toLowerCase();
       if (lower === 'next' || lower === 'kya kare' || lower === 'ab kya') {
-        return { intent: 'WHAT_NEXT', confidence: 0.9, extractedEntities: {} };
+        return { intent: 'WHAT_NEXT', classification: 'DETERMINISTIC_APP', confidence: 0.9, extractedEntities: {} };
       }
       if (context.currentScreen.includes('Offer') && (lower.includes('compare') || lower.includes('best'))) {
-        return { intent: 'OFFER_COMPARISON', confidence: 0.9, extractedEntities: {} };
+        return { intent: 'OFFER_COMPARISON', classification: 'DETERMINISTIC_APP', confidence: 0.9, extractedEntities: {} };
       }
     }
 
-    // 3. Fallback to UNKNOWN
+    // 3. Smart Fallback Classification for open-ended queries
+    const lower = trimmed.toLowerCase();
+    let fallbackClassification = 'GENERAL_KNOWLEDGE';
+    let fallbackIntent = 'GENERAL_KNOWLEDGE';
+
+    if (/^(hi|hello|hey|namaste|namaskar|good\s+morning|good\s+evening|thanks|thank\s+you)\b/i.test(lower)) {
+      fallbackClassification = 'CONVERSATIONAL';
+      fallbackIntent = 'CONVERSATIONAL';
+    } else if (/\b(why|how|explain|what|can|should|tell\s+me)\b/i.test(lower)) {
+      fallbackClassification = 'EXPLANATION';
+      fallbackIntent = 'GENERAL_KNOWLEDGE';
+    }
+
     return {
-      intent: 'UNKNOWN',
-      confidence: 0.2,
+      intent: fallbackIntent,
+      classification: fallbackClassification,
+      confidence: 0.5,
       extractedEntities: this._extractEntities(trimmed),
     };
   }

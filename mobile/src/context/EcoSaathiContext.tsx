@@ -13,6 +13,7 @@ import { matchEcoSaathiQuery } from '../services/ecoSaathiMatcher';
 import { SaathiCategory, SaathiSafetySensitivity } from '../types/ecoSaathi';
 import { networkService } from '../services/networkService';
 import { resolveEcoSaathiDynamicIntent } from '../services/ecoSaathiDynamicService';
+import { ecoSaathiService } from '../services/ecoSaathiService';
 
 export interface EcoSaathiMessage {
   id: string;
@@ -182,7 +183,7 @@ export const EcoSaathiProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     ];
   }, [user?.role, currentRoute, t]);
 
-  // Send message and process via deterministic matcher
+  // Send message and process via deterministic matcher + backend Groq orchestrator
   const sendMessage = useCallback((rawText: string) => {
     const text = rawText.trim();
     if (!text) return;
@@ -194,7 +195,7 @@ export const EcoSaathiProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       timestamp: Date.now(),
     };
 
-    // Invoke deterministic matcher
+    // Invoke deterministic local matcher
     const match = matchEcoSaathiQuery(text, {
       role: user?.role as 'CITIZEN' | 'INFORMAL_COLLECTOR' | 'RECYCLER' | 'ADMIN' | null | undefined,
       language: language as any,
@@ -206,7 +207,7 @@ export const EcoSaathiProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!answerText) {
       answerText = match.matched
         ? 'Here is the verified information for your question.'
-        : t('saathi.intents.unknown.answer', 'I don’t have a verified answer for that yet. Try asking about scrap prices, creating lots, deals, payments, safety warnings, or language settings.');
+        : t('saathi.intents.unknown.answer', 'I am here to help you manage pickups, scrap prices, offers, and recycling questions.');
     }
 
     // Ambiguity Clarification Handling
@@ -228,8 +229,8 @@ export const EcoSaathiProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return;
     }
 
-    // Dynamic data resolution
-    if (match.requiresDynamicData && match.intentId) {
+    // If local matcher has an explicit match with static/dynamic tool, use client fast path
+    if (match.matched && match.intentId && match.intentId !== 'UNKNOWN' && match.requiresDynamicData) {
       setMessages((prev) => [...prev, userMessage]);
 
       resolveEcoSaathiDynamicIntent(match.intentId, match.dynamicDataResolverKey, {
@@ -281,26 +282,49 @@ export const EcoSaathiProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return;
     }
 
-    // Static intent resolution
-    const saathiMessage: EcoSaathiMessage = {
-      id: 'msg_saathi_' + (Date.now() + 1),
-      sender: 'saathi',
-      text: answerText,
-      timestamp: Date.now() + 1,
-      requiresDynamicData: false,
-      dynamicDataResolverKey: match.dynamicDataResolverKey,
-      safetySensitivity: match.safetySensitivity,
-      category: match.category,
-      action: match.suggestedAction
-        ? {
-            label: t(match.suggestedAction.actionLabelI18nKey, 'Open Screen'),
-            route: match.suggestedAction.targetRoute,
-            params: match.suggestedAction.params,
-          }
-        : undefined,
-    };
+    // For general knowledge, conversational, open-ended reasoning, and unmatched queries:
+    // Route to backend Eco-Saathi Orchestrator (Groq AI Provider)
+    setMessages((prev) => [...prev, userMessage]);
 
-    setMessages((prev) => [...prev, userMessage, saathiMessage]);
+    ecoSaathiService
+      .sendMessage({
+        message: text,
+        language: (language || 'en') as string,
+        conversationContext: {
+          currentRoute: currentRoute || undefined,
+        },
+      })
+      .then((res) => {
+        const responseData = res?.data || res;
+        const msgText = responseData?.message || res?.message || answerText;
+        const actionObj = responseData?.action || res?.action;
+
+        const aiSaathiMessage: EcoSaathiMessage = {
+          id: 'msg_saathi_' + Date.now(),
+          sender: 'saathi',
+          text: msgText,
+          timestamp: Date.now(),
+          action: actionObj
+            ? {
+                label: actionObj.label || 'Open Screen',
+                route: actionObj.route || actionObj.targetRoute || '',
+                params: actionObj.params,
+              }
+            : undefined,
+        };
+        setMessages((prev) => [...prev, aiSaathiMessage]);
+      })
+      .catch((err) => {
+        console.warn('[EcoSaathiContext] Backend orchestrator request failed:', err?.message || err);
+        // Local fallback when offline
+        const fallbackMsg: EcoSaathiMessage = {
+          id: 'msg_saathi_' + Date.now(),
+          sender: 'saathi',
+          text: answerText,
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, fallbackMsg]);
+      });
   }, [user, language, currentRoute, isAuthenticated, isOnline, t]);
 
   return (

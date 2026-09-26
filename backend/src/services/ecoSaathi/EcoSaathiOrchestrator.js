@@ -73,9 +73,9 @@ class EcoSaathiOrchestrator {
     // 1. Build authorized context
     const context = await contextBuilder.build(actor, clientContext);
 
-    // 2. Detect intent
-    const { intent, confidence, extractedEntities } = intentDetector.detect(message, context);
-    logger.info(`[EcoSaathi] Detected intent: ${intent} (confidence: ${confidence})`);
+    // 2. Detect intent & classify request
+    const { intent, classification, confidence, extractedEntities } = intentDetector.detect(message, context);
+    logger.info(`[EcoSaathi] Request classification: ${classification} | intent: ${intent} (confidence: ${confidence})`);
 
     let responseType = 'TEXT';
     let responseMessage = '';
@@ -83,6 +83,7 @@ class EcoSaathiOrchestrator {
     let requiresConfirmation = false;
     let action = null;
     let quickActions = [];
+    let usedProvider = 'DETERMINISTIC_TOOL';
 
     try {
       // 3. Handle domain intents deterministically with state intelligence where applicable
@@ -573,8 +574,10 @@ class EcoSaathiOrchestrator {
           break;
         }
 
+        case 'CONVERSATIONAL':
+        case 'GENERAL_KNOWLEDGE':
         default: {
-          // Fallback to AI Service Provider for open-ended conversational reasoning
+          // Route general knowledge, conversational, and open-ended queries to AI Service (Groq Provider)
           const systemPrompt = contextBuilder.toSystemPrompt(context);
           const aiResult = await aiService.generate({
             prompt: message,
@@ -582,6 +585,8 @@ class EcoSaathiOrchestrator {
           });
 
           responseMessage = aiResult.text;
+          usedProvider = aiResult.provider || 'groq';
+          logger.info(`[EcoSaathi] classification: ${classification} | provider: ${usedProvider} | fallback: ${usedProvider === 'rule-fallback'}`);
           quickActions = context.activeRequest ? ["What's next?", 'View offers', 'Help'] : ['Create pickup', 'Prices', 'Help'];
           break;
         }
@@ -593,7 +598,7 @@ class EcoSaathiOrchestrator {
     }
 
     const latencyMs = Date.now() - startTime;
-    logger.info(`[EcoSaathi] Processed query in ${latencyMs}ms with intent ${intent}`);
+    logger.info(`[EcoSaathi] Processed query in ${latencyMs}ms with intent ${intent} (provider: ${usedProvider})`);
 
     const cleanUIMessage = sanitizeAssistantResponse(responseMessage);
     const cleanSpeech = cleanTextForTTS(responseMessage);
@@ -604,6 +609,8 @@ class EcoSaathiOrchestrator {
       message: cleanUIMessage,
       cleanSpeechText: cleanSpeech,
       intent,
+      classification,
+      provider: usedProvider,
       action,
       requiresConfirmation,
       data: responseData,

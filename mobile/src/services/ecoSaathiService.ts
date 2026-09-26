@@ -35,6 +35,7 @@ export interface SendMessageOptions {
     offerId?: string;
     category?: string;
     currentPage?: string;
+    currentRoute?: string;
   };
 }
 
