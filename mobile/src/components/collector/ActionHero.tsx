@@ -6,10 +6,11 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { AppIcon, IconName } from '../ui/AppIcon';
 
 export interface AttentionItem {
   id: string;
-  icon: string;
+  icon: IconName | string;
   label: string;
   count: number;
   color: string;
@@ -17,6 +18,15 @@ export interface AttentionItem {
   borderColor: string;
   onPress: () => void;
 }
+
+const mapAttentionIcon = (icon: IconName | string): IconName => {
+  if (icon === 'truck') return 'truck';
+  if (icon === 'mail' || icon === 'offers') return 'mail';
+  if (icon === 'handshake' || icon === 'users') return 'users';
+  if (icon === 'alert') return 'alert';
+  if (icon === 'box') return 'box';
+  return (icon as IconName) || 'bell';
+};
 
 interface ActionHeroProps {
   items: AttentionItem[];
@@ -50,7 +60,7 @@ export const ActionHero: React.FC<ActionHeroProps> = ({ items, totalCount }) => 
             accessibilityLabel={`${item.label}: ${item.count}`}
           >
             <View style={styles.itemTop}>
-              <Text style={styles.itemIcon}>{item.icon}</Text>
+              <AppIcon name={mapAttentionIcon(item.icon)} size={20} color={item.color} />
               <View style={[styles.itemCountBadge, { backgroundColor: item.color }]}>
                 <Text style={styles.itemCountText}>{item.count}</Text>
               </View>

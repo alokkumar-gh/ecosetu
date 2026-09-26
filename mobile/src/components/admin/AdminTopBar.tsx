@@ -23,6 +23,7 @@ import {
   ADMIN_RADIUS,
   ADMIN_LAYOUT,
 } from './AdminTheme';
+import { AppIcon, IconName } from '../ui/AppIcon';
 
 interface AdminTopBarProps {
   breadcrumb: string[];
@@ -77,10 +78,10 @@ export const AdminTopBar: React.FC<AdminTopBarProps> = ({
           accessibilityLabel="Search (Ctrl+K)"
           activeOpacity={0.75}
         >
-          <Text style={styles.searchIcon}>⌕</Text>
+          <AppIcon name="search" size={14} color={ADMIN_COLOR.textMid} />
           <Text style={styles.searchLabel}>Search...</Text>
           <View style={styles.searchKbd}>
-            <Text style={styles.searchKbdText}>⌘K</Text>
+            <Text style={styles.searchKbdText}>Ctrl+K</Text>
           </View>
         </TouchableOpacity>
 
@@ -92,7 +93,7 @@ export const AdminTopBar: React.FC<AdminTopBarProps> = ({
           accessibilityLabel={`Notifications${notificationCount > 0 ? `, ${notificationCount} unread` : ''}`}
           activeOpacity={0.75}
         >
-          <Text style={styles.iconBtnText}>🔔</Text>
+          <AppIcon name="bell" size={16} color={ADMIN_COLOR.textMid} />
           {notificationCount > 0 && (
             <View style={styles.notifBadge}>
               <Text style={styles.notifBadgeText}>
@@ -110,7 +111,7 @@ export const AdminTopBar: React.FC<AdminTopBarProps> = ({
           accessibilityLabel="System health"
           activeOpacity={0.75}
         >
-          <Text style={styles.iconBtnText}>◐</Text>
+          <AppIcon name="activity" size={16} color={ADMIN_COLOR.textMid} />
         </TouchableOpacity>
 
         {/* Profile dropdown */}
@@ -130,9 +131,7 @@ export const AdminTopBar: React.FC<AdminTopBarProps> = ({
             <Text style={styles.profileName} numberOfLines={1}>
               {adminName}
             </Text>
-            <Text style={styles.profileChevron}>
-              {profileOpen ? '▴' : '▾'}
-            </Text>
+            <AppIcon name={profileOpen ? 'chevronUp' : 'chevronDown'} size={12} color={ADMIN_COLOR.textLow} />
           </TouchableOpacity>
 
           {/* Dropdown */}
@@ -157,9 +156,9 @@ export const AdminTopBar: React.FC<AdminTopBarProps> = ({
 
               {/* Actions */}
               {[
-                { label: 'My Profile', icon: '◯', screen: 'AdminProfile' },
-                { label: 'Audit Log', icon: '▤', screen: 'AdminAuditLogs' },
-                { label: 'System Health', icon: '◐', screen: 'AdminSystemHealth' },
+                { label: 'My Profile', icon: 'user' as const, screen: 'AdminProfile' },
+                { label: 'Audit Log', icon: 'fileText' as const, screen: 'AdminAuditLogs' },
+                { label: 'System Health', icon: 'activity' as const, screen: 'AdminSystemHealth' },
               ].map((item) => (
                 <TouchableOpacity
                   key={item.screen}
@@ -171,7 +170,7 @@ export const AdminTopBar: React.FC<AdminTopBarProps> = ({
                   accessibilityRole="menuitem"
                   activeOpacity={0.75}
                 >
-                  <Text style={styles.dropdownItemIcon}>{item.icon}</Text>
+                  <AppIcon name={item.icon} size={14} color={ADMIN_COLOR.textMid} />
                   <Text style={styles.dropdownItemLabel}>{item.label}</Text>
                 </TouchableOpacity>
               ))}
@@ -187,7 +186,7 @@ export const AdminTopBar: React.FC<AdminTopBarProps> = ({
                 accessibilityRole="menuitem"
                 activeOpacity={0.75}
               >
-                <Text style={[styles.dropdownItemIcon, styles.dropdownSignOutIcon]}>⎋</Text>
+                <AppIcon name="logOut" size={14} color={ADMIN_COLOR.error} />
                 <Text style={[styles.dropdownItemLabel, styles.dropdownSignOutLabel]}>
                   Sign Out
                 </Text>

@@ -20,6 +20,8 @@ import { ReadAloudButton } from '../voice/ReadAloudButton';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 
+import { AppIcon } from '../ui/AppIcon';
+
 export interface SyncStatusBannerProps {
   showWhenAllSynced?: boolean;
   showSyncingBanner?: boolean;
@@ -52,7 +54,9 @@ export const SyncStatusBanner: React.FC<SyncStatusBannerProps> = memo(({ showWhe
 
     return (
       <View style={[styles.container, styles.offlineContainer, containerPaddingTop]} accessibilityRole="alert" accessibilityLiveRegion="polite">
-        <Text style={styles.stateIcon}>⚡</Text>
+        <View style={styles.stateIconBox}>
+          <AppIcon name="alert" size={18} color="#EAB308" />
+        </View>
         <View style={styles.textContainer}>
           <Text style={[styles.title, styles.offlineTitle]}>{t('sync.offlineMode')}</Text>
           <Text style={styles.subtitle}>
@@ -75,7 +79,9 @@ export const SyncStatusBanner: React.FC<SyncStatusBannerProps> = memo(({ showWhe
 
     return (
       <View style={[styles.container, styles.conflictContainer, containerPaddingTop]} accessibilityRole="alert" accessibilityLiveRegion="assertive">
-        <Text style={styles.stateIcon}>⚠️</Text>
+        <View style={styles.stateIconBox}>
+          <AppIcon name="alert" size={18} color="#EF4444" />
+        </View>
         <View style={styles.textContainer}>
           <Text style={[styles.title, styles.conflictTitle]}>{t('sync.conflict')}</Text>
           <Text style={styles.subtitle}>
@@ -97,7 +103,9 @@ export const SyncStatusBanner: React.FC<SyncStatusBannerProps> = memo(({ showWhe
 
     return (
       <View style={[styles.container, styles.failedContainer, containerPaddingTop]} accessibilityRole="alert" accessibilityLiveRegion="polite">
-        <Text style={styles.stateIcon}>⚠️</Text>
+        <View style={styles.stateIconBox}>
+          <AppIcon name="alert" size={18} color="#F97316" />
+        </View>
         <View style={styles.textContainer}>
           <Text style={[styles.title, styles.failedTitle]}>{t('sync.syncFailed')}</Text>
           <Text style={styles.subtitle}>
@@ -115,7 +123,10 @@ export const SyncStatusBanner: React.FC<SyncStatusBannerProps> = memo(({ showWhe
           {isSyncing || localSyncing ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
-            <Text style={styles.syncButtonText}>🔄 {t('sync.syncNow')}</Text>
+            <View style={styles.btnContent}>
+              <AppIcon name="refresh" size={13} color="#FFFFFF" />
+              <Text style={styles.syncButtonText}>{t('sync.syncNow')}</Text>
+            </View>
           )}
         </TouchableOpacity>
         <ReadAloudButton
@@ -150,7 +161,9 @@ export const SyncStatusBanner: React.FC<SyncStatusBannerProps> = memo(({ showWhe
 
     return (
       <View style={[styles.container, styles.pendingContainer, containerPaddingTop]} accessibilityLiveRegion="polite">
-        <Text style={styles.stateIcon}>⏳</Text>
+        <View style={styles.stateIconBox}>
+          <AppIcon name="clock" size={18} color="#38BDF8" />
+        </View>
         <View style={styles.textContainer}>
           <Text style={[styles.title, styles.pendingTitle]}>{t('sync.pendingSync')}</Text>
           <Text style={styles.subtitle}>
@@ -165,7 +178,10 @@ export const SyncStatusBanner: React.FC<SyncStatusBannerProps> = memo(({ showWhe
           accessibilityLabel={t('sync.syncNow')}
           activeOpacity={0.7}
         >
-          <Text style={styles.syncButtonText}>🔄 {t('sync.syncNow')}</Text>
+          <View style={styles.btnContent}>
+            <AppIcon name="refresh" size={13} color="#FFFFFF" />
+            <Text style={styles.syncButtonText}>{t('sync.syncNow')}</Text>
+          </View>
         </TouchableOpacity>
         <ReadAloudButton
           text={textToRead}
@@ -180,7 +196,9 @@ export const SyncStatusBanner: React.FC<SyncStatusBannerProps> = memo(({ showWhe
   if (showWhenAllSynced) {
     return (
       <View style={[styles.container, styles.syncedContainer, containerPaddingTop]}>
-        <Text style={styles.stateIcon}>✅</Text>
+        <View style={styles.stateIconBox}>
+          <AppIcon name="shieldCheck" size={18} color="#22C55E" />
+        </View>
         <View style={styles.textContainer}>
           <Text style={[styles.title, styles.syncedTitle]}>{t('sync.allSynced')}</Text>
         </View>
@@ -226,12 +244,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(34, 197, 94, 0.15)',
     borderBottomColor: 'rgba(34, 197, 94, 0.35)',
   },
-  stateIcon: {
-    fontSize: 20,
+  stateIconBox: {
     marginRight: spacing.spaceSm || 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   indicator: {
     marginRight: spacing.spaceSm || 10,
+  },
+  btnContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   textContainer: {
     flex: 1,

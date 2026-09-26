@@ -22,6 +22,8 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useI18n } from '../../i18n';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { TopAppBar } from '../../components/layout/TopAppBar';
+import { AppIcon } from '../../components/ui/AppIcon';
+import { EmptyState } from '../../components/common/EmptyState';
 import transactionService, { TransactionRecord } from '../../services/transactionService';
 import { colors } from '../../theme/colors';
 
@@ -139,12 +141,12 @@ export const CollectorTransactionsScreen: React.FC = () => {
 
     const methodIcon =
       item.paymentMethod === 'CASH'
-        ? '💵 Cash'
+        ? 'Cash'
         : item.paymentMethod === 'UPI_RECORDED'
-        ? '📱 UPI'
+        ? 'UPI'
         : item.paymentMethod === 'BANK_TRANSFER_RECORDED'
-        ? '🏦 Bank'
-        : '📋 Payment';
+        ? 'Bank Transfer'
+        : 'Payment';
 
     return (
       <TouchableOpacity
@@ -159,7 +161,9 @@ export const CollectorTransactionsScreen: React.FC = () => {
       >
         <View style={styles.cardHeader}>
           <View style={styles.refBox}>
-            <Text style={styles.cardIcon}>📜</Text>
+            <View style={{ marginRight: 8 }}>
+              <AppIcon name="receipt" size={18} color="#10B981" />
+            </View>
             <View>
               <Text style={styles.referenceNumber}>{item.referenceNumber}</Text>
               <Text style={styles.dateText}>{dateStr}</Text>
@@ -216,9 +220,10 @@ export const CollectorTransactionsScreen: React.FC = () => {
         />
 
         {isOffline && (
-          <View style={styles.offlineBanner}>
+          <View style={[styles.offlineBanner, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }]}>
+            <AppIcon name="alert" size={14} color="#FBBF24" />
             <Text style={styles.offlineBannerText}>
-              ⚠️ {t('common.offlineMode', 'Offline Mode — Displaying cached transactions.')}
+              {t('common.offlineMode', 'Offline Mode — Displaying cached transactions.')}
             </Text>
           </View>
         )}
@@ -259,7 +264,9 @@ export const CollectorTransactionsScreen: React.FC = () => {
             onPress={() => navigation.navigate('CollectorEarnings')}
           >
             <View style={styles.earningsLeft}>
-              <Text style={styles.earningsIcon}>📊</Text>
+              <View style={{ marginRight: 10 }}>
+                <AppIcon name="barChart" size={20} color="#34D399" />
+              </View>
               <View>
                 <Text style={styles.earningsTitle}>
                   {t('collector.earningsLedger', 'Earnings Ledger & Dues')}
@@ -269,14 +276,16 @@ export const CollectorTransactionsScreen: React.FC = () => {
                 </Text>
               </View>
             </View>
-            <Text style={styles.earningsArrow}>→</Text>
+            <AppIcon name="chevronRight" size={16} color="#34D399" />
           </TouchableOpacity>
         </View>
 
         {/* ── Filter Tabs & Search ── */}
         <View style={styles.filterSection}>
           <View style={styles.searchBar}>
-            <Text style={styles.searchIcon}>🔍</Text>
+            <View style={{ marginRight: 8 }}>
+              <AppIcon name="search" size={15} color="rgba(255,255,255,0.4)" />
+            </View>
             <TextInput
               style={styles.searchInput}
               placeholder={t('common.searchPlaceholder', 'Search by reference or buyer...')}
@@ -286,7 +295,7 @@ export const CollectorTransactionsScreen: React.FC = () => {
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Text style={styles.clearSearch}>✕</Text>
+                <AppIcon name="close" size={14} color="rgba(255,255,255,0.6)" />
               </TouchableOpacity>
             )}
           </View>
@@ -338,22 +347,22 @@ export const CollectorTransactionsScreen: React.FC = () => {
               />
             }
             ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyIcon}>📋</Text>
-                <Text style={styles.emptyTitle}>
-                  {searchQuery || activeTab !== 'ALL'
+              <EmptyState
+                icon="receipt"
+                title={
+                  searchQuery || activeTab !== 'ALL'
                     ? t('common.noMatchingRecords', 'No matching transactions')
-                    : t('payments.noTransactions', 'No Transactions Yet')}
-                </Text>
-                <Text style={styles.emptyDesc}>
-                  {searchQuery || activeTab !== 'ALL'
+                    : t('payments.noTransactions', 'No Transactions Yet')
+                }
+                description={
+                  searchQuery || activeTab !== 'ALL'
                     ? t('common.tryClearingFilters', 'Try adjusting your search query or filter.')
                     : t(
                         'payments.noTransactionsDesc',
                         'When you complete a digital handover with an authorized recycler, recorded sales and receipts will appear here.'
-                      )}
-                </Text>
-              </View>
+                      )
+                }
+              />
             }
           />
         )}

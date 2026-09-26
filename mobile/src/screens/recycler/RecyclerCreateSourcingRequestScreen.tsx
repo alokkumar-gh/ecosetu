@@ -28,6 +28,7 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useI18n } from '../../i18n';
 import sourcingService, { SourcingRequest, SourceAgainTemplate } from '../../services/sourcingService';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 interface Props {
   navigation?: any;
@@ -166,9 +167,12 @@ export const RecyclerCreateSourcingRequestScreen: React.FC<Props> = ({
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {template?.sourceRequestReference && (
             <View style={styles.templateNotice}>
-              <Text style={styles.templateNoticeText}>
-                🔁 {t('sourcing.prefilledFrom', 'Prefilled from')} {template.sourceRequestReference}. {t('sourcing.newRequestNotice', 'Creates an independent new request.')}
-              </Text>
+              <View style={styles.rowCentered}>
+                <AppIcon name="refresh" size={14} color="#34D399" />
+                <Text style={styles.templateNoticeText}>
+                  {t('sourcing.prefilledFrom', 'Prefilled from')} {template.sourceRequestReference}. {t('sourcing.newRequestNotice', 'Creates an independent new request.')}
+                </Text>
+              </View>
             </View>
           )}
 
@@ -627,5 +631,10 @@ const styles = StyleSheet.create({
   backEditText: {
     color: colors.textTertiary,
     fontSize: 12,
+  },
+  rowCentered: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
 });

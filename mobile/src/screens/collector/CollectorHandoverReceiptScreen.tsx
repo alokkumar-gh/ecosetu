@@ -20,6 +20,7 @@ import { useI18n } from '../../i18n';
 import handoverService, { HandoverReceipt } from '../../services/handoverService';
 import voiceService from '../../services/voiceService';
 import { ReportProblemModal } from '../../components/dispute/ReportProblemModal';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 export const CollectorHandoverReceiptScreen: React.FC = () => {
   const { t, language } = useI18n();
@@ -99,10 +100,13 @@ export const CollectorHandoverReceiptScreen: React.FC = () => {
       {/* Offline Stale Notice */}
       {receipt.isFromCache && (
         <View style={styles.cachedBanner}>
-          <Text style={styles.cachedBannerText}>
-            📦 {t('handover.cachedReceiptNotice') || 'Viewing cached offline receipt'}
-            {receipt.cachedAt ? ` (Saved: ${new Date(receipt.cachedAt).toLocaleTimeString()})` : ''}
-          </Text>
+          <View style={styles.rowCentered}>
+            <AppIcon name="package" size={14} color="#15803d" />
+            <Text style={styles.cachedBannerText}>
+              {t('handover.cachedReceiptNotice') || 'Viewing cached offline receipt'}
+              {receipt.cachedAt ? ` (Saved: ${new Date(receipt.cachedAt).toLocaleTimeString()})` : ''}
+            </Text>
+          </View>
         </View>
       )}
 
@@ -120,7 +124,10 @@ export const CollectorHandoverReceiptScreen: React.FC = () => {
 
         <View style={styles.speechRow}>
           <TouchableOpacity style={styles.speechBtn} onPress={handleSpeak}>
-            <Text style={styles.speechBtnText}>🔊 {t('handover.speakDetails') || 'Listen to Receipt'}</Text>
+            <View style={styles.btnRow}>
+              <AppIcon name="volume2" size={14} color="#0D9488" />
+              <Text style={styles.speechBtnText}>{t('handover.speakDetails') || 'Listen to Receipt'}</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -134,9 +141,15 @@ export const CollectorHandoverReceiptScreen: React.FC = () => {
           <View style={styles.partyHeaderRow}>
             <Text style={styles.partyRole}>{t('roles.collector') || 'Collector'}</Text>
             {receipt.confirmations.collector.confirmed ? (
-              <Text style={styles.confirmedCheck}>✓ {t('handover.collectorConfirmed') || 'Confirmed'}</Text>
+              <View style={styles.rowCentered}>
+                <AppIcon name="check" size={12} color="#16a34a" />
+                <Text style={styles.confirmedCheck}>{t('handover.collectorConfirmed') || 'Confirmed'}</Text>
+              </View>
             ) : (
-              <Text style={styles.pendingCheck}>⏳ {'Pending'}</Text>
+              <View style={styles.rowCentered}>
+                <AppIcon name="clock" size={12} color="#64748b" />
+                <Text style={styles.pendingCheck}>{'Pending'}</Text>
+              </View>
             )}
           </View>
           <Text style={styles.partyName}>{receipt.collector.name}</Text>
@@ -155,9 +168,15 @@ export const CollectorHandoverReceiptScreen: React.FC = () => {
           <View style={styles.partyHeaderRow}>
             <Text style={[styles.partyRole, { color: '#2563eb' }]}>{t('roles.recycler') || 'Authorized Recycler'}</Text>
             {receipt.confirmations.recycler.confirmed ? (
-              <Text style={styles.confirmedCheck}>✓ {t('handover.recyclerConfirmed') || 'Confirmed'}</Text>
+              <View style={styles.rowCentered}>
+                <AppIcon name="check" size={12} color="#16a34a" />
+                <Text style={styles.confirmedCheck}>{t('handover.recyclerConfirmed') || 'Confirmed'}</Text>
+              </View>
             ) : (
-              <Text style={styles.pendingCheck}>⏳ {'Pending'}</Text>
+              <View style={styles.rowCentered}>
+                <AppIcon name="clock" size={12} color="#64748b" />
+                <Text style={styles.pendingCheck}>{'Pending'}</Text>
+              </View>
             )}
           </View>
           <Text style={styles.partyName}>{receipt.recycler.facilityName}</Text>
@@ -227,9 +246,16 @@ export const CollectorHandoverReceiptScreen: React.FC = () => {
       <View style={styles.card}>
         <Text style={styles.cardSectionTitle}>{t('handover.locationStatus') || 'Location Evidence'}</Text>
         <View style={styles.locationRow}>
-          <Text style={styles.locationStatusBadge}>
-            {receipt.location.status === 'GPS_CAPTURED' ? `📍 ${t('handover.gpsCaptured') || 'GPS CAPTURED'}` : `⚠️ ${t('handover.gpsUnavailable') || 'GPS UNAVAILABLE'}`}
-          </Text>
+          <View style={styles.rowCentered}>
+            <AppIcon
+              name={receipt.location.status === 'GPS_CAPTURED' ? 'mapPin' : 'alertTriangle'}
+              size={14}
+              color={receipt.location.status === 'GPS_CAPTURED' ? '#16a34a' : '#d97706'}
+            />
+            <Text style={styles.locationStatusBadge}>
+              {receipt.location.status === 'GPS_CAPTURED' ? (t('handover.gpsCaptured') || 'GPS CAPTURED') : (t('handover.gpsUnavailable') || 'GPS UNAVAILABLE')}
+            </Text>
+          </View>
         </View>
         {receipt.location.latitude != null && receipt.location.longitude != null && (
           <Text style={styles.geoText}>
@@ -256,7 +282,10 @@ export const CollectorHandoverReceiptScreen: React.FC = () => {
 
       {/* Compliance Box */}
       <View style={styles.complianceBox}>
-        <Text style={styles.complianceTitle}>⚖️ {t('handover.legalDisclaimer') || 'Legal Transfer Acknowledgment'}</Text>
+        <View style={[styles.rowCentered, { marginBottom: 4 }]}>
+          <AppIcon name="shieldCheck" size={16} color="#854d0e" />
+          <Text style={styles.complianceTitle}>{t('handover.legalDisclaimer') || 'Legal Transfer Acknowledgment'}</Text>
+        </View>
         <Text style={styles.complianceText}>{receipt.complianceDisclaimer}</Text>
         <Text style={[styles.complianceText, { marginTop: 6, fontStyle: 'italic' }]}>
           {receipt.traceabilityBasis}
@@ -273,7 +302,10 @@ export const CollectorHandoverReceiptScreen: React.FC = () => {
             })
           }
         >
-          <Text style={styles.recordSaleBtnText}>💰 Record Sale / Payment</Text>
+          <View style={styles.btnRow}>
+            <AppIcon name="creditCard" size={16} color="#ffffff" />
+            <Text style={styles.recordSaleBtnText}>Record Sale / Payment</Text>
+          </View>
         </TouchableOpacity>
       )}
 
@@ -282,7 +314,10 @@ export const CollectorHandoverReceiptScreen: React.FC = () => {
         style={styles.disputeBtn}
         onPress={() => setProblemModalVisible(true)}
       >
-        <Text style={styles.disputeBtnText}>🚨 Report Handover Problem / Weight Mismatch</Text>
+        <View style={styles.btnRow}>
+          <AppIcon name="alertTriangle" size={16} color="#e11d48" />
+          <Text style={styles.disputeBtnText}>Report Handover Problem / Weight Mismatch</Text>
+        </View>
       </TouchableOpacity>
 
       {/* Return Action */}
@@ -590,6 +625,17 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: 'bold',
     fontSize: 15,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  rowCentered: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
 });
 

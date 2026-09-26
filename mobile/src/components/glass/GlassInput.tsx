@@ -18,6 +18,8 @@ import {
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 
+import { AppIcon } from '../ui/AppIcon';
+
 export interface GlassInputProps extends TextInputProps {
   label?: string;
   error?: string | null;
@@ -67,7 +69,7 @@ export const GlassInput = forwardRef<TextInput, GlassInputProps>(
               accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Text style={styles.eyeIconText}>{showPassword ? '👁' : '🔒'}</Text>
+              <AppIcon name={showPassword ? 'eye' : 'eyeOff'} size={18} color="#94A3B8" />
             </TouchableOpacity>
           )}
         </View>

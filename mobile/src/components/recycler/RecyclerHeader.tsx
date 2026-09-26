@@ -8,6 +8,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
+import { AppIcon } from '../ui/AppIcon';
+
 interface RecyclerHeaderProps {
   facilityName: string;
   isAuthorized?: boolean;
@@ -69,7 +71,10 @@ export const RecyclerHeader: React.FC<RecyclerHeaderProps> = ({
           {subtitle ? (
             <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>
           ) : city ? (
-            <Text style={styles.subtitle} numberOfLines={1}>📍 {city}</Text>
+            <View style={styles.cityRow}>
+              <AppIcon name="location" size={12} color="rgba(255,255,255,0.45)" />
+              <Text style={styles.subtitle} numberOfLines={1}>{city}</Text>
+            </View>
           ) : null}
         </View>
 
@@ -141,6 +146,11 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.45)',
     fontSize: 12,
     fontWeight: '500',
+  },
+  cityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   rightCol: {
     flexDirection: 'row',

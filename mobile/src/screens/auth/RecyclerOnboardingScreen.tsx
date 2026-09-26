@@ -23,6 +23,7 @@ import { AuthStackParamList } from '../../navigation/types';
 import { useAuth } from '../../hooks/useAuth';
 import { ROLES } from '../../utils/constants';
 import { AUTH_COLORS, AUTH_SPACE, AUTH_RADIUS, AUTH_SHADOW } from '../../components/auth/design/AuthTheme';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 interface Props {
   navigation?: any;
@@ -146,7 +147,7 @@ export const RecyclerOnboardingScreen: React.FC<Props> = ({ navigation, route })
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.iconCircle}>
-            <Text style={styles.icon}>🏭</Text>
+            <AppIcon name="factory" size={32} color="#10B981" />
           </View>
           <Text style={styles.title}>RECYCLER ONBOARDING</Text>
           <Text style={styles.subtitle}>
@@ -156,7 +157,8 @@ export const RecyclerOnboardingScreen: React.FC<Props> = ({ navigation, route })
 
         {errorMsg ? (
           <View style={styles.errorBox}>
-            <Text style={styles.errorText}>⚠ {errorMsg}</Text>
+            <AppIcon name="alert" size={16} color={AUTH_COLORS.error} style={{ marginRight: 6 }} />
+            <Text style={styles.errorText}>{errorMsg}</Text>
           </View>
         ) : null}
 
@@ -236,10 +238,12 @@ export const RecyclerOnboardingScreen: React.FC<Props> = ({ navigation, route })
                   style={[styles.categoryChip, active && styles.categoryChipActive]}
                   onPress={() => toggleCategory(cat.id)}
                 >
-                  <Text style={[styles.categoryText, active && styles.categoryTextActive]}>
-                    {active ? '✓ ' : '+ '}
-                    {cat.label}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <AppIcon name={active ? 'check' : 'plus'} size={12} color={active ? '#047857' : AUTH_COLORS.textSecondary} />
+                    <Text style={[styles.categoryText, active && styles.categoryTextActive]}>
+                      {cat.label}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               );
             })}
@@ -271,7 +275,7 @@ export const RecyclerOnboardingScreen: React.FC<Props> = ({ navigation, route })
               activeOpacity={0.8}
               accessibilityRole="button"
             >
-              <Text style={styles.uploadIcon}>📋</Text>
+              <AppIcon name="upload" size={32} color="#10B981" style={{ marginBottom: 8 }} />
               <Text style={styles.uploadTitle}>Upload Authorization Document</Text>
               <Text style={styles.uploadSubtitle}>PDF, PNG or JPG (Max 10MB)</Text>
               <View style={styles.chooseBtn}>
@@ -292,8 +296,9 @@ export const RecyclerOnboardingScreen: React.FC<Props> = ({ navigation, route })
           )}
 
           <View style={styles.privacyNote}>
+            <AppIcon name="shieldCheck" size={16} color="rgba(255,255,255,0.7)" style={{ marginRight: 6 }} />
             <Text style={styles.privacyNoteText}>
-              🛡 Distinct Clarification: ECOSETU Identity Verification approves participation on the ECOSETU network. It does not replace statutory regulatory compliance overseen by statutory authorities.
+              Distinct Clarification: ECOSETU Identity Verification approves participation on the ECOSETU network. It does not replace statutory regulatory compliance overseen by statutory authorities.
             </Text>
           </View>
         </View>

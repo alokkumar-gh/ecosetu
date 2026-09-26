@@ -31,9 +31,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// 3. Request Body Parsers (10KB limit per docs/10_BACKEND_ARCHITECTURE.md)
-app.use(express.json({ limit: '10kb' }));
-app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+// 3. Request Body Parsers (10MB limit for base64 audio and document OCR payloads)
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
 // 3. Request Logging Middleware (Winston)

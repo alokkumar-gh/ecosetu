@@ -27,6 +27,7 @@ import { GradientBackground } from '../../components/glass/GradientBackground';
 import { GlassCard } from '../../components/glass/GlassCard';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 interface Props {
   navigation?: any;
@@ -109,7 +110,9 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
       <GradientBackground>
         <TopAppBar title="Recycling Details" onBack={() => navigation?.goBack()} />
         <View style={styles.accessRestrictedContainer}>
-          <Text style={styles.accessRestrictedIcon}>🔒</Text>
+          <View style={styles.accessRestrictedIconWrapper}>
+            <AppIcon name="lock" size={40} color={colors.warning} />
+          </View>
           <Text style={styles.accessRestrictedTitle}>Access Restricted</Text>
           <Text style={styles.accessRestrictedMessage}>
             Only authorized formal recycling facilities can inspect or manage recycling records.
@@ -239,7 +242,7 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
         </View>
       ) : error || !record ? (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorIcon}>⚠️</Text>
+          <AppIcon name="alertTriangle" size={40} color={colors.error} style={{ marginBottom: 12 }} />
           <Text style={styles.errorTitle}>Error</Text>
           <Text style={styles.errorMessage}>{error || 'Record not found'}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={fetchRecord}>
@@ -250,7 +253,8 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {actionSuccessMessage && (
             <View style={styles.successBanner}>
-              <Text style={styles.successBannerText}>✓ {actionSuccessMessage}</Text>
+              <AppIcon name="check" size={14} color="#059669" strokeWidth={2.5} style={{ marginRight: 6 }} />
+              <Text style={styles.successBannerText}>{actionSuccessMessage}</Text>
             </View>
           )}
 
@@ -345,7 +349,10 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
                   onPress={() => setShowStartModal(true)}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.primaryActionBtnText}>Start Processing ⚙️</Text>
+                  <View style={styles.btnRow}>
+                    <AppIcon name="settings" size={14} color="#FFFFFF" />
+                    <Text style={styles.primaryActionBtnText}>Start Processing</Text>
+                  </View>
                 </TouchableOpacity>
               </View>
             )}
@@ -364,14 +371,17 @@ export const RecyclingRecordDetailScreen: React.FC<Props> = ({ navigation, route
                   }}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.primaryActionBtnText}>Complete Recycling ✅</Text>
+                  <View style={styles.btnRow}>
+                    <AppIcon name="check" size={14} color="#FFFFFF" strokeWidth={2.5} />
+                    <Text style={styles.primaryActionBtnText}>Complete Recycling</Text>
+                  </View>
                 </TouchableOpacity>
               </View>
             )}
 
             {status === 'COMPLETED' && (
               <View style={styles.completedNoticeBox}>
-                <Text style={styles.completedIcon}>🏅</Text>
+                <AppIcon name="award" size={36} color="#FBBF24" style={{ marginBottom: 6 }} />
                 <Text style={styles.completedTitle}>Recycling Formally Certified</Text>
                 <Text style={styles.completedSub}>
                   Certificate ID: {record.certificateId || 'CERT-' + record.id.slice(0, 8).toUpperCase()}
@@ -877,6 +887,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   successBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: 'rgba(16, 185, 129, 0.15)',
     padding: spacing.spaceSm,
     borderRadius: 8,
@@ -991,14 +1003,19 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginBottom: 4,
   },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
   accessRestrictedContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.spaceXl,
   },
-  accessRestrictedIcon: {
-    fontSize: 48,
+  accessRestrictedIconWrapper: {
     marginBottom: spacing.spaceMd,
   },
   accessRestrictedTitle: {

@@ -10,6 +10,8 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { LanguageSelector } from '../common/LanguageSelector';
 
+import { AppIcon } from '../ui/AppIcon';
+
 export interface TopAppBarProps {
   title: string;
   subtitle?: string;
@@ -47,7 +49,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = memo(({
             accessibilityLabel="Go back"
             activeOpacity={0.7}
           >
-            <Text style={styles.iconText}>←</Text>
+            <AppIcon name="chevronLeft" size={20} color={colors.textPrimary} />
           </TouchableOpacity>
         )}
         <View style={styles.titleContainer}>
@@ -81,7 +83,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = memo(({
             accessibilityLabel={`Notifications, ${unreadNotificationsCount} unread`}
             activeOpacity={0.7}
           >
-            <Text style={styles.iconText}>🔔</Text>
+            <AppIcon name="bell" size={20} color={colors.textPrimary} />
             {unreadNotificationsCount > 0 && (
               <View style={styles.notificationBadge}>
                 <Text style={styles.notificationBadgeText}>

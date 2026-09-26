@@ -13,6 +13,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { colors } from '../../theme/colors';
 import { ROLES } from '../../utils/constants';
 
+import { AppIcon } from '../ui/AppIcon';
+
 export const EcoSaathiButton: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
   const { isOpen, openChat } = useEcoSaathi();
@@ -37,7 +39,7 @@ export const EcoSaathiButton: React.FC = () => {
     >
       <View style={styles.fabInner}>
         <View style={styles.glowRing} pointerEvents="none" />
-        <Text style={styles.icon}>🌿</Text>
+        <AppIcon name="sparkles" size={24} color="#10B981" strokeWidth={2.2} />
         <View style={styles.badgeIndicator}>
           <Text style={styles.badgeText}>SAATHI</Text>
         </View>

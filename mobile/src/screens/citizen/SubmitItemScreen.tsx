@@ -40,6 +40,7 @@ import { reverseGeocode, getCurrentLocation, ResolvedAddress } from '../../servi
 import { EcoSetuMap } from '../../components/map/EcoSetuMap';
 import { EWASTE_CATEGORIES, ITEM_CONDITIONS, ADDRESS_TYPES } from '../../utils/constants';
 import { colors } from '../../theme/colors';
+import { AppIcon, IconName } from '../../components/ui/AppIcon';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -61,18 +62,18 @@ export interface DraftItem {
 
 const TOTAL_STEPS = 6;
 
-const CATEGORY_MAP: Record<string, { i18nKey: string; defaultLabel: string; icon: string }> = {
-  [EWASTE_CATEGORIES.MOBILE_PHONE]:   { i18nKey: 'ewaste.mobilePhone',   defaultLabel: 'Mobile Phone',     icon: '📱' },
-  [EWASTE_CATEGORIES.LAPTOP]:         { i18nKey: 'ewaste.laptop',        defaultLabel: 'Laptop',           icon: '💻' },
-  [EWASTE_CATEGORIES.DESKTOP]:        { i18nKey: 'ewaste.desktop',       defaultLabel: 'Desktop / Tower',  icon: '🖥️' },
-  [EWASTE_CATEGORIES.TABLET]:         { i18nKey: 'ewaste.tablet',        defaultLabel: 'Tablet',           icon: '📟' },
-  [EWASTE_CATEGORIES.MONITOR]:        { i18nKey: 'ewaste.monitor',       defaultLabel: 'Monitor / Screen', icon: '🖥️' },
-  [EWASTE_CATEGORIES.PRINTER]:        { i18nKey: 'ewaste.printer',       defaultLabel: 'Printer / Scanner',icon: '🖨️' },
-  [EWASTE_CATEGORIES.KEYBOARD_MOUSE]: { i18nKey: 'ewaste.keyboardMouse', defaultLabel: 'Keyboard / Mouse', icon: '⌨️' },
-  [EWASTE_CATEGORIES.CABLE_CHARGER]:  { i18nKey: 'ewaste.cableCharger',  defaultLabel: 'Cable / Charger',  icon: '🔌' },
-  [EWASTE_CATEGORIES.BATTERY]:        { i18nKey: 'ewaste.battery',       defaultLabel: 'Battery',          icon: '🔋' },
-  [EWASTE_CATEGORIES.CIRCUIT_BOARD]:  { i18nKey: 'ewaste.circuitBoard',  defaultLabel: 'Circuit Board',    icon: '🧩' },
-  [EWASTE_CATEGORIES.OTHER]:          { i18nKey: 'ewaste.other',         defaultLabel: 'Other E-Waste',    icon: '📦' },
+const CATEGORY_MAP: Record<string, { i18nKey: string; defaultLabel: string; icon: IconName }> = {
+  [EWASTE_CATEGORIES.MOBILE_PHONE]:   { i18nKey: 'ewaste.mobilePhone',   defaultLabel: 'Mobile Phone',     icon: 'phone' },
+  [EWASTE_CATEGORIES.LAPTOP]:         { i18nKey: 'ewaste.laptop',        defaultLabel: 'Laptop',           icon: 'laptop' },
+  [EWASTE_CATEGORIES.DESKTOP]:        { i18nKey: 'ewaste.desktop',       defaultLabel: 'Desktop / Tower',  icon: 'laptop' },
+  [EWASTE_CATEGORIES.TABLET]:         { i18nKey: 'ewaste.tablet',        defaultLabel: 'Tablet',           icon: 'phone' },
+  [EWASTE_CATEGORIES.MONITOR]:        { i18nKey: 'ewaste.monitor',       defaultLabel: 'Monitor / Screen', icon: 'laptop' },
+  [EWASTE_CATEGORIES.PRINTER]:        { i18nKey: 'ewaste.printer',       defaultLabel: 'Printer / Scanner',icon: 'document' },
+  [EWASTE_CATEGORIES.KEYBOARD_MOUSE]: { i18nKey: 'ewaste.keyboardMouse', defaultLabel: 'Keyboard / Mouse', icon: 'box' },
+  [EWASTE_CATEGORIES.CABLE_CHARGER]:  { i18nKey: 'ewaste.cableCharger',  defaultLabel: 'Cable / Charger',  icon: 'recycle' },
+  [EWASTE_CATEGORIES.BATTERY]:        { i18nKey: 'ewaste.battery',       defaultLabel: 'Battery',          icon: 'battery' },
+  [EWASTE_CATEGORIES.CIRCUIT_BOARD]:  { i18nKey: 'ewaste.circuitBoard',  defaultLabel: 'Circuit Board',    icon: 'sparkles' },
+  [EWASTE_CATEGORIES.OTHER]:          { i18nKey: 'ewaste.other',         defaultLabel: 'Other E-Waste',    icon: 'box' },
 };
 
 const CONDITION_MAP: Record<string, { labelKey: string; defaultLabel: string; subKey: string; defaultSub: string; color: string }> = {
@@ -93,7 +94,7 @@ const StepBar: React.FC<{ step: number }> = ({ step }) => (
         <React.Fragment key={n}>
           <View style={[sb.circle, done && sb.circleDone, current && sb.circleCurrent]}>
             {done
-              ? <Text style={sb.checkmark}>✓</Text>
+              ? <AppIcon name="check" size={10} color="#064E3B" />
               : <Text style={[sb.stepNum, current && sb.stepNumActive]}>{n}</Text>}
           </View>
           {n < TOTAL_STEPS && (
@@ -538,7 +539,7 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
       // Navigate to Requests/Orders
       const totalCount = finalItems.reduce((acc, curr) => acc + (curr.quantity || 1), 0);
       Alert.alert(
-        'Request Submitted ✓',
+        'Request Submitted',
         isConnected
           ? `Your collection request for ${totalCount} item(s) has been submitted. A local collector will reach out soon.`
           : 'Saved offline. Will be submitted once you reconnect.',
@@ -569,7 +570,7 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
     if (item) {
       return { label: t(item.i18nKey, item.defaultLabel), icon: item.icon, key: catKey };
     }
-    return { label: catKey, icon: '📦', key: catKey };
+    return { label: 'Device', icon: 'box' as IconName, key: catKey };
   };
 
   const getConditionDetails = (condKey: string) => {
@@ -588,13 +589,13 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
   const categoriesList = Object.keys(CATEGORY_MAP).map((k) => getCategoryDetails(k));
   const conditionsList = Object.keys(CONDITION_MAP).map((k) => getConditionDetails(k));
 
-  const stepLabels: Record<number, { label: string; icon: string }> = {
-    1: { label: t('navigation.submit', 'Category'), icon: '📦' },
-    2: { label: t('common.photo', 'Photo'), icon: '📷' },
-    3: { label: t('common.condition', 'Condition'), icon: '🔍' },
-    4: { label: t('common.details', 'Details'), icon: '⚖️' },
-    5: { label: t('location.location', 'Location'), icon: '📍' },
-    6: { label: t('common.review', 'Review'), icon: '✅' },
+  const stepLabels: Record<number, { label: string; icon: IconName }> = {
+    1: { label: t('navigation.submit', 'Category'), icon: 'box' },
+    2: { label: t('common.photo', 'Photo'), icon: 'camera' },
+    3: { label: t('common.condition', 'Condition'), icon: 'search' },
+    4: { label: t('common.details', 'Details'), icon: 'document' },
+    5: { label: t('location.location', 'Location'), icon: 'location' },
+    6: { label: t('common.review', 'Review'), icon: 'checkCircle' },
   };
 
   // ─── Render Step Content ───────────────────────────────────────────────────
@@ -607,16 +608,20 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
           <ScrollView style={styles.stepContent} showsVerticalScrollIndicator={false}>
             {successInfo && (
               <View style={styles.successBanner}>
-                <Text style={styles.successBannerText}>✓ {successInfo}</Text>
+                <AppIcon name="checkCircle" size={16} color="#34D399" style={{ marginRight: 6 }} />
+                <Text style={styles.successBannerText}>{successInfo}</Text>
               </View>
             )}
 
             {items.length > 0 && (
               <View style={styles.itemsSummaryBadge}>
                 <View style={styles.itemsSummaryLeft}>
-                  <Text style={styles.itemsSummaryTitle}>
-                    📦 {items.length} {t('common.itemsAdded', 'item type(s) added')}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                    <AppIcon name="box" size={15} color="#34D399" style={{ marginRight: 6 }} />
+                    <Text style={styles.itemsSummaryTitle}>
+                      {items.length} {t('common.itemsAdded', 'item type(s) added')}
+                    </Text>
+                  </View>
                   <Text style={styles.itemsSummarySub}>
                     {items.map((it) => `${getCategoryDetails(it.category).label} (x${it.quantity})`).join(', ')}
                   </Text>
@@ -693,7 +698,7 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
                     <ActivityIndicator size="large" color="#10B981" />
                   ) : (
                     <>
-                      <Text style={styles.photoPlaceholderIcon}>📷</Text>
+                      <AppIcon name="camera" size={32} color={colors.primary[400]} style={{ marginBottom: 8 }} />
                       <Text style={styles.photoPlaceholderLabel}>{t('common.tapToTakePhoto', 'Tap to take photo')}</Text>
                       <Text style={styles.photoPlaceholderSub}>{t('common.photoHelpCollector', 'Shows collector what you have')}</Text>
                     </>
@@ -729,7 +734,7 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
                       <View>
                         <View style={styles.aiCardHeaderRow}>
                           <View style={styles.aiTitleRow}>
-                            <Text style={styles.aiSparkleIcon}>✨</Text>
+                            <AppIcon name="sparkles" size={16} color="#F59E0B" style={{ marginRight: 6 }} />
                             <Text style={styles.aiCardTitle}>
                               {isLowConf ? t('ai.possibleMatch') : t('ai.suggestion')}
                             </Text>
@@ -740,7 +745,7 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
                         </View>
 
                         <View style={styles.aiSuggestionBody}>
-                          <Text style={styles.aiSymbolText}>{catInfo.icon}</Text>
+                          <AppIcon name={catInfo.icon} size={24} color={colors.primary[400]} style={{ marginRight: 10 }} />
                           <View style={styles.aiInfoCol}>
                             <Text style={styles.aiCategoryName}>
                               {t(catInfo.i18nKey, catInfo.defaultLabel)}
@@ -763,7 +768,10 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
                               accessibilityRole="button"
                               accessibilityLabel={t('ai.useSuggestion')}
                             >
-                              <Text style={styles.aiUseButtonText}>✓ {t('ai.useSuggestion')}</Text>
+                              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <AppIcon name="check" size={14} color="#FFF" style={{ marginRight: 5 }} />
+                                <Text style={styles.aiUseButtonText}>{t('ai.useSuggestion')}</Text>
+                              </View>
                             </TouchableOpacity>
                           )}
 
@@ -787,7 +795,10 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
                     return (
                       <View>
                         <View style={styles.aiCardHeaderRow}>
-                          <Text style={styles.aiNoDetTitle}>🔍 {t('ai.couldNotConfidentlyIdentify', "Couldn't confidently identify this item")}</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <AppIcon name="search" size={16} color="#94A3B8" style={{ marginRight: 6 }} />
+                            <Text style={styles.aiNoDetTitle}>{t('ai.couldNotConfidentlyIdentify', "Couldn't confidently identify this item")}</Text>
+                          </View>
                         </View>
                         <Text style={styles.aiNoDetSubtitle}>{t('ai.noMatchingEwaste', 'No supported e-waste detected. Please select category manually.')}</Text>
                         <TouchableOpacity
@@ -809,7 +820,10 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
                     return (
                       <View>
                         <View style={styles.aiCardHeaderRow}>
-                          <Text style={styles.aiErrorTitle}>⚠️ {t('ai.serviceUnavailableTitle', 'AI Service Unavailable')}</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <AppIcon name="alert" size={16} color="#EF4444" style={{ marginRight: 6 }} />
+                            <Text style={styles.aiErrorTitle}>{t('ai.serviceUnavailableTitle', 'AI Service Unavailable')}</Text>
+                          </View>
                         </View>
                         <Text style={styles.aiNoDetSubtitle}>{t('ai.suggestionUnavailable', 'AI service is temporarily unavailable. Select material manually.')}</Text>
                         <View style={styles.aiActionRow}>
@@ -820,7 +834,10 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
                             accessibilityRole="button"
                             accessibilityLabel={t('ai.retryAnalysis', 'Retry AI')}
                           >
-                            <Text style={styles.aiRetryButtonText}>🔄 {t('ai.retryAnalysis', 'Retry AI')}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <AppIcon name="recycle" size={14} color="#FFF" style={{ marginRight: 5 }} />
+                              <Text style={styles.aiRetryButtonText}>{t('ai.retryAnalysis', 'Retry AI')}</Text>
+                            </View>
                           </TouchableOpacity>
 
                           <TouchableOpacity
@@ -981,7 +998,8 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
                   style={styles.mapEmbed}
                 />
                 <View style={styles.mapHelpBar}>
-                  <Text style={styles.mapHelpText}>{t('common.dragPinHelp', '📍 Drag pin or tap map to adjust pickup location')}</Text>
+                  <AppIcon name="location" size={13} color="#94A3B8" style={{ marginRight: 6 }} />
+                  <Text style={styles.mapHelpText}>{t('common.dragPinHelp', 'Drag pin or tap map to adjust pickup location')}</Text>
                 </View>
               </View>
 
@@ -996,7 +1014,10 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
                 {isLocating ? (
                   <ActivityIndicator size="small" color="#10B981" />
                 ) : (
-                  <Text style={styles.locateBtnText}>🎯 {t('location.useCurrentLocation', 'Use GPS / Current Location')}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <AppIcon name="location" size={16} color="#10B981" style={{ marginRight: 6 }} />
+                    <Text style={styles.locateBtnText}>{t('location.useCurrentLocation', 'Use GPS / Current Location')}</Text>
+                  </View>
                 )}
               </TouchableOpacity>
 
@@ -1014,19 +1035,27 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
               {/* Address type */}
               <Text style={styles.fieldLabel}>{t('common.addressType', 'Address type')}</Text>
               <View style={styles.addrTypeRow}>
-                {[ADDRESS_TYPES.HOME, ADDRESS_TYPES.OFFICE, ADDRESS_TYPES.OTHER].map((type) => (
-                  <TouchableOpacity
-                    key={type}
-                    style={[styles.addrTypePill, addressType === type && styles.addrTypePillActive]}
-                    onPress={() => setAddressType(type)}
-                    accessibilityRole="button"
-                    accessibilityLabel={type}
-                  >
-                    <Text style={[styles.addrTypePillText, addressType === type && styles.addrTypePillTextActive]}>
-                      {type === ADDRESS_TYPES.HOME ? `🏠 ${t('common.home', 'Home')}` : type === ADDRESS_TYPES.OFFICE ? `🏢 ${t('common.work', 'Work')}` : `📌 ${t('ewaste.other', 'Other')}`}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {[ADDRESS_TYPES.HOME, ADDRESS_TYPES.OFFICE, ADDRESS_TYPES.OTHER].map((type) => {
+                  const typeIcon: IconName = type === ADDRESS_TYPES.HOME ? 'home' : type === ADDRESS_TYPES.OFFICE ? 'factory' : 'location';
+                  const typeLabel = type === ADDRESS_TYPES.HOME ? t('common.home', 'Home') : type === ADDRESS_TYPES.OFFICE ? t('common.work', 'Work') : t('ewaste.other', 'Other');
+                  const isActive = addressType === type;
+                  return (
+                    <TouchableOpacity
+                      key={type}
+                      style={[styles.addrTypePill, isActive && styles.addrTypePillActive]}
+                      onPress={() => setAddressType(type)}
+                      accessibilityRole="button"
+                      accessibilityLabel={type}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <AppIcon name={typeIcon} size={14} color={isActive ? '#34D399' : '#94A3B8'} style={{ marginRight: 5 }} />
+                        <Text style={[styles.addrTypePillText, isActive && styles.addrTypePillTextActive]}>
+                          {typeLabel}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
               {/* Address fields */}
@@ -1067,7 +1096,10 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
 
             {/* Items Card List */}
             <View style={styles.reviewHeaderRow}>
-              <Text style={styles.reviewSectionTitle}>📦 {t('common.itemsToRecycle', 'Items to Recycle')} ({allReviewItems.length})</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <AppIcon name="box" size={17} color={colors.primary[400]} style={{ marginRight: 6 }} />
+                <Text style={styles.reviewSectionTitle}>{t('common.itemsToRecycle', 'Items to Recycle')} ({allReviewItems.length})</Text>
+              </View>
               <TouchableOpacity
                 style={styles.reviewAddMoreLink}
                 onPress={() => {
@@ -1086,7 +1118,7 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
               return (
                 <View key={idx} style={styles.itemReviewCard}>
                   <View style={styles.itemReviewTopRow}>
-                    <Text style={styles.itemReviewCatIcon}>{catInfo.icon}</Text>
+                    <AppIcon name={catInfo.icon} size={22} color={colors.primary[400]} style={{ marginRight: 8 }} />
                     <View style={styles.itemReviewHeaderTexts}>
                       <Text style={styles.itemReviewCatTitle}>{catInfo.label}</Text>
                       <Text style={styles.itemReviewSub}>
@@ -1102,7 +1134,7 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
                         onPress={() => handleRemoveItem(idx)}
                         accessibilityLabel="Remove item"
                       >
-                        <Text style={styles.itemDeleteBtnText}>✕</Text>
+                        <AppIcon name="close" size={14} color="#EF4444" />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -1112,10 +1144,10 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
                   )}
 
                   {item.weight ? (
-                    <ReviewRow icon="⚖️" label={t('common.weight', 'Weight')} value={`${item.weight} kg`} />
+                    <ReviewRow icon="scale" label={t('common.weight', 'Weight')} value={`${item.weight} kg`} />
                   ) : null}
                   {item.description ? (
-                    <ReviewRow icon="📝" label={t('common.note', 'Note')} value={item.description} />
+                    <ReviewRow icon="document" label={t('common.note', 'Note')} value={item.description} />
                   ) : null}
                 </View>
               );
@@ -1123,7 +1155,10 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
 
             {/* Location summary */}
             <View style={styles.reviewCard}>
-              <Text style={styles.reviewSectionTitle}>📍 {t('location.pickupLocation', 'Collection Address')}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                <AppIcon name="location" size={16} color={colors.primary[400]} style={{ marginRight: 6 }} />
+                <Text style={styles.reviewSectionTitle}>{t('location.pickupLocation', 'Collection Address')}</Text>
+              </View>
               <Text style={styles.reviewLocationText}>
                 {[houseNumber, street, landmark, city, district, stateName, pincode]
                   .filter(Boolean)
@@ -1143,9 +1178,12 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
 
             {!isConnected && (
               <View style={styles.offlineBox}>
-                <Text style={styles.offlineText}>
-                  ⚡ {t('offline.offlineBanner', "You're offline. Your request will be saved and submitted when you reconnect.")}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <AppIcon name="alert" size={14} color="#F59E0B" style={{ marginRight: 6 }} />
+                  <Text style={styles.offlineText}>
+                    {t('offline.offlineBanner', "You're offline. Your request will be saved and submitted when you reconnect.")}
+                  </Text>
+                </View>
               </View>
             )}
 
@@ -1181,8 +1219,9 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Step title */}
         <View style={styles.stepLabelRow}>
+          <AppIcon name={stepLabels[step]?.icon || 'box'} size={14} color={colors.primary[400]} style={{ marginRight: 6 }} />
           <Text style={styles.stepLabelText}>
-            {t('common.stepOf', { current: step, total: TOTAL_STEPS }, `Step ${step} of ${TOTAL_STEPS}`)} · {stepLabels[step]?.icon} {stepLabels[step]?.label}
+            {t('common.stepOf', { current: step, total: TOTAL_STEPS }, `Step ${step} of ${TOTAL_STEPS}`)} · {stepLabels[step]?.label}
           </Text>
         </View>
 
@@ -1222,7 +1261,10 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
               {isSubmitting ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={styles.submitBtnText}>{t('collection.submitRequest', 'Submit Request')} ✓</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <AppIcon name="checkCircle" size={16} color="#FFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.submitBtnText}>{t('collection.submitRequest', 'Submit Request')}</Text>
+                </View>
               )}
             </TouchableOpacity>
           )}
@@ -1232,8 +1274,6 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
     </EcoSetuBackground>
   );
 };
-
-// ─── Address Input helper ─────────────────────────────────────────────────────
 
 // ─── Address Input helper ─────────────────────────────────────────────────────
 
@@ -1261,9 +1301,9 @@ const AddressInput: React.FC<{
 
 // ─── Review Row helper ────────────────────────────────────────────────────────
 
-const ReviewRow: React.FC<{ icon: string; label: string; value: string }> = ({ icon, label, value }) => (
+const ReviewRow: React.FC<{ icon: IconName; label: string; value: string }> = ({ icon, label, value }) => (
   <View style={styles.reviewRow}>
-    <Text style={styles.reviewRowIcon}>{icon}</Text>
+    <AppIcon name={icon} size={14} color={colors.primary[400]} style={{ marginRight: 6 }} />
     <Text style={styles.reviewRowLabel}>{label}</Text>
     <Text style={styles.reviewRowValue} numberOfLines={2}>{value}</Text>
   </View>

@@ -32,6 +32,7 @@ import { EcoSetuBackground } from '../../components/eco';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 const space = {
   xs: spacing.spaceXs,
@@ -185,19 +186,40 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
     });
   };
 
+  const getCategoryIcon = (id: string): any => {
+    switch (id) {
+      case 'CRT': return 'tv';
+      case 'LCD_PANEL': return 'computer';
+      case 'PCB': return 'grid';
+      case 'CABLE': return 'link';
+      case 'BATTERY': return 'battery';
+      case 'MOTOR': return 'settings';
+      case 'MAGNET_ASSEMBLY': return 'refresh';
+      case 'MIXED_PLASTIC': return 'recycle';
+      case 'MOBILE_PHONE': return 'mobile';
+      case 'LAPTOP': return 'laptop';
+      case 'MONITOR': return 'computer';
+      case 'PRINTER': return 'file';
+      case 'KEYBOARD_MOUSE': return 'grid';
+      case 'DESKTOP_COMPUTER': return 'computer';
+      case 'TABLET': return 'mobile';
+      default: return 'package';
+    }
+  };
+
   const conditions = [
-    { id: 'WORKING', icon: '⚡', label: t('materialLots.conditions.WORKING') },
-    { id: 'NOT_WORKING', icon: '🔌', label: t('materialLots.conditions.NOT_WORKING') },
-    { id: 'DAMAGED', icon: '🔨', label: t('materialLots.conditions.DAMAGED') },
-    { id: 'UNKNOWN', icon: '❓', label: t('materialLots.conditions.UNKNOWN') },
+    { id: 'WORKING', icon: 'check', label: t('materialLots.conditions.WORKING') },
+    { id: 'NOT_WORKING', icon: 'clock', label: t('materialLots.conditions.NOT_WORKING') },
+    { id: 'DAMAGED', icon: 'close', label: t('materialLots.conditions.DAMAGED') },
+    { id: 'UNKNOWN', icon: 'help', label: t('materialLots.conditions.UNKNOWN') },
   ];
 
   const sourceTypes = [
-    { id: 'HOUSEHOLD', icon: '🏠', label: t('materialLots.sourceTypes.HOUSEHOLD') },
-    { id: 'COMMERCIAL', icon: '🏢', label: t('materialLots.sourceTypes.COMMERCIAL') },
-    { id: 'INDUSTRIAL', icon: '🏭', label: t('materialLots.sourceTypes.INDUSTRIAL') },
-    { id: 'STREET', icon: '🚚', label: t('materialLots.sourceTypes.STREET') },
-    { id: 'OTHER', icon: '📦', label: t('materialLots.sourceTypes.OTHER') },
+    { id: 'HOUSEHOLD', icon: 'home', label: t('materialLots.sourceTypes.HOUSEHOLD') },
+    { id: 'COMMERCIAL', icon: 'store', label: t('materialLots.sourceTypes.COMMERCIAL') },
+    { id: 'INDUSTRIAL', icon: 'factory', label: t('materialLots.sourceTypes.INDUSTRIAL') },
+    { id: 'STREET', icon: 'truck', label: t('materialLots.sourceTypes.STREET') },
+    { id: 'OTHER', icon: 'package', label: t('materialLots.sourceTypes.OTHER') },
   ];
 
   return (
@@ -219,7 +241,8 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
           <View style={styles.aiHelperBanner}>
             <View style={styles.aiBannerBadgeRow}>
               <View style={styles.aiBannerBadge}>
-                <Text style={styles.aiBannerBadgeText}>✨ {t('admin.systemHealth.aiServiceTitle') || 'AI Vision Assist'}</Text>
+                <AppIcon name="sparkles" size={13} color="#34D399" />
+                <Text style={styles.aiBannerBadgeText}>{t('admin.systemHealth.aiServiceTitle') || 'AI Vision Assist'}</Text>
               </View>
               <Text style={styles.aiBannerLiveStatus}>● YOLOv8 Active</Text>
             </View>
@@ -231,7 +254,10 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
           {/* Section 1: Photos Capture Strip */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>📸 {t('materialLots.takePhoto')}</Text>
+              <View style={styles.sectionTitleRow}>
+                <AppIcon name="camera" size={18} color="#10B981" />
+                <Text style={styles.sectionTitle}>{t('materialLots.takePhoto')}</Text>
+              </View>
               <Text style={styles.sectionBadge}>
                 {photos.length} {t('materialLots.photosCount')}
               </Text>
@@ -246,7 +272,7 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
                 accessibilityRole="button"
                 accessibilityLabel={t('materialLots.takePhoto')}
               >
-                <Text style={styles.cameraIcon}>📷</Text>
+                <AppIcon name="camera" size={24} color="#10B981" />
                 <Text style={styles.cameraText}>
                   {photos.length === 0 ? t('materialLots.takePhoto') : t('materialLots.addMorePhotos')}
                 </Text>
@@ -262,7 +288,7 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
                     accessibilityLabel="Remove photo"
                     hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
                   >
-                    <Text style={styles.removePhotoText}>✕</Text>
+                    <AppIcon name="x" size={12} color="#FFFFFF" />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -294,7 +320,7 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
                     <View>
                       <View style={styles.aiCardHeaderRow}>
                         <View style={styles.aiTitleRow}>
-                          <Text style={styles.aiSparkleIcon}>✨</Text>
+                          <AppIcon name="sparkles" size={16} color="#34D399" style={{ marginRight: 6 }} />
                           <Text style={styles.aiCardTitle}>
                             {isLowConf ? t('ai.possibleMatch') : t('ai.suggestion')}
                           </Text>
@@ -311,7 +337,7 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
                             { backgroundColor: catDef.color + '25', borderColor: catDef.color },
                           ]}
                         >
-                          <Text style={styles.aiSymbolText}>{catDef.symbol}</Text>
+                          <AppIcon name={getCategoryIcon(catDef.id)} size={22} color={catDef.accentColor || '#10B981'} />
                         </View>
                         <View style={styles.aiInfoCol}>
                           <Text style={styles.aiCategoryName}>
@@ -331,7 +357,10 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
                           accessibilityRole="button"
                           accessibilityLabel={t('ai.useSuggestion')}
                         >
-                          <Text style={styles.aiUseButtonText}>✓ {t('ai.useSuggestion')}</Text>
+                          <View style={styles.btnRow}>
+                            <AppIcon name="check" size={15} color="#071E22" />
+                            <Text style={styles.aiUseButtonText}>{t('ai.useSuggestion')}</Text>
+                          </View>
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -354,7 +383,10 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
                   return (
                     <View>
                       <View style={styles.aiCardHeaderRow}>
-                        <Text style={styles.aiNoDetTitle}>🔍 {t('ai.couldNotConfidentlyIdentify', "Couldn't confidently identify this item")}</Text>
+                        <View style={styles.sectionTitleRow}>
+                          <AppIcon name="search" size={16} color="#38BDF8" />
+                          <Text style={styles.aiNoDetTitle}>{t('ai.couldNotConfidentlyIdentify', "Couldn't confidently identify this item")}</Text>
+                        </View>
                       </View>
                       <Text style={styles.aiNoDetSubtitle}>{t('ai.noMatchingEwaste', 'No supported e-waste detected. Please select category manually.')}</Text>
                       <TouchableOpacity
@@ -376,7 +408,10 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
                   return (
                     <View>
                       <View style={styles.aiCardHeaderRow}>
-                        <Text style={styles.aiErrorTitle}>⚠️ {t('ai.serviceUnavailableTitle', 'AI Service Unavailable')}</Text>
+                        <View style={styles.sectionTitleRow}>
+                          <AppIcon name="warning" size={16} color="#EF4444" />
+                          <Text style={styles.aiErrorTitle}>{t('ai.serviceUnavailableTitle', 'AI Service Unavailable')}</Text>
+                        </View>
                       </View>
                       <Text style={styles.aiNoDetSubtitle}>{t('ai.suggestionUnavailable', 'AI service is temporarily unavailable. Select material manually.')}</Text>
                       <View style={styles.aiActionRow}>
@@ -387,7 +422,10 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
                           accessibilityRole="button"
                           accessibilityLabel={t('ai.retryAnalysis', 'Retry AI')}
                         >
-                          <Text style={styles.aiRetryButtonText}>🔄 {t('ai.retryAnalysis', 'Retry AI')}</Text>
+                          <View style={styles.btnRow}>
+                            <AppIcon name="refresh" size={14} color="#071E22" />
+                            <Text style={styles.aiRetryButtonText}>{t('ai.retryAnalysis', 'Retry AI')}</Text>
+                          </View>
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -409,7 +447,10 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
 
           {/* Section 2: Pictorial Category Picker (15 SIH Types, >=64dp cards, >=48dp touch) */}
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>📦 {t('materialLots.selectCategory')}</Text>
+            <View style={styles.sectionTitleRow}>
+              <AppIcon name="package" size={18} color="#10B981" />
+              <Text style={styles.sectionTitle}>{t('materialLots.selectCategory')}</Text>
+            </View>
             <Text style={styles.sectionSubtitle}>
               {t('lowLiteracy.tapMatchingScrap') || 'Tap the picture that matches your collected scrap'}
             </Text>
@@ -437,7 +478,7 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
                         { backgroundColor: isSelected ? cat.color + '33' : 'rgba(255,255,255,0.06)' },
                       ]}
                     >
-                      <Text style={styles.categorySymbol}>{cat.symbol}</Text>
+                      <AppIcon name={getCategoryIcon(cat.id)} size={24} color={isSelected ? cat.accentColor : '#94A3B8'} />
                     </View>
                     <Text
                       style={[
@@ -457,7 +498,10 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
           {/* Section 3: Subcategory Selector */}
           {activeCategoryDef.subcategories.length > 0 && (
             <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>🔍 {t('materialLots.selectSubcategory')}</Text>
+              <View style={styles.sectionTitleRow}>
+                <AppIcon name="search" size={18} color="#10B981" />
+                <Text style={styles.sectionTitle}>{t('materialLots.selectSubcategory')}</Text>
+              </View>
               <View style={styles.pillRow}>
                 {activeCategoryDef.subcategories.map((sub: MaterialSubcategory) => {
                   const isSelected = selectedSubcategory === sub.id;
@@ -482,7 +526,10 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
 
           {/* Section 4: Condition Picker */}
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>⚙️ {t('materialLots.selectCondition')}</Text>
+            <View style={styles.sectionTitleRow}>
+              <AppIcon name="settings" size={18} color="#10B981" />
+              <Text style={styles.sectionTitle}>{t('materialLots.selectCondition')}</Text>
+            </View>
             <View style={styles.pillRow}>
               {conditions.map((item) => {
                 const isSelected = condition === item.id;
@@ -495,7 +542,12 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
                     accessibilityRole="button"
                     accessibilityState={{ selected: isSelected }}
                   >
-                    <Text style={styles.chipIcon}>{item.icon}</Text>
+                    <AppIcon
+                      name={item.icon as any}
+                      size={14}
+                      color={isSelected ? '#14B8A6' : '#94A3B8'}
+                      style={{ marginRight: 6 }}
+                    />
                     <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
                       {item.label}
                     </Text>
@@ -507,7 +559,10 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
 
           {/* Section 5: Source Type Picker */}
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>📍 {t('materialLots.selectSource')}</Text>
+            <View style={styles.sectionTitleRow}>
+              <AppIcon name="location" size={18} color="#10B981" />
+              <Text style={styles.sectionTitle}>{t('materialLots.selectSource')}</Text>
+            </View>
             <View style={styles.pillRow}>
               {sourceTypes.map((item) => {
                 const isSelected = sourceType === item.id;
@@ -520,7 +575,12 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
                     accessibilityRole="button"
                     accessibilityState={{ selected: isSelected }}
                   >
-                    <Text style={styles.chipIcon}>{item.icon}</Text>
+                    <AppIcon
+                      name={item.icon as any}
+                      size={14}
+                      color={isSelected ? '#14B8A6' : '#94A3B8'}
+                      style={{ marginRight: 6 }}
+                    />
                     <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
                       {item.label}
                     </Text>
@@ -538,7 +598,10 @@ export const CollectorMaterialCaptureScreen: React.FC<CollectorMaterialCaptureSc
             accessibilityRole="button"
             accessibilityLabel={t('common.next')}
           >
-            <Text style={styles.proceedButtonText}>{t('common.next')} ➔</Text>
+            <View style={styles.btnRow}>
+              <Text style={styles.proceedButtonText}>{t('common.next')}</Text>
+              <AppIcon name="arrowRight" size={18} color="#071E22" />
+            </View>
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
@@ -962,6 +1025,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#071E22',
   },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
 });
+
+export default CollectorMaterialCaptureScreen;
 
 

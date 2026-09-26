@@ -25,6 +25,7 @@ import { GradientBackground } from '../../components/glass/GradientBackground';
 import { GlassCard } from '../../components/glass/GlassCard';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 const FILTER_STATUSES = [
   { key: 'ALL', label: 'All' },
@@ -112,7 +113,9 @@ export const RecyclerIncomingScreen: React.FC<Props> = ({ navigation }) => {
       <GradientBackground>
         <TopAppBar title="Incoming Consignments" />
         <View style={styles.accessRestrictedContainer}>
-          <Text style={styles.accessRestrictedIcon}>🔒</Text>
+          <View style={styles.accessRestrictedIconWrapper}>
+            <AppIcon name="lock" size={40} color={colors.warning} />
+          </View>
           <Text style={styles.accessRestrictedTitle}>Access Restricted</Text>
           <Text style={styles.accessRestrictedMessage}>
             This screen is reserved for verified formal recycling facilities. Citizens and informal
@@ -198,7 +201,7 @@ export const RecyclerIncomingScreen: React.FC<Props> = ({ navigation }) => {
           {/* Action Prompt Banner for DELIVERED consignments */}
           {isDelivered && (
             <View style={styles.deliveredAlertBanner}>
-              <Text style={styles.deliveredAlertIcon}>⚡</Text>
+              <AppIcon name="zap" size={14} color="#34D399" style={{ marginRight: 6 }} />
               <Text style={styles.deliveredAlertText}>
                 Delivered to facility — Ready for inspection & acceptance
               </Text>
@@ -207,7 +210,7 @@ export const RecyclerIncomingScreen: React.FC<Props> = ({ navigation }) => {
 
           {/* Collector Info */}
           <View style={styles.collectorInfoRow}>
-            <Text style={styles.collectorIcon}>🚚</Text>
+            <AppIcon name="truck" size={20} color={colors.primary} style={{ marginRight: spacing.spaceSm }} />
             <View style={styles.collectorDetails}>
               <Text style={styles.collectorName}>{collectorName}</Text>
               <Text style={styles.collectorSubtext}>
@@ -274,7 +277,7 @@ export const RecyclerIncomingScreen: React.FC<Props> = ({ navigation }) => {
       {/* Recycler Verification Warning Banner */}
       {user?.status === 'PENDING_VERIFICATION' && (
         <View style={styles.warningBanner}>
-          <Text style={styles.warningBannerIcon}>⚠️</Text>
+          <AppIcon name="alertTriangle" size={20} color="#FBBF24" style={{ marginRight: spacing.spaceSm }} />
           <View style={styles.warningBannerContent}>
             <Text style={styles.warningBannerTitle}>Facility Verification Pending</Text>
             <Text style={styles.warningBannerText}>
@@ -640,8 +643,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.spaceXl,
   },
-  accessRestrictedIcon: {
-    fontSize: 48,
+  accessRestrictedIconWrapper: {
     marginBottom: spacing.spaceMd,
   },
   accessRestrictedTitle: {

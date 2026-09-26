@@ -29,6 +29,7 @@ import { useI18n } from '../../i18n';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { GlassCard } from '../../components/glass/GlassCard';
 import { GlassAvatar } from '../../components/glass/GlassAvatar';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { citizenSyncService, CitizenCriticalData, CitizenSyncState } from '../../services/citizenSyncService';
 
 type CitizenDashboardNavigationProp = CompositeNavigationProp<
@@ -131,7 +132,7 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
             <GlassAvatar name={user?.name || 'Citizen'} size={42} online={isConnected} />
             <View style={styles.headerText}>
               <Text style={styles.headerGreeting}>{timeGreeting()},</Text>
-              <Text style={styles.headerName} numberOfLines={1}>{firstName} 👋</Text>
+              <Text style={styles.headerName} numberOfLines={1}>{firstName}</Text>
             </View>
           </View>
           <TouchableOpacity
@@ -140,7 +141,7 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
             accessibilityRole="button"
             accessibilityLabel={t('citizen.dashboard.alerts', 'Notifications')}
           >
-            <Text style={styles.notifIcon}>🔔</Text>
+            <AppIcon name="bell" size={20} color="#FFFFFF" />
             {unreadCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
@@ -164,7 +165,8 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
           {/* Error Banner */}
           {Boolean(errorMessage) && (
             <View style={styles.errorBanner} accessibilityRole="alert">
-              <Text style={styles.errorText}>⚠ {errorMessage}</Text>
+              <AppIcon name="alert" size={16} color="#EF4444" style={{ marginRight: 6 }} />
+              <Text style={styles.errorText}>{errorMessage}</Text>
               <TouchableOpacity onPress={onRefresh} style={styles.retryBtn}>
                 <Text style={styles.retryText}>{t('common.retry', 'Retry')}</Text>
               </TouchableOpacity>
@@ -202,11 +204,13 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
               accessibilityRole="button"
               accessibilityLabel={t('citizen.dashboard.giveSellEwaste', 'Schedule E-Waste Pickup')}
             >
-              <Text style={styles.journeyEmoji}>♻️</Text>
+              <View style={{ marginBottom: 8 }}>
+                <AppIcon name="recycle" size={28} color="#10B981" />
+              </View>
               <Text style={styles.journeyTitle}>{t('citizen.dashboard.submitNewEwaste', 'Give / Sell E-Waste')}</Text>
               <Text style={styles.journeyDesc}>{t('citizen.dashboard.freeDoorstepPickup', 'Free doorstep pickup')}</Text>
               <View style={styles.journeyCTA}>
-                <Text style={styles.journeyCTAText}>{t('common.next', 'Schedule ➜')}</Text>
+                <Text style={styles.journeyCTAText}>{t('common.next', 'Schedule')} →</Text>
               </View>
             </TouchableOpacity>
 
@@ -217,11 +221,13 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
               accessibilityRole="button"
               accessibilityLabel={t('navigation.marketplace', 'Browse Reusable Electronics')}
             >
-              <Text style={styles.journeyEmoji}>🛍️</Text>
+              <View style={{ marginBottom: 8 }}>
+                <AppIcon name="store" size={28} color="#38BDF8" />
+              </View>
               <Text style={styles.journeyTitle}>{t('navigation.marketplace', 'Buy Reusables')}</Text>
               <Text style={styles.journeyDesc}>{t('marketplace.bannerDesc', 'Tested & verified items')}</Text>
               <View style={[styles.journeyCTA, styles.journeyCTAShop]}>
-                <Text style={[styles.journeyCTAText, styles.journeyCTATextShop]}>{t('marketplace.exploreNow', 'Shop ➜')}</Text>
+                <Text style={[styles.journeyCTAText, styles.journeyCTATextShop]}>{t('marketplace.exploreNow', 'Shop')} →</Text>
               </View>
             </TouchableOpacity>
           </View>
@@ -229,7 +235,7 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
           {/* ─── Quick Nav Grid ─── */}
           <View style={styles.quickGrid}>
             <TouchableOpacity style={styles.quickTile} onPress={handleOpenRequests} accessibilityRole="button">
-              <Text style={styles.quickIcon}>📋</Text>
+              <AppIcon name="clipboard" size={22} color="#10B981" style={{ marginBottom: 6 }} />
               <Text style={styles.quickLabel}>{t('citizen.requests.title', 'My Requests')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -237,7 +243,7 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
               onPress={() => (navigation as any).navigate('CitizenPurchases')}
               accessibilityRole="button"
             >
-              <Text style={styles.quickIcon}>🛒</Text>
+              <AppIcon name="store" size={22} color="#10B981" style={{ marginBottom: 6 }} />
               <Text style={styles.quickLabel}>{t('marketplace.myPurchases', 'Purchases')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -251,11 +257,11 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
               }}
               accessibilityRole="button"
             >
-              <Text style={styles.quickIcon}>🔍</Text>
+              <AppIcon name="search" size={22} color="#10B981" style={{ marginBottom: 6 }} />
               <Text style={styles.quickLabel}>{t('citizen.traceability.title', 'Track Item')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.quickTile} onPress={handleOpenNotifications} accessibilityRole="button">
-              <Text style={styles.quickIcon}>🔔</Text>
+              <AppIcon name="bell" size={22} color="#10B981" style={{ marginBottom: 6 }} />
               <Text style={styles.quickLabel}>{t('navigation.alerts', 'Alerts')}{unreadCount > 0 ? ` (${unreadCount})` : ''}</Text>
             </TouchableOpacity>
           </View>
@@ -272,7 +278,9 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
 
           {requests.length === 0 ? (
             <GlassCard variant="standard" style={styles.emptyCard}>
-              <Text style={styles.emptyEmoji}>♻️</Text>
+              <View style={{ marginBottom: 12, alignItems: 'center' }}>
+                <AppIcon name="recycle" size={36} color="#10B981" />
+              </View>
               <Text style={styles.emptyTitle}>{t('citizen.dashboard.noActivityTitle', 'No Activity Yet')}</Text>
               <Text style={styles.emptySubtitle}>
                 {t('citizen.dashboard.noActivityMessage', 'Schedule your first free e-waste pickup and start making an impact.')}
@@ -302,7 +310,7 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
                     activeOpacity={0.82}
                   >
                     <View style={styles.activityIconBox}>
-                      <Text style={styles.activityIcon}>📦</Text>
+                      <AppIcon name="box" size={18} color="#0284C7" />
                     </View>
                     <View style={styles.activityInfo}>
                       <Text style={styles.activityId} numberOfLines={1}>

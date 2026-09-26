@@ -15,6 +15,8 @@ import { NegotiationEvent, RecyclerQuote, quoteService } from '../../services/qu
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 
+import { AppIcon, IconName } from '../ui/AppIcon';
+
 interface Props {
   timeline?: NegotiationEvent[];
   quote?: RecyclerQuote;
@@ -42,7 +44,10 @@ export const NegotiationTimeline: React.FC<Props> = ({ timeline, quote }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>📜 Negotiation Timeline</Text>
+      <View style={styles.titleRow}>
+        <AppIcon name="history" size={14} color="#CBD5E1" />
+        <Text style={styles.title}>Negotiation Timeline</Text>
+      </View>
       <View style={styles.timelineList}>
         {events.map((event, index) => {
           const isCollector = event.actor === 'Collector';
@@ -50,6 +55,7 @@ export const NegotiationTimeline: React.FC<Props> = ({ timeline, quote }) => {
           const isAccepted = event.actionType === 'ACCEPTED';
           const isRejected = event.actionType === 'REJECTED';
           const isCancelled = event.actionType === 'CANCELLED';
+          const actorIconName: IconName = isCollector ? 'truck' : isRecycler ? 'warehouse' : 'scale';
 
           return (
             <React.Fragment key={event.id || String(index)}>
@@ -57,7 +63,7 @@ export const NegotiationTimeline: React.FC<Props> = ({ timeline, quote }) => {
                 <View style={styles.connectorRow}>
                   <View style={styles.connectorLine} />
                   <Text style={styles.connectorText}>
-                    {isAccepted ? '✓ Accepted Deal' : isCollector ? '↓ Counter Offer' : isRecycler ? '↓ Revised Offer' : '↓ Decision'}
+                    {isAccepted ? 'Accepted Deal' : isCollector ? 'Counter Offer' : isRecycler ? 'Revised Offer' : 'Decision'}
                   </Text>
                   <View style={styles.connectorLine} />
                 </View>
@@ -74,7 +80,11 @@ export const NegotiationTimeline: React.FC<Props> = ({ timeline, quote }) => {
               >
                 <View style={styles.eventHeader}>
                   <View style={styles.actorBadge}>
-                    <Text style={styles.actorIcon}>{isCollector ? '👤' : isRecycler ? '🏭' : '⚖️'}</Text>
+                    <AppIcon
+                      name={actorIconName}
+                      size={12}
+                      color={isCollector ? '#60A5FA' : isRecycler ? '#34D399' : '#CBD5E1'}
+                    />
                     <Text style={styles.actorName}>{event.actorName}</Text>
                   </View>
                   <Text style={styles.eventTime}>{formatTime(event.timestamp)}</Text>
@@ -116,11 +126,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
   title: {
     fontSize: 13,
     fontWeight: '700',
     color: '#CBD5E1',
-    marginBottom: 8,
   },
   timelineList: {
     paddingVertical: 4,

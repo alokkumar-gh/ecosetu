@@ -43,6 +43,8 @@ import {
 } from '../../services/priceService';
 import { voiceService } from '../../services/voiceService';
 import { MATERIAL_TAXONOMY } from '../../config/materialTaxonomy';
+import { AppIcon } from '../../components/ui/AppIcon';
+import { PageVoiceGuide } from '../../components/voice/PageVoiceGuide';
 
 interface CollectorPriceBoardScreenProps {
   navigation?: any;
@@ -230,7 +232,6 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
     const categoryName = categoryConfig
       ? (t(categoryConfig.i18nKey as any) || categoryConfig.defaultName)
       : item.category;
-    const symbol = categoryConfig?.symbol || '📦';
     const isSpeakingThis = speakingId === item.id;
 
     const hasRange =
@@ -243,7 +244,7 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
         <View style={styles.cardHeader}>
           <View style={styles.categoryInfo}>
             <View style={styles.symbolBadge}>
-              <Text style={styles.categorySymbol}>{symbol}</Text>
+              <AppIcon name="package" size={20} color="#10B981" />
             </View>
             <View style={styles.categoryTextCol}>
               <Text style={styles.categoryTitle} numberOfLines={1}>{categoryName}</Text>
@@ -260,9 +261,12 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
             accessibilityLabel={`${t('priceBoard.speakPrice') || 'Speak Price'} ${categoryName}`}
             activeOpacity={0.7}
           >
-            <Text style={[styles.speakButtonText, isSpeakingThis && styles.speakButtonTextActive]}>
-              {isSpeakingThis ? '🔊 ...' : '🔊 ' + (t('priceBoard.speakPriceButton') || 'Speak')}
-            </Text>
+            <View style={styles.btnRow}>
+              <AppIcon name="volume-2" size={13} color={isSpeakingThis ? '#071E22' : '#34D399'} />
+              <Text style={[styles.speakButtonText, isSpeakingThis && styles.speakButtonTextActive]}>
+                {isSpeakingThis ? '...' : (t('priceBoard.speakPriceButton') || 'Speak')}
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -288,23 +292,34 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
           </View>
 
           <View style={styles.sourceBadge}>
+            <AppIcon
+              name={item.source === 'ADMIN_VERIFIED' ? 'shield' : item.source === 'RECYCLER_OFFER' ? 'factory' : 'bar-chart-2'}
+              size={12}
+              color="#94A3B8"
+            />
             <Text style={styles.sourceBadgeText}>
               {item.source === 'ADMIN_VERIFIED'
-                ? '🏛️ ' + (t('priceBoard.dataSourceAdmin') || 'Verified')
+                ? (t('priceBoard.dataSourceAdmin') || 'Verified')
                 : item.source === 'RECYCLER_OFFER'
-                ? '🏭 ' + (t('priceBoard.dataSourceRecycler') || 'Recycler')
-                : '📊 ' + (t('priceBoard.dataSourceImported') || 'Market')}
+                ? (t('priceBoard.dataSourceRecycler') || 'Recycler')
+                : (t('priceBoard.dataSourceImported') || 'Market')}
             </Text>
           </View>
         </View>
 
         <View style={styles.cardFooter}>
-          <Text style={styles.footerMetaText}>
-            📍 {item.location === 'ALL' ? 'All India' : item.location}
-          </Text>
-          <Text style={styles.footerMetaText}>
-            ⏱️ {renderFreshnessText(item.lastUpdatedAt || item.effectiveDate)}
-          </Text>
+          <View style={styles.footerMetaRow}>
+            <AppIcon name="map-pin" size={12} color="#94A3B8" />
+            <Text style={styles.footerMetaText}>
+              {item.location === 'ALL' ? 'All India' : item.location}
+            </Text>
+          </View>
+          <View style={styles.footerMetaRow}>
+            <AppIcon name="clock" size={12} color="#94A3B8" />
+            <Text style={styles.footerMetaText}>
+              {renderFreshnessText(item.lastUpdatedAt || item.effectiveDate)}
+            </Text>
+          </View>
         </View>
       </View>
     );
@@ -341,17 +356,23 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
         {/* Offline / Stale Banner for History */}
         {historyData?.isStale && (
           <View style={styles.staleBanner}>
-            <Text style={styles.staleBannerText}>
-              ⚠️ {t('priceBoard.staleDataBanner') || 'Price data is more than 24 hours old'}.{' '}
-              {t('priceBoard.staleDataWarning') || 'Please refresh when online.'}
-            </Text>
+            <View style={styles.bannerRow}>
+              <AppIcon name="alert-triangle" size={14} color="#F59E0B" />
+              <Text style={styles.staleBannerText}>
+                {t('priceBoard.staleDataBanner') || 'Price data is more than 24 hours old'}.{' '}
+                {t('priceBoard.staleDataWarning') || 'Please refresh when online.'}
+              </Text>
+            </View>
           </View>
         )}
         {!isConnected && historyData?.isCached && !historyData?.isStale && (
           <View style={styles.cachedBanner}>
-            <Text style={styles.cachedBannerText}>
-              📱 {t('priceBoard.offlineBanner') || 'You are offline. Showing cached historical rates.'}
-            </Text>
+            <View style={styles.bannerRow}>
+              <AppIcon name="wifi-off" size={14} color="#94A3B8" />
+              <Text style={styles.cachedBannerText}>
+                {t('priceBoard.offlineBanner') || 'You are offline. Showing cached historical rates.'}
+              </Text>
+            </View>
           </View>
         )}
 
@@ -399,9 +420,12 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
               accessibilityRole="button"
               accessibilityLabel={t('priceBoard.speakTrendButton') || 'Speak Trend'}
             >
-              <Text style={[styles.speakButtonText, speakingId === 'TREND' && styles.speakButtonTextActive]}>
-                {speakingId === 'TREND' ? '🔊 ...' : t('priceBoard.speakTrendButton') || '🔊 Speak Trend'}
-              </Text>
+              <View style={styles.btnRow}>
+                <AppIcon name="volume-2" size={13} color={speakingId === 'TREND' ? '#071E22' : '#34D399'} />
+                <Text style={[styles.speakButtonText, speakingId === 'TREND' && styles.speakButtonTextActive]}>
+                  {speakingId === 'TREND' ? '...' : t('priceBoard.speakTrendButton') || 'Speak Trend'}
+                </Text>
+              </View>
             </TouchableOpacity>
           </View>
 
@@ -416,19 +440,29 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
                   trends?.trendDirection === 'STABLE' && styles.trendBadgeStable,
                 ]}
               >
-                <Text style={styles.trendBadgeText}>
-                  {trends?.trendDirection === 'UP'
-                    ? `📈 ${t('priceBoard.trendUp') || 'Trending Up'} (+₹${trends.absoluteChange} / ${trends.percentageChange}%)`
-                    : trends?.trendDirection === 'DOWN'
-                    ? `📉 ${t('priceBoard.trendDown') || 'Trending Down'} (-₹${Math.abs(trends.absoluteChange || 0)} / ${trends.percentageChange}%)`
-                    : `➡️ ${t('priceBoard.trendStable') || 'Stable Price'}`}
-                </Text>
+                <View style={styles.trendRow}>
+                  <AppIcon
+                    name={trends?.trendDirection === 'UP' ? 'trending-up' : trends?.trendDirection === 'DOWN' ? 'trending-down' : 'minus'}
+                    size={14}
+                    color={trends?.trendDirection === 'UP' ? '#34D399' : trends?.trendDirection === 'DOWN' ? '#EF4444' : '#94A3B8'}
+                  />
+                  <Text style={styles.trendBadgeText}>
+                    {trends?.trendDirection === 'UP'
+                      ? `${t('priceBoard.trendUp') || 'Trending Up'} (+₹${trends.absoluteChange} / ${trends.percentageChange}%)`
+                      : trends?.trendDirection === 'DOWN'
+                      ? `${t('priceBoard.trendDown') || 'Trending Down'} (-₹${Math.abs(trends.absoluteChange || 0)} / ${trends.percentageChange}%)`
+                      : `${t('priceBoard.trendStable') || 'Stable Price'}`}
+                  </Text>
+                </View>
               </View>
             ) : (
               <View style={[styles.trendBadge, styles.trendBadgeInsufficient]}>
-                <Text style={styles.trendBadgeText}>
-                  ℹ️ {t('priceBoard.trendInsufficient') || 'Insufficient Data for Trend'}
-                </Text>
+                <View style={styles.trendRow}>
+                  <AppIcon name="info" size={14} color="#94A3B8" />
+                  <Text style={styles.trendBadgeText}>
+                    {t('priceBoard.trendInsufficient') || 'Insufficient Data for Trend'}
+                  </Text>
+                </View>
               </View>
             )}
           </View>
@@ -461,10 +495,13 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
 
           {/* Historical Methodology Disclaimer */}
           <View style={styles.methodologyBox}>
-            <Text style={styles.methodologyText}>
-              ℹ️ {t('priceBoard.methodologyNotice') ||
-                'Observed historical averages calculated from settled marketplace transactions. Not a forward price forecast.'}
-            </Text>
+            <View style={styles.methodologyRow}>
+              <AppIcon name="info" size={14} color="#94A3B8" />
+              <Text style={styles.methodologyText}>
+                {t('priceBoard.methodologyNotice') ||
+                  'Observed historical averages calculated from settled marketplace transactions. Not a forward price forecast.'}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -474,7 +511,7 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
 
           {periods.length === 0 ? (
             <View style={styles.insufficientCard}>
-              <Text style={{ fontSize: 36, marginBottom: 8 }}>📊</Text>
+              <AppIcon name="bar-chart-2" size={36} color="#94A3B8" />
               <Text style={styles.insufficientTitle}>
                 {t('priceBoard.insufficientDataTitle') || 'Not Enough Historical Data'}
               </Text>
@@ -531,6 +568,8 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
           onBack={() => navigation?.goBack()}
         />
 
+        <PageVoiceGuide pageKey="CollectorPriceBoard" />
+
         {/* Segmented Tab Switcher: Current Rates vs Price History */}
         <View style={styles.segmentContainer}>
           <TouchableOpacity
@@ -540,9 +579,12 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
             accessibilityRole="tab"
             accessibilityState={{ selected: activeTab === 'CURRENT' }}
           >
-            <Text style={[styles.segmentText, activeTab === 'CURRENT' && styles.segmentTextActive]}>
-              📊 {t('priceBoard.tabCurrent') || 'Current Rates'}
-            </Text>
+            <View style={styles.tabItemRow}>
+              <AppIcon name="bar-chart-2" size={14} color={activeTab === 'CURRENT' ? '#071E22' : '#94A3B8'} />
+              <Text style={[styles.segmentText, activeTab === 'CURRENT' && styles.segmentTextActive]}>
+                {t('priceBoard.tabCurrent') || 'Current Rates'}
+              </Text>
+            </View>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.segmentBtn, activeTab === 'HISTORY' && styles.segmentBtnActive]}
@@ -551,9 +593,12 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
             accessibilityRole="tab"
             accessibilityState={{ selected: activeTab === 'HISTORY' }}
           >
-            <Text style={[styles.segmentText, activeTab === 'HISTORY' && styles.segmentTextActive]}>
-              📈 {t('priceBoard.tabHistory') || 'Price History'}
-            </Text>
+            <View style={styles.tabItemRow}>
+              <AppIcon name="trending-up" size={14} color={activeTab === 'HISTORY' ? '#071E22' : '#94A3B8'} />
+              <Text style={[styles.segmentText, activeTab === 'HISTORY' && styles.segmentTextActive]}>
+                {t('priceBoard.tabHistory') || 'Price History'}
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -572,7 +617,6 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
                 : config
                 ? (t(config.i18nKey as any) || config.defaultName)
                 : catKey;
-              const symbol = catKey === 'ALL' ? '🌐' : config?.symbol || '📦';
 
               return (
                 <TouchableOpacity
@@ -583,7 +627,11 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
                   accessibilityRole="button"
                   accessibilityLabel={name}
                 >
-                  <Text style={styles.chipSymbol}>{symbol}</Text>
+                  <AppIcon
+                    name={catKey === 'ALL' ? 'globe' : 'package'}
+                    size={14}
+                    color={isSelected ? '#071E22' : '#94A3B8'}
+                  />
                   <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
                     {name}
                   </Text>
@@ -602,30 +650,40 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
             {/* Offline Stale Warning Banner (SIH-PRICE-002) */}
             {priceData.isStale && (
               <View style={styles.staleBanner}>
-                <Text style={styles.staleBannerText}>
-                  ⚠️ {t('priceBoard.staleDataBanner') || 'Price data is more than 24 hours old'}.{' '}
-                  {t('priceBoard.staleDataWarning') || 'Please refresh when online.'}
-                </Text>
+                <View style={styles.bannerRow}>
+                  <AppIcon name="alert-triangle" size={14} color="#F59E0B" />
+                  <Text style={styles.staleBannerText}>
+                    {t('priceBoard.staleDataBanner') || 'Price data is more than 24 hours old'}.{' '}
+                    {t('priceBoard.staleDataWarning') || 'Please refresh when online.'}
+                  </Text>
+                </View>
               </View>
             )}
 
             {/* Cached Data (Non-stale) Banner */}
             {!isConnected && !priceData.isStale && priceData.isCached && (
               <View style={styles.cachedBanner}>
-                <Text style={styles.cachedBannerText}>
-                  📱 {t('priceBoard.offlineBanner') || 'You are offline. Showing last known prices.'}
-                </Text>
+                <View style={styles.bannerRow}>
+                  <AppIcon name="wifi-off" size={14} color="#94A3B8" />
+                  <Text style={styles.cachedBannerText}>
+                    {t('priceBoard.offlineBanner') || 'You are offline. Showing last known prices.'}
+                  </Text>
+                </View>
               </View>
             )}
 
             {/* Location Bar / Info */}
             <View style={styles.locationBar}>
-              <Text style={styles.locationBarText}>
-                📍 {t('priceBoard.location') || 'Location'}: {selectedLocation === 'ALL' ? 'All India (National Baseline)' : selectedLocation}
-              </Text>
+              <View style={styles.locationBarContent}>
+                <AppIcon name="map-pin" size={14} color="#94A3B8" />
+                <Text style={styles.locationBarText}>
+                  {t('priceBoard.location') || 'Location'}: {selectedLocation === 'ALL' ? 'All India (National Baseline)' : selectedLocation}
+                </Text>
+              </View>
               {isConnected && !priceData.isCached && (
                 <View style={styles.liveBadge}>
-                  <Text style={styles.liveBadgeText}>🟢 {t('priceBoard.freshDataLabel') || 'Live'}</Text>
+                  <View style={styles.liveDot} />
+                  <Text style={styles.liveBadgeText}>{t('priceBoard.freshDataLabel') || 'Live'}</Text>
                 </View>
               )}
             </View>
@@ -642,7 +700,7 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
                 showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#10B981" />}
               >
-                <Text style={styles.emptyIcon}>📊</Text>
+                <AppIcon name="bar-chart-2" size={40} color="#94A3B8" />
                 <Text style={styles.emptyTitle}>
                   {t('priceBoard.noDataTitle') || 'No Price Data Available'}
                 </Text>
@@ -658,9 +716,12 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
                   accessibilityLabel={t('priceBoard.speakPrice') || 'Speak'}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.emptySpeakButtonText}>
-                    🔊 {t('priceBoard.speakPrice') || 'Speak Announcement'}
-                  </Text>
+                  <View style={styles.btnRow}>
+                    <AppIcon name="volume-2" size={16} color="#FFFFFF" />
+                    <Text style={styles.emptySpeakButtonText}>
+                      {t('priceBoard.speakPrice') || 'Speak Announcement'}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -668,9 +729,12 @@ export const CollectorPriceBoardScreen: React.FC<CollectorPriceBoardScreenProps>
                   onPress={onRefresh}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.refreshButtonText}>
-                    🔄 {t('priceBoard.refreshPrices') || 'Refresh Prices'}
-                  </Text>
+                  <View style={styles.btnRow}>
+                    <AppIcon name="refresh-cw" size={16} color="#34D399" />
+                    <Text style={styles.refreshButtonText}>
+                      {t('priceBoard.refreshPrices') || 'Refresh Prices'}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               </ScrollView>
             ) : (
@@ -1222,6 +1286,48 @@ const styles = StyleSheet.create({
   observationCountText: {
     fontSize: 11,
     color: 'rgba(255, 255, 255, 0.45)',
+  },
+  footerMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  bannerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  trendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  methodologyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  tabItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  locationBarContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
   },
 });
 

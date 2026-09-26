@@ -32,6 +32,8 @@ import { apiClient } from '../../services/apiClient';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 
+import { AppIcon } from '../ui/AppIcon';
+
 interface Props {
   uri?: string | null;
   style?: ImageStyle | ViewStyle;
@@ -47,7 +49,7 @@ export const AuthorizedImage: React.FC<Props> = ({
   uri,
   style,
   resizeMode = 'cover',
-  fallbackIcon = '📷',
+  fallbackIcon,
   fallbackText = 'Photo unavailable',
   allowFullscreen = true,
   categoryLabel,
@@ -106,7 +108,7 @@ export const AuthorizedImage: React.FC<Props> = ({
   if (!resolvedUri || hasError) {
     return (
       <View style={[styles.fallbackContainer, style]}>
-        <Text style={styles.fallbackIcon}>{fallbackIcon}</Text>
+        <AppIcon name="camera" size={22} color={colors.textSecondary} />
         <Text style={styles.fallbackText} numberOfLines={1}>
           {fallbackText}
         </Text>
@@ -145,7 +147,7 @@ export const AuthorizedImage: React.FC<Props> = ({
 
         {allowFullscreen && !isLoading && !hasError && (
           <View style={styles.expandPill}>
-            <Text style={styles.expandText}>🔍</Text>
+            <AppIcon name="search" size={10} color="#FFFFFF" />
           </View>
         )}
       </TouchableOpacity>
@@ -173,7 +175,7 @@ export const AuthorizedImage: React.FC<Props> = ({
                 accessibilityLabel="Close fullscreen photo view"
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
-                <Text style={styles.closeBtnText}>✕</Text>
+                <AppIcon name="close" size={18} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
 

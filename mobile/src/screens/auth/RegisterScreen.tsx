@@ -40,6 +40,8 @@ import {
   EcoPasswordStrength,
 } from '../../components/auth/design/EcoAuthWidgets';
 import { LanguageSelector } from '../../components/common/LanguageSelector';
+import { AppIcon, IconName } from '../../components/ui/AppIcon';
+import { InfoCallout } from '../../components/common/InfoCallout';
 import { AUTH_COLORS, AUTH_ORBS, AUTH_SPACE, AUTH_RADIUS, AUTH_TIMING } from '../../components/auth/design/AuthTheme';
 
 interface Props {
@@ -51,28 +53,28 @@ type AllowedRole = typeof ROLES.CITIZEN | typeof ROLES.INFORMAL_COLLECTOR | type
 
 const ROLE_OPTIONS: {
   key: AllowedRole;
-  icon: string;
+  icon: IconName;
   label: string;
   description: string;
   accent: string;
 }[] = [
   {
     key: ROLES.CITIZEN,
-    icon: '🏠',
+    icon: 'home',
     label: 'Citizen',
     description: 'Dispose & track your e-waste responsibly.',
     accent: AUTH_COLORS.primary,
   },
   {
     key: ROLES.INFORMAL_COLLECTOR,
-    icon: '🚚',
+    icon: 'truck',
     label: 'Collector',
     description: 'Find & manage collection opportunities.',
     accent: AUTH_COLORS.secondary,
   },
   {
     key: ROLES.RECYCLER,
-    icon: '♻️',
+    icon: 'recycle',
     label: 'Recycler',
     description: 'Manage recycling & processing workflows.',
     accent: '#A78BFA',
@@ -273,7 +275,8 @@ export const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
             {/* Error Banner */}
             {errorMessage ? (
               <View style={styles.errorBanner} accessibilityRole="alert">
-                <Text style={styles.errorText}>⚠ {errorMessage}</Text>
+                <AppIcon name="alert" size={16} color={AUTH_COLORS.error} style={{ marginRight: 6 }} />
+                <Text style={styles.errorText}>{errorMessage}</Text>
               </View>
             ) : null}
 
@@ -301,7 +304,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
 
                     <EcoInput
                       label={t('auth.email', 'Email address')}
-                      icon="✉"
+                      icon="mail"
                       value={email}
                       onChangeText={(v) => { setEmail(v); if (emailError) setEmailError(null); }}
                       keyboardType="email-address"
@@ -314,7 +317,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
 
                     <EcoInput
                       label={t('auth.phone', 'Phone number (optional)')}
-                      icon="📱"
+                      icon="phone"
                       value={phone}
                       onChangeText={setPhone}
                       keyboardType="phone-pad"
@@ -329,7 +332,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
                   <View>
                     <EcoInput
                       label={t('auth.password', 'Create a password')}
-                      icon="🔑"
+                      icon="lock"
                       value={password}
                       onChangeText={(v) => { setPassword(v); if (passwordError) setPasswordError(null); }}
                       secureTextEntry={!showPassword}
@@ -343,7 +346,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
                           accessibilityRole="button"
                           accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
                         >
-                          <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁'}</Text>
+                          <AppIcon name={showPassword ? 'eyeOff' : 'eye'} size={18} color="rgba(255,255,255,0.6)" />
                         </TouchableOpacity>
                       }
                     />
@@ -351,7 +354,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
 
                     <EcoInput
                       label={t('auth.confirmPassword', 'Confirm password')}
-                      icon="🔒"
+                      icon="lock"
                       value={confirmPassword}
                       onChangeText={(v) => { setConfirmPassword(v); if (confirmPasswordError) setConfirmPasswordError(null); }}
                       secureTextEntry={!showConfirmPassword}
@@ -365,14 +368,16 @@ export const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
                           accessibilityRole="button"
                           accessibilityLabel={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
                         >
-                          <Text style={styles.eyeIcon}>{showConfirmPassword ? '🙈' : '👁'}</Text>
+                          <AppIcon name={showConfirmPassword ? 'eyeOff' : 'eye'} size={18} color="rgba(255,255,255,0.6)" />
                         </TouchableOpacity>
                       }
                     />
 
-                    <Text style={styles.passwordHint}>
-                      💡 Use at least 8 characters with letters and numbers for a strong password.
-                    </Text>
+                    <InfoCallout
+                      message="Use at least 8 characters with letters and numbers for a strong password."
+                      variant="info"
+                      style={{ marginTop: 12 }}
+                    />
                   </View>
                 )}
 
@@ -381,7 +386,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
                   <View>
                     <EcoInput
                       label={t('auth.name', 'Your full name')}
-                      icon="👤"
+                      icon="user"
                       value={name}
                       onChangeText={(v) => { setName(v); if (nameError) setNameError(null); }}
                       autoCapitalize="words"

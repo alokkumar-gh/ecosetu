@@ -22,6 +22,7 @@ import {
   ADMIN_RADIUS,
   ADMIN_SHADOW,
 } from './AdminTheme';
+import { AppIcon, IconName } from '../ui/AppIcon';
 
 export interface ActivityEntry {
   id: string;
@@ -42,25 +43,25 @@ interface Props {
 }
 
 // Human-readable action labels
-function formatAction(action: string, entityType?: string): { label: string; icon: string } {
+function formatAction(action: string, entityType?: string): { label: string; icon: IconName } {
   const a = action?.toUpperCase?.() || '';
-  if (a.includes('VERIFICATION') && a.includes('APPROVED')) return { label: 'Verification approved', icon: '✓' };
-  if (a.includes('VERIFICATION') && a.includes('REJECTED')) return { label: 'Verification rejected', icon: '✗' };
-  if (a.includes('VERIFICATION')) return { label: 'Verification submitted', icon: '◎' };
-  if (a.includes('STATUS') && a.includes('SUSPEND')) return { label: 'Account suspended', icon: '⊘' };
-  if (a.includes('STATUS') && a.includes('ACTIVE')) return { label: 'Account activated', icon: '◉' };
-  if (a.includes('STATUS') && a.includes('DEACTIVAT')) return { label: 'Account deactivated', icon: '⊙' };
-  if (a.includes('PICKUP') && a.includes('COMPLETE')) return { label: 'Pickup completed', icon: '◈' };
-  if (a.includes('PICKUP') && a.includes('ASSIGN')) return { label: 'Pickup assigned', icon: '◇' };
-  if (a.includes('PICKUP') && a.includes('CREAT')) return { label: 'Pickup created', icon: '◻' };
-  if (a.includes('REQUEST') && a.includes('CREAT')) return { label: 'Collection request created', icon: '◼' };
-  if (a.includes('REQUEST')) return { label: 'Collection request updated', icon: '◻' };
-  if (a.includes('EWASTE') || (entityType?.includes('EWASTE'))) return { label: 'E-waste recorded', icon: '♻' };
-  if (a.includes('NOTIFICATION') && a.includes('SEND')) return { label: 'Notification broadcast', icon: '◻' };
-  if (a.includes('RECYCLER') && a.includes('AUTH')) return { label: 'Recycler authorization updated', icon: '◐' };
-  if (a.includes('LOGIN')) return { label: 'Admin sign-in', icon: '◯' };
-  if (a.includes('ADMIN')) return { label: 'Admin action', icon: '▤' };
-  return { label: action?.replace(/_/g, ' ') || 'System event', icon: '·' };
+  if (a.includes('VERIFICATION') && a.includes('APPROVED')) return { label: 'Verification approved', icon: 'checkCircle' };
+  if (a.includes('VERIFICATION') && a.includes('REJECTED')) return { label: 'Verification rejected', icon: 'xCircle' };
+  if (a.includes('VERIFICATION')) return { label: 'Verification submitted', icon: 'shieldCheck' };
+  if (a.includes('STATUS') && a.includes('SUSPEND')) return { label: 'Account suspended', icon: 'shieldAlert' };
+  if (a.includes('STATUS') && a.includes('ACTIVE')) return { label: 'Account activated', icon: 'checkCircle' };
+  if (a.includes('STATUS') && a.includes('DEACTIVAT')) return { label: 'Account deactivated', icon: 'xCircle' };
+  if (a.includes('PICKUP') && a.includes('COMPLETE')) return { label: 'Pickup completed', icon: 'truck' };
+  if (a.includes('PICKUP') && a.includes('ASSIGN')) return { label: 'Pickup assigned', icon: 'truck' };
+  if (a.includes('PICKUP') && a.includes('CREAT')) return { label: 'Pickup created', icon: 'truck' };
+  if (a.includes('REQUEST') && a.includes('CREAT')) return { label: 'Collection request created', icon: 'box' };
+  if (a.includes('REQUEST')) return { label: 'Collection request updated', icon: 'box' };
+  if (a.includes('EWASTE') || (entityType?.includes('EWASTE'))) return { label: 'E-waste recorded', icon: 'recycle' };
+  if (a.includes('NOTIFICATION') && a.includes('SEND')) return { label: 'Notification broadcast', icon: 'bell' };
+  if (a.includes('RECYCLER') && a.includes('AUTH')) return { label: 'Recycler authorization updated', icon: 'shieldCheck' };
+  if (a.includes('LOGIN')) return { label: 'Admin sign-in', icon: 'lock' };
+  if (a.includes('ADMIN')) return { label: 'Admin action', icon: 'activity' };
+  return { label: action?.replace(/_/g, ' ') || 'System event', icon: 'activity' };
 }
 
 function formatTime(iso: string): string {
@@ -105,7 +106,10 @@ export const AdminActivityFeed: React.FC<Props> = ({
             accessibilityLabel="View all audit logs"
             activeOpacity={0.75}
           >
-            <Text style={styles.viewAllText}>View All →</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={styles.viewAllText}>View All</Text>
+              <AppIcon name="arrowRight" size={11} color={ADMIN_COLOR.brand} />
+            </View>
           </TouchableOpacity>
         )}
       </View>

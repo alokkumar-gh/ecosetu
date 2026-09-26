@@ -26,6 +26,7 @@ import disputeService, { MarketplaceDispute, DisputeStatus } from '../../service
 import { DisputeTimeline } from '../../components/dispute/DisputeTimeline';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 export const RecyclerDisputeDetailScreen: React.FC = () => {
   const { t } = useI18n();
@@ -213,7 +214,10 @@ export const RecyclerDisputeDetailScreen: React.FC = () => {
         {/* Collector Info */}
         {dispute.counterparty && (
           <View style={styles.infoCard}>
-            <Text style={styles.cardSectionTitle}>👤 Selling Collector</Text>
+            <View style={styles.titleWithIcon}>
+              <AppIcon name="user" size={14} color={colors.textPrimary} />
+              <Text style={styles.cardSectionTitle}>Selling Collector</Text>
+            </View>
             <Text style={styles.infoName}>{dispute.counterparty.name}</Text>
             {dispute.counterparty.phone ? (
               <Text style={styles.infoSub}>Contact: {dispute.counterparty.phone}</Text>
@@ -223,7 +227,10 @@ export const RecyclerDisputeDetailScreen: React.FC = () => {
 
         {/* Commercial Weight & Price Reconciliation */}
         <View style={styles.infoCard}>
-          <Text style={styles.cardSectionTitle}>⚖️ Weight Reconciliation</Text>
+          <View style={styles.titleWithIcon}>
+            <AppIcon name="scale" size={14} color={colors.textPrimary} />
+            <Text style={styles.cardSectionTitle}>Weight Reconciliation</Text>
+          </View>
           <View style={styles.factsGrid}>
             <View style={styles.factItem}>
               <Text style={styles.factLabel}>Declared Lot Weight</Text>
@@ -282,7 +289,10 @@ export const RecyclerDisputeDetailScreen: React.FC = () => {
         {/* Resolution Card if resolved */}
         {dispute.resolutionNotes && (
           <View style={[styles.infoCard, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
-            <Text style={[styles.cardSectionTitle, { color: '#1E40AF' }]}>✅ Resolution Details</Text>
+            <View style={styles.titleWithIcon}>
+              <AppIcon name="check" size={14} color="#1E40AF" strokeWidth={2.5} />
+              <Text style={[styles.cardSectionTitle, { color: '#1E40AF' }]}>Resolution Details</Text>
+            </View>
             <Text style={styles.resType}>Type: {dispute.resolutionType?.replace(/_/g, ' ')}</Text>
             <Text style={styles.resNotes}>"{dispute.resolutionNotes}"</Text>
             {dispute.resolvedAt && (
@@ -306,7 +316,10 @@ export const RecyclerDisputeDetailScreen: React.FC = () => {
                   onPress={() => setRespondModalVisible(true)}
                   disabled={actionLoading}
                 >
-                  <Text style={styles.btnPrimaryText}>💬 Propose Weight / Partial Qty</Text>
+                  <View style={styles.btnRow}>
+                    <AppIcon name="messageSquare" size={14} color="#FFFFFF" />
+                    <Text style={styles.btnPrimaryText}>Propose Weight / Partial Qty</Text>
+                  </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -314,7 +327,10 @@ export const RecyclerDisputeDetailScreen: React.FC = () => {
                   onPress={handleResolve}
                   disabled={actionLoading}
                 >
-                  <Text style={styles.btnOutlineText}>✓ Authorize Settlement Update</Text>
+                  <View style={styles.btnRow}>
+                    <AppIcon name="check" size={14} color="#2563EB" strokeWidth={2.5} />
+                    <Text style={styles.btnOutlineText}>Authorize Settlement Update</Text>
+                  </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -322,12 +338,18 @@ export const RecyclerDisputeDetailScreen: React.FC = () => {
                   onPress={() => setReturnModalVisible(true)}
                   disabled={actionLoading}
                 >
-                  <Text style={styles.btnWarningText}>🔄 Initiate Physical Return</Text>
+                  <View style={styles.btnRow}>
+                    <AppIcon name="refresh" size={14} color="#C2410C" />
+                    <Text style={styles.btnWarningText}>Initiate Physical Return</Text>
+                  </View>
                 </TouchableOpacity>
               </>
             ) : (
               <View style={styles.pendingReturnBox}>
-                <Text style={styles.pendingReturnTitle}>📦 Return Coordination in Progress</Text>
+                <View style={styles.titleWithIcon}>
+                  <AppIcon name="package" size={16} color="#D97706" />
+                  <Text style={styles.pendingReturnTitle}>Return Coordination in Progress</Text>
+                </View>
                 <Text style={styles.pendingReturnDesc}>
                   Material has been marked for physical return. Awaiting collector physical confirmation upon receipt.
                 </Text>
@@ -560,11 +582,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
   },
+  titleWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
   cardSectionTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: 8,
   },
   infoName: {
     fontSize: 15,

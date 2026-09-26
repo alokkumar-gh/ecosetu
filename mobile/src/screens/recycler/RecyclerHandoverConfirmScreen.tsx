@@ -20,6 +20,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { useI18n } from '../../i18n';
 import handoverService, { HandoverRecord } from '../../services/handoverService';
 import networkService from '../../services/networkService';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 export const RecyclerHandoverConfirmScreen: React.FC = () => {
   const { t } = useI18n();
@@ -197,9 +198,12 @@ export const RecyclerHandoverConfirmScreen: React.FC = () => {
 
       {/* Disclaimer */}
       <View style={styles.disclaimerBox}>
-        <Text style={styles.disclaimerText}>
-          ⚠️ {t('handover.legalDisclaimer') || 'Digital acknowledgment of material receipt only. Financial settlement occurs in the subsequent transaction phase.'}
-        </Text>
+        <View style={styles.rowCentered}>
+          <AppIcon name="alertTriangle" size={14} color="#B45309" />
+          <Text style={styles.disclaimerText}>
+            {t('handover.legalDisclaimer') || 'Digital acknowledgment of material receipt only. Financial settlement occurs in the subsequent transaction phase.'}
+          </Text>
+        </View>
       </View>
 
       {/* Confirm Button */}
@@ -211,9 +215,12 @@ export const RecyclerHandoverConfirmScreen: React.FC = () => {
         {submitting ? (
           <ActivityIndicator color="#ffffff" />
         ) : (
-          <Text style={styles.confirmBtnText}>
-            {handover.recyclerConfirmedAt ? `✓ Already Confirmed` : `✓ ${t('handover.confirmReceipt') || 'Confirm Receipt'}`}
-          </Text>
+          <View style={styles.btnRow}>
+            <AppIcon name="check" size={16} color="#ffffff" />
+            <Text style={styles.confirmBtnText}>
+              {handover.recyclerConfirmedAt ? `Already Confirmed` : (t('handover.confirmReceipt') || 'Confirm Receipt')}
+            </Text>
+          </View>
         )}
       </TouchableOpacity>
     </ScrollView>
@@ -364,6 +371,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#ffffff',
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  rowCentered: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
 });
 

@@ -5,7 +5,7 @@
  * Visual Invariants:
  * - Dark translucent glass capsule (rgba(6, 21, 27, 0.85))
  * - Luminous cyan/emerald border glow on focus
- * - Integrated search icon and instant clear button (✕)
+ * - Integrated search icon and instant clear button
  * - Zero white/pale background
  */
 
@@ -21,6 +21,8 @@ import {
   Platform,
 } from 'react-native';
 import { spacing } from '../../theme/spacing';
+
+import { AppIcon } from '../ui/AppIcon';
 
 export interface EcoGlassSearchProps extends TextInputProps {
   onClear?: () => void;
@@ -50,7 +52,9 @@ export const EcoGlassSearch: React.FC<EcoGlassSearchProps> = ({
         containerStyle,
       ]}
     >
-      <Text style={styles.searchIcon}>🔍</Text>
+      <View style={styles.searchIconBox}>
+        <AppIcon name="search" size={16} color={isFocused ? '#10B981' : '#94A3B8'} />
+      </View>
       <TextInput
         style={styles.input}
         placeholder={placeholder}
@@ -74,7 +78,7 @@ export const EcoGlassSearch: React.FC<EcoGlassSearchProps> = ({
           accessibilityLabel="Clear search text"
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Text style={styles.clearBtnText}>✕</Text>
+          <AppIcon name="close" size={14} color="#94A3B8" />
         </TouchableOpacity>
       )}
     </View>
@@ -110,9 +114,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(16, 185, 129, 0.08)',
     borderWidth: 1.5,
   },
-  searchIcon: {
-    fontSize: 14,
+  searchIconBox: {
     marginRight: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   input: {
     flex: 1,

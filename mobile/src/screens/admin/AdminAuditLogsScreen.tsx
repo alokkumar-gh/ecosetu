@@ -33,6 +33,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { adminService } from '../../services/adminService';
 import { colors } from '../../theme/colors';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 
@@ -122,8 +123,9 @@ export const AdminAuditLogsScreen: React.FC<{ navigation?: any }> = ({ navigatio
         </View>
 
         <View style={styles.actorRow}>
+          <AppIcon name="user" size={13} color={colors.textSecondary} style={{ marginRight: 4 }} />
           <Text style={styles.actorText}>
-            👤 {actor.name || 'System / Automated'} ({actor.role || 'SYSTEM'})
+            {actor.name || 'System / Automated'} ({actor.role || 'SYSTEM'})
           </Text>
           {actor.email ? <Text style={styles.actorEmail}>• {actor.email}</Text> : null}
         </View>

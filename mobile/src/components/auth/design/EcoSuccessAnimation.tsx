@@ -9,6 +9,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import { AUTH_COLORS } from './AuthTheme';
+import { AppIcon } from '../../ui/AppIcon';
 
 interface Props {
   title: string;
@@ -114,14 +115,11 @@ export const EcoSuccessAnimation: React.FC<Props> = ({
         ]}
       >
         {/* Checkmark */}
-        <Animated.Text
-          style={[
-            styles.check,
-            { transform: [{ scale: checkScale }] },
-          ]}
+        <Animated.View
+          style={{ transform: [{ scale: checkScale }] }}
         >
-          ✓
-        </Animated.Text>
+          <AppIcon name="check" size={38} color={AUTH_COLORS.primaryLight} strokeWidth={3} />
+        </Animated.View>
       </Animated.View>
 
       {/* Text */}

@@ -2,6 +2,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Text, View, StyleSheet } from 'react-native';
+import { AppIcon } from '../components/ui/AppIcon';
 import { CollectorTabParamList, CollectorStackParamList } from './types';
 import { PlaceholderScreen } from '../components/common/PlaceholderScreen';
 import { CollectorDashboardScreen } from '../screens/collector/CollectorDashboardScreen';
@@ -175,8 +176,8 @@ const CollectorTabs: React.FC = () => {
         component={CollectorDashboardScreen}
         options={{
           tabBarLabel: t('navigation.home', 'Home'),
-          tabBarIcon: ({ color, focused }) => (
-            <Text style={{ color, fontSize: focused ? 22 : 20 }}>🏠</Text>
+          tabBarIcon: ({ color }) => (
+            <AppIcon name="home" size={20} color={color} strokeWidth={2} />
           ),
         }}
       />
@@ -188,7 +189,7 @@ const CollectorTabs: React.FC = () => {
           tabBarActiveTintColor: '#071E22',
           tabBarIcon: ({ focused }) => (
             <View style={focused ? tabStyles.sellIconActive : tabStyles.sellIcon}>
-              <Text style={{ fontSize: 18, color: focused ? '#071E22' : '#10B981', fontWeight: '900' }}>+</Text>
+              <AppIcon name="plus" size={18} color={focused ? '#071E22' : '#10B981'} strokeWidth={2.4} />
             </View>
           ),
         }}
@@ -198,8 +199,8 @@ const CollectorTabs: React.FC = () => {
         component={CollectorDealsScreen}
         options={{
           tabBarLabel: t('navigation.deals', 'Deals'),
-          tabBarIcon: ({ color, focused }) => (
-            <Text style={{ color, fontSize: focused ? 22 : 20 }}>🤝</Text>
+          tabBarIcon: ({ color }) => (
+            <AppIcon name="handshake" size={20} color={color} strokeWidth={2} />
           ),
         }}
       />
@@ -208,8 +209,8 @@ const CollectorTabs: React.FC = () => {
         component={CollectorEarningsScreen}
         options={{
           tabBarLabel: t('navigation.money', 'Money'),
-          tabBarIcon: ({ color, focused }) => (
-            <Text style={{ color, fontSize: focused ? 19 : 17, fontWeight: '900' }}>₹</Text>
+          tabBarIcon: ({ color }) => (
+            <AppIcon name="rupee" size={18} color={color} strokeWidth={2} />
           ),
         }}
       />
@@ -218,8 +219,8 @@ const CollectorTabs: React.FC = () => {
         component={CollectorProfileScreen}
         options={{
           tabBarLabel: t('navigation.profile', 'Profile'),
-          tabBarIcon: ({ color, focused }) => (
-            <Text style={{ color, fontSize: focused ? 22 : 20 }}>👤</Text>
+          tabBarIcon: ({ color }) => (
+            <AppIcon name="user" size={20} color={color} strokeWidth={2} />
           ),
         }}
       />
@@ -391,6 +392,10 @@ export const CollectorNavigator: React.FC = () => {
         <Stack.Screen
           name="CollectorBillDetail"
           component={BillDetailScreen}
+        />
+        <Stack.Screen
+          name="BhashiniTest"
+          component={require('../screens/admin/BhashiniTestScreen').BhashiniTestScreen}
         />
       </Stack.Navigator>
 

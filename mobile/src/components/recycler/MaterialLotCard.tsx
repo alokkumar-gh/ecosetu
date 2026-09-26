@@ -3,6 +3,8 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useI18n } from '../../i18n';
 import { RecyclerStatusBadge } from './RecyclerStatusBadge';
 
+import { AppIcon } from '../ui/AppIcon';
+
 export interface MarketLot {
   id: string;
   category: string;
@@ -55,7 +57,9 @@ export const MaterialLotCard: React.FC<MaterialLotCardProps> = ({
       {/* Header */}
       <View style={styles.headerRow}>
         <View style={styles.materialBlock}>
-          <Text style={styles.materialIcon}>{lot.materialIcon || '📦'}</Text>
+          <View style={styles.iconBox}>
+            <AppIcon name="box" size={20} color="#22D3EE" />
+          </View>
           <View style={styles.materialText}>
             <Text style={styles.materialName} numberOfLines={1}>
               {lot.subcategory || lot.category}
@@ -94,7 +98,8 @@ export const MaterialLotCard: React.FC<MaterialLotCardProps> = ({
       <View style={styles.infoStrip}>
         {lot.pickupAvailable && (
           <View style={styles.infoPill}>
-            <Text style={styles.infoPillText}>🚚 {t('collector.pickups', 'Pickup')}</Text>
+            <AppIcon name="truck" size={12} color="rgba(255,255,255,0.65)" />
+            <Text style={styles.infoPillText}>{t('collector.pickups', 'Pickup')}</Text>
           </View>
         )}
         {lot.offerCount !== undefined && lot.offerCount > 0 && (
@@ -112,7 +117,10 @@ export const MaterialLotCard: React.FC<MaterialLotCardProps> = ({
           </View>
         )}
         {lot.location && (
-          <Text style={styles.locationText} numberOfLines={1}>📍 {lot.location}</Text>
+          <View style={styles.locationRow}>
+            <AppIcon name="location" size={12} color="rgba(255,255,255,0.35)" />
+            <Text style={styles.locationText} numberOfLines={1}>{lot.location}</Text>
+          </View>
         )}
       </View>
 
@@ -163,7 +171,14 @@ const styles = StyleSheet.create({
     gap: 10,
     flex: 1,
   },
-  materialIcon:  { fontSize: 28 },
+  iconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(34,211,238,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   materialText:  { flex: 1 },
   materialName:  { color: '#FFFFFF', fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },
   categoryName:  { color: 'rgba(255,255,255,0.45)', fontSize: 11, fontWeight: '600', marginTop: 1 },
@@ -186,6 +201,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   infoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
@@ -202,7 +220,13 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(16,185,129,0.2)',
   },
   infoPillText: { color: 'rgba(255,255,255,0.65)', fontSize: 11, fontWeight: '700' },
-  locationText: { color: 'rgba(255,255,255,0.35)', fontSize: 11, fontWeight: '500', flex: 1 },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flex: 1,
+  },
+  locationText: { color: 'rgba(255,255,255,0.35)', fontSize: 11, fontWeight: '500' },
   actions: {
     flexDirection: 'row',
     gap: 8,

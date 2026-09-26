@@ -29,6 +29,7 @@ import { typography } from '../../theme/typography';
 import { useI18n } from '../../i18n';
 import { useAuth } from '../../hooks/useAuth';
 import pickupBatchService, { PickupBatch, BatchStatus, PickupBatchLot } from '../../services/pickupBatchService';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 interface Props {
   navigation?: any;
@@ -108,7 +109,10 @@ export const RecyclerBatchDetailScreen: React.FC<Props> = ({ navigation, route }
           {updatingStatus ? (
             <ActivityIndicator color="#071E22" />
           ) : (
-            <Text style={styles.primaryActionBtnText}>🚛 {t('logistics.startPickup')}</Text>
+            <View style={styles.btnRow}>
+              <AppIcon name="truck" size={16} color="#071E22" />
+              <Text style={styles.primaryActionBtnText}>{t('logistics.startPickup')}</Text>
+            </View>
           )}
         </TouchableOpacity>
       );
@@ -124,7 +128,10 @@ export const RecyclerBatchDetailScreen: React.FC<Props> = ({ navigation, route }
           {updatingStatus ? (
             <ActivityIndicator color="#071E22" />
           ) : (
-            <Text style={styles.primaryActionBtnText}>📍 {t('logistics.markArrived')}</Text>
+            <View style={styles.btnRow}>
+              <AppIcon name="mapPin" size={16} color="#071E22" />
+              <Text style={styles.primaryActionBtnText}>{t('logistics.markArrived')}</Text>
+            </View>
           )}
         </TouchableOpacity>
       );
@@ -140,7 +147,10 @@ export const RecyclerBatchDetailScreen: React.FC<Props> = ({ navigation, route }
           {updatingStatus ? (
             <ActivityIndicator color="#071E22" />
           ) : (
-            <Text style={styles.primaryActionBtnText}>⚖️ {t('logistics.startCollecting')}</Text>
+            <View style={styles.btnRow}>
+              <AppIcon name="scale" size={16} color="#071E22" />
+              <Text style={styles.primaryActionBtnText}>{t('logistics.startCollecting')}</Text>
+            </View>
           )}
         </TouchableOpacity>
       );
@@ -156,7 +166,10 @@ export const RecyclerBatchDetailScreen: React.FC<Props> = ({ navigation, route }
           {updatingStatus ? (
             <ActivityIndicator color="#071E22" />
           ) : (
-            <Text style={styles.primaryActionBtnText}>✓ {t('logistics.completeBatch')}</Text>
+            <View style={styles.btnRow}>
+              <AppIcon name="check" size={16} color="#071E22" strokeWidth={2.5} />
+              <Text style={styles.primaryActionBtnText}>{t('logistics.completeBatch')}</Text>
+            </View>
           )}
         </TouchableOpacity>
       );
@@ -214,8 +227,9 @@ export const RecyclerBatchDetailScreen: React.FC<Props> = ({ navigation, route }
         <View style={styles.lotActionRow}>
           {transaction ? (
             <View style={styles.settlementBadge}>
+              <AppIcon name="check" size={12} color="#10B981" strokeWidth={2.5} style={{ marginRight: 4 }} />
               <Text style={styles.settlementText}>
-                ✓ {t('logistics.settled')}: ₹{transaction.finalSaleValue} ({transaction.paymentMethod})
+                {t('logistics.settled')}: ₹{transaction.finalSaleValue} ({transaction.paymentMethod})
               </Text>
             </View>
           ) : handover ? (
@@ -253,7 +267,10 @@ export const RecyclerBatchDetailScreen: React.FC<Props> = ({ navigation, route }
             style={styles.traceBtn}
             onPress={() => navigation.navigate(isRecycler ? 'RecyclerLotTrace' : 'CollectorLotTrace', { lotId: lot.id, lot })}
           >
-            <Text style={styles.traceBtnText}>🔍 {t('logistics.trace')}</Text>
+            <View style={styles.btnRow}>
+              <AppIcon name="search" size={13} color={colors.primary} />
+              <Text style={styles.traceBtnText}>{t('logistics.trace')}</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </GlassCard>
@@ -317,7 +334,7 @@ export const RecyclerBatchDetailScreen: React.FC<Props> = ({ navigation, route }
               <View style={styles.metaDivider} />
               {batch.scheduledDate && (
                 <View style={styles.metaRow}>
-                  <Text style={styles.metaIcon}>📅</Text>
+                  <AppIcon name="calendar" size={13} color={colors.textSecondary} style={styles.metaIcon} />
                   <Text style={styles.metaText}>
                     {new Date(batch.scheduledDate).toLocaleDateString('en-IN', {
                       day: 'numeric',
@@ -330,13 +347,13 @@ export const RecyclerBatchDetailScreen: React.FC<Props> = ({ navigation, route }
               )}
               {batch.pickupAddress && (
                 <View style={styles.metaRow}>
-                  <Text style={styles.metaIcon}>📍</Text>
+                  <AppIcon name="mapPin" size={13} color={colors.textSecondary} style={styles.metaIcon} />
                   <Text style={styles.metaText}>{batch.pickupAddress}</Text>
                 </View>
               )}
               {batch.notes && (
                 <View style={styles.metaRow}>
-                  <Text style={styles.metaIcon}>📝</Text>
+                  <AppIcon name="fileText" size={13} color={colors.textSecondary} style={styles.metaIcon} />
                   <Text style={styles.metaText}>{batch.notes}</Text>
                 </View>
               )}
@@ -348,7 +365,10 @@ export const RecyclerBatchDetailScreen: React.FC<Props> = ({ navigation, route }
             {/* Consolidated Summary Card */}
             {batch.consolidatedSummary && (
               <GlassCard style={styles.summaryCard}>
-                <Text style={styles.summaryTitle}>📊 {t('logistics.consolidatedSummary')}</Text>
+                <View style={styles.rowCentered}>
+                  <AppIcon name="barChart" size={16} color={colors.textPrimary} />
+                  <Text style={styles.summaryTitle}>{t('logistics.consolidatedSummary')}</Text>
+                </View>
                 <View style={styles.summaryGrid}>
                   <View style={styles.summaryCol}>
                     <Text style={styles.summaryLabel}>{t('logistics.totalLots')}</Text>
@@ -377,9 +397,12 @@ export const RecyclerBatchDetailScreen: React.FC<Props> = ({ navigation, route }
                   </View>
                 )}
 
-                <Text style={styles.disclaimerText}>
-                  ℹ️ {t('logistics.commercialRuleNote')}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.spaceXs }}>
+                  <AppIcon name="info" size={14} color={colors.textSecondary} />
+                  <Text style={[styles.disclaimerText, { marginTop: 0, flex: 1 }]}>
+                    {t('logistics.commercialRuleNote')}
+                  </Text>
+                </View>
               </GlassCard>
             )}
 
@@ -652,10 +675,23 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   settlementBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: 'rgba(46, 196, 182, 0.15)',
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 4,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  rowCentered: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   settlementText: {
     fontSize: 12,

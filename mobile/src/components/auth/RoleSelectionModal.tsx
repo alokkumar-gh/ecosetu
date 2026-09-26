@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { AUTH_COLORS, AUTH_SPACE, AUTH_RADIUS, AUTH_SHADOW } from './design/AuthTheme';
 import { ROLES } from '../../utils/constants';
+import { AppIcon } from '../ui/AppIcon';
 
 interface RoleSelectionModalProps {
   visible: boolean;
@@ -57,7 +58,7 @@ export const RoleSelectionModal: React.FC<RoleSelectionModalProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.logoBadge}>
-              <Text style={styles.logoIcon}>♻</Text>
+              <AppIcon name="recycle" size={28} color={AUTH_COLORS.primary} />
             </View>
             <Text style={styles.welcomeTitle}>WELCOME TO ECOSETU</Text>
             <Text style={styles.subtitle}>
@@ -84,7 +85,7 @@ export const RoleSelectionModal: React.FC<RoleSelectionModalProps> = ({
             >
               <View style={styles.cardHeader}>
                 <View style={[styles.roleIconCircle, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
-                  <Text style={styles.roleIcon}>🏠</Text>
+                  <AppIcon name="user" size={22} color="#10B981" />
                 </View>
                 <View style={styles.tagBadgeActive}>
                   <Text style={styles.tagBadgeText}>INSTANT ACCESS</Text>
@@ -98,7 +99,7 @@ export const RoleSelectionModal: React.FC<RoleSelectionModalProps> = ({
 
               <View style={styles.cardFooter}>
                 <Text style={styles.flowInfo}>Google Login → Immediate Access</Text>
-                <Text style={styles.arrowIcon}>→</Text>
+                <AppIcon name="arrowRight" size={14} color="#10B981" />
               </View>
             </TouchableOpacity>
 
@@ -118,7 +119,7 @@ export const RoleSelectionModal: React.FC<RoleSelectionModalProps> = ({
             >
               <View style={styles.cardHeader}>
                 <View style={[styles.roleIconCircle, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
-                  <Text style={styles.roleIcon}>🚚</Text>
+                  <AppIcon name="truck" size={22} color="#F59E0B" />
                 </View>
                 <View style={[styles.tagBadgeActive, { backgroundColor: 'rgba(245, 158, 11, 0.2)' }]}>
                   <Text style={[styles.tagBadgeText, { color: '#FBBF24' }]}>VERIFICATION REQUIRED</Text>
@@ -132,7 +133,7 @@ export const RoleSelectionModal: React.FC<RoleSelectionModalProps> = ({
 
               <View style={styles.cardFooter}>
                 <Text style={styles.flowInfo}>Identity Verification → Admin Review</Text>
-                <Text style={styles.arrowIcon}>→</Text>
+                <AppIcon name="arrowRight" size={14} color="#F59E0B" />
               </View>
             </TouchableOpacity>
 
@@ -152,7 +153,7 @@ export const RoleSelectionModal: React.FC<RoleSelectionModalProps> = ({
             >
               <View style={styles.cardHeader}>
                 <View style={[styles.roleIconCircle, { backgroundColor: 'rgba(139, 92, 246, 0.15)' }]}>
-                  <Text style={styles.roleIcon}>🏭</Text>
+                  <AppIcon name="factory" size={22} color="#8B5CF6" />
                 </View>
                 <View style={[styles.tagBadgeActive, { backgroundColor: 'rgba(139, 92, 246, 0.2)' }]}>
                   <Text style={[styles.tagBadgeText, { color: '#C4B5FD' }]}>FACILITY & LICENSE KYC</Text>
@@ -166,7 +167,7 @@ export const RoleSelectionModal: React.FC<RoleSelectionModalProps> = ({
 
               <View style={styles.cardFooter}>
                 <Text style={styles.flowInfo}>Facility Details + License → Admin Review</Text>
-                <Text style={styles.arrowIcon}>→</Text>
+                <AppIcon name="arrowRight" size={14} color="#8B5CF6" />
               </View>
             </TouchableOpacity>
           </View>

@@ -23,6 +23,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { useI18n } from '../../i18n';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { TopAppBar } from '../../components/layout/TopAppBar';
+import { AppIcon } from '../../components/ui/AppIcon';
 import transactionService, { TransactionRecord } from '../../services/transactionService';
 import voiceService from '../../services/voiceService';
 import { ReportProblemModal } from '../../components/dispute/ReportProblemModal';
@@ -115,7 +116,10 @@ export const CollectorTransactionDetailScreen: React.FC = () => {
           <View style={styles.centerContainer}>
             <Text style={styles.errorText}>Transaction not found.</Text>
             <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-              <Text style={styles.backButtonText}>← {t('common.goBack', 'Go Back')}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <AppIcon name="arrowLeft" size={16} color="#FFFFFF" />
+                <Text style={styles.backButtonText}>{t('common.goBack', 'Go Back')}</Text>
+              </View>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -151,7 +155,9 @@ export const CollectorTransactionDetailScreen: React.FC = () => {
           <View style={styles.bannerCard}>
             <View style={styles.refRow}>
               <View style={styles.refLeft}>
-                <Text style={styles.bannerIcon}>📜</Text>
+                <View style={{ marginRight: 10 }}>
+                  <AppIcon name="receipt" size={22} color="#10B981" />
+                </View>
                 <View>
                   <Text style={styles.referenceNumber}>{transaction.referenceNumber}</Text>
                   <Text style={styles.bannerSubtitle}>
@@ -183,14 +189,20 @@ export const CollectorTransactionDetailScreen: React.FC = () => {
             {/* Action Buttons: TTS Voice & View Earnings */}
             <View style={styles.bannerActionsRow}>
               <TouchableOpacity style={styles.speechButton} onPress={handleSpeak} activeOpacity={0.75}>
-                <Text style={styles.speechButtonText}>🔊 {t('common.speakSummary', 'Speak Summary')}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <AppIcon name="volume" size={15} color="#34D399" />
+                  <Text style={styles.speechButtonText}>{t('common.speakSummary', 'Speak Summary')}</Text>
+                </View>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.earningsLedgerButton}
                 onPress={() => navigation.navigate('CollectorEarnings')}
                 activeOpacity={0.75}
               >
-                <Text style={styles.earningsLedgerButtonText}>📊 {t('collector.viewEarnings', 'Earnings Ledger')}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <AppIcon name="barChart" size={15} color="#34D399" />
+                  <Text style={styles.earningsLedgerButtonText}>{t('collector.viewEarnings', 'Earnings Ledger')}</Text>
+                </View>
               </TouchableOpacity>
             </View>
           </View>
@@ -224,7 +236,10 @@ export const CollectorTransactionDetailScreen: React.FC = () => {
 
           {/* Financial Comparison Card */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>📊 {t('payments.financialReconciliation', 'Financial Reconciliation')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <AppIcon name="receipt" size={18} color="#10B981" />
+              <Text style={[styles.cardTitle, { marginBottom: 0 }]}>{t('payments.financialReconciliation', 'Financial Reconciliation')}</Text>
+            </View>
 
             <View style={styles.tableRow}>
               <Text style={styles.tableLabel}>{t('payments.quotedRate', 'Agreed Quoted Rate')}:</Text>
@@ -274,7 +289,10 @@ export const CollectorTransactionDetailScreen: React.FC = () => {
 
           {/* Realized Economic Margin Card */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>💰 {t('payments.realizedEconomics', 'Realized Transaction Economics')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <AppIcon name="rupee" size={18} color="#10B981" />
+              <Text style={[styles.cardTitle, { marginBottom: 0 }]}>{t('payments.realizedEconomics', 'Realized Transaction Economics')}</Text>
+            </View>
             <View style={styles.tableRow}>
               <Text style={styles.tableLabel}>{t('payments.saleValue', 'Sale Value')}:</Text>
               <Text style={styles.tableValue}>₹{finalSaleValue.toFixed(2)}</Text>
@@ -319,26 +337,32 @@ export const CollectorTransactionDetailScreen: React.FC = () => {
                   </Text>
                 </View>
               ) : (
-                <Text style={styles.marginUnavailableText}>
-                  ℹ️ Margin calculation unavailable — baseline cost data not recorded.
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <AppIcon name="info" size={14} color="#94A3B8" />
+                  <Text style={[styles.marginUnavailableText, { flex: 1 }]}>
+                    Margin calculation unavailable — baseline cost data not recorded.
+                  </Text>
+                </View>
               )}
             </View>
           </View>
 
           {/* Payment Settlement Status Card */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>💳 {t('payments.paymentBreakdown', 'Payment Breakdown')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <AppIcon name="wallet" size={18} color="#10B981" />
+              <Text style={[styles.cardTitle, { marginBottom: 0 }]}>{t('payments.paymentBreakdown', 'Payment Breakdown')}</Text>
+            </View>
             <View style={styles.tableRow}>
               <Text style={styles.tableLabel}>{t('payments.paymentMethod', 'Payment Method')}:</Text>
               <Text style={styles.tableValue}>
                 {transaction.paymentMethod === 'CASH'
-                  ? '💵 Cash'
+                  ? 'Cash'
                   : transaction.paymentMethod === 'UPI_RECORDED'
-                  ? '📱 UPI Recorded'
+                  ? 'UPI Recorded'
                   : transaction.paymentMethod === 'BANK_TRANSFER_RECORDED'
-                  ? '🏦 Bank Transfer'
-                  : '📋 Other'}
+                  ? 'Bank Transfer'
+                  : 'Other'}
               </Text>
             </View>
 
@@ -362,9 +386,10 @@ export const CollectorTransactionDetailScreen: React.FC = () => {
             </View>
 
             {/* Statutory Non-Movement Disclaimer */}
-            <View style={styles.disclaimerBox}>
-              <Text style={styles.disclaimerText}>
-                ℹ️ {transaction.disclaimer || 'Recording only — ECOSETU does not transfer money.'}
+            <View style={[styles.disclaimerBox, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+              <AppIcon name="info" size={14} color="#94A3B8" />
+              <Text style={[styles.disclaimerText, { flex: 1 }]}>
+                {transaction.disclaimer || 'Recording only — ECOSETU does not transfer money.'}
               </Text>
             </View>
 
@@ -380,7 +405,10 @@ export const CollectorTransactionDetailScreen: React.FC = () => {
                   });
                 }}
               >
-                <Text style={styles.updateStatusButtonText}>💳 {t('payments.completePayment', 'Complete Payment / Confirm')}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <AppIcon name="wallet" size={16} color="#FFFFFF" />
+                  <Text style={styles.updateStatusButtonText}>{t('payments.completePayment', 'Complete Payment / Confirm')}</Text>
+                </View>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
@@ -392,7 +420,10 @@ export const CollectorTransactionDetailScreen: React.FC = () => {
                   });
                 }}
               >
-                <Text style={styles.updateStatusButtonText}>📄 {t('bills.viewBill', 'View Official Bill / Receipt')}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <AppIcon name="document" size={16} color="#34D399" />
+                  <Text style={styles.updateStatusButtonText}>{t('bills.viewBill', 'View Official Bill / Receipt')}</Text>
+                </View>
               </TouchableOpacity>
             )}
 
@@ -401,13 +432,19 @@ export const CollectorTransactionDetailScreen: React.FC = () => {
               activeOpacity={0.8}
               onPress={() => setProblemModalVisible(true)}
             >
-              <Text style={styles.disputeButtonText}>🚨 {t('disputes.reportIssue', 'Dispute Payment / Report Issue')}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <AppIcon name="alert" size={16} color="#F87171" />
+                <Text style={styles.disputeButtonText}>{t('disputes.reportIssue', 'Dispute Payment / Report Issue')}</Text>
+              </View>
             </TouchableOpacity>
           </View>
 
           {/* Provenance & Lifecycle Chain Card */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>🔗 {t('payments.provenanceChain', 'Lifecycle Provenance Chain')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <AppIcon name="recycle" size={18} color="#10B981" />
+              <Text style={[styles.cardTitle, { marginBottom: 0 }]}>{t('payments.provenanceChain', 'Lifecycle Provenance Chain')}</Text>
+            </View>
             <View style={styles.chainItem}>
               <Text style={styles.chainLabel}>1. Material Lot:</Text>
               <Text style={styles.chainValue}>
@@ -445,7 +482,7 @@ export const CollectorTransactionDetailScreen: React.FC = () => {
                   }
                 >
                   <Text style={styles.chainLinkText}>
-                    {t('bills.viewCanonicalBill', 'View Canonical Bill')} ➔
+                    {t('bills.viewCanonicalBill', 'View Canonical Bill')} →
                   </Text>
                 </TouchableOpacity>
               ) : (
@@ -456,7 +493,10 @@ export const CollectorTransactionDetailScreen: React.FC = () => {
 
           {/* Location & Parties Card */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>📍 {t('payments.partiesLocation', 'Parties & Handover Location')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <AppIcon name="location" size={18} color="#10B981" />
+              <Text style={[styles.cardTitle, { marginBottom: 0 }]}>{t('payments.partiesLocation', 'Parties & Handover Location')}</Text>
+            </View>
             <View style={styles.tableRow}>
               <Text style={styles.tableLabel}>Buyer (Recycler):</Text>
               <Text style={styles.tableValue}>

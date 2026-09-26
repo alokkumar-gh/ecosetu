@@ -22,6 +22,7 @@ import { useI18n } from '../../i18n';
 import { useAuth } from '../../hooks/useAuth';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { colors } from '../../theme/colors';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
@@ -60,7 +61,7 @@ export const PaymentResultScreen: React.FC = () => {
   // Visual config
   const config = isSuccess
     ? {
-        emoji: '✅',
+        icon: 'checkCircle' as const,
         title: t('payment.paymentComplete', 'Payment Complete!'),
         color: '#10B981',
         bg: 'rgba(16,185,129,0.14)',
@@ -69,7 +70,7 @@ export const PaymentResultScreen: React.FC = () => {
       }
     : isFailed
     ? {
-        emoji: '❌',
+        icon: 'alert' as const,
         title: t('payment.paymentFailed', 'Payment Failed'),
         color: '#F87171',
         bg: 'rgba(239,68,68,0.14)',
@@ -77,7 +78,7 @@ export const PaymentResultScreen: React.FC = () => {
         sub: errorMessage || t('payment.paymentFailedSub', 'Payment could not be processed. Please try again.'),
       }
     : {
-        emoji: '⏳',
+        icon: 'clock' as const,
         title: t('payment.awaitingConfirmation', 'Awaiting Confirmation'),
         color: '#FBBF24',
         bg: 'rgba(234,179,8,0.14)',
@@ -86,9 +87,9 @@ export const PaymentResultScreen: React.FC = () => {
       };
 
   const paymentLabel =
-    paymentMethod === 'CASH' ? `💵 ${t('bills.cash', 'Cash')}`
-    : paymentMethod === 'RAZORPAY_UPI' ? `⚡ ${t('bills.upiBank', 'UPI / Bank')}`
-    : `💳 ${paymentMethod}`;
+    paymentMethod === 'CASH' ? t('bills.cash', 'Cash')
+    : paymentMethod === 'RAZORPAY_UPI' ? t('bills.upiBank', 'UPI / Bank')
+    : paymentMethod;
 
   return (
     <EcoSetuBackground>
@@ -102,7 +103,7 @@ export const PaymentResultScreen: React.FC = () => {
           <View style={[styles.statusCard, { borderColor: config.border }]}>
             {/* Icon Ring */}
             <View style={[styles.iconRing, { backgroundColor: config.bg, borderColor: config.color }]}>
-              <Text style={styles.iconEmoji}>{config.emoji}</Text>
+              <AppIcon name={config.icon} size={38} color={config.color} />
             </View>
 
             <Text style={[styles.statusTitle, { color: config.color }]}>{config.title}</Text>
@@ -122,7 +123,10 @@ export const PaymentResultScreen: React.FC = () => {
               )}
               <View style={styles.factRow}>
                 <Text style={styles.factLabel}>{t('payment.method', 'Method')}</Text>
-                <Text style={styles.factValue}>{paymentLabel}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <AppIcon name={paymentMethod === 'CASH' ? 'wallet' : 'creditCard'} size={13} color={C.text} />
+                  <Text style={styles.factValue}>{paymentLabel}</Text>
+                </View>
               </View>
               <View style={styles.factRow}>
                 <Text style={styles.factLabel}>{t('payment.amount', 'Amount')}</Text>
@@ -146,7 +150,10 @@ export const PaymentResultScreen: React.FC = () => {
                 activeOpacity={0.82}
                 accessibilityRole="button"
               >
-                <Text style={styles.primaryBtnText}>📄 {t('payment.viewOfficialReceipt', 'View Official Receipt')}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <AppIcon name="fileText" size={18} color={C.bg} />
+                  <Text style={styles.primaryBtnText}>{t('payment.viewOfficialReceipt', 'View Official Receipt')}</Text>
+                </View>
               </TouchableOpacity>
             )}
 
@@ -157,7 +164,10 @@ export const PaymentResultScreen: React.FC = () => {
                 activeOpacity={0.82}
                 accessibilityRole="button"
               >
-                <Text style={styles.primaryBtnText}>🔄 {t('payment.retryPayment', 'Retry Payment')}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <AppIcon name="refresh" size={18} color="#FFF" />
+                  <Text style={[styles.primaryBtnText, { color: '#FFF' }]}>{t('payment.retryPayment', 'Retry Payment')}</Text>
+                </View>
               </TouchableOpacity>
             )}
 
@@ -168,7 +178,10 @@ export const PaymentResultScreen: React.FC = () => {
                 activeOpacity={0.82}
                 accessibilityRole="button"
               >
-                <Text style={styles.primaryBtnText}>👀 {t('payment.checkConfirmationStatus', 'Check Confirmation Status')}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <AppIcon name="clock" size={18} color="#FFF" />
+                  <Text style={[styles.primaryBtnText, { color: '#FFF' }]}>{t('payment.checkConfirmationStatus', 'Check Confirmation Status')}</Text>
+                </View>
               </TouchableOpacity>
             )}
 
@@ -185,7 +198,7 @@ export const PaymentResultScreen: React.FC = () => {
           {/* ── EcoSetu note ── */}
           {isSuccess && (
             <View style={styles.ecoNote}>
-              <Text style={styles.ecoNoteEmoji}>♻️</Text>
+              <AppIcon name="recycle" size={18} color={C.green} />
               <Text style={styles.ecoNoteText}>
                 {t('payment.recyclingDifferenceNote', 'Thank you for supporting responsible e-waste management. Every item recycled makes a difference.')}
               </Text>

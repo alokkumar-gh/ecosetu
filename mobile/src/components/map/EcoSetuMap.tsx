@@ -34,6 +34,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useI18n } from '../../i18n';
+import { AppIcon } from '../ui/AppIcon';
 import {
   getCurrentLocation,
   searchLocations,
@@ -344,7 +345,9 @@ export const EcoSetuMap: React.FC<EcoSetuMapProps> = ({
   if (isOffline) {
     return (
       <View style={[styles.container, styles.fallbackContainer, style]} testID={testID}>
-        <Text style={styles.fallbackIcon}>📡</Text>
+        <View style={styles.fallbackIconWrap}>
+          <AppIcon name="alert" size={32} color="#F59E0B" />
+        </View>
         <Text style={styles.fallbackTitle}>
           {t('citizen.submit.mapUnavailable') || 'Map Unavailable (Offline)'}
         </Text>
@@ -366,7 +369,9 @@ export const EcoSetuMap: React.FC<EcoSetuMapProps> = ({
   if (permissionDenied) {
     return (
       <View style={[styles.container, styles.fallbackContainer, style]} testID={testID}>
-        <Text style={styles.fallbackIcon}>📍</Text>
+        <View style={styles.fallbackIconWrap}>
+          <AppIcon name="location" size={32} color={colors.primary} />
+        </View>
         <Text style={styles.fallbackTitle}>
           {t('citizen.submit.locPermissionDenied') || 'Location Permission Denied'}
         </Text>
@@ -395,7 +400,9 @@ export const EcoSetuMap: React.FC<EcoSetuMapProps> = ({
   if ((!latitude || !longitude) && !hasPins && !isLoading) {
     return (
       <View style={[styles.container, styles.fallbackContainer, style]} testID={testID}>
-        <Text style={styles.fallbackIcon}>📍</Text>
+        <View style={styles.fallbackIconWrap}>
+          <AppIcon name="location" size={32} color={colors.primary} />
+        </View>
         <Text style={styles.fallbackTitle}>
           {t('citizen.submit.locUnavailable') || 'Location Unavailable'}
         </Text>
@@ -536,7 +543,7 @@ export const EcoSetuMap: React.FC<EcoSetuMapProps> = ({
               <View style={styles.customPickupMarker}>
                 <View style={styles.markerHalo} />
                 <View style={styles.markerTeardrop}>
-                  <Text style={styles.markerTeardropIcon}>♻️</Text>
+                  <AppIcon name="recycle" size={18} color="#FFFFFF" />
                 </View>
                 <View style={styles.markerBaseDot} />
               </View>
@@ -550,7 +557,7 @@ export const EcoSetuMap: React.FC<EcoSetuMapProps> = ({
         <View style={styles.centerPinFixedContainer} pointerEvents="none">
           <View style={styles.markerHalo} />
           <View style={styles.markerTeardrop}>
-            <Text style={styles.markerTeardropIcon}>📍</Text>
+            <AppIcon name="location" size={18} color="#FFFFFF" />
           </View>
           <View style={styles.markerBaseDot} />
         </View>
@@ -560,7 +567,7 @@ export const EcoSetuMap: React.FC<EcoSetuMapProps> = ({
       {showSearch && (
         <View style={styles.searchBarContainer}>
           <View style={styles.searchBarRow}>
-            <Text style={styles.searchIcon}>🔍</Text>
+            <AppIcon name="search" size={16} color="rgba(255, 255, 255, 0.45)" style={{ marginRight: 6 }} />
             <TextInput
               style={styles.searchInput}
               placeholder={t('location.searchLocation') || 'Search location or landmark...'}
@@ -583,7 +590,7 @@ export const EcoSetuMap: React.FC<EcoSetuMapProps> = ({
                 }}
                 style={styles.searchClearBtn}
               >
-                <Text style={styles.searchClearText}>✕</Text>
+                <AppIcon name="close" size={14} color="rgba(255, 255, 255, 0.65)" />
               </TouchableOpacity>
             ) : null}
           </View>
@@ -598,9 +605,12 @@ export const EcoSetuMap: React.FC<EcoSetuMapProps> = ({
                   onPress={() => handleSelectSearchResult(res)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.searchResultTitle} numberOfLines={1}>
-                    📍 {res.title}
-                  </Text>
+                  <View style={styles.searchResultRow}>
+                    <AppIcon name="location" size={12} color="#34D399" />
+                    <Text style={styles.searchResultTitle} numberOfLines={1}>
+                      {res.title}
+                    </Text>
+                  </View>
                   <Text style={styles.searchResultAddress} numberOfLines={1}>
                     {res.formattedAddress}
                   </Text>
@@ -614,18 +624,24 @@ export const EcoSetuMap: React.FC<EcoSetuMapProps> = ({
       {/* Floating Header Interaction Hint */}
       {!hasPins && draggable && Boolean(latitude && longitude) && !showSearch && (
         <View style={styles.hintContainer} pointerEvents="none">
-          <Text style={styles.hintText}>
-            📍 {t('citizen.submit.movePin') || 'Tap map or drag pin to adjust doorstep'}
-          </Text>
+          <View style={styles.hintRow}>
+            <AppIcon name="location" size={12} color="#34D399" />
+            <Text style={styles.hintText}>
+              {t('citizen.submit.movePin') || 'Tap map or drag pin to adjust doorstep'}
+            </Text>
+          </View>
         </View>
       )}
 
       {/* Floating Privacy Protected Hint for Collector Markers */}
       {hasPins && (
         <View style={styles.hintContainer} pointerEvents="none">
-          <Text style={styles.hintText}>
-            🛡️ {t('collector.browse.privacyProtected') || 'Approximate Areas · Privacy Protected'}
-          </Text>
+          <View style={styles.hintRow}>
+            <AppIcon name="shield" size={12} color="#34D399" />
+            <Text style={styles.hintText}>
+              {t('collector.browse.privacyProtected') || 'Approximate Areas · Privacy Protected'}
+            </Text>
+          </View>
         </View>
       )}
 
@@ -640,7 +656,7 @@ export const EcoSetuMap: React.FC<EcoSetuMapProps> = ({
             accessibilityLabel={`${t('location.mapType') || 'Map Type'}: ${activeMapType}`}
             activeOpacity={0.8}
           >
-            <Text style={styles.glassControlIcon}>🗺️</Text>
+            <AppIcon name="globe" size={18} color="#FFFFFF" />
             <Text style={styles.glassControlSubtext}>
               {activeMapType === 'satellite' ? 'SAT' : activeMapType === 'terrain' ? 'TER' : 'MAP'}
             </Text>
@@ -660,7 +676,7 @@ export const EcoSetuMap: React.FC<EcoSetuMapProps> = ({
             {isLocatingUser ? (
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
-              <Text style={styles.glassControlIcon}>🎯</Text>
+              <AppIcon name="location" size={18} color="#FFFFFF" />
             )}
           </TouchableOpacity>
         )}
@@ -699,7 +715,7 @@ export const EcoSetuMap: React.FC<EcoSetuMapProps> = ({
             accessibilityLabel={t('location.recenter') || 'Recenter Map'}
             activeOpacity={0.8}
           >
-            <Text style={styles.glassControlIcon}>⌖</Text>
+            <AppIcon name="refresh" size={18} color="#FFFFFF" />
           </TouchableOpacity>
         )}
       </View>
@@ -729,14 +745,17 @@ export const EcoSetuMap: React.FC<EcoSetuMapProps> = ({
         >
           <View style={styles.mapTypeCard}>
             <View style={styles.mapTypeHeader}>
-              <Text style={styles.mapTypeHeaderTitle}>
-                🗺️ {t('location.mapType') || 'Select Map View'}
-              </Text>
+              <View style={styles.mapTypeHeaderRow}>
+                <AppIcon name="globe" size={18} color="#FFFFFF" />
+                <Text style={styles.mapTypeHeaderTitle}>
+                  {t('location.mapType') || 'Select Map View'}
+                </Text>
+              </View>
               <TouchableOpacity
                 onPress={() => setShowTypeMenu(false)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Text style={styles.mapTypeClose}>✕</Text>
+                <AppIcon name="close" size={16} color="rgba(255, 255, 255, 0.65)" />
               </TouchableOpacity>
             </View>
 
@@ -746,7 +765,9 @@ export const EcoSetuMap: React.FC<EcoSetuMapProps> = ({
               onPress={() => handleSelectMapType('standard')}
               activeOpacity={0.7}
             >
-              <Text style={styles.mapTypeIcon}>🗺️</Text>
+              <View style={styles.mapTypeIconWrap}>
+                <AppIcon name="globe" size={20} color={activeMapType === 'standard' ? '#34D399' : 'rgba(255,255,255,0.7)'} />
+              </View>
               <View style={styles.mapTypeOptionTextCol}>
                 <Text style={[styles.mapTypeOptionTitle, activeMapType === 'standard' && styles.mapTypeTextActive]}>
                   {t('location.standard') || 'Standard'}
@@ -764,7 +785,9 @@ export const EcoSetuMap: React.FC<EcoSetuMapProps> = ({
               onPress={() => handleSelectMapType('satellite')}
               activeOpacity={0.7}
             >
-              <Text style={styles.mapTypeIcon}>🛰️</Text>
+              <View style={styles.mapTypeIconWrap}>
+                <AppIcon name="sparkles" size={20} color={activeMapType === 'satellite' ? '#34D399' : 'rgba(255,255,255,0.7)'} />
+              </View>
               <View style={styles.mapTypeOptionTextCol}>
                 <Text style={[styles.mapTypeOptionTitle, activeMapType === 'satellite' && styles.mapTypeTextActive]}>
                   {t('location.satellite') || 'Satellite'}
@@ -782,7 +805,9 @@ export const EcoSetuMap: React.FC<EcoSetuMapProps> = ({
               onPress={() => handleSelectMapType('terrain')}
               activeOpacity={0.7}
             >
-              <Text style={styles.mapTypeIcon}>⛰️</Text>
+              <View style={styles.mapTypeIconWrap}>
+                <AppIcon name="grid" size={20} color={activeMapType === 'terrain' ? '#34D399' : 'rgba(255,255,255,0.7)'} />
+              </View>
               <View style={styles.mapTypeOptionTextCol}>
                 <Text style={[styles.mapTypeOptionTitle, activeMapType === 'terrain' && styles.mapTypeTextActive]}>
                   {t('location.terrain') || 'Terrain'}
@@ -800,7 +825,9 @@ export const EcoSetuMap: React.FC<EcoSetuMapProps> = ({
               onPress={() => handleSelectMapType('hybrid')}
               activeOpacity={0.7}
             >
-              <Text style={styles.mapTypeIcon}>🏙️</Text>
+              <View style={styles.mapTypeIconWrap}>
+                <AppIcon name="factory" size={20} color={activeMapType === 'hybrid' ? '#34D399' : 'rgba(255,255,255,0.7)'} />
+              </View>
               <View style={styles.mapTypeOptionTextCol}>
                 <Text style={[styles.mapTypeOptionTitle, activeMapType === 'hybrid' && styles.mapTypeTextActive]}>
                   {t('location.hybrid') || 'Hybrid'}
@@ -955,10 +982,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
+  searchResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   searchResultTitle: {
     fontSize: 13,
     fontWeight: '700',
     color: '#34D399',
+    flex: 1,
   },
   searchResultAddress: {
     fontSize: 11,
@@ -1053,6 +1086,11 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  hintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   hintText: {
     fontSize: 11,
     color: '#34D399',
@@ -1112,6 +1150,11 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255, 255, 255, 0.10)',
     marginBottom: 4,
   },
+  mapTypeHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   mapTypeHeaderTitle: {
     fontSize: 16,
     fontWeight: '800',
@@ -1137,9 +1180,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(16, 185, 129, 0.18)',
     borderColor: '#10B981',
   },
-  mapTypeIcon: {
-    fontSize: 22,
+  mapTypeIconWrap: {
     marginRight: 10,
+    width: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   mapTypeOptionTextCol: {
     flex: 1,
@@ -1181,9 +1226,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.spaceMd,
   },
-  fallbackIcon: {
-    fontSize: 32,
+  fallbackIconWrap: {
     marginBottom: spacing.spaceXs,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fallbackTitle: {
     fontSize: typography.Title.fontSize,

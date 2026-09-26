@@ -26,6 +26,7 @@ import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { useI18n } from '../../i18n';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 const FILTER_STATUSES = [
   { key: 'ALL', label: 'All' },
@@ -115,7 +116,7 @@ export const CollectorConsignmentsScreen: React.FC<Props> = ({ navigation }) => 
         <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
         <TopAppBar title="My Consignments" onBack={() => navigation?.goBack()} />
         <View style={styles.accessRestrictedContainer}>
-          <Text style={styles.accessRestrictedIcon}>🔒</Text>
+          <AppIcon name="lock" size={40} color={colors.textSecondary} />
           <Text style={styles.accessRestrictedTitle}>Access Restricted</Text>
           <Text style={styles.accessRestrictedMessage}>
             Only verified informal collectors can access collector consignment tracking.
@@ -201,7 +202,7 @@ export const CollectorConsignmentsScreen: React.FC<Props> = ({ navigation }) => 
 
         {/* Recycler Facility Info */}
         <View style={styles.facilityInfoRow}>
-          <Text style={styles.facilityIcon}>🏭</Text>
+          <AppIcon name="factory" size={18} color={colors.textSecondary} />
           <View style={styles.facilityDetails}>
             <Text style={styles.facilityName}>{facilityName}</Text>
             <Text style={styles.facilityAddress} numberOfLines={1}>
@@ -226,7 +227,7 @@ export const CollectorConsignmentsScreen: React.FC<Props> = ({ navigation }) => 
         {/* Status Callout Banners */}
         {isRejected && item.rejectionReason && (
           <View style={styles.rejectionAlertBanner}>
-            <Text style={styles.rejectionAlertIcon}>⚠️</Text>
+            <AppIcon name="alert-triangle" size={16} color="#DC2626" />
             <View style={styles.rejectionAlertContent}>
               <Text style={styles.rejectionAlertTitle}>Consignment Rejected by Facility</Text>
               <Text style={styles.rejectionAlertText} numberOfLines={2}>
@@ -238,7 +239,7 @@ export const CollectorConsignmentsScreen: React.FC<Props> = ({ navigation }) => 
 
         {isAccepted && (
           <View style={styles.acceptedAlertBanner}>
-            <Text style={styles.acceptedAlertIcon}>✓</Text>
+            <AppIcon name="check-circle" size={16} color="#166534" />
             <Text style={styles.acceptedAlertText}>
               Accepted for Certified Recycling • Items in CONSIGNED status
             </Text>
@@ -247,7 +248,7 @@ export const CollectorConsignmentsScreen: React.FC<Props> = ({ navigation }) => 
 
         {isDelivered && (
           <View style={styles.deliveredAlertBanner}>
-            <Text style={styles.deliveredAlertIcon}>📍</Text>
+            <AppIcon name="map-pin" size={16} color="#1D4ED8" />
             <Text style={styles.deliveredAlertText}>
               Delivered to facility • Awaiting recycler inspection & acceptance
             </Text>

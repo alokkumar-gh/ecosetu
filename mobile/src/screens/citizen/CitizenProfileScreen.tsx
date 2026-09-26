@@ -37,12 +37,14 @@ import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { userProfileService } from '../../services/userProfileService';
 import { useEcoSaathi } from '../../context/EcoSaathiContext';
 import { colors } from '../../theme/colors';
+import { AppIcon, IconName } from '../../components/ui/AppIcon';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MENU ROW COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 interface MenuRowProps {
-  icon: string;
+  icon: IconName;
+  iconColor?: string;
   label: string;
   sub?: string;
   onPress?: () => void;
@@ -53,6 +55,7 @@ interface MenuRowProps {
 
 const MenuRow: React.FC<MenuRowProps> = ({
   icon,
+  iconColor,
   label,
   sub,
   onPress,
@@ -68,13 +71,13 @@ const MenuRow: React.FC<MenuRowProps> = ({
     accessibilityRole={onPress ? 'button' : 'text'}
   >
     <View style={styles.menuIconBox}>
-      <Text style={styles.menuIcon}>{icon}</Text>
+      <AppIcon name={icon} size={18} color={iconColor || (destructive ? '#FCA5A5' : '#10B981')} />
     </View>
     <View style={styles.menuTextCol}>
       <Text style={[styles.menuLabel, destructive && { color: '#FCA5A5' }]}>{label}</Text>
       {sub ? <Text style={styles.menuSub}>{sub}</Text> : null}
     </View>
-    {rightContent ?? (onPress ? <Text style={styles.menuChevron}>›</Text> : null)}
+    {rightContent ?? (onPress ? <AppIcon name="chevronRight" size={16} color="rgba(255,255,255,0.4)" /> : null)}
   </TouchableOpacity>
 );
 
@@ -292,12 +295,21 @@ export const CitizenProfileScreen: React.FC = () => {
             {/* Email & Phone Details */}
             <View style={styles.contactDetails}>
               {email ? (
-                <Text style={styles.contactText}>✉ {email}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <AppIcon name="mail" size={13} color="rgba(255,255,255,0.6)" style={{ marginRight: 6 }} />
+                  <Text style={styles.contactText}>{email}</Text>
+                </View>
               ) : null}
               {phone ? (
-                <Text style={styles.contactText}>📞 {phone}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <AppIcon name="phone" size={13} color="rgba(255,255,255,0.6)" style={{ marginRight: 6 }} />
+                  <Text style={styles.contactText}>{phone}</Text>
+                </View>
               ) : null}
-              <Text style={styles.memberText}>🌱 {t('citizen.profile.memberSince', 'Member since')} {memberSince}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                <AppIcon name="leaf" size={13} color="#10B981" style={{ marginRight: 6 }} />
+                <Text style={styles.memberText}>{t('citizen.profile.memberSince', 'Member since')} {memberSince}</Text>
+              </View>
             </View>
 
             {/* Edit Profile Button */}
@@ -306,28 +318,31 @@ export const CitizenProfileScreen: React.FC = () => {
               onPress={handleOpenEdit}
               activeOpacity={0.8}
             >
-              <Text style={styles.editProfileBtnText}>✏️ {t('citizen.profile.editProfile', 'Edit Profile')}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <AppIcon name="settings" size={14} color="#10B981" style={{ marginRight: 6 }} />
+                <Text style={styles.editProfileBtnText}>{t('citizen.profile.editProfile', 'Edit Profile')}</Text>
+              </View>
             </TouchableOpacity>
           </View>
 
           {/* ── SERVICES & ACTIVITY ─────────────────────────────────── */}
           <MenuGroup label={t('citizen.profile.sectionActivity', 'SERVICES & ACTIVITY')}>
             <MenuRow
-              icon="📦"
+              icon="box"
               label={t('citizen.profile.myRequests', 'My Disposal Requests')}
               sub={t('citizen.profile.myRequestsSub', 'Track active pickups and collections')}
               onPress={() => navigation.navigate('History')}
             />
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="🎁"
+              icon="sparkles"
               label={t('citizen.profile.greenCredits', 'Green Credits & Rewards')}
               sub={t('citizen.profile.greenCreditsSub', 'View impact points and eco badges')}
               onPress={() => navigation.navigate('Home')}
             />
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="🗺️"
+              icon="location"
               label={t('citizen.profile.savedAddresses', 'Pickup Locations & Map')}
               sub={t('citizen.profile.savedAddressesSub', 'Set default disposal addresses')}
               onPress={() => navigation.navigate('Give')}
@@ -338,7 +353,7 @@ export const CitizenProfileScreen: React.FC = () => {
           <MenuGroup label={t('citizen.profile.sectionPreferences', 'PREFERENCES')}>
             {/* Language Selection Row */}
             <MenuRow
-              icon="🌐"
+              icon="globe"
               label={t('citizen.profile.language', 'Language / भाषा')}
               sub={currentLang?.label ?? language}
               onPress={() => setShowLanguagePicker(!showLanguagePicker)}
@@ -366,7 +381,7 @@ export const CitizenProfileScreen: React.FC = () => {
                       {opt.label}
                     </Text>
                     {language === opt.code && (
-                      <Text style={styles.langCheck}>✓</Text>
+                      <AppIcon name="check" size={14} color="#10B981" />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -375,7 +390,7 @@ export const CitizenProfileScreen: React.FC = () => {
 
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="🔔"
+              icon="bell"
               label={t('citizen.profile.notifications', 'Notifications')}
               sub={t('citizen.profile.notificationsSub', 'Collector arrivals and reward updates')}
               onPress={() => Alert.alert('Notifications', 'Notification preferences enabled.')}
@@ -385,21 +400,21 @@ export const CitizenProfileScreen: React.FC = () => {
           {/* ── ACCOUNT & SUPPORT ───────────────────────────────────── */}
           <MenuGroup label={t('citizen.profile.sectionSupport', 'ACCOUNT & SUPPORT')}>
             <MenuRow
-              icon="🌿"
+              icon="leaf"
               label={t('saathi.title', 'Eco-Saathi AI Assistant')}
               sub={t('saathi.citizenProfileSub', 'Ask questions about scrap, pickups, rewards & e-waste')}
               onPress={() => openChat('CitizenProfile')}
             />
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="🛡️"
+              icon="shieldCheck"
               label={t('citizen.profile.privacy', 'Data Privacy & Security')}
               sub={t('citizen.profile.privacySub', 'DPDP compliance and account security')}
               onPress={() => Alert.alert('Privacy & Security', 'EcoSetu adheres to India DPDP Act standards. All personal data is encrypted.')}
             />
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="📞"
+              icon="phone"
               label={t('citizen.profile.help', 'Help & Grievance Helpline')}
               sub={t('citizen.profile.helpSub', '24/7 E-Waste assistance and queries')}
               onPress={() => Alert.alert('EcoSetu Support', 'Toll-free Helpline: 1800-ECO-SETU\nEmail: support@ecosetu.org')}

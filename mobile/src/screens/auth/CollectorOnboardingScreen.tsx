@@ -23,6 +23,7 @@ import { AuthStackParamList } from '../../navigation/types';
 import { useAuth } from '../../hooks/useAuth';
 import { ROLES } from '../../utils/constants';
 import { AUTH_COLORS, AUTH_SPACE, AUTH_RADIUS, AUTH_SHADOW } from '../../components/auth/design/AuthTheme';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 interface Props {
   navigation?: any;
@@ -147,7 +148,7 @@ export const CollectorOnboardingScreen: React.FC<Props> = ({ navigation, route }
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.iconCircle}>
-            <Text style={styles.icon}>🚚</Text>
+            <AppIcon name="truck" size={32} color="#10B981" />
           </View>
           <Text style={styles.title}>COLLECTOR ONBOARDING</Text>
           <Text style={styles.subtitle}>
@@ -157,7 +158,8 @@ export const CollectorOnboardingScreen: React.FC<Props> = ({ navigation, route }
 
         {errorMsg ? (
           <View style={styles.errorBox}>
-            <Text style={styles.errorText}>⚠ {errorMsg}</Text>
+            <AppIcon name="alert" size={16} color={AUTH_COLORS.error} style={{ marginRight: 6 }} />
+            <Text style={styles.errorText}>{errorMsg}</Text>
           </View>
         ) : null}
 
@@ -274,7 +276,7 @@ export const CollectorOnboardingScreen: React.FC<Props> = ({ navigation, route }
               activeOpacity={0.8}
               accessibilityRole="button"
             >
-              <Text style={styles.uploadIcon}>📄</Text>
+              <AppIcon name="upload" size={32} color="#10B981" style={{ marginBottom: 8 }} />
               <Text style={styles.uploadTitle}>Upload Identity Proof</Text>
               <Text style={styles.uploadSubtitle}>JPG, PNG or PDF (Max 10MB)</Text>
               <View style={styles.chooseBtn}>
@@ -300,8 +302,9 @@ export const CollectorOnboardingScreen: React.FC<Props> = ({ navigation, route }
           )}
 
           <View style={styles.privacyNote}>
+            <AppIcon name="shieldCheck" size={16} color="rgba(255,255,255,0.7)" style={{ marginRight: 6 }} />
             <Text style={styles.privacyNoteText}>
-              🔒 Privacy Guaranteed: Stored securely in encrypted cloud storage. Only accessible to authorized ECOSETU verification admins.
+              Privacy Guaranteed: Stored securely in encrypted cloud storage. Only accessible to authorized ECOSETU verification admins.
             </Text>
           </View>
         </View>

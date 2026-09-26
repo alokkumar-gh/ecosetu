@@ -25,6 +25,7 @@ import { REQUEST_STATUS } from '../../utils/constants';
 import { useI18n } from '../../i18n';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { StatusBadge } from '../../components/common/StatusBadge';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { colors } from '../../theme/colors';
 
 type CitizenRequestsNavigationProp = CompositeNavigationProp<
@@ -249,7 +250,8 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
         {/* Offline Banner */}
         {!isConnected && (
           <View style={styles.offlineBanner} accessibilityRole="alert">
-            <Text style={styles.offlineBannerText}>📡 Offline — showing cached requests</Text>
+            <AppIcon name="alert" size={14} color="#F59E0B" style={{ marginRight: 6 }} />
+            <Text style={styles.offlineBannerText}>Offline — showing cached requests</Text>
           </View>
         )}
 
@@ -308,7 +310,7 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         ) : filteredRequests.length === 0 ? (
           <EmptyState
-            icon="📦"
+            icon="box"
             title={activeFilter === 'ALL' ? 'No Collection Requests' : `No ${activeFilter.toLowerCase()} requests`}
             message={activeFilter === 'ALL'
               ? 'Submit your first e-waste item to get started with free doorstep pickup.'
@@ -340,9 +342,11 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
                   {/* Card Top */}
                   <View style={styles.cardTop}>
                     <View style={styles.cardIconBox}>
-                      <Text style={styles.cardIcon}>
-                        {isCompleted ? '✅' : isCancelled ? '❌' : '📦'}
-                      </Text>
+                      <AppIcon
+                        name={isCompleted ? 'checkCircle' : isCancelled ? 'xCircle' : 'box'}
+                        size={18}
+                        color={isCompleted ? '#10B981' : isCancelled ? '#EF4444' : '#0284C7'}
+                      />
                     </View>
                     <View style={styles.cardTopInfo}>
                       <Text style={styles.cardRef}>#{refId}</Text>
@@ -355,22 +359,25 @@ export const CitizenRequestsScreen: React.FC<Props> = ({ navigation }) => {
                   <View style={styles.cardDetails}>
                     {Boolean(item.pickupAddress) && (
                       <View style={styles.detailRow}>
-                        <Text style={styles.detailIcon}>📍</Text>
+                        <AppIcon name="location" size={13} color="#64748B" style={{ marginRight: 5 }} />
                         <Text style={styles.detailText} numberOfLines={1}>{item.pickupAddress}</Text>
                       </View>
                     )}
                     <View style={styles.metaRow}>
                       <View style={styles.metaChip}>
-                        <Text style={styles.metaText}>📦 {itemCount} {itemCount === 1 ? 'item' : 'items'}</Text>
+                        <AppIcon name="box" size={12} color="#94A3B8" style={{ marginRight: 4 }} />
+                        <Text style={styles.metaText}>{itemCount} {itemCount === 1 ? 'item' : 'items'}</Text>
                       </View>
                       {Boolean(item.preferredDate) && (
                         <View style={styles.metaChip}>
-                          <Text style={styles.metaText}>📅 {new Date(item.preferredDate).toLocaleDateString()}</Text>
+                          <AppIcon name="calendar" size={12} color="#94A3B8" style={{ marginRight: 4 }} />
+                          <Text style={styles.metaText}>{new Date(item.preferredDate).toLocaleDateString()}</Text>
                         </View>
                       )}
                       {Boolean(item.collectorId) && (
                         <View style={[styles.metaChip, styles.metaChipGreen]}>
-                          <Text style={[styles.metaText, styles.metaTextGreen]}>🤝 Collector Assigned</Text>
+                          <AppIcon name="handshake" size={12} color="#10B981" style={{ marginRight: 4 }} />
+                          <Text style={[styles.metaText, styles.metaTextGreen]}>Collector Assigned</Text>
                         </View>
                       )}
                     </View>

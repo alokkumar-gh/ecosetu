@@ -1,14 +1,5 @@
 /**
- * EcoInput — Premium animated text input with floating label.
- *
- * Features:
- * - Glass surface
- * - Animated focus border (emerald glow)
- * - Floating label that moves up on focus/value
- * - Left icon slot
- * - Right slot (show/hide password, clear, etc.)
- * - Shake animation on error
- * - Error message display below
+ * EcoInput — Premium animated text input with floating label and AppIcon.
  */
 
 import React, { useRef, useEffect, useState, forwardRef } from 'react';
@@ -19,15 +10,15 @@ import {
   TextInputProps,
   Animated,
   Easing,
-  TouchableOpacity,
   StyleSheet,
   ViewStyle,
 } from 'react-native';
-import { AUTH_COLORS, AUTH_RADIUS, AUTH_TYPE, AUTH_TIMING } from './AuthTheme';
+import { AUTH_COLORS, AUTH_RADIUS, AUTH_TIMING } from './AuthTheme';
+import { AppIcon, IconName } from '../../ui/AppIcon';
 
 interface EcoInputProps extends TextInputProps {
   label: string;
-  icon?: string;
+  icon?: IconName | string;
   rightElement?: React.ReactNode;
   error?: string | null;
   containerStyle?: ViewStyle;
@@ -116,6 +107,31 @@ export const EcoInput = forwardRef<TextInput, EcoInputProps>(({
     outputRange: [AUTH_COLORS.textMuted, isFocused ? AUTH_COLORS.primaryLight : AUTH_COLORS.textMuted],
   });
 
+  const resolveIconName = (rawIcon?: string): IconName => {
+    switch (rawIcon) {
+      case 'mail':
+      case 'email':
+        return 'document';
+      case 'phone':
+        return 'phone';
+      case 'lock':
+        return 'lock';
+      case 'user':
+        return 'user';
+      case 'business':
+      case 'factory':
+        return 'factory';
+      case 'location':
+        return 'location';
+      case 'search':
+        return 'search';
+      default:
+        return 'document';
+    }
+  };
+
+  const iconName: IconName = typeof icon === 'string' ? resolveIconName(icon) : 'document';
+
   return (
     <Animated.View
       style={[styles.container, containerStyle, { transform: [{ translateX: shakeAnim }] }]}
@@ -131,7 +147,14 @@ export const EcoInput = forwardRef<TextInput, EcoInputProps>(({
         ]}
       >
         {icon ? (
-          <Text style={[styles.icon, isFocused && styles.iconFocused]}>{icon}</Text>
+          <View style={styles.iconBox}>
+            <AppIcon
+              name={iconName}
+              size={18}
+              color={isFocused ? AUTH_COLORS.primaryLight : AUTH_COLORS.textMuted}
+              strokeWidth={2}
+            />
+          </View>
         ) : null}
 
         <View style={styles.inputArea}>
@@ -196,14 +219,13 @@ const styles = StyleSheet.create({
     paddingTop: 6,
     paddingBottom: 2,
   },
-  icon: {
-    fontSize: 16,
+  iconBox: {
+    width: 24,
+    height: 24,
     marginRight: 10,
-    color: AUTH_COLORS.textMuted,
     marginTop: 10,
-  },
-  iconFocused: {
-    color: AUTH_COLORS.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   inputArea: {
     flex: 1,
@@ -248,3 +270,5 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+
+export default EcoInput;

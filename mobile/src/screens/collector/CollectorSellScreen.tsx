@@ -39,6 +39,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useI18n } from '../../i18n';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { CollectorHeader } from '../../components/collector/CollectorHeader';
+import { AppIcon, AppIconName } from '../../components/ui/AppIcon';
 import { colors } from '../../theme/colors';
 import { MATERIAL_TAXONOMY, MATERIAL_TAXONOMY_LIST } from '../../config/materialTaxonomy';
 import { capturePhoto } from '../../services/cameraService';
@@ -48,17 +49,17 @@ import { capturePhoto } from '../../services/cameraService';
 // ─────────────────────────────────────────────────────────────────────────────
 const TOTAL_STEPS = 5;
 
-const CONDITIONS = [
-  { id: 'WORKING',         icon: '⚡', label: 'Working',          sub: 'Powers on, functions' },
-  { id: 'REPAIRABLE',      icon: '🔧', label: 'Repairable',       sub: 'Fixable, some defects' },
-  { id: 'DAMAGED',         icon: '🔨', label: 'Partially Working', sub: 'Some parts work' },
-  { id: 'NOT_WORKING',     icon: '❌', label: 'Not Working',       sub: 'Dead, no function' },
-  { id: 'UNKNOWN',         icon: '❓', label: 'Unknown',           sub: "Can't tell" },
+const CONDITIONS: { id: string; iconName: AppIconName; label: string; sub: string }[] = [
+  { id: 'WORKING',         iconName: 'sparkles', label: 'Working',          sub: 'Powers on, functions' },
+  { id: 'REPAIRABLE',      iconName: 'wrench',   label: 'Repairable',       sub: 'Fixable, some defects' },
+  { id: 'DAMAGED',         iconName: 'hammer',   label: 'Partially Working', sub: 'Some parts work' },
+  { id: 'NOT_WORKING',     iconName: 'xCircle',  label: 'Not Working',       sub: 'Dead, no function' },
+  { id: 'UNKNOWN',         iconName: 'help',     label: 'Unknown',           sub: "Can't tell" },
 ];
 
-const INTENT_OPTIONS = [
-  { id: 'REUSE',      icon: '♻️', label: 'Reuse',      sub: 'Can be refurbished / resold' },
-  { id: 'RECYCLING',  icon: '🔩', label: 'Recycling',  sub: 'Parts / raw materials' },
+const INTENT_OPTIONS: { id: string; iconName: AppIconName; label: string; sub: string }[] = [
+  { id: 'REUSE',      iconName: 'recycle', label: 'Reuse',      sub: 'Can be refurbished / resold' },
+  { id: 'RECYCLING',  iconName: 'factory', label: 'Recycling',  sub: 'Parts / raw materials' },
 ];
 
 const WEIGHT_PRESETS = [
@@ -144,6 +145,24 @@ const cb = StyleSheet.create({
   label:         { color: '#071E22', fontSize: 17, fontWeight: '900', letterSpacing: 0.3 },
   labelDisabled: { color: 'rgba(255,255,255,0.3)' },
 });
+
+const getCategoryIcon = (catId: string): AppIconName => {
+  switch (catId) {
+    case 'BATTERY': return 'battery';
+    case 'MOBILE': return 'phone';
+    case 'LAPTOP':
+    case 'COMPUTER': return 'laptop';
+    case 'TV': return 'tv';
+    case 'APPLIANCE': return 'zap';
+    case 'CIRCUIT_BOARD':
+    case 'PCB': return 'cpu';
+    case 'SOLAR_PANEL': return 'sun';
+    case 'AUTOMOTIVE_EWASTE': return 'truck';
+    case 'CABLE': return 'cable';
+    case 'BULB': return 'lightbulb';
+    default: return 'box';
+  }
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SCREEN
@@ -252,16 +271,24 @@ export const CollectorSellScreen: React.FC<Props> = ({ navigation, route }) => {
                     accessibilityRole="button"
                     accessibilityLabel={catName}
                   >
-                    <Text style={styles.categoryTileIcon}>{cat.symbol}</Text>
+                    <View style={{ marginBottom: 8, alignItems: 'center', justifyContent: 'center' }}>
+                      <AppIcon
+                        name={getCategoryIcon(cat.id)}
+                        size={28}
+                        color={isSelected ? (cat.color || '#10B981') : 'rgba(255,255,255,0.75)'}
+                      />
+                    </View>
                     <Text
                       style={[styles.categoryTileLabel, isSelected && { color: cat.color || '#10B981' }]}
                       numberOfLines={2}
                     >
                       {catName}
                     </Text>
-                    {isSelected && <View style={[styles.categoryCheck, { backgroundColor: cat.color || '#10B981' }]}>
-                      <Text style={styles.categoryCheckText}>✓</Text>
-                    </View>}
+                    {isSelected && (
+                      <View style={[styles.categoryCheck, { backgroundColor: cat.color || '#10B981' }]}>
+                        <AppIcon name="check" size={11} color="#FFFFFF" />
+                      </View>
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -312,7 +339,9 @@ export const CollectorSellScreen: React.FC<Props> = ({ navigation, route }) => {
               accessibilityRole="button"
               accessibilityLabel={t('collector.takePhoto', 'Take photo')}
             >
-              <Text style={styles.cameraHeroIcon}>{isCapturing ? '⏳' : '📷'}</Text>
+              <View style={{ marginBottom: 6 }}>
+                <AppIcon name={isCapturing ? 'clock' : 'camera'} size={32} color="#10B981" />
+              </View>
               <Text style={styles.cameraHeroLabel}>
                 {photos.length === 0 ? t('collector.takePhotoCaps', 'TAKE PHOTO') : t('collector.addMorePhotos', 'ADD MORE PHOTOS')}
               </Text>
@@ -336,7 +365,7 @@ export const CollectorSellScreen: React.FC<Props> = ({ navigation, route }) => {
                       onPress={() => handleRemovePhoto(idx)}
                       hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
-                      <Text style={styles.photoRemoveText}>✕</Text>
+                      <AppIcon name="close" size={10} color="#FFFFFF" />
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -363,11 +392,11 @@ export const CollectorSellScreen: React.FC<Props> = ({ navigation, route }) => {
             />
             <View style={styles.optionList}>
               {[
-                { id: 'WORKING',         icon: '⚡', label: t('condition.working', 'Working'),          sub: t('condition.workingSub', 'Powers on, functions') },
-                { id: 'REPAIRABLE',      icon: '🔧', label: t('condition.repairable', 'Repairable'),       sub: t('condition.repairableSub', 'Fixable, some defects') },
-                { id: 'DAMAGED',         icon: '🔨', label: t('condition.partiallyWorking', 'Partially Working'), sub: t('condition.partiallyWorkingSub', 'Some parts work') },
-                { id: 'NOT_WORKING',     icon: '❌', label: t('condition.notWorking', 'Not Working'),       sub: t('condition.notWorkingSub', 'Dead, no function') },
-                { id: 'UNKNOWN',         icon: '❓', label: t('condition.unknown', 'Unknown'),           sub: t('condition.unknownSub', "Can't tell") },
+                { id: 'WORKING',         iconName: 'sparkles' as AppIconName, label: t('condition.working', 'Working'),          sub: t('condition.workingSub', 'Powers on, functions') },
+                { id: 'REPAIRABLE',      iconName: 'wrench' as AppIconName,   label: t('condition.repairable', 'Repairable'),       sub: t('condition.repairableSub', 'Fixable, some defects') },
+                { id: 'DAMAGED',         iconName: 'hammer' as AppIconName,   label: t('condition.partiallyWorking', 'Partially Working'), sub: t('condition.partiallyWorkingSub', 'Some parts work') },
+                { id: 'NOT_WORKING',     iconName: 'xCircle' as AppIconName,  label: t('condition.notWorking', 'Not Working'),       sub: t('condition.notWorkingSub', 'Dead, no function') },
+                { id: 'UNKNOWN',         iconName: 'help' as AppIconName,     label: t('condition.unknown', 'Unknown'),           sub: t('condition.unknownSub', "Can't tell") },
               ].map((c) => (
                 <TouchableOpacity
                   key={c.id}
@@ -377,7 +406,13 @@ export const CollectorSellScreen: React.FC<Props> = ({ navigation, route }) => {
                   accessibilityRole="radio"
                   accessibilityState={{ checked: condition === c.id }}
                 >
-                  <Text style={styles.optionIcon}>{c.icon}</Text>
+                  <View style={{ width: 36, alignItems: 'center', justifyContent: 'center' }}>
+                    <AppIcon
+                      name={c.iconName}
+                      size={22}
+                      color={condition === c.id ? '#10B981' : 'rgba(255,255,255,0.7)'}
+                    />
+                  </View>
                   <View style={styles.optionTextCol}>
                     <Text style={[styles.optionLabel, condition === c.id && styles.optionLabelSelected]}>
                       {c.label}
@@ -440,8 +475,8 @@ export const CollectorSellScreen: React.FC<Props> = ({ navigation, route }) => {
             />
             <View style={styles.optionList}>
               {[
-                { id: 'REUSE',      icon: '♻️', label: t('collector.reuse', 'Reuse'),      sub: t('collector.reuseSub', 'Can be refurbished / resold') },
-                { id: 'RECYCLING',  icon: '🔩', label: t('collector.recycling', 'Recycling'),  sub: t('collector.recyclingSub', 'Parts / raw materials') },
+                { id: 'REUSE',      iconName: 'recycle' as AppIconName, label: t('collector.reuse', 'Reuse'),      sub: t('collector.reuseSub', 'Can be refurbished / resold') },
+                { id: 'RECYCLING',  iconName: 'factory' as AppIconName, label: t('collector.recycling', 'Recycling'),  sub: t('collector.recyclingSub', 'Parts / raw materials') },
               ].map((opt) => (
                 <TouchableOpacity
                   key={opt.id}
@@ -450,7 +485,13 @@ export const CollectorSellScreen: React.FC<Props> = ({ navigation, route }) => {
                   activeOpacity={0.8}
                   accessibilityRole="radio"
                 >
-                  <Text style={styles.intentIcon}>{opt.icon}</Text>
+                  <View style={{ width: 36, alignItems: 'center', justifyContent: 'center' }}>
+                    <AppIcon
+                      name={opt.iconName}
+                      size={22}
+                      color={intent === opt.id ? '#10B981' : 'rgba(255,255,255,0.7)'}
+                    />
+                  </View>
                   <View style={styles.intentTextCol}>
                     <Text style={[styles.intentLabel, intent === opt.id && styles.intentLabelSelected]}>
                       {opt.label}
@@ -459,7 +500,7 @@ export const CollectorSellScreen: React.FC<Props> = ({ navigation, route }) => {
                   </View>
                   {intent === opt.id && (
                     <View style={styles.intentCheck}>
-                      <Text style={styles.intentCheckText}>✓</Text>
+                      <AppIcon name="check" size={12} color="#FFFFFF" />
                     </View>
                   )}
                 </TouchableOpacity>

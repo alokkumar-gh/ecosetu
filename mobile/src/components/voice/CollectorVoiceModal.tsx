@@ -23,6 +23,8 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useI18n } from '../../i18n';
 
+import { AppIcon, IconName } from '../ui/AppIcon';
+
 export const CollectorVoiceModal: React.FC = () => {
   const {
     isVoiceModalVisible,
@@ -64,25 +66,25 @@ export const CollectorVoiceModal: React.FC = () => {
     }
   };
 
-  const getStatusIcon = (): string => {
+  const getStatusIconName = (): IconName => {
     switch (sessionState) {
       case 'LISTENING':
-        return '🎙️';
+        return 'mic';
       case 'PROCESSING':
-        return '⏳';
+        return 'clock';
       case 'SUCCESS':
-        return '✅';
+        return 'check';
       case 'NO_SPEECH':
       case 'UNRECOGNIZED_COMMAND':
-        return '❓';
+        return 'help';
       case 'PERMISSION_DENIED':
       case 'UNAVAILABLE':
       case 'OFFLINE':
       case 'ERROR':
-        return '⚠️';
+        return 'alert';
       case 'IDLE':
       default:
-        return '🎤';
+        return 'mic';
     }
   };
 
@@ -99,16 +101,19 @@ export const CollectorVoiceModal: React.FC = () => {
             <View style={styles.card} accessibilityRole="alert">
               {/* Header */}
               <View style={styles.header}>
-                <Text style={styles.headerTitle}>
-                  🎙️ {t('voice.voiceAssistance') || 'Voice Commands'}
-                </Text>
+                <View style={styles.headerTitleRow}>
+                  <AppIcon name="mic" size={20} color="#10B981" />
+                  <Text style={styles.headerTitle}>
+                    {t('voice.voiceAssistance') || 'Voice Commands'}
+                  </Text>
+                </View>
                 <TouchableOpacity
                   onPress={closeVoiceModal}
                   style={styles.closeBtn}
                   accessibilityRole="button"
                   accessibilityLabel="Close voice modal"
                 >
-                  <Text style={styles.closeBtnText}>✕</Text>
+                  <AppIcon name="close" size={18} color="#CBD5E1" />
                 </TouchableOpacity>
               </View>
 
@@ -127,7 +132,11 @@ export const CollectorVoiceModal: React.FC = () => {
                   {sessionState === 'PROCESSING' ? (
                     <ActivityIndicator size="large" color={colors.primary} />
                   ) : (
-                    <Text style={styles.micIcon}>{getStatusIcon()}</Text>
+                    <AppIcon
+                      name={getStatusIconName()}
+                      size={32}
+                      color={sessionState === 'LISTENING' ? '#22D3EE' : sessionState === 'SUCCESS' ? '#10B981' : '#FFFFFF'}
+                    />
                   )}
                 </TouchableOpacity>
 
@@ -221,6 +230,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.spaceMd,
+  },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   headerTitle: {
     fontSize: typography.Title.fontSize,

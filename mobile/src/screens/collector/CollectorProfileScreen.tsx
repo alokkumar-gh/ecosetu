@@ -35,12 +35,13 @@ import { colors } from '../../theme/colors';
 import { collectorService } from '../../services/collectorService';
 import { getCurrentLocation, reverseGeocode } from '../../services/locationService';
 import { useEcoSaathi } from '../../context/EcoSaathiContext';
+import { AppIcon, AppIconName } from '../../components/ui/AppIcon';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MENU ROW
 // ─────────────────────────────────────────────────────────────────────────────
 interface MenuRowProps {
-  icon: string;
+  icon: AppIconName | string;
   label: string;
   sub?: string;
   onPress?: () => void;
@@ -48,6 +49,10 @@ interface MenuRowProps {
   destructive?: boolean;
   disabled?: boolean;
 }
+
+const mapMenuIcon = (icon: AppIconName | string): AppIconName => {
+  return (icon as AppIconName) || 'chevron-right';
+};
 
 const MenuRow: React.FC<MenuRowProps> = ({
   icon,
@@ -66,7 +71,11 @@ const MenuRow: React.FC<MenuRowProps> = ({
     accessibilityRole={onPress ? 'button' : 'text'}
   >
     <View style={styles.menuIconBox}>
-      <Text style={styles.menuIcon}>{icon}</Text>
+      <AppIcon
+        name={mapMenuIcon(icon)}
+        size={18}
+        color={destructive ? '#EF4444' : '#10B981'}
+      />
     </View>
     <View style={styles.menuTextCol}>
       <Text style={[styles.menuLabel, destructive && { color: '#FCA5A5' }]}>{label}</Text>
@@ -310,9 +319,12 @@ export const CollectorProfileScreen: React.FC<{ navigation?: any }> = ({
 
             {/* Dynamic Location Banner with Quick GPS Auto-detect */}
             <View style={styles.locationBadgeContainer}>
-              <Text style={styles.profileArea} numberOfLines={1}>
-                📍 {displayLocation || t('collector.noLocationSet', 'Set operating location')}
-              </Text>
+              <View style={styles.locationAreaRow}>
+                <AppIcon name="map-pin" size={14} color="#10B981" />
+                <Text style={styles.profileArea} numberOfLines={1}>
+                  {displayLocation || t('collector.noLocationSet', 'Set operating location')}
+                </Text>
+              </View>
               <View style={styles.locationActionButtons}>
                 <TouchableOpacity
                   style={styles.gpsButton}
@@ -323,7 +335,10 @@ export const CollectorProfileScreen: React.FC<{ navigation?: any }> = ({
                   {isDetectingLocation ? (
                     <ActivityIndicator size="small" color="#34D399" />
                   ) : (
-                    <Text style={styles.gpsButtonText}>📡 GPS</Text>
+                    <View style={styles.btnRow}>
+                      <AppIcon name="navigation" size={12} color="#34D399" />
+                      <Text style={styles.gpsButtonText}>GPS</Text>
+                    </View>
                   )}
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -331,7 +346,10 @@ export const CollectorProfileScreen: React.FC<{ navigation?: any }> = ({
                   onPress={() => setIsLocationModalOpen(true)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.editLocButtonText}>✏️ Edit</Text>
+                  <View style={styles.btnRow}>
+                    <AppIcon name="edit-2" size={12} color="#34D399" />
+                    <Text style={styles.editLocButtonText}>Edit</Text>
+                  </View>
                 </TouchableOpacity>
               </View>
             </View>
@@ -353,14 +371,14 @@ export const CollectorProfileScreen: React.FC<{ navigation?: any }> = ({
           {/* ── OPERATING LOCATION ───────────────────────────────────── */}
           <MenuGroup label={t('collector.operatingArea', 'OPERATING LOCATION')}>
             <MenuRow
-              icon="📍"
+              icon="map-pin"
               label={t('collector.serviceArea', 'Service Area & City')}
               sub={displayLocation || t('collector.tapToSetLocation', 'Tap to set operational city & service radius')}
               onPress={() => setIsLocationModalOpen(true)}
             />
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="📡"
+              icon="navigation"
               label={t('location.detectGps', 'Auto-Detect Current GPS')}
               sub={
                 profile?.serviceAreaLat && profile?.serviceAreaLng
@@ -377,35 +395,35 @@ export const CollectorProfileScreen: React.FC<{ navigation?: any }> = ({
           {/* ── BUSINESS ─────────────────────────────────────────────── */}
           <MenuGroup label={t('profile.business', 'BUSINESS')}>
             <MenuRow
-              icon="📦"
+              icon="package"
               label={t('collector.myMarketplace', 'My Marketplace')}
               sub={t('collector.myMarketplaceSub', 'Listings, offers, negotiations')}
               onPress={() => navigation.navigate('CollectorDeals')}
             />
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="🏭"
+              icon="factory"
               label={t('collector.recyclerDirectory', 'Recycler Directory')}
               sub={t('collector.recyclerDirectorySub', 'Find and contact authorized recyclers')}
               onPress={() => navigation.navigate('CollectorRecyclerDirectory')}
             />
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="📈"
+              icon="trending-up"
               label={t('collector.priceInformation', 'Price Information')}
               sub={t('collector.priceInformationSub', 'Market rates for e-waste')}
               onPress={() => navigation.navigate('CollectorPriceBoard')}
             />
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="📋"
+              icon="clipboard"
               label={t('collector.transactionHistory', 'Transaction History')}
               sub={t('collector.transactionHistorySub', 'All completed sales and payments')}
               onPress={() => navigation.navigate('CollectorTransactions')}
             />
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="📄"
+              icon="file-text"
               label={t('navigation.bills', 'Bills')}
               sub={t('bills.collectorSub', 'Transaction bills and receipts')}
               onPress={() => navigation.navigate('CollectorBills')}
@@ -415,21 +433,21 @@ export const CollectorProfileScreen: React.FC<{ navigation?: any }> = ({
           {/* ── SAFETY & HELP ────────────────────────────────────────── */}
           <MenuGroup label={t('profile.supportAndHelp', 'HELP & SUPPORT')}>
             <MenuRow
-              icon="🌿"
+              icon="sparkles"
               label={t('saathi.title', 'Eco-Saathi AI Assistant')}
               sub={t('saathi.collectorProfileSub', 'Ask about scrap prices, lots, buyers & earnings')}
               onPress={() => openChat('CollectorProfile')}
             />
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="🛡️"
+              icon="shield"
               label={t('collector.safetyCenter', 'Safety Center')}
               sub={t('collector.safetyCenterSub', 'Guidelines, emergency contacts, protocols')}
               onPress={() => navigation.navigate('CollectorSafetyCenter')}
             />
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="⚠️"
+              icon="alert-triangle"
               label={t('collector.disputes', 'Disputes')}
               sub={t('collector.disputesSub', 'Raise or view dispute cases')}
               onPress={() => navigation.navigate('CollectorDisputes')}
@@ -440,7 +458,7 @@ export const CollectorProfileScreen: React.FC<{ navigation?: any }> = ({
           <MenuGroup label={t('profile.account', 'ACCOUNT')}>
             {/* Language */}
             <MenuRow
-              icon="🌐"
+              icon="globe"
               label={t('profile.language', 'Language')}
               sub={currentLang?.label ?? language}
               onPress={() => setShowLanguagePicker(!showLanguagePicker)}
@@ -465,7 +483,7 @@ export const CollectorProfileScreen: React.FC<{ navigation?: any }> = ({
                       {opt.label}
                     </Text>
                     {language === opt.code && (
-                      <Text style={styles.langOptionCheck}>✓</Text>
+                      <AppIcon name="check" size={16} color="#10B981" />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -474,7 +492,7 @@ export const CollectorProfileScreen: React.FC<{ navigation?: any }> = ({
 
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="⚙️"
+              icon="settings"
               label={t('profile.settings', 'Settings')}
               sub={t('profile.settingsSub', 'Notifications, app preferences')}
               onPress={() => navigation.navigate('Settings')}
@@ -482,7 +500,7 @@ export const CollectorProfileScreen: React.FC<{ navigation?: any }> = ({
 
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="🚪"
+              icon="log-out"
               label={t('auth.logout', 'Sign Out')}
               destructive
               onPress={handleLogout}
@@ -497,7 +515,10 @@ export const CollectorProfileScreen: React.FC<{ navigation?: any }> = ({
         <Modal visible={isLocationModalOpen} transparent animationType="slide">
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>📍 {t('collector.editLocation', 'Edit Operating Location')}</Text>
+              <View style={styles.modalTitleRow}>
+                <AppIcon name="map-pin" size={20} color="#10B981" />
+                <Text style={styles.modalTitle}>{t('collector.editLocation', 'Edit Operating Location')}</Text>
+              </View>
 
               <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 380 }}>
                 <View style={styles.formGroup}>
@@ -870,5 +891,22 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 13,
+  },
+  locationAreaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
   },
 });

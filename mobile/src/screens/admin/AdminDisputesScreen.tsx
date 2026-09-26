@@ -22,6 +22,7 @@ import { useNavigation } from '@react-navigation/native';
 import disputeService, { MarketplaceDispute, DisputeStatus } from '../../services/disputeService';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 export const AdminDisputesScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -102,7 +103,7 @@ export const AdminDisputesScreen: React.FC = () => {
 
           {disputes.length === 0 ? (
             <View style={styles.empty}>
-              <Text style={styles.emptyIcon}>🛡️</Text>
+              <AppIcon name="shield" size={44} color="#10B981" style={{ marginBottom: 12 }} />
               <Text style={styles.emptyTitle}>No Operational Disputes</Text>
               <Text style={styles.emptySub}>All marketplace transactions are running cleanly.</Text>
             </View>

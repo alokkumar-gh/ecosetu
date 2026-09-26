@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { TopAppBar } from '../../components/layout/TopAppBar';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
+import { AppIcon, AppIconName } from '../../components/ui/AppIcon';
 import {
   getSafetyTopicById,
   generateSafetySpeechText,
@@ -23,6 +24,16 @@ import {
 } from '../../data/safetyGuidance';
 import voiceService, { AnnouncementPriority } from '../../services/voiceService';
 import { useTranslation } from '../../i18n';
+
+const getSafetyIcon = (topicId: string): AppIconName => {
+  const upper = topicId.toUpperCase();
+  if (upper.includes('BATTER')) return 'battery';
+  if (upper.includes('CRT') || upper.includes('TV') || upper.includes('MONITOR')) return 'tv';
+  if (upper.includes('PCB') || upper.includes('CIRCUIT')) return 'cpu';
+  if (upper.includes('LAMP') || upper.includes('BULB') || upper.includes('MERCURY')) return 'lightbulb';
+  if (upper.includes('WIRE') || upper.includes('CABLE') || upper.includes('BURN')) return 'cable';
+  return 'shieldCheck';
+};
 
 export const CollectorSafetyDetailScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -90,7 +101,7 @@ export const CollectorSafetyDetailScreen: React.FC = () => {
           {/* Hero Card */}
           <View style={styles.heroCard}>
             <View style={styles.heroIconWrap}>
-              <Text style={styles.heroIcon}>{topic.icon}</Text>
+              <AppIcon name={getSafetyIcon(topic.id)} size={28} color="#10B981" />
             </View>
             <View style={styles.heroTextWrap}>
               <Text style={styles.heroTitle}>{localizedTitle}</Text>
@@ -114,7 +125,7 @@ export const CollectorSafetyDetailScreen: React.FC = () => {
             }
           >
             <View style={styles.speechIconWrap}>
-              <Text style={styles.speechIcon}>{isSpeaking ? '⏹️' : '🔊'}</Text>
+              <AppIcon name={isSpeaking ? 'close' : 'volume'} size={20} color="#10B981" />
             </View>
             <View style={styles.speechTextContainer}>
               <Text style={styles.speechTitle}>
@@ -132,15 +143,15 @@ export const CollectorSafetyDetailScreen: React.FC = () => {
 
           {/* Warning Banner */}
           <View style={styles.warningBanner}>
-            <Text style={styles.warningBannerIcon}>⚠️</Text>
-            <Text style={styles.warningBannerText}>{localizedWarning}</Text>
+            <AppIcon name="alert" size={18} color="#F59E0B" />
+            <Text style={[styles.warningBannerText, { marginLeft: 10, flex: 1 }]}>{localizedWarning}</Text>
           </View>
 
           {/* Section: Why Dangerous */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionHeaderIcon}>⚠️</Text>
-              <Text style={styles.sectionTitle}>
+              <AppIcon name="alert" size={16} color="#F59E0B" />
+              <Text style={[styles.sectionTitle, { marginLeft: 8 }]}>
                 {t('safety.whyDangerous') || 'WHY IT IS DANGEROUS'}
               </Text>
             </View>
@@ -150,8 +161,8 @@ export const CollectorSafetyDetailScreen: React.FC = () => {
           {/* Section: DON'T (Unsafe Practices) */}
           <View style={[styles.sectionCard, styles.dontCard]}>
             <View style={styles.sectionHeaderRow}>
-              <View style={styles.dontHeaderBadge}>
-                <Text style={styles.dontBadgeIcon}>❌</Text>
+              <View style={[styles.dontHeaderBadge, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+                <AppIcon name="close" size={12} color="#EF4444" />
                 <Text style={styles.dontBadgeText}>
                   {t('safety.dontTitle') || 'DO NOT (Unsafe Practices)'}
                 </Text>
@@ -170,8 +181,8 @@ export const CollectorSafetyDetailScreen: React.FC = () => {
           {/* Section: DO (Safe Practices) */}
           <View style={[styles.sectionCard, styles.doCard]}>
             <View style={styles.sectionHeaderRow}>
-              <View style={styles.doHeaderBadge}>
-                <Text style={styles.doBadgeIcon}>✅</Text>
+              <View style={[styles.doHeaderBadge, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+                <AppIcon name="check" size={12} color="#10B981" />
                 <Text style={styles.doBadgeText}>
                   {t('safety.doTitle') || 'DO (Safe Practices)'}
                 </Text>
@@ -188,9 +199,9 @@ export const CollectorSafetyDetailScreen: React.FC = () => {
           </View>
 
           {/* First Aid / Health Notice */}
-          <View style={styles.healthNotice}>
-            <Text style={styles.healthNoticeIcon}>🩺</Text>
-            <Text style={styles.healthNoticeText}>
+          <View style={[styles.healthNotice, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
+            <AppIcon name="shieldCheck" size={20} color="#34D399" />
+            <Text style={[styles.healthNoticeText, { flex: 1 }]}>
               Stop handling the material and seek appropriate professional help if
               you are injured or feel unwell.
             </Text>

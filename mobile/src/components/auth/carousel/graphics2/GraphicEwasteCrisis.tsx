@@ -8,24 +8,25 @@
 
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import { AppIcon, IconName } from '../../../ui/AppIcon';
 
 interface Props {
   active: boolean;
 }
 
-const DEVICES = [
-  { icon: '📱', x: 70, y: 20, size: 40 },
-  { icon: '💻', x: 130, y: 50, size: 48 },
-  { icon: '🖥️', x: 40, y: 80, size: 44 },
-  { icon: '🖨️', x: 190, y: 30, size: 38 },
-  { icon: '📺', x: 155, y: 95, size: 40 },
-  { icon: '🔋', x: 90, y: 115, size: 34 },
+const DEVICES: { icon: IconName; x: number; y: number; size: number }[] = [
+  { icon: 'smartphone', x: 70, y: 20, size: 40 },
+  { icon: 'laptop', x: 130, y: 50, size: 48 },
+  { icon: 'monitor', x: 40, y: 80, size: 44 },
+  { icon: 'printer', x: 190, y: 30, size: 38 },
+  { icon: 'tv', x: 155, y: 95, size: 40 },
+  { icon: 'battery', x: 90, y: 115, size: 34 },
 ];
 
 export const GraphicEwasteCrisis: React.FC<Props> = ({ active }) => {
   const dangerRing = useRef(new Animated.Value(1)).current;
   const wobble = useRef(new Animated.Value(0)).current;
-  const floatAnims = DEVICES.map(() => useRef(new Animated.Value(0)).current);
+  const floatAnims = useRef(DEVICES.map(() => new Animated.Value(0))).current;
 
   useEffect(() => {
     if (!active) return;
@@ -149,7 +150,7 @@ export const GraphicEwasteCrisis: React.FC<Props> = ({ active }) => {
                   { width: d.size, height: d.size, borderRadius: d.size * 0.25 },
                 ]}
               >
-                <Text style={{ fontSize: d.size * 0.5 }}>{d.icon}</Text>
+                <AppIcon name={d.icon} size={d.size * 0.48} color="#F87171" />
               </View>
             </Animated.View>
           );
@@ -158,7 +159,7 @@ export const GraphicEwasteCrisis: React.FC<Props> = ({ active }) => {
 
       {/* Warning badge */}
       <View style={styles.warningBadge}>
-        <Text style={styles.warningIcon}>⚠️</Text>
+        <AppIcon name="alert" size={11} color="#FCA5A5" />
         <Text style={styles.warningText}>UNTRACKED</Text>
       </View>
     </View>

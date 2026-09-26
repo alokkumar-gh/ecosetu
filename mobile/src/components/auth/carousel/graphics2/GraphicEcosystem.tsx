@@ -8,17 +8,18 @@
 
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import { AppIcon, IconName } from '../../../ui/AppIcon';
 
 interface Props {
   active: boolean;
 }
 
-const NODES = [
-  { icon: '👤', label: 'CITIZEN', x: 8, y: 10, color: '#10B981' },
-  { icon: '🏘️', label: 'COMMUNITY', x: 165, y: 10, color: '#10B981' },
-  { icon: '🚛', label: 'COLLECTOR', x: 88, y: 85, color: '#34D399', isHub: true },
-  { icon: '🏭', label: 'RECYCLER', x: 14, y: 155, color: '#06B6D4' },
-  { icon: '♻️', label: 'CIRCULAR', x: 168, y: 155, color: '#06B6D4' },
+const NODES: { icon: IconName; label: string; x: number; y: number; color: string; isHub?: boolean }[] = [
+  { icon: 'user', label: 'CITIZEN', x: 8, y: 10, color: '#10B981' },
+  { icon: 'users', label: 'COMMUNITY', x: 165, y: 10, color: '#10B981' },
+  { icon: 'truck', label: 'COLLECTOR', x: 88, y: 85, color: '#34D399', isHub: true },
+  { icon: 'refresh', label: 'RECYCLER', x: 14, y: 155, color: '#06B6D4' },
+  { icon: 'recycle', label: 'CIRCULAR', x: 168, y: 155, color: '#06B6D4' },
 ];
 
 export const GraphicEcosystem: React.FC<Props> = ({ active }) => {
@@ -207,7 +208,7 @@ export const GraphicEcosystem: React.FC<Props> = ({ active }) => {
               { borderColor: node.color + '55' },
             ]}
           >
-            <Text style={[styles.nodeIcon, { fontSize: node.isHub ? 24 : 18 }]}>{node.icon}</Text>
+            <AppIcon name={node.icon} size={node.isHub ? 22 : 16} color={node.color} />
           </View>
           <Text style={[styles.nodeLabel, { color: node.color }]}>{node.label}</Text>
         </View>

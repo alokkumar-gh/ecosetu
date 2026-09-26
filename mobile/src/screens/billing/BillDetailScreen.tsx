@@ -25,6 +25,7 @@ import { useAuth } from '../../hooks/useAuth';
 import billService, { type TransactionBill } from '../../services/billService';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { colors } from '../../theme/colors';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -43,18 +44,18 @@ function fmtTime(iso: string) {
 function getStatusMeta(status: string, t: any) {
   switch (status) {
     case 'PAID':
-      return { label: t('status.paid', 'Paid'), color: '#10B981', bg: 'rgba(16,185,129,0.14)', icon: '✅' };
+      return { label: t('status.paid', 'Paid'), color: '#10B981', bg: 'rgba(16,185,129,0.14)', icon: 'checkCircle' as const };
     case 'PENDING':
     case 'PROCESSING':
-      return { label: t('status.pending', 'Pending Payment'), color: '#FBBF24', bg: 'rgba(251,191,36,0.14)', icon: '⏳' };
+      return { label: t('status.pending', 'Pending Payment'), color: '#FBBF24', bg: 'rgba(251,191,36,0.14)', icon: 'clock' as const };
     case 'DISPUTED':
-      return { label: t('status.disputed', 'Disputed'), color: '#F87171', bg: 'rgba(239,68,68,0.14)', icon: '⚠️' };
+      return { label: t('status.disputed', 'Disputed'), color: '#F87171', bg: 'rgba(239,68,68,0.14)', icon: 'alert' as const };
     case 'ADJUSTED':
-      return { label: t('status.adjusted', 'Adjusted'), color: '#818CF8', bg: 'rgba(99,102,241,0.14)', icon: '🔄' };
+      return { label: t('status.adjusted', 'Adjusted'), color: '#818CF8', bg: 'rgba(99,102,241,0.14)', icon: 'refresh' as const };
     case 'REFUNDED':
-      return { label: t('status.refunded', 'Refunded'), color: '#60A5FA', bg: 'rgba(59,130,246,0.14)', icon: '↩️' };
+      return { label: t('status.refunded', 'Refunded'), color: '#60A5FA', bg: 'rgba(59,130,246,0.14)', icon: 'arrowLeft' as const };
     default:
-      return { label: status, color: '#94A3B8', bg: 'rgba(148,163,184,0.12)', icon: '🧾' };
+      return { label: status, color: '#94A3B8', bg: 'rgba(148,163,184,0.12)', icon: 'fileText' as const };
   }
 }
 
@@ -132,7 +133,7 @@ export const BillDetailScreen: React.FC = () => {
           <View style={styles.header}>
             <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}
               accessibilityRole="button" accessibilityLabel={t('common.back', 'Go back')}>
-              <Text style={styles.backBtnText}>←</Text>
+              <AppIcon name="arrowLeft" size={20} color={C.text} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{t('billing.bills', 'Bill Details')}</Text>
             <View style={styles.headerSpacer} />
@@ -175,12 +176,12 @@ export const BillDetailScreen: React.FC = () => {
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}
             accessibilityRole="button" accessibilityLabel={t('common.back', 'Go back')}>
-            <Text style={styles.backBtnText}>←</Text>
+            <AppIcon name="arrowLeft" size={20} color={C.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{t('billing.bills', 'Payment Record')}</Text>
           <TouchableOpacity style={styles.shareIconBtn} onPress={handleShare}
             accessibilityRole="button" accessibilityLabel={t('common.share', 'Share bill')}>
-            <Text style={styles.shareIconText}>↑</Text>
+            <AppIcon name="share" size={18} color={C.text} />
           </TouchableOpacity>
         </View>
 
@@ -189,7 +190,7 @@ export const BillDetailScreen: React.FC = () => {
           {/* ── Status Hero ── */}
           <View style={[styles.statusHero, { borderColor: meta.color + '55' }]}>
             <View style={[styles.statusIconRing, { backgroundColor: meta.bg, borderColor: meta.color }]}>
-              <Text style={styles.statusIcon}>{meta.icon}</Text>
+              <AppIcon name={meta.icon as any} size={28} color={meta.color} />
             </View>
             <Text style={[styles.statusLabel, { color: meta.color }]}>{meta.label}</Text>
             <Text style={styles.billNumberText}>{bill.billNumber}</Text>
@@ -200,9 +201,12 @@ export const BillDetailScreen: React.FC = () => {
           <View style={styles.amountSection}>
             <Text style={styles.amountSublabel}>{t('common.totalAmount', 'Total Amount')}</Text>
             <Text style={styles.amountValue}>₹{finalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
-            <Text style={styles.payMethodTag}>
-              {bill.paymentMethod === 'CASH' ? `💵 ${t('common.cash', 'Cash')}` : bill.paymentMethod === 'RAZORPAY_UPI' ? `⚡ ${t('common.upi', 'UPI / Bank')}` : `💳 ${bill.paymentMethod}`}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <AppIcon name={bill.paymentMethod === 'CASH' ? 'wallet' : 'creditCard'} size={14} color={C.textSub} />
+              <Text style={styles.payMethodTag}>
+                {bill.paymentMethod === 'CASH' ? t('common.cash', 'Cash') : bill.paymentMethod === 'RAZORPAY_UPI' ? t('common.upi', 'UPI / Bank') : bill.paymentMethod}
+              </Text>
+            </View>
           </View>
 
           {/* ── Item Details ── */}
@@ -239,7 +243,7 @@ export const BillDetailScreen: React.FC = () => {
                 {bill.seller?.phone && <Text style={styles.partyPhone}>{bill.seller.phone}</Text>}
               </View>
               <View style={styles.partyArrow}>
-                <Text style={styles.partyArrowText}>→</Text>
+                <AppIcon name="arrowRight" size={16} color={C.textDim} />
               </View>
               <View style={[styles.partyBox, { alignItems: 'flex-end' }]}>
                 <Text style={styles.partyRoleTag}>{bill.buyerRole || t('common.buyer', 'BUYER')}</Text>
@@ -272,7 +276,10 @@ export const BillDetailScreen: React.FC = () => {
             )}
             {bill.verificationHash && (
               <View style={styles.hashBox}>
-                <Text style={styles.hashLabel}>🔒 {t('common.verificationFingerprint', 'Verification Fingerprint')}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <AppIcon name="lock" size={12} color={C.green} />
+                  <Text style={[styles.hashLabel, { marginBottom: 0 }]}>{t('common.verificationFingerprint', 'Verification Fingerprint')}</Text>
+                </View>
                 <Text style={styles.hashValue} numberOfLines={2} selectable>{bill.verificationHash}</Text>
               </View>
             )}
@@ -282,7 +289,10 @@ export const BillDetailScreen: React.FC = () => {
           <View style={styles.actionsSection}>
             <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.82}
               accessibilityRole="button">
-              <Text style={styles.shareBtnText}>📤 {t('common.shareReceipt', 'Share Receipt')}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <AppIcon name="share" size={16} color={C.bg} />
+                <Text style={styles.shareBtnText}>{t('common.shareReceipt', 'Share Receipt')}</Text>
+              </View>
             </TouchableOpacity>
 
             <View style={styles.actionRow}>
@@ -292,7 +302,10 @@ export const BillDetailScreen: React.FC = () => {
                   onPress={() => navigation.navigate(paymentRoute, { transactionId: bill.transactionId })}
                   activeOpacity={0.82}
                 >
-                  <Text style={styles.secondaryBtnText}>💳 {t('common.payNow', 'Pay Now')}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    <AppIcon name="creditCard" size={15} color={C.text} />
+                    <Text style={styles.secondaryBtnText}>{t('common.payNow', 'Pay Now')}</Text>
+                  </View>
                 </TouchableOpacity>
               )}
 
@@ -308,14 +321,20 @@ export const BillDetailScreen: React.FC = () => {
                   }}
                   activeOpacity={0.82}
                 >
-                  <Text style={styles.secondaryBtnText}>🔗 {t('common.traceItem', 'Trace Item')}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    <AppIcon name="link" size={15} color={C.text} />
+                    <Text style={styles.secondaryBtnText}>{t('common.traceItem', 'Trace Item')}</Text>
+                  </View>
                 </TouchableOpacity>
               )}
             </View>
 
             {isDisputed && (
               <View style={styles.disputeNotice}>
-                <Text style={styles.disputeTitle}>⚠️ {t('common.disputeInProgress', 'Dispute in Progress')}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                  <AppIcon name="alert" size={16} color="#F87171" />
+                  <Text style={[styles.disputeTitle, { marginBottom: 0 }]}>{t('common.disputeInProgress', 'Dispute in Progress')}</Text>
+                </View>
                 <Text style={styles.disputeMessage}>
                   {t('common.disputeMessage', 'This bill has an amount discrepancy. An EcoSetu administrator will review and resolve it. No action required from you at this time.')}
                 </Text>

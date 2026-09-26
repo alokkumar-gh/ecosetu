@@ -46,6 +46,7 @@ import { Skeleton } from '../../components/common/Skeleton';
 import { EmptyState } from '../../components/common/EmptyState';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { StatusBadge } from '../../components/common/StatusBadge';
+import { AppIcon } from '../../components/ui';
 import { recyclingService } from '../../services/recyclingService';
 import { useI18n } from '../../i18n';
 import { colors } from '../../theme/colors';
@@ -301,7 +302,7 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
           <TopAppBar title="Create Consignment" onBack={() => navigation.goBack()} />
           <View style={styles.contentPadding}>
             <EmptyState
-              icon="🔒"
+              icon="lock"
               title="Access Restricted"
               message="Only authenticated informal collectors can create e-waste consignments."
               actionLabel="Go Back"
@@ -330,7 +331,7 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
           <TopAppBar title="Consignment Created" onBack={() => navigation.goBack()} />
           <ScrollView contentContainerStyle={styles.successContainer}>
             <View style={styles.successIconCircle} accessibilityElementsHidden>
-              <Text style={styles.successCheckIcon}>✓</Text>
+              <AppIcon name="check" size={32} color={colors.success} strokeWidth={2.5} />
             </View>
             <Text style={styles.successTitle} accessibilityRole="header">
               Consignment Created Successfully!
@@ -372,8 +373,9 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
 
             {/* Recycler Notification Notice */}
             <View style={styles.notificationNotice} accessibilityRole="alert">
+              <AppIcon name="mail" size={16} color="#67E8F9" style={{ marginTop: 2, marginRight: 8 }} />
               <Text style={styles.notificationNoticeText}>
-                📬 The receiving formal recycler has been automatically notified of this incoming delivery. Deliver the batch to their facility to complete handover.
+                The receiving formal recycler has been automatically notified of this incoming delivery. Deliver the batch to their facility to complete handover.
               </Text>
             </View>
 
@@ -424,8 +426,9 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
       {/* Verification Warning */}
       {collectorStatus && !isVerified && (
         <View style={styles.warningBanner} accessibilityRole="alert">
+          <AppIcon name="clock" size={16} color="#B45309" />
           <Text style={styles.warningBannerText}>
-            ⏳ Account Pending Verification: You can prepare batches, but submission will be enabled once your account is verified.
+            Account Pending Verification: You can prepare batches, but submission will be enabled once your account is verified.
           </Text>
         </View>
       )}
@@ -439,7 +442,7 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
       ) : error ? (
         <View style={styles.contentPadding}>
           <EmptyState
-            icon="⚠"
+            icon="alert-triangle"
             title="Unable to Load Data"
             message={error}
             actionLabel="Retry"
@@ -470,14 +473,17 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
             {selectedRecycler && !isSelectingRecycler ? (
               <View style={styles.recyclerCard}>
                 <View style={styles.recyclerHeader}>
-                  <Text style={styles.recyclerIcon} accessibilityElementsHidden>
-                    🏭
-                  </Text>
+                  <View style={styles.recyclerIconContainer}>
+                    <AppIcon name="factory" size={20} color={colors.primary} />
+                  </View>
                   <View style={{ flex: 1, marginLeft: 8 }}>
                     <Text style={styles.recyclerName}>{selectedRecycler.facilityName}</Text>
-                    <Text style={styles.recyclerAddress} numberOfLines={2}>
-                      📍 {selectedRecycler.facilityAddress}
-                    </Text>
+                    <View style={styles.addressRow}>
+                      <AppIcon name="map-pin" size={12} color={colors.textSecondary} />
+                      <Text style={styles.recyclerAddress} numberOfLines={2}>
+                        {selectedRecycler.facilityAddress}
+                      </Text>
+                    </View>
                   </View>
                   <StatusBadge status="ACTIVE" />
                 </View>
@@ -521,9 +527,12 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
                         accessibilityState={{ selected: isCurrent }}
                       >
                         <Text style={styles.recyclerOptionName}>{r.facilityName}</Text>
-                        <Text style={styles.recyclerOptionAddress} numberOfLines={1}>
-                          📍 {r.facilityAddress}
-                        </Text>
+                        <View style={styles.addressRow}>
+                          <AppIcon name="map-pin" size={11} color={colors.textSecondary} />
+                          <Text style={styles.recyclerOptionAddress} numberOfLines={1}>
+                            {r.facilityAddress}
+                          </Text>
+                        </View>
                       </TouchableOpacity>
                     );
                   })
@@ -564,7 +573,7 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
 
             {eligibleItems.length === 0 ? (
               <EmptyState
-                icon="📦"
+                icon="package"
                 title="No Collected Items Available"
                 message="You need items in COLLECTED status from completed pickups before you can create a consignment."
               />
@@ -598,7 +607,7 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
                           isSelected && styles.itemCheckboxChecked,
                         ]}
                       >
-                        {isSelected && <Text style={styles.checkboxCheck}>✓</Text>}
+                        {isSelected && <AppIcon name="check" size={14} color="#FFFFFF" strokeWidth={2.5} />}
                       </View>
                     </View>
 
@@ -617,14 +626,21 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
                       ) : null}
 
                       {/* Compatibility Hint */}
-                      <Text
-                        style={[
-                          styles.catCompatibilityText,
-                          { color: isCatAccepted ? colors.success : colors.warning },
-                        ]}
-                      >
-                        {isCatAccepted ? '✓ Category accepted by facility' : '⚠ Category not listed by facility'}
-                      </Text>
+                      <View style={styles.compatibilityRow}>
+                        <AppIcon
+                          name={isCatAccepted ? 'check-circle' : 'alert-triangle'}
+                          size={12}
+                          color={isCatAccepted ? colors.success : colors.warning}
+                        />
+                        <Text
+                          style={[
+                            styles.catCompatibilityText,
+                            { color: isCatAccepted ? colors.success : colors.warning },
+                          ]}
+                        >
+                          {isCatAccepted ? 'Category accepted by facility' : 'Category not listed by facility'}
+                        </Text>
+                      </View>
                     </View>
                   </TouchableOpacity>
                 );
@@ -680,9 +696,12 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
             </TouchableOpacity>
 
             {!isConnected && (
-              <Text style={styles.offlineHintText}>
-                📡 Internet connection required to create consignments.
-              </Text>
+              <View style={styles.offlineRow}>
+                <AppIcon name="wifi-off" size={13} color={colors.warning} />
+                <Text style={styles.offlineHintText}>
+                  Internet connection required to create consignments.
+                </Text>
+              </View>
             )}
           </View>
         </ScrollView>
@@ -726,8 +745,9 @@ export const CreateConsignmentScreen: React.FC<Props> = ({ navigation, route }) 
             </View>
 
             <View style={modalStyles.lockNotice}>
+              <AppIcon name="lock" size={14} color="#FCD34D" style={{ marginTop: 2, marginRight: 6 }} />
               <Text style={modalStyles.lockNoticeText}>
-                🔒 Once confirmed, these items will be locked to this consignment and the recycler will be notified of incoming delivery.
+                Once confirmed, these items will be locked to this consignment and the recycler will be notified of incoming delivery.
               </Text>
             </View>
 
@@ -811,18 +831,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  recyclerIcon: {
-    fontSize: 24,
+  recyclerIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: 'rgba(45, 212, 191, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   recyclerName: {
     fontSize: 14,
     fontWeight: '700',
     color: '#F8FAFC',
   },
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
   recyclerAddress: {
     fontSize: 12,
     color: colors.textSecondary,
-    marginTop: 2,
+    flex: 1,
   },
   acceptedCatsRow: {
     marginTop: spacing.spaceSm,
@@ -976,7 +1007,13 @@ const styles = StyleSheet.create({
   catCompatibilityText: {
     fontSize: 11,
     fontWeight: '600',
-    marginTop: 3,
+    flex: 1,
+  },
+  compatibilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
   },
   summaryBox: {
     backgroundColor: 'rgba(6, 21, 27, 0.85)',
@@ -1020,11 +1057,17 @@ const styles = StyleSheet.create({
     fontSize: typography.Button.fontSize,
     fontWeight: '700',
   },
+  offlineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 8,
+  },
   offlineHintText: {
     fontSize: 11,
     color: colors.warning,
     textAlign: 'center',
-    marginTop: 6,
   },
   warningBanner: {
     backgroundColor: 'rgba(245, 158, 11, 0.12)',
@@ -1116,6 +1159,8 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   notificationNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     backgroundColor: 'rgba(6, 182, 212, 0.12)',
     padding: spacing.spaceMd,
     borderRadius: 8,
@@ -1128,6 +1173,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#67E8F9',
     lineHeight: 18,
+    flex: 1,
   },
   trackButton: {
     width: '100%',
@@ -1216,6 +1262,8 @@ const modalStyles = StyleSheet.create({
     textAlign: 'right',
   },
   lockNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     backgroundColor: 'rgba(217, 119, 6, 0.15)',
     borderWidth: 1,
     borderColor: 'rgba(217, 119, 6, 0.35)',
@@ -1227,6 +1275,7 @@ const modalStyles = StyleSheet.create({
     fontSize: 12,
     color: '#FCD34D',
     lineHeight: 18,
+    flex: 1,
   },
   modalButtons: {
     flexDirection: 'row',

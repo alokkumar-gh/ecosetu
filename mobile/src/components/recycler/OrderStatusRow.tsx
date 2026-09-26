@@ -8,6 +8,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { RecyclerStatusBadge } from './RecyclerStatusBadge';
+import { AppIcon, IconName } from '../ui/AppIcon';
 
 export interface OrderItem {
   id: string;
@@ -23,6 +24,15 @@ export interface OrderItem {
   updatedAt?: string;
   offerCount?: number;
 }
+
+const resolveOrderIcon = (mat: string): IconName => {
+  const m = (mat || '').toLowerCase();
+  if (m.includes('phone') || m.includes('mobile')) return 'phone';
+  if (m.includes('laptop') || m.includes('pc') || m.includes('comp')) return 'laptop';
+  if (m.includes('battery')) return 'battery';
+  if (m.includes('pickup') || m.includes('transit')) return 'truck';
+  return 'box';
+};
 
 interface OrderStatusRowProps {
   order: OrderItem;
@@ -54,7 +64,9 @@ export const OrderStatusRow: React.FC<OrderStatusRowProps> = ({
       <View style={styles.main}>
         <View style={styles.topRow}>
           <View style={styles.materialBlock}>
-            <Text style={styles.icon}>{order.materialIcon || '📦'}</Text>
+            <View style={styles.iconBox}>
+              <AppIcon name={resolveOrderIcon(order.material)} size={18} color="#10B981" />
+            </View>
             <View>
               <Text style={styles.material} numberOfLines={1}>{order.material}</Text>
               {order.counterparty && (
@@ -113,6 +125,7 @@ const styles = StyleSheet.create({
   main:          { flex: 1, gap: 8 },
   topRow:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   materialBlock: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  iconBox:       { width: 28, height: 28, borderRadius: 8, backgroundColor: 'rgba(16,185,129,0.12)', alignItems: 'center', justifyContent: 'center' },
   icon:          { fontSize: 20 },
   material:      { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
   counterparty:  { color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '500', marginTop: 1 },

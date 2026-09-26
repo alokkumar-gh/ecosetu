@@ -26,6 +26,8 @@ import {
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 
+import { AppIcon } from '../ui/AppIcon';
+
 export interface EcoGlassInputProps extends TextInputProps {
   label?: string;
   error?: string | null;
@@ -111,7 +113,7 @@ export const EcoGlassInput = forwardRef<TextInput, EcoGlassInputProps>(
               accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Text style={styles.eyeIconText}>{showPassword ? '👁' : '🔒'}</Text>
+              <AppIcon name={showPassword ? 'eye' : 'eyeOff'} size={18} color="#94A3B8" />
             </TouchableOpacity>
           ) : rightIcon ? (
             <View style={styles.rightAction}>{rightIcon}</View>

@@ -19,6 +19,7 @@ import {
 import { firebaseAuthService, PhoneConfirmationResult } from '../../services/firebaseAuthService';
 import { useAuth } from '../../hooks/useAuth';
 import { useI18n } from '../../i18n';
+import { AppIcon } from '../ui/AppIcon';
 
 interface Props {
   visible: boolean;
@@ -122,7 +123,7 @@ export const PhoneAuthModal: React.FC<Props> = ({ visible, onClose }) => {
           <View style={styles.header}>
             <View style={styles.titleRow}>
               <View style={styles.badgeCircle}>
-                <Text style={styles.badgeText}>📱</Text>
+                <AppIcon name="phone" size={18} color="#059669" />
               </View>
               <Text style={styles.title}>
                 {step === 'PHONE'
@@ -137,13 +138,16 @@ export const PhoneAuthModal: React.FC<Props> = ({ visible, onClose }) => {
               style={styles.closeBtn}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <Text style={styles.closeIcon}>✕</Text>
+              <AppIcon name="x" size={16} color="#94A3B8" />
             </TouchableOpacity>
           </View>
 
           {errorMessage && (
             <View style={styles.errorBox} accessibilityRole="alert">
-              <Text style={styles.errorText}>⚠ {errorMessage}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <AppIcon name="alert" size={13} color="#DC2626" />
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
             </View>
           )}
 

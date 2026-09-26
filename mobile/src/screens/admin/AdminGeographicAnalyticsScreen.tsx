@@ -27,6 +27,7 @@ import {
 } from 'react-native';
 import { TopAppBar } from '../../components/layout/TopAppBar';
 import { AdminShell } from '../../components/admin/AdminShell';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { MetricCard } from '../../components/common/MetricCard';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Skeleton } from '../../components/common/Skeleton';
@@ -273,14 +274,21 @@ export const AdminGeographicAnalyticsScreen: React.FC<Props> = ({ navigation }) 
           accessibilityLabel={t('admin.geographic.overview') || 'Overview'}
           accessibilityState={{ selected: activeTab === 'overview' }}
         >
-          <Text
-            style={[
-              styles.segmentButtonText,
-              activeTab === 'overview' && styles.segmentButtonTextActive,
-            ]}
-          >
-            📊 {t('admin.geographic.overview') || 'Overview'}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <AppIcon
+              name="chart"
+              size={15}
+              color={activeTab === 'overview' ? colors.textInverse : colors.textSecondary}
+            />
+            <Text
+              style={[
+                styles.segmentButtonText,
+                activeTab === 'overview' && styles.segmentButtonTextActive,
+              ]}
+            >
+              {t('admin.geographic.overview') || 'Overview'}
+            </Text>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -293,23 +301,33 @@ export const AdminGeographicAnalyticsScreen: React.FC<Props> = ({ navigation }) 
           accessibilityLabel={t('admin.geographic.mapView') || 'Map View'}
           accessibilityState={{ selected: activeTab === 'map' }}
         >
-          <Text
-            style={[
-              styles.segmentButtonText,
-              activeTab === 'map' && styles.segmentButtonTextActive,
-            ]}
-          >
-            🗺️ {t('admin.geographic.mapView') || 'Map View'}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <AppIcon
+              name="mapPin"
+              size={15}
+              color={activeTab === 'map' ? colors.textInverse : colors.textSecondary}
+            />
+            <Text
+              style={[
+                styles.segmentButtonText,
+                activeTab === 'map' && styles.segmentButtonTextActive,
+              ]}
+            >
+              {t('admin.geographic.mapView') || 'Map View'}
+            </Text>
+          </View>
         </TouchableOpacity>
       </View>
 
       {/* Privacy Notice Banner */}
       <View style={styles.privacyBanner}>
-        <Text style={styles.privacyBannerText}>
-          {t('admin.geographic.privacyNotice') ||
-            '🔒 Privacy Protected: Citizen household locations and doorstep addresses are strictly aggregated and never displayed on maps.'}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <AppIcon name="shield" size={14} color={colors.primary} />
+          <Text style={[styles.privacyBannerText, { flex: 1 }]}>
+            {t('admin.geographic.privacyNotice') ||
+              'Privacy Protected: Citizen household locations and doorstep addresses are strictly aggregated and never displayed on maps.'}
+          </Text>
+        </View>
       </View>
 
       {isLoading ? (
@@ -356,37 +374,37 @@ export const AdminGeographicAnalyticsScreen: React.FC<Props> = ({ navigation }) 
             <MetricCard
               value={totalRequests}
               label={t('admin.geographic.totalRequests') || 'Total Requests'}
-              icon="📋"
+              icon="clipboard"
               accentColor="#6A1B9A"
             />
             <MetricCard
               value={completedPickups}
               label={t('admin.geographic.completedPickups') || 'Pickups Done'}
-              icon="✅"
+              icon="checkCircle"
               accentColor="#00695C"
             />
             <MetricCard
               value={`${totalWeightKg} kg`}
               label={t('admin.geographic.eWasteCollected') || 'Collected Wt'}
-              icon="⚖️"
+              icon="scale"
               accentColor="#2E7D32"
             />
             <MetricCard
               value={`${totalOutputWeightKg} kg`}
               label={t('admin.geographic.eWasteRecycled') || 'Recycled Wt'}
-              icon="🌿"
+              icon="recycle"
               accentColor="#1565C0"
             />
             <MetricCard
               value={activeCollectors}
               label={t('admin.geographic.activeCollectors') || 'Active Collectors'}
-              icon="🛵"
+              icon="truck"
               accentColor="#E65100"
             />
             <MetricCard
               value={verifiedRecyclersCount}
               label={t('admin.geographic.verifiedRecyclers') || 'Verified Recyclers'}
-              icon="🏭"
+              icon="factory"
               accentColor="#0277BD"
             />
           </View>
@@ -413,21 +431,30 @@ export const AdminGeographicAnalyticsScreen: React.FC<Props> = ({ navigation }) 
                   </View>
                 </View>
                 <View style={styles.regionStatsRow}>
-                  <Text style={styles.regionStatLabel}>
-                    🏭 {t('admin.geographic.recyclerFacilities') || 'Recycler Facilities'}:
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <AppIcon name="factory" size={13} color={colors.textSecondary} />
+                    <Text style={styles.regionStatLabel}>
+                      {t('admin.geographic.recyclerFacilities') || 'Recycler Facilities'}:
+                    </Text>
+                  </View>
                   <Text style={styles.regionStatValue}>{item.facilityCount}</Text>
                 </View>
                 <View style={styles.regionStatsRow}>
-                  <Text style={styles.regionStatLabel}>
-                    📦 {t('admin.geographic.consignmentsReceived') || 'Consignments Processed'}:
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <AppIcon name="package" size={13} color={colors.textSecondary} />
+                    <Text style={styles.regionStatLabel}>
+                      {t('admin.geographic.consignmentsReceived') || 'Consignments Processed'}:
+                    </Text>
+                  </View>
                   <Text style={styles.regionStatValue}>{item.totalConsignments}</Text>
                 </View>
                 <View style={styles.regionStatsRow}>
-                  <Text style={styles.regionStatLabel}>
-                    🔒 {t('admin.geographic.district') || 'District'} {t('admin.geographic.collectionActivity') || 'Collection'}:
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <AppIcon name="shield" size={13} color="#10B981" />
+                    <Text style={styles.regionStatLabel}>
+                      {t('admin.geographic.district') || 'District'} {t('admin.geographic.collectionActivity') || 'Collection'}:
+                    </Text>
+                  </View>
                   <Text style={styles.protectedBadgeText}>
                     {t('admin.geographic.privacyProtected') || 'Privacy Protected'}
                   </Text>
@@ -485,9 +512,12 @@ export const AdminGeographicAnalyticsScreen: React.FC<Props> = ({ navigation }) 
                   accessibilityRole="button"
                   accessibilityLabel="Reset all filters"
                 >
-                  <Text style={styles.resetFilterChipText}>
-                    ✕ {t('admin.geographic.resetFilters') || 'Reset'}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <AppIcon name="x" size={12} color="#EF4444" />
+                    <Text style={styles.resetFilterChipText}>
+                      {t('admin.geographic.resetFilters') || 'Reset'}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               )}
             </ScrollView>
@@ -573,14 +603,14 @@ export const AdminGeographicAnalyticsScreen: React.FC<Props> = ({ navigation }) 
             <View style={styles.legendHud}>
               <Text style={styles.legendTitle}>{t('admin.geographic.mapLegend') || 'Map Legend'}</Text>
               <View style={styles.legendItem}>
-                <Text style={styles.legendIcon}>🏭</Text>
-                <Text style={styles.legendText}>
+                <AppIcon name="factory" size={13} color="#38BDF8" />
+                <Text style={[styles.legendText, { marginLeft: 6 }]}>
                   {t('admin.geographic.recyclerFacilities') || 'Verified Recycler Facility'} ({mapPins.length})
                 </Text>
               </View>
               <View style={styles.legendItem}>
-                <Text style={styles.legendIcon}>🛡️</Text>
-                <Text style={styles.legendText}>
+                <AppIcon name="shield" size={13} color="#10B981" />
+                <Text style={[styles.legendText, { marginLeft: 6 }]}>
                   {t('admin.geographic.privacyProtected') || 'Privacy Safeguarded (No Citizen Pins)'}
                 </Text>
               </View>
@@ -606,9 +636,12 @@ export const AdminGeographicAnalyticsScreen: React.FC<Props> = ({ navigation }) 
                   accessibilityRole="button"
                   accessibilityLabel="Reset all filters"
                 >
-                  <Text style={styles.resetFilterText}>
-                    🔄 {t('admin.geographic.resetFilters') || 'Reset Filters'}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    <AppIcon name="refreshCw" size={14} color="#FFFFFF" />
+                    <Text style={styles.resetFilterText}>
+                      {t('admin.geographic.resetFilters') || 'Reset Filters'}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               </View>
             )}
@@ -624,15 +657,18 @@ export const AdminGeographicAnalyticsScreen: React.FC<Props> = ({ navigation }) 
                     accessibilityRole="button"
                     accessibilityLabel="Close callout"
                   >
-                    <Text style={styles.calloutCloseText}>✕</Text>
+                    <AppIcon name="x" size={16} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
                 <Text style={styles.calloutAddress}>{selectedPin.data?.facilityAddress}</Text>
                 <View style={styles.calloutBadges}>
                   <StatusBadge status="APPROVED" />
-                  <Text style={styles.calloutConsignments}>
-                    📦 {selectedPin.data?.totalConsignments || 0} consignments
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <AppIcon name="package" size={13} color={colors.textSecondary} />
+                    <Text style={styles.calloutConsignments}>
+                      {selectedPin.data?.totalConsignments || 0} consignments
+                    </Text>
+                  </View>
                 </View>
               </View>
             )}

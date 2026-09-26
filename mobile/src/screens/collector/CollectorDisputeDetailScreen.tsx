@@ -26,6 +26,7 @@ import disputeService, { MarketplaceDispute, DisputeStatus } from '../../service
 import { DisputeTimeline } from '../../components/dispute/DisputeTimeline';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 export const CollectorDisputeDetailScreen: React.FC = () => {
   const { t } = useI18n();
@@ -243,7 +244,10 @@ export const CollectorDisputeDetailScreen: React.FC = () => {
         {/* Counterparty Card */}
         {dispute.counterparty && (
           <View style={styles.infoCard}>
-            <Text style={styles.cardSectionTitle}>🏢 Involved Recycler</Text>
+            <View style={styles.cardHeaderRow}>
+              <AppIcon name="factory" size={18} color={colors.textSecondary} />
+              <Text style={styles.cardSectionTitle}>Involved Recycler</Text>
+            </View>
             <Text style={styles.infoName}>{dispute.counterparty.name}</Text>
             {dispute.counterparty.phone ? (
               <Text style={styles.infoSub}>Contact: {dispute.counterparty.phone}</Text>
@@ -253,7 +257,10 @@ export const CollectorDisputeDetailScreen: React.FC = () => {
 
         {/* Weight Comparison Grid */}
         <View style={styles.infoCard}>
-          <Text style={styles.cardSectionTitle}>⚖️ Weight & Commercial Facts</Text>
+          <View style={styles.cardHeaderRow}>
+            <AppIcon name="scale" size={18} color={colors.textSecondary} />
+            <Text style={styles.cardSectionTitle}>Weight & Commercial Facts</Text>
+          </View>
           <View style={styles.factsGrid}>
             <View style={styles.factItem}>
               <Text style={styles.factLabel}>Estimated Weight</Text>
@@ -305,7 +312,10 @@ export const CollectorDisputeDetailScreen: React.FC = () => {
         {/* Resolution Card if resolved */}
         {dispute.resolutionNotes && (
           <View style={[styles.infoCard, { backgroundColor: '#F0FDF4', borderColor: '#86EFAC' }]}>
-            <Text style={[styles.cardSectionTitle, { color: '#166534' }]}>✅ Resolution Details</Text>
+            <View style={styles.cardHeaderRow}>
+              <AppIcon name="check-circle" size={18} color="#166534" />
+              <Text style={[styles.cardSectionTitle, { color: '#166534' }]}>Resolution Details</Text>
+            </View>
             <Text style={styles.resType}>Type: {dispute.resolutionType?.replace(/_/g, ' ')}</Text>
             <Text style={styles.resNotes}>"{dispute.resolutionNotes}"</Text>
             {dispute.resolvedAt && (
@@ -329,7 +339,10 @@ export const CollectorDisputeDetailScreen: React.FC = () => {
                   onPress={() => setRespondModalVisible(true)}
                   disabled={actionLoading}
                 >
-                  <Text style={styles.btnPrimaryText}>💬 Respond / Propose</Text>
+                  <View style={styles.btnContentRow}>
+                    <AppIcon name="message-square" size={16} color="#FFFFFF" />
+                    <Text style={styles.btnPrimaryText}>Respond / Propose</Text>
+                  </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -337,7 +350,10 @@ export const CollectorDisputeDetailScreen: React.FC = () => {
                   onPress={handleAcceptResolution}
                   disabled={actionLoading}
                 >
-                  <Text style={styles.btnOutlineText}>✓ Accept Terms & Settle</Text>
+                  <View style={styles.btnContentRow}>
+                    <AppIcon name="check" size={16} color={colors.primary} />
+                    <Text style={styles.btnOutlineText}>Accept Terms & Settle</Text>
+                  </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -354,7 +370,10 @@ export const CollectorDisputeDetailScreen: React.FC = () => {
                 onPress={() => setReturnModalVisible(true)}
                 disabled={actionLoading}
               >
-                <Text style={styles.btnPrimaryText}>📦 Confirm Return Received</Text>
+                <View style={styles.btnContentRow}>
+                  <AppIcon name="package" size={16} color="#FFFFFF" />
+                  <Text style={styles.btnPrimaryText}>Confirm Return Received</Text>
+                </View>
               </TouchableOpacity>
             )}
           </View>
@@ -754,5 +773,17 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontWeight: '700',
     fontSize: 14,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+    marginBottom: space.sm,
+  },
+  btnContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
 });

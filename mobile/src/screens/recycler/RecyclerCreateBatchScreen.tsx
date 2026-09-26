@@ -29,6 +29,7 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useI18n } from '../../i18n';
 import pickupBatchService from '../../services/pickupBatchService';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 interface Props {
   navigation: any;
@@ -157,7 +158,7 @@ export const RecyclerCreateBatchScreen: React.FC<Props> = ({ navigation, route }
           </View>
         ) : eligibleLots.length === 0 ? (
           <EmptyState
-            icon="📋"
+            icon="clipboard"
             title={t('logistics.noEligibleLots')}
             message={t('logistics.noEligibleLotsDesc')}
           />
@@ -165,7 +166,10 @@ export const RecyclerCreateBatchScreen: React.FC<Props> = ({ navigation, route }
           <ScrollView contentContainerStyle={styles.scrollContent}>
             {/* Instruction Card */}
             <GlassCard style={styles.infoCard}>
-              <Text style={styles.infoTitle}>📦 {t('logistics.consolidationTitle')}</Text>
+              <View style={styles.rowCentered}>
+                <AppIcon name="package" size={16} color={colors.primary} />
+                <Text style={styles.infoTitle}>{t('logistics.consolidationTitle')}</Text>
+              </View>
               <Text style={styles.infoDesc}>
                 {t('logistics.consolidationDesc')}
               </Text>
@@ -189,7 +193,7 @@ export const RecyclerCreateBatchScreen: React.FC<Props> = ({ navigation, route }
                     <View style={styles.lotHeader}>
                       <View style={styles.checkboxWrapper}>
                         <View style={[styles.checkbox, isSelected && styles.checkboxActive]}>
-                          {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                          {isSelected && <AppIcon name="check" size={14} color="#071E22" strokeWidth={2.5} />}
                         </View>
                         <View style={styles.lotTitleCol}>
                           <Text style={styles.lotRef}>{lot.referenceNumber}</Text>
@@ -203,10 +207,13 @@ export const RecyclerCreateBatchScreen: React.FC<Props> = ({ navigation, route }
                     </View>
 
                     <View style={styles.lotMetaRow}>
-                      <Text style={styles.lotCollector}>
-                        👤 {lot.collector?.user?.name || t('logistics.collector')}
-                        {lot.collector?.city ? ` (${lot.collector.city})` : ''}
-                      </Text>
+                      <View style={styles.rowCentered}>
+                        <AppIcon name="user" size={12} color={colors.textSecondary} />
+                        <Text style={styles.lotCollector}>
+                          {lot.collector?.user?.name || t('logistics.collector')}
+                          {lot.collector?.city ? ` (${lot.collector.city})` : ''}
+                        </Text>
+                      </View>
                       {lot.acceptedQuote ? (
                         <Text style={styles.lotRate}>
                           ₹{lot.acceptedQuote.quotedUnitPrice}/{lot.acceptedQuote.unit === 'PER_KG' ? 'kg' : 'unit'}
@@ -327,7 +334,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.primary,
-    marginBottom: 4,
+  },
+  rowCentered: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   infoDesc: {
     fontSize: 12,

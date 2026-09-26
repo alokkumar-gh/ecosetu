@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { AppIcon, IconName } from '../ui/AppIcon';
 
 type EmptyContext =
   | 'no_listings'
@@ -22,45 +23,45 @@ interface EmptyMarketplaceStateProps {
   actionLabel?: string;
 }
 
-const EMPTY_CONFIG: Record<EmptyContext, { icon: string; title: string; message: string; defaultAction: string }> = {
+const EMPTY_CONFIG: Record<EmptyContext, { icon: IconName; title: string; message: string; defaultAction: string }> = {
   no_listings: {
-    icon: '📦',
+    icon: 'box',
     title: 'No Listings Yet',
     message: "You haven't listed any material. Start by photographing what you've collected.",
     defaultAction: 'SELL MATERIAL',
   },
   no_offers: {
-    icon: '📩',
+    icon: 'mail',
     title: 'No Offers Yet',
     message: 'Your listed material will appear here when buyers send offers.',
     defaultAction: 'View Listings',
   },
   no_earnings: {
-    icon: '₹',
+    icon: 'rupee',
     title: 'No Earnings Yet',
     message: 'Complete your first sale to see your earnings here.',
     defaultAction: 'SELL MATERIAL',
   },
   no_pickups: {
-    icon: '🚚',
+    icon: 'truck',
     title: 'No Pickups Scheduled',
     message: 'You have no pickup assignments right now. Check the Browse screen for available citizen requests.',
     defaultAction: 'Browse Requests',
   },
   no_deals: {
-    icon: '🤝',
+    icon: 'handshake',
     title: 'No Active Deals',
     message: 'List material on the marketplace to start receiving offers from recyclers.',
     defaultAction: 'SELL MATERIAL',
   },
   no_transactions: {
-    icon: '📋',
+    icon: 'receipt',
     title: 'No Transactions',
     message: 'Completed sales will appear here as transaction records.',
     defaultAction: 'View Earnings',
   },
   no_completed: {
-    icon: '✅',
+    icon: 'checkCircle',
     title: 'No Completed Deals',
     message: "Your completed and paid deals will appear here.",
     defaultAction: 'View All Deals',
@@ -76,7 +77,9 @@ export const EmptyMarketplaceState: React.FC<EmptyMarketplaceStateProps> = ({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.icon}>{cfg.icon}</Text>
+      <View style={styles.iconCircle}>
+        <AppIcon name={cfg.icon} size={36} color="#10B981" />
+      </View>
       <Text style={styles.title}>{cfg.title}</Text>
       <Text style={styles.message}>{cfg.message}</Text>
       {onAction && (
@@ -101,8 +104,13 @@ const styles = StyleSheet.create({
     paddingVertical: 48,
     gap: 12,
   },
-  icon: {
-    fontSize: 48,
+  iconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(16,185,129,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 8,
   },
   title: {

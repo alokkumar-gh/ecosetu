@@ -64,6 +64,7 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useI18n } from '../../i18n';
 import { voiceService, AnnouncementPriority } from '../../services/voiceService';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -209,7 +210,7 @@ const RequestCard = React.memo<RequestCardProps>(
         {/* ── Header row: icon + categories + item count ── */}
         <View style={cardStyles.headerRow}>
           <View style={cardStyles.iconCircle} accessibilityElementsHidden>
-            <Text style={cardStyles.iconText}>📦</Text>
+            <AppIcon name="package" size={20} color="#10B981" />
           </View>
           <View style={{ flex: 1, marginLeft: spacing.spaceSm }}>
             <Text style={cardStyles.categoryText} numberOfLines={1}>
@@ -227,9 +228,7 @@ const RequestCard = React.memo<RequestCardProps>(
 
         {/* ── Doorstep pickup address (Privacy-safe: structured address without live GPS coordinates) ── */}
         <View style={cardStyles.infoRow}>
-          <Text style={cardStyles.infoIcon} accessibilityElementsHidden>
-            📍
-          </Text>
+          <AppIcon name="location" size={14} color="#10B981" style={{ marginTop: 2 }} />
           <Text style={cardStyles.infoText} numberOfLines={4}>
             {request.pickupAddress || t('collector.browse.approximateLocation') || 'Approximate location'}
           </Text>
@@ -238,9 +237,7 @@ const RequestCard = React.memo<RequestCardProps>(
         {/* ── Preferred pickup date ── */}
         {Boolean(preferredDateLabel) && (
           <View style={cardStyles.infoRow}>
-            <Text style={cardStyles.infoIcon} accessibilityElementsHidden>
-              🗓
-            </Text>
+            <AppIcon name="calendar" size={14} color="#10B981" style={{ marginTop: 2 }} />
             <Text style={cardStyles.infoText}>
               {t('collector.browse.preferred') || 'Preferred'}: {preferredDateLabel}
               {timeWindow ? ` · ${timeWindow}` : ''}
@@ -250,9 +247,7 @@ const RequestCard = React.memo<RequestCardProps>(
 
         {/* ── Submission date ── */}
         <View style={cardStyles.infoRow}>
-          <Text style={cardStyles.infoIcon} accessibilityElementsHidden>
-            🕐
-          </Text>
+          <AppIcon name="clock" size={14} color="#94A3B8" style={{ marginTop: 2 }} />
           <Text style={cardStyles.infoText}>
             Submitted {fmtDate(request.createdAt || request.submittedAt)}
           </Text>
@@ -297,7 +292,10 @@ const RequestCard = React.memo<RequestCardProps>(
               accessibilityHint="Reads request summary aloud"
               activeOpacity={0.75}
             >
-              <Text style={cardStyles.readAloudBtnText}>🔊 {t('voice.readAloud') || 'Read Aloud'}</Text>
+              <View style={styles.btnRow}>
+                <AppIcon name="mic" size={14} color="#10B981" />
+                <Text style={cardStyles.readAloudBtnText}>{t('voice.readAloud') || 'Read Aloud'}</Text>
+              </View>
             </TouchableOpacity>
           )}
 
@@ -331,29 +329,38 @@ const RequestCard = React.memo<RequestCardProps>(
             {isAccepting ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Text style={cardStyles.acceptButtonText}>✅ {t('collector.browse.acceptRequest') || 'Accept Request'}</Text>
+              <View style={styles.btnRow}>
+                <AppIcon name="check" size={15} color="#FFFFFF" />
+                <Text style={cardStyles.acceptButtonText}>{t('collector.browse.acceptRequest') || 'Accept Request'}</Text>
+              </View>
             )}
           </TouchableOpacity>
         </View>
 
         {/* ── Contextual disable hints (color-independent text) ── */}
         {!isConnected && (
-          <Text
-            style={cardStyles.disabledHint}
-            accessibilityRole="text"
-            accessibilityLabel="Internet connection required to accept this request"
-          >
-            📡 {t('collector.dashboard.offlineHint') || 'Internet required to accept'}
-          </Text>
+          <View style={[styles.rowCentered, { marginTop: 4 }]}>
+            <AppIcon name="refresh" size={13} color="#94A3B8" />
+            <Text
+              style={cardStyles.disabledHint}
+              accessibilityRole="text"
+              accessibilityLabel="Internet connection required to accept this request"
+            >
+              {t('collector.dashboard.offlineHint') || 'Internet required to accept'}
+            </Text>
+          </View>
         )}
         {isConnected && !isVerified && (
-          <Text
-            style={[cardStyles.disabledHint, { color: colors.warning }]}
-            accessibilityRole="text"
-            accessibilityLabel="Account verification required to accept requests"
-          >
-            🔒 {t('collector.browse.verificationRequired') || 'Verification required'}
-          </Text>
+          <View style={[styles.rowCentered, { marginTop: 4 }]}>
+            <AppIcon name="lock" size={13} color={colors.warning} />
+            <Text
+              style={[cardStyles.disabledHint, { color: colors.warning }]}
+              accessibilityRole="text"
+              accessibilityLabel="Account verification required to accept requests"
+            >
+              {t('collector.browse.verificationRequired') || 'Verification required'}
+            </Text>
+          </View>
         )}
       </View>
     );
@@ -793,7 +800,7 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
                 }
 
                 Alert.alert(
-                  t('collector.dashboard.acceptSuccessTitle') || '✅ Request Accepted',
+                  t('collector.dashboard.acceptSuccessTitle') || 'Request Accepted',
                   t('collector.dashboard.acceptSuccessMessage') || 'The citizen has been notified. A pickup has been scheduled for you.',
                   [
                     { text: t('common.done') || 'OK' },
@@ -936,9 +943,12 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
           accessibilityLabel={t('collector.browse.list') || 'List view'}
           activeOpacity={0.8}
         >
-          <Text style={[styles.toggleBtnText, activeView === 'LIST' && styles.toggleBtnTextActive]}>
-            📋 {t('collector.browse.list') || 'List'}
-          </Text>
+          <View style={styles.btnRow}>
+            <AppIcon name="clipboard" size={15} color={activeView === 'LIST' ? '#FFFFFF' : '#94A3B8'} />
+            <Text style={[styles.toggleBtnText, activeView === 'LIST' && styles.toggleBtnTextActive]}>
+              {t('collector.browse.list') || 'List'}
+            </Text>
+          </View>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.toggleBtn, activeView === 'MAP' && styles.toggleBtnActive]}
@@ -948,32 +958,44 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
           accessibilityLabel={t('collector.browse.map') || 'Map view'}
           activeOpacity={0.8}
         >
-          <Text style={[styles.toggleBtnText, activeView === 'MAP' && styles.toggleBtnTextActive]}>
-            🗺️ {t('collector.browse.map') || 'Map'}
-          </Text>
+          <View style={styles.btnRow}>
+            <AppIcon name="location" size={15} color={activeView === 'MAP' ? '#FFFFFF' : '#94A3B8'} />
+            <Text style={[styles.toggleBtnText, activeView === 'MAP' && styles.toggleBtnTextActive]}>
+              {t('collector.browse.map') || 'Map'}
+            </Text>
+          </View>
         </TouchableOpacity>
       </View>
 
       {/* ── Account status banners ── */}
       {collectorStatus === USER_STATUS.SUSPENDED && (
         <View style={styles.alertBanner} accessibilityRole="alert">
-          <Text style={[styles.alertText, { color: '#B71C1C' }]}>
-            {t('collector.dashboard.suspendedNotice') || '⚠️ Your account is suspended. You cannot accept requests. Contact support.'}
-          </Text>
+          <View style={styles.rowCentered}>
+            <AppIcon name="warning" size={15} color="#B71C1C" />
+            <Text style={[styles.alertText, { color: '#B71C1C' }]}>
+              {t('collector.dashboard.suspendedNotice') || 'Your account is suspended. You cannot accept requests. Contact support.'}
+            </Text>
+          </View>
         </View>
       )}
       {collectorStatus === USER_STATUS.DEACTIVATED && (
         <View style={styles.alertBanner} accessibilityRole="alert">
-          <Text style={[styles.alertText, { color: '#B71C1C' }]}>
-            {t('collector.dashboard.deactivatedNotice') || '⚠️ This account has been deactivated.'}
-          </Text>
+          <View style={styles.rowCentered}>
+            <AppIcon name="warning" size={15} color="#B71C1C" />
+            <Text style={[styles.alertText, { color: '#B71C1C' }]}>
+              {t('collector.dashboard.deactivatedNotice') || 'This account has been deactivated.'}
+            </Text>
+          </View>
         </View>
       )}
       {collectorStatus === USER_STATUS.PENDING_VERIFICATION && (
         <View style={[styles.alertBanner, { backgroundColor: '#FFF3E0' }]} accessibilityRole="alert">
-          <Text style={[styles.alertText, { color: '#BF360C' }]}>
-            {t('collector.dashboard.pendingNotice') || '🕐 Pending verification. Available requests shown after your account is approved.'}
-          </Text>
+          <View style={styles.rowCentered}>
+            <AppIcon name="clock" size={15} color="#BF360C" />
+            <Text style={[styles.alertText, { color: '#BF360C' }]}>
+              {t('collector.dashboard.pendingNotice') || 'Pending verification. Available requests shown after your account is approved.'}
+            </Text>
+          </View>
         </View>
       )}
 
@@ -982,9 +1004,12 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
           {/* Map Offline Notice */}
           {!isConnected && (
             <View style={styles.mapOfflineNotice}>
-              <Text style={styles.mapOfflineNoticeText}>
-                📡 {t('collector.dashboard.offlineHint') || 'Internet required to accept requests'}
-              </Text>
+              <View style={styles.rowCentered}>
+                <AppIcon name="refresh" size={12} color="#FFFFFF" />
+                <Text style={styles.mapOfflineNoticeText}>
+                  {t('collector.dashboard.offlineHint') || 'Internet required to accept requests'}
+                </Text>
+              </View>
             </View>
           )}
 
@@ -1047,16 +1072,14 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
                   accessibilityLabel={t('collector.browse.closeDetails') || 'Close'}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Text style={styles.closeCardBtnText}>✕</Text>
+                  <AppIcon name="close" size={14} color="#94A3B8" />
                 </TouchableOpacity>
               </View>
 
               <View style={styles.selectedDivider} />
 
               <View style={styles.selectedInfoRow}>
-                <Text style={styles.selectedInfoIcon} accessibilityElementsHidden>
-                  📍
-                </Text>
+                <AppIcon name="location" size={14} color="#10B981" style={{ marginTop: 2, marginRight: 6 }} />
                 <Text style={styles.selectedInfoText} numberOfLines={2}>
                   {selectedMapRequest.pickupAddress ||
                     t('collector.browse.approximateLocation') ||
@@ -1066,9 +1089,7 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
 
               {Boolean(selectedMapRequest.distanceKm) && (
                 <View style={styles.selectedInfoRow}>
-                  <Text style={styles.selectedInfoIcon} accessibilityElementsHidden>
-                    📏
-                  </Text>
+                  <AppIcon name="mapPin" size={14} color="#38BDF8" style={{ marginTop: 2, marginRight: 6 }} />
                   <Text style={styles.selectedInfoText}>
                     {t('collector.browse.distance') || 'Distance'}: ~{selectedMapRequest.distanceKm} km
                   </Text>
@@ -1076,9 +1097,12 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
               )}
 
               <View style={styles.selectedPrivacyNote}>
-                <Text style={styles.selectedPrivacyText}>
-                  🔒 {t('collector.browse.exactLocationAfterAcceptance') || 'Exact location available after acceptance'}
-                </Text>
+                <View style={styles.rowCentered}>
+                  <AppIcon name="lock" size={13} color="#94A3B8" />
+                  <Text style={styles.selectedPrivacyText}>
+                    {t('collector.browse.exactLocationAfterAcceptance') || 'Exact location available after acceptance'}
+                  </Text>
+                </View>
               </View>
 
               <View style={styles.selectedActionsRow}>
@@ -1090,7 +1114,10 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
                   accessibilityHint="Reads request summary aloud"
                   activeOpacity={0.75}
                 >
-                  <Text style={styles.selectedReadAloudBtnText}>🔊 {t('voice.readAloud') || 'Read Aloud'}</Text>
+                  <View style={styles.btnRow}>
+                    <AppIcon name="mic" size={14} color="#10B981" />
+                    <Text style={styles.selectedReadAloudBtnText}>{t('voice.readAloud') || 'Read Aloud'}</Text>
+                  </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -1117,9 +1144,12 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
                   {acceptingId === selectedMapRequest.id ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.selectedAcceptBtnText}>
-                      ✅ {t('collector.browse.acceptRequest') || 'Accept Request'}
-                    </Text>
+                    <View style={styles.btnRow}>
+                      <AppIcon name="check" size={15} color="#FFFFFF" />
+                      <Text style={styles.selectedAcceptBtnText}>
+                        {t('collector.browse.acceptRequest') || 'Accept Request'}
+                      </Text>
+                    </View>
                   )}
                 </TouchableOpacity>
               </View>
@@ -1135,9 +1165,12 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
             >
               <View style={styles.mapSummaryHeader}>
                 <View style={styles.radarBadgeRow}>
-                  <Text style={styles.mapSummaryTitle}>
-                    📡 {mapPins.length} {t('collector.browse.nearbyRequests') || 'Neighborhood Pickup Zones'}
-                  </Text>
+                  <View style={styles.rowCentered}>
+                    <AppIcon name="location" size={16} color="#10B981" />
+                    <Text style={styles.mapSummaryTitle}>
+                      {mapPins.length} {t('collector.browse.nearbyRequests') || 'Neighborhood Pickup Zones'}
+                    </Text>
+                  </View>
                   <View style={styles.radarLivePill}>
                     <Text style={styles.radarLiveText}>RADAR ACTIVE</Text>
                   </View>
@@ -1158,9 +1191,12 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
                     accessibilityLabel={t('collector.browse.viewRequest') || 'Inspect Nearest Request'}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.inspectFirstBtnText}>
-                      🔍 {t('collector.browse.viewRequest') || 'Inspect Nearest'}
-                    </Text>
+                    <View style={styles.btnRow}>
+                      <AppIcon name="search" size={14} color="#10B981" />
+                      <Text style={styles.inspectFirstBtnText}>
+                        {t('collector.browse.viewRequest') || 'Inspect Nearest'}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 )}
 
@@ -1171,7 +1207,10 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
                   accessibilityLabel="Switch to List View"
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.switchToListBtnText}>📋 List View</Text>
+                  <View style={styles.btnRow}>
+                    <AppIcon name="clipboard" size={14} color="#CBD5E1" />
+                    <Text style={styles.switchToListBtnText}>List View</Text>
+                  </View>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1194,23 +1233,29 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
               {/* ── Stale cache notice ── */}
               {fromCache && (
                 <View style={styles.cacheNotice}>
-                  <Text style={styles.cacheNoticeText}>
-                    📴 {t('offline.cachedNotice') || 'Showing cached requests (last synced while online)'}
-                  </Text>
+                  <View style={styles.rowCentered}>
+                    <AppIcon name="refresh" size={14} color="#F59E0B" />
+                    <Text style={styles.cacheNoticeText}>
+                      {t('offline.cachedNotice') || 'Showing cached requests (last synced while online)'}
+                    </Text>
+                  </View>
                 </View>
               )}
 
               {/* ── Privacy note ── */}
               <View style={styles.privacyNote}>
-                <Text style={styles.privacyNoteText}>
-                  {t('collector.browse.privacyBanner') || '🔒 Exact pickup address is revealed only after you accept a request.'}
-                </Text>
+                <View style={styles.rowCentered}>
+                  <AppIcon name="lock" size={14} color="#10B981" />
+                  <Text style={styles.privacyNoteText}>
+                    {t('collector.browse.privacyBanner') || 'Exact pickup address is revealed only after you accept a request.'}
+                  </Text>
+                </View>
               </View>
 
               {/* ── Verification required state ── */}
               {isVerificationError && (
                 <EmptyState
-                  icon="🔒"
+                  icon="lock"
                   title={t('collector.browse.verificationRequired') || 'Verification Required'}
                   message={t('collector.browse.verificationRequiredDesc') || 'Your account must be approved before you can browse available collection requests.'}
                 />
@@ -1235,7 +1280,7 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
           ListEmptyComponent={
             !error && !isVerificationError ? (
               <EmptyState
-                icon="🔍"
+                icon="search"
                 title={t('collector.browse.noRequestsTitle') || 'No Requests Available'}
                 message={
                   !isConnected && !fromCache
@@ -1649,6 +1694,17 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  rowCentered: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
 });
 

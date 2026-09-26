@@ -5,8 +5,9 @@
  * NOT a button — a call-to-action surface.
  */
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { TouchableOpacity, View, Text, StyleSheet, Animated } from 'react-native';
+import { AppIcon } from '../ui/AppIcon';
 
 interface SellMaterialCTAProps {
   onPress: () => void;
@@ -40,7 +41,7 @@ export const SellMaterialCTA: React.FC<SellMaterialCTAProps> = ({
         >
           {/* Left: icon block */}
           <View style={styles.iconBlock}>
-            <Text style={styles.icon}>📦</Text>
+            <AppIcon name="camera" size={22} color="#064E3B" />
           </View>
 
           {/* Center: text */}

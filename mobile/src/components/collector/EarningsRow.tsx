@@ -8,6 +8,8 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { CompactStatusBadge } from './CompactStatusBadge';
 
+import { AppIcon } from '../ui/AppIcon';
+
 interface EarningsRowProps {
   material: string;
   materialIcon?: string;
@@ -22,7 +24,7 @@ interface EarningsRowProps {
 
 export const EarningsRow: React.FC<EarningsRowProps> = ({
   material,
-  materialIcon = '📦',
+  materialIcon,
   date,
   quantityKg,
   ratePerKg,
@@ -42,7 +44,7 @@ export const EarningsRow: React.FC<EarningsRowProps> = ({
     >
       {/* Icon */}
       <View style={styles.iconBox}>
-        <Text style={styles.icon}>{materialIcon}</Text>
+        <AppIcon name="receipt" size={18} color="#10B981" />
       </View>
 
       {/* Info */}

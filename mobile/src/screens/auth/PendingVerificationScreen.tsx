@@ -19,6 +19,7 @@ import {
 import { GradientBackground } from '../../components/glass/GradientBackground';
 import { GlassCard } from '../../components/glass/GlassCard';
 import { GlassButton } from '../../components/glass/GlassButton';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { useAuth } from '../../hooks/useAuth';
 import { useI18n } from '../../i18n';
 import { verificationService, VerificationStatusResponse } from '../../services/verificationService';
@@ -135,9 +136,12 @@ export const PendingVerificationScreen: React.FC<Props> = ({ role = 'User' }) =>
             isRejected && styles.iconCircleRed,
           ]}
         >
-          <Text style={styles.iconText}>
-            {isChangesRequired ? '⚠' : isRejected ? '✕' : '⏳'}
-          </Text>
+          <AppIcon
+            name={isChangesRequired ? 'alert' : isRejected ? 'close' : 'clock'}
+            size={36}
+            color={isChangesRequired ? '#F59E0B' : isRejected ? '#EF4444' : '#10B981'}
+            strokeWidth={2.2}
+          />
         </View>
 
         {/* Dynamic Headlines */}
@@ -171,7 +175,7 @@ export const PendingVerificationScreen: React.FC<Props> = ({ role = 'User' }) =>
               {/* Step 1: Submitted */}
               <View style={styles.stepRow}>
                 <View style={styles.stepCircleActive}>
-                  <Text style={styles.stepCircleText}>✓</Text>
+                  <AppIcon name="check" size={14} color="#FFFFFF" strokeWidth={2.4} />
                 </View>
                 <View style={styles.stepContent}>
                   <Text style={styles.stepTitleActive}>Submitted</Text>
@@ -191,9 +195,12 @@ export const PendingVerificationScreen: React.FC<Props> = ({ role = 'User' }) =>
                       : { backgroundColor: '#F59E0B' },
                   ]}
                 >
-                  <Text style={styles.stepCircleText}>
-                    {isChangesRequired ? '!' : isRejected ? '✕' : '●'}
-                  </Text>
+                  <AppIcon
+                    name={isChangesRequired ? 'alert' : isRejected ? 'close' : 'clock'}
+                    size={12}
+                    color="#FFFFFF"
+                    strokeWidth={2.2}
+                  />
                 </View>
                 <View style={styles.stepContent}>
                   <Text
@@ -221,7 +228,7 @@ export const PendingVerificationScreen: React.FC<Props> = ({ role = 'User' }) =>
               {/* Step 3: Verified */}
               <View style={styles.stepRow}>
                 <View style={styles.stepCirclePending}>
-                  <Text style={styles.stepCirclePendingText}>○</Text>
+                  <AppIcon name="shieldCheck" size={12} color="rgba(255,255,255,0.4)" strokeWidth={2} />
                 </View>
                 <View style={styles.stepContent}>
                   <Text style={styles.stepTitlePending}>Verified</Text>
@@ -286,7 +293,10 @@ export const PendingVerificationScreen: React.FC<Props> = ({ role = 'User' }) =>
             {refreshing ? (
               <ActivityIndicator size="small" color={AUTH_COLORS.primaryLight} />
             ) : (
-              <Text style={styles.refreshBtnText}>🔄 Check Verification Status</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <AppIcon name="refresh" size={16} color={AUTH_COLORS.primaryLight} strokeWidth={2} />
+                <Text style={styles.refreshBtnText}>Check Verification Status</Text>
+              </View>
             )}
           </TouchableOpacity>
 
@@ -314,7 +324,7 @@ export const PendingVerificationScreen: React.FC<Props> = ({ role = 'User' }) =>
 
               {!resubmitDocUri ? (
                 <TouchableOpacity style={styles.uploadPrompt} onPress={handlePickDocument}>
-                  <Text style={styles.uploadPromptIcon}>📄</Text>
+                  <AppIcon name="upload" size={32} color={colors.primary} strokeWidth={2} />
                   <Text style={styles.uploadPromptText}>Choose Document File</Text>
                   <Text style={styles.uploadPromptSub}>JPG, PNG or PDF up to 10MB</Text>
                 </TouchableOpacity>

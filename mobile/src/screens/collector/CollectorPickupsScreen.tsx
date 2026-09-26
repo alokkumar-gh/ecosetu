@@ -66,6 +66,8 @@ import { voiceService, AnnouncementPriority } from '../../services/voiceService'
 import { useCollectorVoice } from '../../context/CollectorVoiceContext';
 import { EcoSetuBackground } from '../../components/eco';
 import { AuthorizedImage } from '../../components/common/AuthorizedImage';
+import { AppIcon } from '../../components/ui/AppIcon';
+import { PageVoiceGuide } from '../../components/voice/PageVoiceGuide';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -619,7 +621,7 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
     if (isVerificationError) {
       return (
         <EmptyState
-          icon="⏳"
+          icon="clock"
           title="Account Pending Verification"
           message="Your collector account is awaiting administrative verification. Once approved, assigned pickups will be manageable here."
         />
@@ -629,7 +631,7 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
     if (!isConnected && pickups.length === 0) {
       return (
         <EmptyState
-          icon="📡"
+          icon="wifi-off"
           title="Offline — No Cached Pickups"
           message="You are currently offline and have no pickups cached on this device. Reconnect to sync with ECOSETU."
         />
@@ -639,7 +641,7 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
     if (activeFilter === 'SCHEDULED') {
       return (
         <EmptyState
-          icon="📅"
+          icon="calendar"
           title={t('collector.pickups.noPickupsTitle') || 'No Scheduled Pickups'}
           message={t('collector.pickups.noPickupsMessage') || 'You have no upcoming pickups scheduled. Browse available citizen requests to accept new collection jobs.'}
           actionLabel="Browse Available Requests"
@@ -651,7 +653,7 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
     if (activeFilter === 'IN_PROGRESS') {
       return (
         <EmptyState
-          icon="🚚"
+          icon="truck"
           title={t('collector.dashboard.noActivePickups') || 'No Active Pickups'}
           message={t('collector.dashboard.noActivePickupsDesc') || 'You do not currently have any pickups in progress. Start a scheduled pickup when you are en route.'}
         />
@@ -661,7 +663,7 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
     if (activeFilter === 'COMPLETED') {
       return (
         <EmptyState
-          icon="✅"
+          icon="check-circle"
           title={t('collector.pickups.noPickupsTitle') || 'No Completed Pickups'}
           message={t('collector.pickups.noPickupsMessage') || 'You have not finalized any pickups yet. Completed e-waste collections will be recorded here for your history.'}
         />
@@ -670,7 +672,7 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
 
     return (
       <EmptyState
-        icon="📦"
+        icon="package"
         title={t('collector.pickups.noPickupsTitle') || 'No Pickups Assigned'}
         message={t('collector.pickups.noPickupsMessage') || 'You have not accepted any collection requests yet. Discover citizen collection requests in your neighborhood to get started.'}
         actionLabel="Browse Requests"
@@ -723,7 +725,7 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
 
         {/* Date & Time */}
         <View style={styles.infoRow}>
-          <Text style={styles.infoIcon}>📅</Text>
+          <AppIcon name="calendar" size={16} color={colors.primary} />
           <View style={styles.infoTextContainer}>
             <Text style={styles.infoLabel}>Scheduled Collection</Text>
             <Text style={styles.infoValue}>
@@ -734,7 +736,7 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
 
         {/* Location (Privacy Safe pickupAddress, no exact coordinates displayed) */}
         <View style={styles.infoRow}>
-          <Text style={styles.infoIcon}>📍</Text>
+          <AppIcon name="map-pin" size={16} color={colors.primary} />
           <View style={styles.infoTextContainer}>
             <Text style={styles.infoLabel}>Pickup Address</Text>
             <Text style={styles.infoValue}>
@@ -745,7 +747,7 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
 
         {/* Citizen Privacy Safe Label (NO citizen phone or email displayed) */}
         <View style={styles.infoRow}>
-          <Text style={styles.infoIcon}>👤</Text>
+          <AppIcon name="user" size={16} color={colors.primary} />
           <View style={styles.infoTextContainer}>
             <Text style={styles.infoLabel}>Citizen Contact</Text>
             <Text style={styles.infoValue}>
@@ -788,9 +790,12 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
         {/* Completed Metadata */}
         {isCompleted && (
           <View style={styles.completedMetaBox}>
-            <Text style={styles.completedMetaText}>
-              ✓ Total Weight Collected: {item.totalWeightKg ?? totalEstWeight} kg
-            </Text>
+            <View style={styles.metaRow}>
+              <AppIcon name="check" size={14} color="#10B981" />
+              <Text style={styles.completedMetaText}>
+                Total Weight Collected: {item.totalWeightKg ?? totalEstWeight} kg
+              </Text>
+            </View>
             {item.completedAt && (
               <Text style={styles.completedMetaSub}>
                 Completed on {fmtDate(item.completedAt)} at {fmtTime(item.completedAt)}
@@ -805,9 +810,12 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
         {/* In-Progress Timestamps */}
         {isInProgress && item.startedAt && (
           <View style={styles.inProgressMetaBox}>
-            <Text style={styles.inProgressMetaText}>
-              🚚 Started: {fmtDate(item.startedAt)} at {fmtTime(item.startedAt)}
-            </Text>
+            <View style={styles.metaRow}>
+              <AppIcon name="truck" size={14} color="#3B82F6" />
+              <Text style={styles.inProgressMetaText}>
+                Started: {fmtDate(item.startedAt)} at {fmtTime(item.startedAt)}
+              </Text>
+            </View>
           </View>
         )}
 
@@ -836,9 +844,12 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
             accessibilityHint="Opens pickup details, map, and items"
             activeOpacity={0.8}
           >
-            <Text style={styles.mapNavBtnText}>
-              🔍 {t('collector.pickups.pickupDetails') || 'View Details'}
-            </Text>
+            <View style={styles.btnRow}>
+              <AppIcon name="search" size={14} color={colors.textPrimary} />
+              <Text style={styles.mapNavBtnText}>
+                {t('collector.pickups.pickupDetails') || 'View Details'}
+              </Text>
+            </View>
           </TouchableOpacity>
 
           {isScheduled && (
@@ -862,7 +873,10 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
               {isThisPickupActionLoading && actionType === 'START' ? (
                 <ActivityIndicator size="small" color={colors.surface} />
               ) : (
-                <Text style={styles.startBtnText}>▶ {t('collector.pickups.startPickup') || 'Start Pickup'}</Text>
+                <View style={styles.btnRow}>
+                  <AppIcon name="play" size={14} color={colors.surface} />
+                  <Text style={styles.startBtnText}>{t('collector.pickups.startPickup') || 'Start Pickup'}</Text>
+                </View>
               )}
             </TouchableOpacity>
           )}
@@ -888,7 +902,10 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
               {isThisPickupActionLoading && actionType === 'COMPLETE' ? (
                 <ActivityIndicator size="small" color={colors.surface} />
               ) : (
-                <Text style={styles.completeBtnText}>✓ {t('collector.pickups.completePickup') || 'Complete Pickup'}</Text>
+                <View style={styles.btnRow}>
+                  <AppIcon name="check" size={14} color={colors.surface} />
+                  <Text style={styles.completeBtnText}>{t('collector.pickups.completePickup') || 'Complete Pickup'}</Text>
+                </View>
               )}
             </TouchableOpacity>
           )}
@@ -907,6 +924,8 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
           subtitle="Manage active and scheduled collections"
         />
 
+        <PageVoiceGuide pageKey="CollectorPickups" />
+
       {/* Offline Banner */}
       <OfflineBanner />
 
@@ -922,10 +941,15 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
       {/* Verification Warning Banner */}
       {collectorStatus && collectorStatus !== USER_STATUS.ACTIVE && (
         <View style={styles.warningBanner} accessibilityRole="alert">
+          <AppIcon
+            name={collectorStatus === USER_STATUS.PENDING_VERIFICATION ? 'clock' : 'alert-triangle'}
+            size={16}
+            color="#B45309"
+          />
           <Text style={styles.warningBannerText}>
             {collectorStatus === USER_STATUS.PENDING_VERIFICATION
-              ? '⏳ Account Pending Verification: You can view assigned pickups, but starting or completing collections requires administrative approval.'
-              : '⚠ Account Suspended: Your collector account privileges are temporarily restricted.'}
+              ? 'Account Pending Verification: You can view assigned pickups, but starting or completing collections requires administrative approval.'
+              : 'Account Suspended: Your collector account privileges are temporarily restricted.'}
           </Text>
         </View>
       )}
@@ -1558,6 +1582,17 @@ const styles = StyleSheet.create({
     color: '#03120E',
     fontSize: typography.Button.fontSize,
     fontWeight: '800',
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
 });
 

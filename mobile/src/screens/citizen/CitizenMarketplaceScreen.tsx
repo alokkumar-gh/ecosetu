@@ -36,28 +36,29 @@ import { MATERIAL_TAXONOMY } from '../../config/materialTaxonomy';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { AppIcon, IconName } from '../../components/ui/AppIcon';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CARD_W = (SCREEN_W - 48) / 2;
 
 // ─── Categories ───────────────────────────────────────────────────────────────
 
-const CATEGORIES = [
-  { key: 'ALL',          label: 'All',         icon: '🛍️' },
-  { key: 'MOBILE_PHONE', label: 'Phones',       icon: '📱' },
-  { key: 'LAPTOP',       label: 'Laptops',      icon: '💻' },
-  { key: 'TABLET',       label: 'Tablets',      icon: '📟' },
-  { key: 'BATTERY',      label: 'Batteries',    icon: '🔋' },
-  { key: 'CABLE',        label: 'Cables',       icon: '🔌' },
-  { key: 'OTHER',        label: 'Other',        icon: '📦' },
+const CATEGORIES: Array<{ key: string; label: string; icon: IconName }> = [
+  { key: 'ALL',          label: 'All',         icon: 'store' },
+  { key: 'MOBILE_PHONE', label: 'Phones',       icon: 'phone' },
+  { key: 'LAPTOP',       label: 'Laptops',      icon: 'laptop' },
+  { key: 'TABLET',       label: 'Tablets',      icon: 'tablet' },
+  { key: 'BATTERY',      label: 'Batteries',    icon: 'battery' },
+  { key: 'CABLE',        label: 'Cables',       icon: 'cable' },
+  { key: 'OTHER',        label: 'Other',        icon: 'box' },
 ];
 
 const CONDITIONS = [
   { key: 'ALL',            label: 'Any Condition' },
-  { key: 'WORKING',        label: '✓ Working' },
-  { key: 'TESTED_WORKING', label: '✓ Tested & Working' },
-  { key: 'REPAIRABLE',     label: '🔧 Repairable' },
-  { key: 'REFURBISHED',    label: '⭐ Refurbished' },
+  { key: 'WORKING',        label: 'Working' },
+  { key: 'TESTED_WORKING', label: 'Tested & Working' },
+  { key: 'REPAIRABLE',     label: 'Repairable' },
+  { key: 'REFURBISHED',    label: 'Refurbished' },
 ];
 
 const SORTS = [
@@ -92,7 +93,7 @@ interface ProductCardProps {
 
 const ProductCard = React.memo<ProductCardProps>(({ item, onPress }) => {
   const { t } = useI18n();
-  const cat = MATERIAL_TAXONOMY[item.category] || { symbol: '📦', defaultName: item.category };
+  const cat = MATERIAL_TAXONOMY[item.category] || { defaultName: item.category };
   const photoUrl = item.photos?.[0]?.photoUrl ?? null;
   const cond = conditionMeta(item.condition ?? '');
   const price = item.askingPrice && item.askingPrice > 0
@@ -114,7 +115,7 @@ const ProductCard = React.memo<ProductCardProps>(({ item, onPress }) => {
           <Image source={{ uri: photoUrl }} style={styles.productImg} resizeMode="cover" />
         ) : (
           <View style={styles.productImgPlaceholder}>
-            <Text style={styles.productImgIcon}>{cat.symbol}</Text>
+            <AppIcon name="box" size={24} color="rgba(255,255,255,0.4)" />
           </View>
         )}
         <View style={[styles.condPill, { backgroundColor: cond.bg }]}>
@@ -126,9 +127,12 @@ const ProductCard = React.memo<ProductCardProps>(({ item, onPress }) => {
       <View style={styles.productInfo}>
         <Text style={styles.productTitle} numberOfLines={2}>{title}</Text>
         {item.collector?.city ? (
-          <Text style={styles.productLocation} numberOfLines={1}>
-            📍 {item.collector.city}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+            <AppIcon name="location" size={11} color="#94A3B8" style={{ marginRight: 3 }} />
+            <Text style={styles.productLocation} numberOfLines={1}>
+              {item.collector.city}
+            </Text>
+          </View>
         ) : null}
         <View style={styles.productFooter}>
           <Text style={styles.productPrice}>{price}</Text>
@@ -182,7 +186,7 @@ const FilterSheet: React.FC<FilterSheetProps> = ({
             <Text style={[styles.sheetOptionText, localCond === c.key && styles.sheetOptionTextActive]}>
               {c.label}
             </Text>
-            {localCond === c.key && <Text style={styles.sheetCheck}>✓</Text>}
+            {localCond === c.key && <AppIcon name="check" size={14} color="#10B981" />}
           </TouchableOpacity>
         ))}
 
@@ -198,7 +202,7 @@ const FilterSheet: React.FC<FilterSheetProps> = ({
             <Text style={[styles.sheetOptionText, localSort === s.key && styles.sheetOptionTextActive]}>
               {s.label}
             </Text>
-            {localSort === s.key && <Text style={styles.sheetCheck}>✓</Text>}
+            {localSort === s.key && <AppIcon name="check" size={14} color="#10B981" />}
           </TouchableOpacity>
         ))}
 
@@ -313,7 +317,7 @@ export const CitizenMarketplaceScreen: React.FC = () => {
 
   const ListEmpty = useMemo(() => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyIcon}>🔍</Text>
+      <AppIcon name="search" size={36} color="#94A3B8" style={{ marginBottom: 12 }} />
       <Text style={styles.emptyTitle}>{t('marketplace.noItemsFound', 'No Items Found')}</Text>
       <Text style={styles.emptySubtitle}>
         {searchQuery
@@ -321,7 +325,10 @@ export const CitizenMarketplaceScreen: React.FC = () => {
           : t('marketplace.noItemsDesc', 'No electronics available right now. Check back soon.')}
       </Text>
       {!isConnected && (
-        <Text style={styles.offlineNote}>⚡ {t('common.offline', 'You appear to be offline.')}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+          <AppIcon name="alert" size={13} color="#F59E0B" style={{ marginRight: 5 }} />
+          <Text style={styles.offlineNote}>{t('common.offline', 'You appear to be offline.')}</Text>
+        </View>
       )}
     </View>
   ), [searchQuery, isConnected, t]);
@@ -349,7 +356,7 @@ export const CitizenMarketplaceScreen: React.FC = () => {
         {/* ── Search Bar ── */}
         <View style={styles.searchRow}>
           <View style={styles.searchBox}>
-            <Text style={styles.searchIcon}>🔍</Text>
+            <AppIcon name="search" size={16} color="rgba(255,255,255,0.4)" style={{ marginRight: 8 }} />
             <TextInput
               style={styles.searchInput}
               value={searchQuery}
@@ -363,7 +370,7 @@ export const CitizenMarketplaceScreen: React.FC = () => {
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearch}>
-                <Text style={styles.clearSearchText}>✕</Text>
+                <AppIcon name="close" size={13} color="rgba(255,255,255,0.6)" />
               </TouchableOpacity>
             )}
           </View>
@@ -373,7 +380,7 @@ export const CitizenMarketplaceScreen: React.FC = () => {
             accessibilityRole="button"
             accessibilityLabel="Open filters"
           >
-            <Text style={styles.filterBtnIcon}>⚙️</Text>
+            <AppIcon name="settings" size={16} color={activeFilters ? '#10B981' : '#FFFFFF'} />
             {activeFilters && <View style={styles.filterDot} />}
           </TouchableOpacity>
         </View>
@@ -396,7 +403,12 @@ export const CitizenMarketplaceScreen: React.FC = () => {
                 accessibilityLabel={cat.label}
                 accessibilityState={{ selected: active }}
               >
-                <Text style={styles.catChipIcon}>{cat.icon}</Text>
+                <AppIcon
+                  name={cat.icon}
+                  size={14}
+                  color={active ? '#10B981' : 'rgba(255,255,255,0.7)'}
+                  style={{ marginRight: 5 }}
+                />
                 <Text style={[styles.catChipLabel, active && styles.catChipLabelActive]}>
                   {cat.key === 'ALL' ? t('marketplace.allCategories', 'All') : cat.label}
                 </Text>

@@ -14,6 +14,7 @@ import { useI18n } from '../../i18n';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 export const AccountSuspendedScreen: React.FC = () => {
   const { logout } = useAuth();
@@ -23,7 +24,7 @@ export const AccountSuspendedScreen: React.FC = () => {
     <GradientBackground>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.iconCircle}>
-          <Text style={styles.iconText}>🚫</Text>
+          <AppIcon name="shieldAlert" size={38} color={colors.error} />
         </View>
 
         <Text style={styles.headline}>{t('auth.accountSuspended') || 'Account Suspended'}</Text>

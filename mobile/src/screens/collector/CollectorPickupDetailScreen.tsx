@@ -46,6 +46,7 @@ import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
 import { EcoSetuBackground } from '../../components/eco';
 import { GlassCard } from '../../components/glass/GlassCard';
 import { GlassButton } from '../../components/glass/GlassButton';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { collectorService } from '../../services/collectorService';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
@@ -425,7 +426,7 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
         <SafeAreaView style={styles.container}>
           <TopAppBar title={t('collector.pickups.pickupDetails') || 'Pickup Details'} onBack={() => navigation?.goBack()} />
           <View style={styles.errorContainer}>
-            <Text style={styles.errorIcon}>⚠</Text>
+            <AppIcon name="alert-triangle" size={32} color="#DC2626" />
             <Text style={styles.errorTitle}>{t('common.error') || 'Error'}</Text>
             <Text style={styles.errorMessage}>{error}</Text>
             <GlassButton
@@ -472,9 +473,12 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
                 <Text style={styles.refText}>
                   PICKUP #{pickup?.id ? String(pickup.id).slice(0, 8).toUpperCase() : 'ECO'}
                 </Text>
-                <Text style={styles.dateSubText}>
-                  📅 {scheduledDateStr} {scheduledTimeStr ? `• ${scheduledTimeStr}` : ''}
-                </Text>
+                <View style={styles.dateSubRow}>
+                  <AppIcon name="calendar" size={13} color="#94A3B8" />
+                  <Text style={styles.dateSubText}>
+                    {scheduledDateStr} {scheduledTimeStr ? `• ${scheduledTimeStr}` : ''}
+                  </Text>
+                </View>
               </View>
               <StatusBadge status={status} />
             </View>
@@ -497,9 +501,12 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
           {/* 2. Doorstep Address & Map Section */}
           <GlassCard style={styles.sectionCard}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>
-                📍 {t('collector.pickups.doorstepAddress') || 'Doorstep Address'}
-              </Text>
+              <View style={styles.sectionTitleRow}>
+                <AppIcon name="map-pin" size={18} color="#10B981" />
+                <Text style={styles.sectionTitle}>
+                  {t('collector.pickups.doorstepAddress') || 'Doorstep Address'}
+                </Text>
+              </View>
               {isAuthorized && hasValidCoordinates && isConnected && (
                 <TouchableOpacity
                   style={styles.navSecondaryBtn}
@@ -509,7 +516,7 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
                   accessibilityHint="Opens Google Maps to route to doorstep"
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.navSecondaryIcon}>🧭</Text>
+                  <AppIcon name="navigation" size={14} color="#10B981" />
                   <Text style={styles.navSecondaryText}>
                     {t('collector.pickups.openInGoogleMaps') || 'Google Maps'}
                   </Text>
@@ -530,9 +537,12 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
               </View>
             ) : (
               <View style={styles.privacyMaskBox}>
-                <Text style={styles.privacyMaskText}>
-                  🔒 {t('collector.browse.exactLocationAfterAcceptance') || 'Exact address revealed upon acceptance'}
-                </Text>
+                <View style={styles.privacyRow}>
+                  <AppIcon name="lock" size={14} color="#94A3B8" />
+                  <Text style={styles.privacyMaskText}>
+                    {t('collector.browse.exactLocationAfterAcceptance') || 'Exact address revealed upon acceptance'}
+                  </Text>
+                </View>
               </View>
             )}
 
@@ -554,9 +564,12 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
 
           {/* 3. E-Waste Items & Photos */}
           <GlassCard style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>
-              📦 {t('collector.pickups.verifiedWeights') || 'E-Waste Items'} ({items.length})
-            </Text>
+            <View style={styles.sectionTitleRow}>
+              <AppIcon name="package" size={18} color="#10B981" />
+              <Text style={styles.sectionTitle}>
+                {t('collector.pickups.verifiedWeights') || 'E-Waste Items'} ({items.length})
+              </Text>
+            </View>
 
             {items.map((it: any, idx: number) => (
               <View key={it.id || idx} style={styles.itemRow}>
@@ -567,7 +580,7 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
                     style={styles.itemImage}
                     categoryLabel={it.category}
                     allowFullscreen={true}
-                    fallbackIcon="📷"
+                    fallbackIcon="camera"
                     fallbackText="No Photo"
                     accessibilityLabel={`Photo of ${it.category}`}
                   />
@@ -581,7 +594,7 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
                   </Text>
                   <Text style={styles.itemWeightBadge}>
                     {it.actualWeightKg != null
-                      ? `✓ Collected: ${it.actualWeightKg} kg`
+                      ? `Collected: ${it.actualWeightKg} kg`
                       : it.estimatedWeightKg != null
                       ? `Est: ~${it.estimatedWeightKg} kg`
                       : 'Weight verified at doorstep'}
@@ -595,7 +608,7 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
           {isCompleted && (
             <GlassCard style={styles.receiptCard}>
               <View style={styles.receiptHeader}>
-                <Text style={styles.receiptIcon}>✓</Text>
+                <AppIcon name="check-circle" size={24} color="#10B981" />
                 <View>
                   <Text style={styles.receiptTitle}>Pickup Completed</Text>
                   <Text style={styles.receiptSub}>Recorded in EcoSetu Chain of Custody</Text>
@@ -623,7 +636,7 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
 
           {(isCancelled || isFailed) && (
             <GlassCard style={styles.cancelledCard}>
-              <Text style={styles.cancelledIcon}>⚠</Text>
+              <AppIcon name="alert-triangle" size={24} color="#F59E0B" />
               <Text style={styles.cancelledTitle}>
                 {isCancelled ? 'Pickup Cancelled' : 'Pickup Failed'}
               </Text>
@@ -688,7 +701,7 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
                     onPress={() => !isSubmittingCompletion && setIsCompleteModalVisible(false)}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Text style={styles.modalCloseText}>✕</Text>
+                    <AppIcon name="x" size={18} color="#94A3B8" />
                   </TouchableOpacity>
                 </View>
 
@@ -835,10 +848,25 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     letterSpacing: 0.5,
   },
+  dateSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
   dateSubText: {
     fontSize: 12,
     color: colors.textSecondary,
-    marginTop: 4,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  privacyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   headerDivider: {
     height: 1,

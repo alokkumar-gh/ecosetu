@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../../theme/colors';
 
+import { AppIcon } from '../ui/AppIcon';
+
 interface Props {
   children: ReactNode;
 }
@@ -43,7 +45,7 @@ export class ErrorBoundary extends Component<Props, State> {
         <View style={styles.container}>
           <ScrollView contentContainerStyle={styles.scrollContent}>
             <View style={styles.iconCircle}>
-              <Text style={styles.icon}>⚠️</Text>
+              <AppIcon name="alert" size={28} color="#EF4444" />
             </View>
             <Text style={styles.title}>Something went wrong</Text>
             <Text style={styles.subtitle}>

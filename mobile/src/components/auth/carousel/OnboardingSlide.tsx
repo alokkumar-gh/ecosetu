@@ -1,15 +1,21 @@
 /**
- * OnboardingSlide — Full-bleed slide layout
+ * OnboardingSlide — Full-bleed responsive slide layout
  *
- * Layout:
+ * Designed to adapt responsively across diverse screen dimensions:
+ * - 360 × 640
+ * - 360 × 800
+ * - 390 × 844
+ * - 412 × 915
+ *
+ * Visual Hierarchy:
  *  ┌─────────────────────────────┐
- *  │   [Category chip tag]       │  ← top 10%
+ *  │   [Category chip tag]       │  ← Top safe spacing
  *  │                             │
- *  │      [Graphic Area]         │  ← center 42%
+ *  │      [Graphic Area]         │  ← Centered flex hero
  *  │                             │
- *  │   [Stat badges row]         │  ← 15%
+ *  │   [Stat badges row]         │  ← Dynamic wrap badges
  *  │                             │
- *  │   Headline                  │  ← 18%
+ *  │   Headline                  │  ← Responsive typography
  *  │   Body copy                 │
  *  └─────────────────────────────┘
  *
@@ -38,6 +44,7 @@ import { useTranslation } from '../../../i18n';
 interface Props {
   slide: SlideData;
   active: boolean;
+  screenWidth?: number;
 }
 
 function renderGraphic(slide: SlideData, active: boolean) {
@@ -57,9 +64,21 @@ function renderGraphic(slide: SlideData, active: boolean) {
   }
 }
 
-export const OnboardingSlide: React.FC<Props> = ({ slide, active }) => {
-  const { width } = useWindowDimensions();
+export const OnboardingSlide: React.FC<Props> = ({ slide, active, screenWidth }) => {
+  const { width: windowWidth, height } = useWindowDimensions();
+  const width = screenWidth || windowWidth;
   const { t } = useTranslation();
+
+  const isSmallScreen = height < 700;
+  const isUltraSmallScreen = height < 640;
+
+  // Compute dynamic scale for hero graphic based on available dimensions
+  const availableHeroHeight = Math.max(120, height * 0.32);
+  const heroScaleFactor = Math.min(
+    1.0,
+    (width * 0.82) / 280,
+    availableHeroHeight / 210
+  );
 
   const chipAnim = useRef(new Animated.Value(0)).current;
   const graphicAnim = useRef(new Animated.Value(0)).current;
@@ -96,19 +115,15 @@ export const OnboardingSlide: React.FC<Props> = ({ slide, active }) => {
 
   const chipTranslateY = chipAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [-12, 0],
-  });
-  const graphicScale = graphicAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.88, 1],
+    outputRange: [-10, 0],
   });
   const graphicTranslateY = graphicAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [20, 0],
+    outputRange: [16, 0],
   });
   const textTranslateY = textAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [18, 0],
+    outputRange: [14, 0],
   });
 
   return (
@@ -120,6 +135,8 @@ export const OnboardingSlide: React.FC<Props> = ({ slide, active }) => {
           {
             opacity: chipAnim,
             transform: [{ translateY: chipTranslateY }],
+            marginTop: isSmallScreen ? 4 : 10,
+            marginBottom: isSmallScreen ? 6 : 12,
           },
         ]}
       >
@@ -137,52 +154,83 @@ export const OnboardingSlide: React.FC<Props> = ({ slide, active }) => {
         </View>
       </Animated.View>
 
-      {/* Graphic Area */}
-      <Animated.View
-        style={[
-          styles.graphicArea,
-          {
-            opacity: graphicAnim,
-            transform: [
-              { scale: graphicScale },
-              { translateY: graphicTranslateY },
-            ],
-          },
-        ]}
-      >
-        {renderGraphic(slide, active)}
-      </Animated.View>
-
-      {/* Stat Badges Row */}
-      <View style={styles.statsRow}>
-        {slide.stats.map((stat, i) => (
-          <OnboardingStatBadge
-            key={i}
-            badge={stat}
-            delay={220 + i * 100}
-            active={active}
-            accentColor={slide.tagColor}
-          />
-        ))}
+      {/* Hero Visual Area - Centered & Responsive */}
+      <View style={styles.heroSection}>
+        <Animated.View
+          style={[
+            styles.graphicContainer,
+            {
+              width: Math.round(280 * heroScaleFactor),
+              height: Math.round(230 * heroScaleFactor),
+              opacity: graphicAnim,
+              transform: [
+                { scale: heroScaleFactor },
+                { translateY: graphicTranslateY },
+              ],
+            },
+          ]}
+        >
+          {renderGraphic(slide, active)}
+        </Animated.View>
       </View>
 
-      {/* Text Block */}
-      <Animated.View
-        style={[
-          styles.textBlock,
-          {
-            opacity: textAnim,
-            transform: [{ translateY: textTranslateY }],
-          },
-        ]}
-      >
-        <Text style={styles.headline}>
-          {t(`onboarding.${slide.titleKey}`)}
-        </Text>
-        <Text style={styles.body}>
-          {t(`onboarding.${slide.subtitleKey}`)}
-        </Text>
-      </Animated.View>
+      {/* Content Area: Stats + Typography */}
+      <View style={styles.contentSection}>
+        {/* Stat Badges Row */}
+        <View
+          style={[
+            styles.statsRow,
+            {
+              marginBottom: isSmallScreen ? 6 : 14,
+            },
+          ]}
+        >
+          {slide.stats.map((stat, i) => (
+            <OnboardingStatBadge
+              key={i}
+              badge={stat}
+              delay={200 + i * 80}
+              active={active}
+              accentColor={slide.tagColor}
+            />
+          ))}
+        </View>
+
+        {/* Text Block */}
+        <Animated.View
+          style={[
+            styles.textBlock,
+            {
+              opacity: textAnim,
+              transform: [{ translateY: textTranslateY }],
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.headline,
+              {
+                fontSize: isUltraSmallScreen ? 18 : isSmallScreen ? 20 : 23,
+                lineHeight: isUltraSmallScreen ? 23 : isSmallScreen ? 26 : 30,
+                marginBottom: isSmallScreen ? 4 : 8,
+              },
+            ]}
+          >
+            {t(`onboarding.${slide.titleKey}`)}
+          </Text>
+          <Text
+            style={[
+              styles.body,
+              {
+                fontSize: isUltraSmallScreen ? 12 : isSmallScreen ? 13 : 14,
+                lineHeight: isUltraSmallScreen ? 17 : isSmallScreen ? 18 : 20,
+              },
+            ]}
+          >
+            {t(`onboarding.${slide.subtitleKey}`)}
+          </Text>
+        </Animated.View>
+      </View>
     </View>
   );
 };
@@ -191,12 +239,12 @@ const styles = StyleSheet.create({
   slide: {
     flex: 1,
     alignItems: 'center',
-    paddingTop: 12,
-    paddingHorizontal: 24,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
     paddingBottom: 4,
   },
   chipWrap: {
-    marginBottom: 16,
+    alignItems: 'center',
   },
   chip: {
     flexDirection: 'row',
@@ -205,7 +253,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 5,
-    gap: 7,
+    gap: 6,
   },
   chipDot: {
     width: 6,
@@ -215,42 +263,50 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 1.4,
+    letterSpacing: 1.3,
   },
-  graphicArea: {
+  heroSection: {
+    flex: 1,
+    minHeight: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
-    // Min height to keep layout stable across slides
-    minHeight: 180,
+    width: '100%',
+  },
+  graphicContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contentSection: {
+    width: '100%',
+    alignItems: 'center',
+    paddingBottom: 4,
   },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 18,
     flexWrap: 'wrap',
     justifyContent: 'center',
   },
   textBlock: {
     alignItems: 'center',
-    paddingHorizontal: 4,
+    width: '100%',
+    maxWidth: 360,
+    alignSelf: 'center',
+    paddingHorizontal: 8,
   },
   headline: {
-    fontSize: 22,
     fontWeight: '900',
     color: '#F0FDF4',
     textAlign: 'center',
-    lineHeight: 30,
     letterSpacing: 0.2,
-    marginBottom: 8,
   },
   body: {
-    fontSize: 13.5,
     fontWeight: '500',
     color: 'rgba(255, 255, 255, 0.72)',
     textAlign: 'center',
-    lineHeight: 20,
-    maxWidth: 310,
+    maxWidth: 330,
   },
 });
+
+export default OnboardingSlide;

@@ -28,6 +28,7 @@ import {
 } from 'react-native';
 import { TopAppBar } from '../../components/layout/TopAppBar';
 import { AdminShell } from '../../components/admin/AdminShell';
+import { AppIcon, AppIconName } from '../../components/ui/AppIcon';
 import { MetricCard } from '../../components/common/MetricCard';
 import { Skeleton } from '../../components/common/Skeleton';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
@@ -51,19 +52,19 @@ type ReadFilterType = 'ALL' | 'UNREAD' | 'READ';
 type CategoryFilterType = 'ALL' | 'PICKUP' | 'CONSIGNMENT' | 'RECYCLING' | 'VERIFICATION' | 'ACCOUNT';
 
 // Canonical notification metadata mapping
-const NOTIFICATION_META: Record<string, { icon: string; category: CategoryFilterType }> = {
-  [NOTIFICATION_TYPES.REQUEST_ACCEPTED]: { icon: '✅', category: 'PICKUP' },
-  [NOTIFICATION_TYPES.PICKUP_SCHEDULED]: { icon: '📅', category: 'PICKUP' },
-  [NOTIFICATION_TYPES.PICKUP_COMPLETED]: { icon: '📦', category: 'PICKUP' },
-  [NOTIFICATION_TYPES.REQUEST_CANCELLED]: { icon: '❌', category: 'PICKUP' },
-  [NOTIFICATION_TYPES.CONSIGNMENT_INCOMING]: { icon: '🚚', category: 'CONSIGNMENT' },
-  [NOTIFICATION_TYPES.CONSIGNMENT_ACCEPTED]: { icon: '🤝', category: 'CONSIGNMENT' },
-  [NOTIFICATION_TYPES.CONSIGNMENT_REJECTED]: { icon: '⚠️', category: 'CONSIGNMENT' },
-  [NOTIFICATION_TYPES.RECYCLING_COMPLETED]: { icon: '♻️', category: 'RECYCLING' },
-  [NOTIFICATION_TYPES.VERIFICATION_APPROVED]: { icon: '🏅', category: 'VERIFICATION' },
-  [NOTIFICATION_TYPES.VERIFICATION_REJECTED]: { icon: '📋', category: 'VERIFICATION' },
-  [NOTIFICATION_TYPES.ACCOUNT_SUSPENDED]: { icon: '🛑', category: 'ACCOUNT' },
-  [NOTIFICATION_TYPES.ACCOUNT_REACTIVATED]: { icon: '🟢', category: 'ACCOUNT' },
+const NOTIFICATION_META: Record<string, { icon: AppIconName; category: CategoryFilterType }> = {
+  [NOTIFICATION_TYPES.REQUEST_ACCEPTED]: { icon: 'checkCircle', category: 'PICKUP' },
+  [NOTIFICATION_TYPES.PICKUP_SCHEDULED]: { icon: 'calendar', category: 'PICKUP' },
+  [NOTIFICATION_TYPES.PICKUP_COMPLETED]: { icon: 'package', category: 'PICKUP' },
+  [NOTIFICATION_TYPES.REQUEST_CANCELLED]: { icon: 'xCircle', category: 'PICKUP' },
+  [NOTIFICATION_TYPES.CONSIGNMENT_INCOMING]: { icon: 'truck', category: 'CONSIGNMENT' },
+  [NOTIFICATION_TYPES.CONSIGNMENT_ACCEPTED]: { icon: 'handshake', category: 'CONSIGNMENT' },
+  [NOTIFICATION_TYPES.CONSIGNMENT_REJECTED]: { icon: 'alertTriangle', category: 'CONSIGNMENT' },
+  [NOTIFICATION_TYPES.RECYCLING_COMPLETED]: { icon: 'recycle', category: 'RECYCLING' },
+  [NOTIFICATION_TYPES.VERIFICATION_APPROVED]: { icon: 'award', category: 'VERIFICATION' },
+  [NOTIFICATION_TYPES.VERIFICATION_REJECTED]: { icon: 'clipboard', category: 'VERIFICATION' },
+  [NOTIFICATION_TYPES.ACCOUNT_SUSPENDED]: { icon: 'shieldAlert', category: 'ACCOUNT' },
+  [NOTIFICATION_TYPES.ACCOUNT_REACTIVATED]: { icon: 'checkCircle', category: 'ACCOUNT' },
 };
 
 // Forbidden sensitive keys that must never be rendered in detail views
@@ -357,7 +358,10 @@ export const AdminGovernanceScreen: React.FC<Props> = ({ navigation }) => {
             accessibilityRole="button"
             accessibilityLabel={t('admin.governance.refresh')}
           >
-            <Text style={styles.refreshButtonText}>🔄 {t('admin.governance.refresh')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <AppIcon name="refreshCw" size={14} color="#FFFFFF" />
+              <Text style={styles.refreshButtonText}>{t('admin.governance.refresh')}</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -367,19 +371,19 @@ export const AdminGovernanceScreen: React.FC<Props> = ({ navigation }) => {
         <MetricCard
           label={t('admin.governance.unreadCount')}
           value={unreadCount ?? (fromCache ? '—' : 0)}
-          icon="🔔"
+          icon="bell"
           accentColor="#EF4444"
         />
         <MetricCard
           label={t('admin.governance.totalAlerts')}
           value={notifications.length}
-          icon="📬"
+          icon="inbox"
           accentColor="#3B82F6"
         />
         <MetricCard
           label={t('admin.governance.totalAuditLogs')}
           value={auditTotal}
-          icon="📜"
+          icon="clipboard"
           accentColor="#10B981"
         />
       </View>
@@ -393,11 +397,18 @@ export const AdminGovernanceScreen: React.FC<Props> = ({ navigation }) => {
           accessibilityState={{ selected: activeTab === 'NOTIFICATIONS' }}
           accessibilityLabel={t('admin.governance.notificationsTab')}
         >
-          <Text
-            style={[styles.segmentText, activeTab === 'NOTIFICATIONS' && styles.segmentTextActive]}
-          >
-            🔔 {t('admin.governance.notificationsTab')} ({notifications.length})
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <AppIcon
+              name="bell"
+              size={15}
+              color={activeTab === 'NOTIFICATIONS' ? colors.textInverse : colors.textSecondary}
+            />
+            <Text
+              style={[styles.segmentText, activeTab === 'NOTIFICATIONS' && styles.segmentTextActive]}
+            >
+              {t('admin.governance.notificationsTab')} ({notifications.length})
+            </Text>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -407,9 +418,16 @@ export const AdminGovernanceScreen: React.FC<Props> = ({ navigation }) => {
           accessibilityState={{ selected: activeTab === 'AUDIT' }}
           accessibilityLabel={t('admin.governance.auditTab')}
         >
-          <Text style={[styles.segmentText, activeTab === 'AUDIT' && styles.segmentTextActive]}>
-            📜 {t('admin.governance.auditTab')} ({auditTotal})
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <AppIcon
+              name="clipboard"
+              size={15}
+              color={activeTab === 'AUDIT' ? colors.textInverse : colors.textSecondary}
+            />
+            <Text style={[styles.segmentText, activeTab === 'AUDIT' && styles.segmentTextActive]}>
+              {t('admin.governance.auditTab')} ({auditTotal})
+            </Text>
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -466,15 +484,22 @@ export const AdminGovernanceScreen: React.FC<Props> = ({ navigation }) => {
                   accessibilityRole="button"
                   accessibilityLabel={t('admin.governance.markAllRead')}
                 >
-                  <Text
-                    style={[
-                      styles.markAllButtonText,
-                      (fromCache || !networkService.isConnected() || unreadCount === 0) &&
-                        styles.markAllButtonTextDisabled,
-                    ]}
-                  >
-                    ✓ {t('admin.governance.markAllRead')}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <AppIcon
+                      name="check"
+                      size={14}
+                      color={(fromCache || !networkService.isConnected() || unreadCount === 0) ? colors.textMuted : colors.primary}
+                    />
+                    <Text
+                      style={[
+                        styles.markAllButtonText,
+                        (fromCache || !networkService.isConnected() || unreadCount === 0) &&
+                          styles.markAllButtonTextDisabled,
+                      ]}
+                    >
+                      {t('admin.governance.markAllRead')}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               </View>
 
@@ -536,7 +561,7 @@ export const AdminGovernanceScreen: React.FC<Props> = ({ navigation }) => {
                         categoryFilter === cat && styles.filterChipTextActive,
                       ]}
                     >
-                      {cat === 'ALL' ? `📁 ${t('admin.governance.filterAll')}` : cat}
+                      {cat === 'ALL' ? (t('admin.governance.filterAll') || 'All') : cat}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -551,8 +576,8 @@ export const AdminGovernanceScreen: React.FC<Props> = ({ navigation }) => {
               ) : (
                 filteredNotifications.map((notif) => {
                   const meta = NOTIFICATION_META[notif.type] || {
-                    icon: '🔔',
-                    category: 'ALL',
+                    icon: 'bell' as AppIconName,
+                    category: 'ALL' as CategoryFilterType,
                   };
                   return (
                     <View
@@ -564,7 +589,7 @@ export const AdminGovernanceScreen: React.FC<Props> = ({ navigation }) => {
                     >
                       <View style={styles.notifHeaderRow}>
                         <View style={styles.notifIconWrap}>
-                          <Text style={styles.notifIcon}>{meta.icon}</Text>
+                          <AppIcon name={meta.icon} size={16} color={colors.primary} />
                         </View>
                         <View style={styles.notifTitleWrap}>
                           <View style={styles.titleWithBadge}>
@@ -608,9 +633,12 @@ export const AdminGovernanceScreen: React.FC<Props> = ({ navigation }) => {
                             accessibilityRole="button"
                             accessibilityLabel={`${t('admin.governance.markRead')}: ${notif.title}`}
                           >
-                            <Text style={styles.markReadButtonText}>
-                              ✓ {t('admin.governance.markRead')}
-                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                              <AppIcon name="check" size={12} color={colors.primary} />
+                              <Text style={styles.markReadButtonText}>
+                                {t('admin.governance.markRead')}
+                              </Text>
+                            </View>
                           </TouchableOpacity>
                         )}
                       </View>
@@ -626,9 +654,12 @@ export const AdminGovernanceScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={styles.sectionHeaderTitle}>
                   {t('admin.governance.auditTab')}
                 </Text>
-                <Text style={styles.privacyNote}>
-                  🛡️ {t('admin.governance.privacyProtectedNotice')}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <AppIcon name="shield" size={13} color="#10B981" />
+                  <Text style={styles.privacyNote}>
+                    {t('admin.governance.privacyProtectedNotice')}
+                  </Text>
+                </View>
               </View>
 
               {/* Action Filter Scroll */}

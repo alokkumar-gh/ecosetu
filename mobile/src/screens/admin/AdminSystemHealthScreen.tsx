@@ -48,6 +48,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 export type HealthStatusType =
   | 'HEALTHY'
@@ -300,9 +301,12 @@ export const AdminSystemHealthScreen: React.FC<Props> = ({ navigation }) => {
         {/* Historical Snapshot Banner if viewing cached data while offline or previously saved */}
         {report && !report.isLive && (
           <View style={styles.historicalBanner}>
-            <Text style={styles.historicalBannerTitle}>
-              📁 {t('admin.systemHealth.cachedResult')}
-            </Text>
+            <View style={styles.rowCentered}>
+              <AppIcon name="folder" size={14} color="#F59E0B" />
+              <Text style={styles.historicalBannerTitle}>
+                {t('admin.systemHealth.cachedResult')}
+              </Text>
+            </View>
             <Text style={styles.historicalBannerText}>
               {t('admin.systemHealth.historicalNotice')}
             </Text>
@@ -312,9 +316,16 @@ export const AdminSystemHealthScreen: React.FC<Props> = ({ navigation }) => {
         {/* Action Header with Last Checked Timestamp */}
         <View style={styles.headerCard}>
           <View style={styles.headerTextWrap}>
-            <Text style={styles.headerTitle}>
-              {report?.isLive ? '🟢 ' + t('admin.systemHealth.liveCheck') : '💾 ' + t('admin.systemHealth.cachedResult')}
-            </Text>
+            <View style={styles.rowCentered}>
+              <AppIcon
+                name={report?.isLive ? 'checkCircle' : 'hardDrive'}
+                size={14}
+                color={report?.isLive ? '#10B981' : '#64748B'}
+              />
+              <Text style={styles.headerTitle}>
+                {report?.isLive ? t('admin.systemHealth.liveCheck') : t('admin.systemHealth.cachedResult')}
+              </Text>
+            </View>
             <Text style={styles.timestampText}>
               {report?.timestamp
                 ? t('admin.systemHealth.lastChecked', {
@@ -339,9 +350,12 @@ export const AdminSystemHealthScreen: React.FC<Props> = ({ navigation }) => {
               {isRunning ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={styles.runButtonText}>
-                  ⚡ {t('admin.systemHealth.runDiagnostics')}
-                </Text>
+                <View style={styles.btnRow}>
+                  <AppIcon name="zap" size={14} color="#FFFFFF" />
+                  <Text style={styles.runButtonText}>
+                    {t('admin.systemHealth.runDiagnostics')}
+                  </Text>
+                </View>
               )}
             </TouchableOpacity>
           </View>
@@ -349,9 +363,12 @@ export const AdminSystemHealthScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Factual Disclaimer */}
         <View style={styles.disclaimerBox}>
-          <Text style={styles.disclaimerText}>
-            ℹ️ {t('admin.systemHealth.disclaimer')}
-          </Text>
+          <View style={styles.rowCentered}>
+            <AppIcon name="info" size={14} color={colors.textSecondary} />
+            <Text style={styles.disclaimerText}>
+              {t('admin.systemHealth.disclaimer')}
+            </Text>
+          </View>
         </View>
 
         {/* Diagnostic Items */}
@@ -460,6 +477,17 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 14,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  rowCentered: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   disclaimerBox: {
     backgroundColor: 'rgba(100, 116, 139, 0.08)',

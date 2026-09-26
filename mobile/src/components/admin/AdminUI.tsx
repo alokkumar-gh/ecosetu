@@ -23,6 +23,7 @@ import {
   ADMIN_STATUS_COLOR,
   ADMIN_ROLE_COLOR,
 } from './AdminTheme';
+import { AppIcon, IconName } from '../ui/AppIcon';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AdminSectionHeader
@@ -178,7 +179,7 @@ const badgeStyles = StyleSheet.create({
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface EmptyStateProps {
-  icon?: string;
+  icon?: IconName;
   title: string;
   subtitle?: string;
   action?: { label: string; onPress: () => void };
@@ -186,7 +187,7 @@ interface EmptyStateProps {
 }
 
 export const AdminEmptyState: React.FC<EmptyStateProps> = ({
-  icon = '◈',
+  icon = 'layers',
   title,
   subtitle,
   action,
@@ -194,7 +195,7 @@ export const AdminEmptyState: React.FC<EmptyStateProps> = ({
 }) => (
   <View style={[emptyStyles.container, style]}>
     <View style={emptyStyles.iconCircle}>
-      <Text style={emptyStyles.icon}>{icon}</Text>
+      <AppIcon name={icon} size={24} color={ADMIN_COLOR.brand} />
     </View>
     <Text style={emptyStyles.title}>{title}</Text>
     {subtitle && <Text style={emptyStyles.subtitle}>{subtitle}</Text>}
@@ -277,7 +278,7 @@ export const AdminErrorState: React.FC<ErrorStateProps> = ({
 }) => (
   <View style={[errorStyles.container, style]}>
     <View style={errorStyles.iconCircle}>
-      <Text style={errorStyles.icon}>⚠</Text>
+      <AppIcon name="alert" size={20} color={ADMIN_COLOR.error} />
     </View>
     <Text style={errorStyles.title}>Something went wrong</Text>
     <Text style={errorStyles.message}>{message}</Text>

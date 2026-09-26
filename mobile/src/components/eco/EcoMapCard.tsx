@@ -8,6 +8,8 @@ import { View, Text, StyleSheet, ViewStyle, TouchableOpacity } from 'react-nativ
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 
+import { AppIcon } from '../ui/AppIcon';
+
 interface EcoMapCardProps {
   title?: string;
   subtitle?: string;
@@ -41,9 +43,12 @@ export const EcoMapCard: React.FC<EcoMapCardProps> = memo(({
               accessibilityRole="button"
               accessibilityLabel="Use current location"
             >
-              <Text style={styles.locateText}>
-                {isLocating ? 'Locating...' : '📍 Use My Location'}
-              </Text>
+              <View style={styles.locateBtnContent}>
+                <AppIcon name="navigation" size={13} color="#34D399" />
+                <Text style={styles.locateText}>
+                  {isLocating ? 'Locating...' : 'Use My Location'}
+                </Text>
+              </View>
             </TouchableOpacity>
           )}
         </View>
@@ -99,6 +104,11 @@ const styles = StyleSheet.create({
     minHeight: 36,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  locateBtnContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   locateText: {
     color: '#34D399',

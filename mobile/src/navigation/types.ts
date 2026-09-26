@@ -99,6 +99,7 @@ export type CollectorStackParamList = {
   PaymentResult: { transactionId: string; status: 'SUCCESS' | 'PENDING' | 'FAILED'; paymentMethod: string; amount: number; billId?: string; errorMessage?: string };
   CollectorBills: undefined;
   CollectorBillDetail: { billId?: string; transactionId?: string; bill?: any };
+  BhashiniTest: undefined;
 };
 
 export type RecyclerTabParamList = {
@@ -153,6 +154,7 @@ export type AdminTabParamList = {
   AdminDisputes: undefined;
   AdminBills: undefined;
   AdminBillDetail: { billId: string; bill?: any };
+  BhashiniTest: undefined;
 };
 
 

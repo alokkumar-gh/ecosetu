@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useI18n } from '../../i18n';
+import { AppIcon, AppIconName } from '../../components/ui';
 import handoverService, { HandoverRecord } from '../../services/handoverService';
 import transactionService, { TransactionRecord } from '../../services/transactionService';
 import networkService from '../../services/networkService';
@@ -190,7 +191,7 @@ export const CollectorRecordSaleScreen: React.FC = () => {
   if (existingTransaction) {
     return (
       <View style={styles.centerContainer}>
-        <Text style={styles.existingIcon}>✅</Text>
+        <AppIcon name="check-circle" size={48} color="#16a34a" style={{ marginBottom: 12 }} />
         <Text style={styles.existingTitle}>{t('transaction.alreadyRecordedTitle')}</Text>
         <Text style={styles.existingRef}>Ref: {existingTransaction.referenceNumber}</Text>
         <Text style={styles.existingDesc}>
@@ -226,8 +227,9 @@ export const CollectorRecordSaleScreen: React.FC = () => {
       {/* Offline Warning Banner */}
       {!isOnline && (
         <View style={styles.offlineBanner}>
+          <AppIcon name="wifi-off" size={14} color="#F59E0B" style={{ marginRight: 6 }} />
           <Text style={styles.offlineBannerText}>
-            ⚠️ {t('transaction.offlineWarning')}
+            {t('transaction.offlineWarning')}
           </Text>
         </View>
       )}
@@ -298,9 +300,12 @@ export const CollectorRecordSaleScreen: React.FC = () => {
                 : styles.varianceNegative,
             ]}
           >
+            {differenceFromQuote === 0 ? (
+              <AppIcon name="check" size={12} color="#15803d" style={{ marginRight: 4 }} />
+            ) : null}
             <Text style={styles.varianceText}>
               {differenceFromQuote === 0
-                ? '✓ ' + t('transaction.varianceMatches')
+                ? t('transaction.varianceMatches')
                 : differenceFromQuote > 0
                 ? `+₹${differenceFromQuote} (+${diffPercent}%) vs quote`
                 : `-₹${Math.abs(differenceFromQuote)} (${diffPercent}%) vs quote`}
@@ -314,10 +319,10 @@ export const CollectorRecordSaleScreen: React.FC = () => {
         <Text style={styles.cardTitle}>{t('transaction.paymentMethodTitle')}</Text>
         <View style={styles.pillGroup}>
           {[
-            { key: 'CASH', label: `💵 ${t('transaction.cash')}` },
-            { key: 'UPI_RECORDED', label: `📱 ${t('transaction.upi')}` },
-            { key: 'BANK_TRANSFER_RECORDED', label: `🏦 ${t('transaction.bankTransfer')}` },
-            { key: 'OTHER', label: `📋 ${t('ewaste.other')}` },
+            { key: 'CASH', label: t('transaction.cash'), icon: 'dollar-sign' as AppIconName },
+            { key: 'UPI_RECORDED', label: t('transaction.upi'), icon: 'smartphone' as AppIconName },
+            { key: 'BANK_TRANSFER_RECORDED', label: t('transaction.bankTransfer'), icon: 'building' as AppIconName },
+            { key: 'OTHER', label: t('ewaste.other'), icon: 'file-text' as AppIconName },
           ].map((item) => (
             <TouchableOpacity
               key={item.key}
@@ -327,6 +332,11 @@ export const CollectorRecordSaleScreen: React.FC = () => {
               ]}
               onPress={() => setPaymentMethod(item.key as any)}
             >
+              <AppIcon
+                name={item.icon}
+                size={14}
+                color={paymentMethod === item.key ? '#15803d' : '#4b5563'}
+              />
               <Text
                 style={[
                   styles.pillButtonText,
@@ -341,8 +351,8 @@ export const CollectorRecordSaleScreen: React.FC = () => {
 
         {/* Disclaimer Banner */}
         <View style={styles.disclaimerBox}>
+          <AppIcon name="info" size={14} color="#0369a1" style={{ marginRight: 6 }} />
           <Text style={styles.disclaimerText}>
-            ℹ️{' '}
             {paymentMethod === 'CASH'
               ? t('transaction.disclaimerCash')
               : t('transaction.disclaimerDigital')}
@@ -355,9 +365,9 @@ export const CollectorRecordSaleScreen: React.FC = () => {
         <Text style={styles.cardTitle}>{t('transaction.paymentStatusTitle')}</Text>
         <View style={styles.pillGroup}>
           {[
-            { key: 'PAID', label: `✅ ${t('transaction.paid')}` },
-            { key: 'PARTIALLY_PAID', label: `⏳ ${t('transaction.partiallyPaid')}` },
-            { key: 'PENDING', label: `🕒 ${t('transaction.pending')}` },
+            { key: 'PAID', label: t('transaction.paid'), icon: 'check-circle' as AppIconName },
+            { key: 'PARTIALLY_PAID', label: t('transaction.partiallyPaid'), icon: 'clock' as AppIconName },
+            { key: 'PENDING', label: t('transaction.pending'), icon: 'clock' as AppIconName },
           ].map((item) => (
             <TouchableOpacity
               key={item.key}
@@ -367,6 +377,11 @@ export const CollectorRecordSaleScreen: React.FC = () => {
               ]}
               onPress={() => handleStatusChange(item.key as any)}
             >
+              <AppIcon
+                name={item.icon}
+                size={14}
+                color={paymentStatus === item.key ? '#15803d' : '#4b5563'}
+              />
               <Text
                 style={[
                   styles.pillButtonText,
@@ -423,7 +438,10 @@ export const CollectorRecordSaleScreen: React.FC = () => {
         {submitting ? (
           <ActivityIndicator color="#ffffff" />
         ) : (
-          <Text style={styles.submitButtonText}>💰 {t('transaction.recordTransactionBtn')}</Text>
+          <View style={styles.btnInnerRow}>
+            <AppIcon name="dollar-sign" size={16} color="#FFFFFF" />
+            <Text style={styles.submitButtonText}>{t('transaction.recordTransactionBtn')}</Text>
+          </View>
         )}
       </TouchableOpacity>
 
@@ -436,7 +454,10 @@ export const CollectorRecordSaleScreen: React.FC = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>💰 {t('lowLiteracy.saleConfirmTitle') || 'Confirm Sale Record'}</Text>
+            <View style={styles.modalHeaderRow}>
+              <AppIcon name="dollar-sign" size={20} color="#16a34a" />
+              <Text style={styles.modalTitle}>{t('lowLiteracy.saleConfirmTitle') || 'Confirm Sale Record'}</Text>
+            </View>
             <Text style={styles.modalMessage}>
               {t('lowLiteracy.saleConfirmMessage') || 'Review the sale amount and payment method.'}
             </Text>
@@ -464,12 +485,12 @@ export const CollectorRecordSaleScreen: React.FC = () => {
                 <Text style={styles.confirmLabel}>{t('lowLiteracy.paymentMethod')}:</Text>
                 <Text style={[styles.confirmValue, { fontWeight: '700' }]}>
                   {paymentMethod === 'CASH'
-                    ? `💵 ${t('transaction.cash')}`
+                    ? t('transaction.cash')
                     : paymentMethod === 'UPI_RECORDED'
-                    ? `📱 ${t('transaction.upi')}`
+                    ? t('transaction.upi')
                     : paymentMethod === 'BANK_TRANSFER_RECORDED'
-                    ? `🏦 ${t('transaction.bankTransfer')}`
-                    : `📋 ${t('ewaste.other')}`}
+                    ? t('transaction.bankTransfer')
+                    : t('ewaste.other')}
                 </Text>
               </View>
               <View style={styles.confirmRow}>
@@ -485,8 +506,9 @@ export const CollectorRecordSaleScreen: React.FC = () => {
             </View>
 
             <View style={styles.modalDisclaimerBox}>
+              <AppIcon name="alert-triangle" size={14} color="#b45309" style={{ marginRight: 6 }} />
               <Text style={styles.modalDisclaimerText}>
-                ⚠️ {t('lowLiteracy.paymentDisclaimerShort') || 'Recording only. ECOSETU does not move money or process bank/UPI payments.'}
+                {t('lowLiteracy.paymentDisclaimerShort') || 'Recording only. ECOSETU does not move money or process bank/UPI payments.'}
               </Text>
             </View>
 
@@ -509,9 +531,12 @@ export const CollectorRecordSaleScreen: React.FC = () => {
                 {submitting ? (
                   <ActivityIndicator color="#ffffff" />
                 ) : (
-                  <Text style={styles.modalConfirmBtnText}>
-                    ✓ {t('lowLiteracy.confirmSaleAction') || 'Record Sale'}
-                  </Text>
+                  <View style={styles.btnInnerRow}>
+                    <AppIcon name="check" size={16} color="#FFFFFF" />
+                    <Text style={styles.modalConfirmBtnText}>
+                      {t('lowLiteracy.confirmSaleAction') || 'Record Sale'}
+                    </Text>
+                  </View>
                 )}
               </TouchableOpacity>
             </View>
@@ -663,29 +688,33 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   pillButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1.5,
     borderColor: '#cbd5e1',
     backgroundColor: '#ffffff',
-    minHeight: 56,
+    minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
   },
   pillButtonActive: {
-    backgroundColor: '#16a34a',
+    backgroundColor: '#f0fdf4',
     borderColor: '#16a34a',
   },
   pillButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: '#475569',
   },
   pillButtonTextActive: {
-    color: '#ffffff',
+    color: '#15803d',
   },
   disclaimerBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: 12,
     backgroundColor: '#f8fafc',
     borderRadius: 8,
@@ -697,6 +726,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748b',
     lineHeight: 16,
+    flex: 1,
+  },
+  btnInnerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
   },
   fieldLabel: {
     fontSize: 13,
@@ -874,6 +915,8 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   modalDisclaimerBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#fffbeb',
     borderRadius: 8,
     padding: 10,
@@ -885,6 +928,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#854d0e',
     lineHeight: 16,
+    flex: 1,
   },
   modalActions: {
     flexDirection: 'row',

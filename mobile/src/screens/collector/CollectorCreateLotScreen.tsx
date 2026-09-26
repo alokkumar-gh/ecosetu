@@ -34,6 +34,7 @@ import { QuickNumberStepper } from '../../components/common/QuickNumberStepper';
 import { EcoSetuBackground, EcoGlassTextArea } from '../../components/eco';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 const space = {
   xs: spacing.spaceXs,
@@ -170,8 +171,29 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
     };
   }, [category, subcategory, weightKg]);
 
+  const getCategoryIcon = (cat: string): any => {
+    switch (cat) {
+      case 'CRT': return 'tv';
+      case 'LCD_PANEL': return 'computer';
+      case 'PCB': return 'grid';
+      case 'CABLE': return 'link';
+      case 'BATTERY': return 'battery';
+      case 'MOTOR': return 'settings';
+      case 'MAGNET_ASSEMBLY': return 'refresh';
+      case 'MIXED_PLASTIC': return 'recycle';
+      case 'MOBILE_PHONE': return 'mobile';
+      case 'LAPTOP': return 'laptop';
+      case 'MONITOR': return 'computer';
+      case 'PRINTER': return 'file';
+      case 'KEYBOARD_MOUSE': return 'grid';
+      case 'DESKTOP_COMPUTER': return 'computer';
+      case 'TABLET': return 'mobile';
+      default: return 'package';
+    }
+  };
+
   const categoryDef = MATERIAL_TAXONOMY[category] || {
-    symbol: '📦',
+    symbol: 'package',
     defaultName: category,
     i18nKey: 'materialLots.categories.OTHER',
   };
@@ -264,7 +286,7 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
           {/* Material Summary Header Card */}
           <View style={styles.summaryCard}>
             <View style={styles.summaryIconBadge}>
-              <Text style={styles.summaryIcon}>{categoryDef.symbol}</Text>
+              <AppIcon name={getCategoryIcon(category)} size={24} color="#10B981" />
             </View>
             <View style={styles.summaryDetails}>
               <Text style={styles.summaryCategoryName}>
@@ -283,7 +305,10 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
           {/* Photos Preview */}
           {photos.length > 0 && (
             <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>📸 Photos ({photos.length})</Text>
+              <View style={styles.sectionTitleRow}>
+                <AppIcon name="camera" size={18} color="#10B981" />
+                <Text style={styles.sectionTitle}>Photos ({photos.length})</Text>
+              </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoStrip}>
                 {photos.map((uri, idx) => (
                   <Image key={idx} source={{ uri }} style={styles.photoThumb} />
@@ -294,7 +319,10 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
 
           {/* Section: Weight Entry (Large Touch & Numpad - SIH-LIT-008, SIH-LIT-009) */}
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>⚖️ {t('materialLots.enterWeight')}</Text>
+            <View style={styles.sectionTitleRow}>
+              <AppIcon name="scale" size={18} color="#10B981" />
+              <Text style={styles.sectionTitle}>{t('materialLots.enterWeight')}</Text>
+            </View>
             <Text style={styles.sectionSubtitle}>
               {t('lowLiteracy.weightHelper') || 'Estimate total weight in kilograms'}
             </Text>
@@ -315,17 +343,23 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
           {parseFloat(weightKg) > 0 && (
             <View style={styles.valuationCard}>
               <View style={styles.valuationHeader}>
-                <Text style={styles.valuationTitle}>
-                  💰 {t('valuation.estimatedValue') || 'Estimated Value'}
-                </Text>
+                <View style={styles.sectionTitleRow}>
+                  <AppIcon name="money" size={18} color="#10B981" />
+                  <Text style={styles.valuationTitle}>
+                    {t('valuation.estimatedValue') || 'Estimated Value'}
+                  </Text>
+                </View>
                 {isValuating ? (
                   <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
-                  <Text style={styles.valuationBadge}>
-                    {valuation?.status === 'AVAILABLE'
-                      ? '📊 ' + (t('valuation.estimateAvailable') || 'Estimated')
-                      : 'ℹ️ ' + (t('valuation.estimateUnavailable') || 'Unavailable')}
-                  </Text>
+                  <View style={styles.rowCentered}>
+                    <AppIcon name={valuation?.status === 'AVAILABLE' ? 'chart' : 'info'} size={12} color="#10B981" />
+                    <Text style={styles.valuationBadge}>
+                      {valuation?.status === 'AVAILABLE'
+                        ? (t('valuation.estimateAvailable') || 'Estimated')
+                        : (t('valuation.estimateUnavailable') || 'Unavailable')}
+                    </Text>
+                  </View>
                 )}
               </View>
 
@@ -334,17 +368,23 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
                   <Text style={styles.valuationAmount}>
                     {valuation.formattedEstimate}
                   </Text>
-                  <Text style={styles.valuationConfidence}>
-                    {valuation.confidence === 'VERIFIED_MARKET_DATA'
-                      ? '✅ ' + (t('valuation.confidenceVerified') || 'Based on verified market data')
-                      : '📱 ' + (t('valuation.confidenceLimited') || 'Based on cached data')}
-                  </Text>
+                  <View style={[styles.rowCentered, { marginVertical: 4 }]}>
+                    <AppIcon name={valuation.confidence === 'VERIFIED_MARKET_DATA' ? 'check' : 'phone'} size={13} color="#10B981" />
+                    <Text style={styles.valuationConfidence}>
+                      {valuation.confidence === 'VERIFIED_MARKET_DATA'
+                        ? (t('valuation.confidenceVerified') || 'Based on verified market data')
+                        : (t('valuation.confidenceLimited') || 'Based on cached data')}
+                    </Text>
+                  </View>
                   {/* Mandatory Non-Guarantee Disclaimer (SIH-VAL-004) */}
                   <View style={styles.disclaimerBox}>
-                    <Text style={styles.disclaimerText}>
-                      ⚠️ {t('valuation.disclaimer') || 'This is an estimate, not a guaranteed sale price.'}{' '}
-                      {t('valuation.estimateNote') || 'Actual sale price may vary depending on quality and negotiation.'}
-                    </Text>
+                    <View style={styles.rowCentered}>
+                      <AppIcon name="warning" size={14} color="#F59E0B" />
+                      <Text style={styles.disclaimerText}>
+                        {t('valuation.disclaimer') || 'This is an estimate, not a guaranteed sale price.'}{' '}
+                        {t('valuation.estimateNote') || 'Actual sale price may vary depending on quality and negotiation.'}
+                      </Text>
+                    </View>
                   </View>
                 </View>
               ) : !isValuating ? (
@@ -358,9 +398,12 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
                     onPress={() => navigation?.navigate('CollectorPriceBoard')}
                     style={styles.checkPriceLink}
                   >
-                    <Text style={styles.checkPriceLinkText}>
-                      🔍 {t('valuation.checkPriceBoard') || 'Check Price Board for latest rates'}
-                    </Text>
+                    <View style={styles.btnRow}>
+                      <AppIcon name="search" size={14} color="#10B981" />
+                      <Text style={styles.checkPriceLinkText}>
+                        {t('valuation.checkPriceBoard') || 'Check Price Board for latest rates'}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -369,7 +412,10 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
 
           {/* Section: Listing Purpose (Recycling vs Circular Reuse) */}
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>🎯 Listing Purpose & Target Buyer</Text>
+            <View style={styles.sectionTitleRow}>
+              <AppIcon name="award" size={18} color="#10B981" />
+              <Text style={styles.sectionTitle}>Listing Purpose & Target Buyer</Text>
+            </View>
             <Text style={styles.sectionSubtitle}>
               Select where this lot should be listed:
             </Text>
@@ -383,7 +429,9 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
                 onPress={() => setListingPurpose('RECYCLING')}
                 activeOpacity={0.8}
               >
-                <Text style={styles.purposeOptionIcon}>🏭</Text>
+                <View style={styles.purposeOptionIcon}>
+                  <AppIcon name="factory" size={24} color={listingPurpose === 'RECYCLING' ? '#10B981' : '#94A3B8'} />
+                </View>
                 <View style={styles.purposeOptionInfo}>
                   <Text style={[styles.purposeOptionTitle, listingPurpose === 'RECYCLING' && styles.purposeOptionTitleActive]}>
                     Recycling Supply (Authorized Recyclers)
@@ -402,7 +450,9 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
                 onPress={() => setListingPurpose('REUSE')}
                 activeOpacity={0.8}
               >
-                <Text style={styles.purposeOptionIcon}>🛍️</Text>
+                <View style={styles.purposeOptionIcon}>
+                  <AppIcon name="shop" size={24} color={listingPurpose === 'REUSE' ? '#10B981' : '#94A3B8'} />
+                </View>
                 <View style={styles.purposeOptionInfo}>
                   <Text style={[styles.purposeOptionTitle, listingPurpose === 'REUSE' && styles.purposeOptionTitleActive]}>
                     Circular Reuse (Direct to Citizens)
@@ -421,7 +471,9 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
                 onPress={() => setListingPurpose('REPAIR_REUSE')}
                 activeOpacity={0.8}
               >
-                <Text style={styles.purposeOptionIcon}>🔧</Text>
+                <View style={styles.purposeOptionIcon}>
+                  <AppIcon name="settings" size={24} color={listingPurpose === 'REPAIR_REUSE' ? '#10B981' : '#94A3B8'} />
+                </View>
                 <View style={styles.purposeOptionInfo}>
                   <Text style={[styles.purposeOptionTitle, listingPurpose === 'REPAIR_REUSE' && styles.purposeOptionTitleActive]}>
                     Repair / Refurbish (Hobbyists & Technicians)
@@ -436,7 +488,10 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
             {/* Asking Price Input (Mandatory/Encouraged for Reuse) */}
             {(listingPurpose === 'REUSE' || listingPurpose === 'REPAIR_REUSE') && (
               <View style={styles.askingPriceContainer}>
-                <Text style={styles.askingPriceLabel}>💰 Asking Price (₹ Total - Optional)</Text>
+                <View style={styles.rowCentered}>
+                  <AppIcon name="money" size={15} color="#10B981" />
+                  <Text style={styles.askingPriceLabel}>Asking Price (₹ Total - Optional)</Text>
+                </View>
                 <TextInput
                   style={styles.askingPriceInput}
                   keyboardType="numeric"
@@ -454,7 +509,10 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
 
           {/* Section: Description & Notes */}
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>📝 {t('materialLots.description')}</Text>
+            <View style={styles.sectionTitleRow}>
+              <AppIcon name="document" size={18} color="#10B981" />
+              <Text style={styles.sectionTitle}>{t('materialLots.description')}</Text>
+            </View>
             <TextInput
               style={styles.textArea}
               value={description}
@@ -469,7 +527,10 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
 
           {/* Section: GPS Status Indicator */}
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>📍 {t('materialLots.gpsStatus')}</Text>
+            <View style={styles.sectionTitleRow}>
+              <AppIcon name="location" size={18} color="#10B981" />
+              <Text style={styles.sectionTitle}>{t('materialLots.gpsStatus')}</Text>
+            </View>
             <View style={styles.gpsRow}>
               <View
                 style={[
@@ -500,7 +561,10 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
               accessibilityRole="button"
               accessibilityLabel={t('materialLots.saveDraft')}
             >
-              <Text style={styles.draftButtonText}>💾 {t('materialLots.saveDraft')}</Text>
+              <View style={styles.btnRow}>
+                <AppIcon name="document" size={15} color="#CBD5E1" />
+                <Text style={styles.draftButtonText}>{t('materialLots.saveDraft')}</Text>
+              </View>
             </TouchableOpacity>
 
             {/* List For Sale (Open for Bids) */}
@@ -515,7 +579,10 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
               {isSubmitting ? (
                 <ActivityIndicator color="#071E22" />
               ) : (
-                <Text style={styles.submitButtonText}>🏷️ List For Sale</Text>
+                <View style={styles.btnRow}>
+                  <AppIcon name="badge" size={16} color="#071E22" />
+                  <Text style={styles.submitButtonText}>List For Sale</Text>
+                </View>
               )}
             </TouchableOpacity>
           </View>
@@ -525,7 +592,10 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
         {showPreviewModal && (
           <View style={styles.modalOverlay}>
             <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>🏷️ PREVIEW MARKETPLACE LISTING</Text>
+              <View style={styles.rowCentered}>
+                <AppIcon name="badge" size={18} color="#10B981" />
+                <Text style={styles.modalTitle}>PREVIEW MARKETPLACE LISTING</Text>
+              </View>
               <Text style={styles.modalSubtitle}>
                 Publishing makes this lot discoverable to verified authorized recyclers for competitive bidding.
               </Text>
@@ -551,9 +621,12 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
                 </View>
                 <View style={styles.matrixRow}>
                   <Text style={styles.matrixLabel}>Location:</Text>
-                  <Text style={styles.matrixValue}>
-                    {gpsLocation ? '📍 GPS Tagged' : '📍 Service Area'}
-                  </Text>
+                  <View style={styles.rowCentered}>
+                    <AppIcon name="location" size={13} color="#10B981" />
+                    <Text style={styles.matrixValue}>
+                      {gpsLocation ? 'GPS Tagged' : 'Service Area'}
+                    </Text>
+                  </View>
                 </View>
                 <View style={styles.matrixRow}>
                   <Text style={styles.matrixLabel}>Photos:</Text>
@@ -995,5 +1068,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: 'rgba(255, 255, 255, 0.5)',
     marginTop: 4,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  rowCentered: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
 });

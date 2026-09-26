@@ -50,6 +50,7 @@ import { REQUEST_STATUS } from '../../utils/constants';
 import { MATERIAL_TAXONOMY } from '../../config/materialTaxonomy';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { colors } from '../../theme/colors';
+import { AppIcon, IconName } from '../../components/ui/AppIcon';
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<CitizenTabParamList, 'CitizenRequests'>,
@@ -67,15 +68,15 @@ const canCancelRequest = (status: string): boolean => {
   return s !== REQUEST_STATUS.PICKED_UP && s !== REQUEST_STATUS.CANCELLED && s !== REQUEST_STATUS.EXPIRED;
 };
 
-function getRequestStatusMeta(status: string, t: (k: string, d?: string) => string) {
+function getRequestStatusMeta(status: string, t: (k: string, d?: string) => string): { label: string; color: string; bg: string; icon: IconName } {
   const s = (status || '').toUpperCase();
   if (['COMPLETED', 'PICKED_UP'].includes(s))
-    return { label: t('status.pickedUp', 'Collected'), color: '#10B981', bg: 'rgba(16,185,129,0.14)', icon: '✅' };
+    return { label: t('status.pickedUp', 'Collected'), color: '#10B981', bg: 'rgba(16,185,129,0.14)', icon: 'checkCircle' };
   if (['CANCELLED', 'EXPIRED'].includes(s))
-    return { label: s === 'EXPIRED' ? t('status.rejected', 'Expired') : t('status.cancelled', 'Cancelled'), color: '#9CA3AF', bg: 'rgba(156,163,175,0.12)', icon: '🚫' };
+    return { label: s === 'EXPIRED' ? t('status.rejected', 'Expired') : t('status.cancelled', 'Cancelled'), color: '#9CA3AF', bg: 'rgba(156,163,175,0.12)', icon: 'close' };
   if (s === 'ACCEPTED' || s === 'PICKUP_SCHEDULED')
-    return { label: s === 'PICKUP_SCHEDULED' ? t('status.pickupScheduled', 'Scheduled') : t('status.accepted', 'Accepted'), color: '#34D399', bg: 'rgba(52,211,153,0.14)', icon: '📅' };
-  return { label: t('status.submitted', 'Submitted'), color: '#FBBF24', bg: 'rgba(251,191,36,0.14)', icon: '📦' };
+    return { label: s === 'PICKUP_SCHEDULED' ? t('status.pickupScheduled', 'Scheduled') : t('status.accepted', 'Accepted'), color: '#34D399', bg: 'rgba(52,211,153,0.14)', icon: 'calendar' };
+  return { label: t('status.submitted', 'Submitted'), color: '#FBBF24', bg: 'rgba(251,191,36,0.14)', icon: 'box' };
 }
 
 function getQuoteMeta(status: string, t: (k: string, d?: string) => string) {
@@ -127,7 +128,7 @@ const RequestCard = React.memo(({
       accessibilityRole="button" accessibilityLabel={`Request ${refId}, ${item.status}`}>
       <View style={styles.cardHeader}>
         <View style={[styles.cardIconBox, { backgroundColor: meta.bg }]}>
-          <Text style={styles.cardIconText}>{meta.icon}</Text>
+          <AppIcon name={meta.icon} size={18} color={meta.color} />
         </View>
         <View style={styles.cardHeaderText}>
           <Text style={styles.cardRef}>{refId}</Text>
@@ -142,13 +143,13 @@ const RequestCard = React.memo(({
 
       {Boolean(item.pickupAddress) && (
         <View style={styles.cardMeta}>
-          <Text style={styles.cardMetaIcon}>📍</Text>
+          <AppIcon name="location" size={13} color="#94A3B8" style={{ marginRight: 6 }} />
           <Text style={styles.cardMetaText} numberOfLines={1}>{item.pickupAddress}</Text>
         </View>
       )}
       {Boolean(item.preferredDate) && (
         <View style={styles.cardMeta}>
-          <Text style={styles.cardMetaIcon}>📅</Text>
+          <AppIcon name="calendar" size={13} color="#94A3B8" style={{ marginRight: 6 }} />
           <Text style={styles.cardMetaText}>
             {new Date(item.preferredDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
           </Text>
@@ -182,7 +183,7 @@ const PurchaseCard = React.memo(({
   onViewBills: () => void;
 }) => {
   const { t } = useI18n();
-  const cat = MATERIAL_TAXONOMY[quote.materialLot?.category || quote.category] || { symbol: '📦', defaultName: quote.category };
+  const cat = MATERIAL_TAXONOMY[quote.materialLot?.category || quote.category] || { defaultName: quote.category };
   const meta = getQuoteMeta(quote.status, t);
   const isPending = quote.status === 'SENT' || quote.status === 'VIEWED';
   const isAccepted = quote.status === 'ACCEPTED';
@@ -194,7 +195,7 @@ const PurchaseCard = React.memo(({
     <View style={styles.card} accessibilityRole="none">
       <View style={styles.cardHeader}>
         <View style={[styles.cardIconBox, { backgroundColor: 'rgba(139,92,246,0.14)' }]}>
-          <Text style={styles.cardIconText}>{cat.symbol}</Text>
+          <AppIcon name="box" size={18} color="#8B5CF6" />
         </View>
         <View style={styles.cardHeaderText}>
           <Text style={styles.cardRef} numberOfLines={1}>{itemName}</Text>
@@ -218,7 +219,7 @@ const PurchaseCard = React.memo(({
 
       {isAccepted && quote.materialLot?.collector?.user && (
         <View style={styles.sellerRow}>
-          <Text style={styles.sellerIcon}>🤝</Text>
+          <AppIcon name="handshake" size={14} color="#10B981" style={{ marginRight: 6 }} />
           <Text style={styles.sellerName}>{quote.materialLot.collector.user.name}</Text>
           <Text style={styles.sellerArea}>{quote.materialLot.collector.city || t('roles.collector', 'Local Collector')}</Text>
         </View>
@@ -250,7 +251,10 @@ const PurchaseCard = React.memo(({
         )}
         {(isAccepted || isDone) && (
           <TouchableOpacity style={styles.billsBtn} onPress={onViewBills} accessibilityRole="button">
-            <Text style={styles.billsBtnText}>🧾 {t('payments.viewBill', 'View Bills')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <AppIcon name="receipt" size={14} color="#FFF" style={{ marginRight: 6 }} />
+              <Text style={styles.billsBtnText}>{t('payments.viewBill', 'View Bills')}</Text>
+            </View>
           </TouchableOpacity>
         )}
       </View>
@@ -362,10 +366,10 @@ const CancelRequestModal = ({
 // ─── Empty State ──────────────────────────────────────────────────────────────
 
 const CitizenEmptyState = ({ icon, title, message, actionLabel, onAction }: {
-  icon: string; title: string; message: string; actionLabel?: string; onAction?: () => void;
+  icon: IconName; title: string; message: string; actionLabel?: string; onAction?: () => void;
 }) => (
   <View style={styles.emptyBox}>
-    <Text style={styles.emptyIcon}>{icon}</Text>
+    <AppIcon name={icon} size={36} color="#94A3B8" style={{ marginBottom: 12 }} />
     <Text style={styles.emptyTitle}>{title}</Text>
     <Text style={styles.emptyMessage}>{message}</Text>
     {actionLabel && onAction && (
@@ -606,7 +610,8 @@ export const CitizenOrdersScreen: React.FC<Props> = ({ navigation }) => {
         {/* ── Offline Banner ── */}
         {!isConnected && (
           <View style={styles.offlineBanner}>
-            <Text style={styles.offlineText}>📡 {t('common.offline', 'Offline — showing cached data')}</Text>
+            <AppIcon name="alert" size={14} color="#F59E0B" style={{ marginRight: 6 }} />
+            <Text style={styles.offlineText}>{t('common.offline', 'Offline — showing cached data')}</Text>
           </View>
         )}
 
@@ -626,10 +631,18 @@ export const CitizenOrdersScreen: React.FC<Props> = ({ navigation }) => {
               accessibilityRole="tab"
               accessibilityState={{ selected: mainSegment === 'EWASTE' }}
             >
-              <Text style={[styles.segmentText, mainSegment === 'EWASTE' && styles.segmentTextActive]}>
-                ♻️ {t('ewaste.ewaste', 'E-Waste')}
-                {activeRequestsCount > 0 ? ` (${activeRequestsCount})` : ''}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                <AppIcon
+                  name="recycle"
+                  size={14}
+                  color={mainSegment === 'EWASTE' ? '#10B981' : '#94A3B8'}
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={[styles.segmentText, mainSegment === 'EWASTE' && styles.segmentTextActive]}>
+                  {t('ewaste.ewaste', 'E-Waste')}
+                  {activeRequestsCount > 0 ? ` (${activeRequestsCount})` : ''}
+                </Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.segmentBtn}
@@ -637,10 +650,18 @@ export const CitizenOrdersScreen: React.FC<Props> = ({ navigation }) => {
               accessibilityRole="tab"
               accessibilityState={{ selected: mainSegment === 'PURCHASES' }}
             >
-              <Text style={[styles.segmentText, mainSegment === 'PURCHASES' && styles.segmentTextActive]}>
-                🛍️ {t('marketplace.myPurchases', 'Purchases')}
-                {activeQuotesCount > 0 ? ` (${activeQuotesCount})` : ''}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                <AppIcon
+                  name="store"
+                  size={14}
+                  color={mainSegment === 'PURCHASES' ? '#8B5CF6' : '#94A3B8'}
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={[styles.segmentText, mainSegment === 'PURCHASES' && styles.segmentTextActive]}>
+                  {t('marketplace.myPurchases', 'Purchases')}
+                  {activeQuotesCount > 0 ? ` (${activeQuotesCount})` : ''}
+                </Text>
+              </View>
             </TouchableOpacity>
           </View>
         </View>
@@ -694,7 +715,7 @@ export const CitizenOrdersScreen: React.FC<Props> = ({ navigation }) => {
                 }
                 ListEmptyComponent={
                   <CitizenEmptyState
-                    icon="📦"
+                    icon="box"
                     title={ewasteFilter === 'ALL' ? t('citizen.requests.noRequestsTitle', 'No Pickup Requests') : t('citizen.requests.noRequestsFilterMessage', 'No requests found.')}
                     message={ewasteFilter === 'ALL'
                       ? t('citizen.requests.noRequestsMessage', 'Schedule your first free e-waste pickup. We come to you!')
@@ -760,7 +781,7 @@ export const CitizenOrdersScreen: React.FC<Props> = ({ navigation }) => {
                 }
                 ListEmptyComponent={
                   <CitizenEmptyState
-                    icon="🛍️"
+                    icon="store"
                     title={purchaseFilter === 'ACTIVE' ? t('purchases.noPurchases', 'No pending offers') : t('purchases.noPurchases', 'No offers found')}
                     message={purchaseFilter === 'ACTIVE'
                       ? t('purchases.subtitle', 'Browse the Shop and make offers on reusable electronics.')

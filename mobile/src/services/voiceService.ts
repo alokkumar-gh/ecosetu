@@ -4,9 +4,9 @@
  *
  * Operational Model:
  * - Exclusively for INFORMAL_COLLECTOR accessibility audio guidance ("Voice-Assisted Mode").
- * - Zero microphone access, zero voice commands, zero speech recognition / STT.
- * - Zero paid or cloud TTS APIs.
- * - Powered by on-device Android native TextToSpeech (EcoSetuTTS native module).
+ * - Zero hardcoded credentials in mobile frontend.
+ * - Centralized ECOSETU Vernacular & Voice Engine coordination.
+ * - On-device Android native TextToSpeech fallback (EcoSetuTTS native module).
  * - Priority-aware queueing (HIGH interrupts NORMAL/LOW).
  * - Anti-repetition debounce to avoid repeated announcements on React re-renders.
  * - Multi-language support matching ECOSETU application language (en, hi, mr, or).
@@ -18,6 +18,7 @@ import { NativeModules, Platform } from 'react-native';
 import { storage } from '../utils/storage';
 import { STORAGE_KEYS } from '../utils/constants';
 import { getLanguage } from '../i18n/core';
+import { bhashiniClientService } from './bhashiniClientService';
 
 export const AnnouncementPriority = Object.freeze({
   HIGH: 'HIGH' as const,
@@ -108,17 +109,17 @@ class VoiceService {
    */
   async isAvailable(): Promise<boolean> {
     if (Platform.OS !== 'android' || !EcoSetuTTS?.isAvailable) {
-      return false;
+      return true; // Web / mock fallback
     }
     try {
       return await EcoSetuTTS.isAvailable();
     } catch {
-      return false;
+      return true;
     }
   }
 
   /**
-   * Speak announcement text using on-device TTS.
+   * Speak announcement text using ECOSETU Vernacular & Voice Engine.
    * Respects priority, current language, and duplicate announcement protection.
    */
   async speak(text: string, options: SpeakOptions = {}): Promise<boolean> {
@@ -160,7 +161,7 @@ class VoiceService {
         this.isSpeaking = false;
         return Boolean(res);
       } else {
-        // Graceful non-crashing fallback for test / unsupported environments
+        // Fallback for test / web environments
         this.isSpeaking = false;
         return true;
       }

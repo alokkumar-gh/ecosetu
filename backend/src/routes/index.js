@@ -114,6 +114,17 @@ router.use('/payments', paymentRoutes);
 const billRoutes = require('./billRoutes');
 router.use('/bills', billRoutes);
 
+// ECOSETU Vernacular & Voice Engine (BHASHINI Integration)
+const voiceRoutes = require('./voiceRoutes');
+const languageRoutes = require('./languageRoutes');
+const ocrRoutes = require('./ocrRoutes');
+const voiceController = require('../controllers/voiceController');
+
+router.use('/voice', voiceRoutes);
+router.use('/language', languageRoutes);
+router.use('/ocr', ocrRoutes);
+router.post('/translate', (req, res, next) => voiceController.translate(req, res, next));
+
 module.exports = router;
 
 

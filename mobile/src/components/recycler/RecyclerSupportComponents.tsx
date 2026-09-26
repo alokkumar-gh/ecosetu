@@ -25,10 +25,11 @@ import {
 } from 'react-native';
 import { useI18n } from '../../i18n';
 import { RecyclerStatusBadge } from './RecyclerStatusBadge';
+import { AppIcon, AppIconName } from '../ui/AppIcon';
 
 // ─── RecyclerEmptyState ───────────────────────────────────────────────────────
 interface EmptyConfig {
-  icon: string;
+  icon: AppIconName;
   titleKey: string;
   defaultTitle: string;
   subKey: string;
@@ -39,7 +40,7 @@ interface EmptyConfig {
 
 const EMPTY_CONFIGS: Record<string, EmptyConfig> = {
   no_lots: {
-    icon: '🔍',
+    icon: 'search',
     titleKey: 'recycler.empty.noLotsTitle',
     defaultTitle: 'No material available',
     subKey: 'recycler.empty.noLotsSub',
@@ -48,7 +49,7 @@ const EMPTY_CONFIGS: Record<string, EmptyConfig> = {
     defaultAction: 'Clear Filters',
   },
   no_orders: {
-    icon: '📋',
+    icon: 'fileText',
     titleKey: 'recycler.empty.noOrdersTitle',
     defaultTitle: 'No active orders',
     subKey: 'recycler.empty.noOrdersSub',
@@ -57,7 +58,7 @@ const EMPTY_CONFIGS: Record<string, EmptyConfig> = {
     defaultAction: 'Browse Material',
   },
   no_inventory: {
-    icon: '📦',
+    icon: 'package',
     titleKey: 'recycler.empty.noInventoryTitle',
     defaultTitle: 'No received material',
     subKey: 'recycler.empty.noInventorySub',
@@ -66,14 +67,14 @@ const EMPTY_CONFIGS: Record<string, EmptyConfig> = {
     defaultAction: 'Browse Market',
   },
   no_transactions: {
-    icon: '💳',
+    icon: 'creditCard',
     titleKey: 'recycler.empty.noTransactionsTitle',
     defaultTitle: 'No transactions yet',
     subKey: 'recycler.empty.noTransactionsSub',
     defaultSub: 'Completed purchases and payment history will appear here.',
   },
   no_rates: {
-    icon: '📈',
+    icon: 'trendingUp',
     titleKey: 'recycler.empty.noRatesTitle',
     defaultTitle: 'No buying rates published',
     subKey: 'recycler.empty.noRatesSub',
@@ -82,7 +83,7 @@ const EMPTY_CONFIGS: Record<string, EmptyConfig> = {
     defaultAction: 'Add Rate',
   },
   no_sourcing: {
-    icon: '📡',
+    icon: 'radio',
     titleKey: 'recycler.empty.noSourcingTitle',
     defaultTitle: 'No sourcing requests',
     subKey: 'recycler.empty.noSourcingSub',
@@ -91,14 +92,14 @@ const EMPTY_CONFIGS: Record<string, EmptyConfig> = {
     defaultAction: 'Create Request',
   },
   offline: {
-    icon: '📡',
+    icon: 'wifiOff',
     titleKey: 'offline.title',
     defaultTitle: 'You are offline',
     subKey: 'offline.banner',
     defaultSub: 'Showing cached data. Some actions require a connection.',
   },
   generic: {
-    icon: '🔎',
+    icon: 'search',
     titleKey: 'empty.genericTitle',
     defaultTitle: 'Nothing here yet',
     subKey: 'empty.genericSub',
@@ -131,7 +132,7 @@ export const RecyclerEmptyState: React.FC<RecyclerEmptyStateProps> = ({
 
   return (
     <View style={emptyStyles.container}>
-      <Text style={emptyStyles.icon}>{icon ?? cfg.icon}</Text>
+      <AppIcon name={(icon as any) ?? cfg.icon} size={44} color="#22D3EE" />
       <Text style={emptyStyles.title}>{displayTitle}</Text>
       <Text style={emptyStyles.sub}>{displaySub}</Text>
       {displayAction && onAction && (
@@ -217,6 +218,20 @@ const secStyles = StyleSheet.create({
   action:     { color: '#22D3EE', fontSize: 12, fontWeight: '700' },
 });
 
+const resolveMaterialIcon = (raw?: string): AppIconName => {
+  if (!raw) return 'package';
+  const lower = raw.toLowerCase();
+  if (lower === 'box' || lower === 'package' || raw === '\u{1F4E6}') return 'package';
+  if (lower === 'truck' || raw === '\u{1F69A}' || raw === '\u{1F69B}') return 'truck';
+  if (lower === 'recycle' || raw === '\u{267B}' || raw === '\u{267B}\u{FE0F}') return 'recycle';
+  if (lower === 'radio' || raw === '\u{1F4E1}') return 'radio';
+  if (lower === 'cpu' || lower === 'pcb') return 'grid';
+  if (lower === 'battery') return 'battery';
+  if (lower === 'card' || lower === 'creditcard' || raw === '\u{1F4B3}') return 'creditCard';
+  if (lower === 'filetext' || raw === '\u{1F4CB}') return 'fileText';
+  return (raw as AppIconName) || 'package';
+};
+
 // ─── RecyclerOfferCard ────────────────────────────────────────────────────────
 interface RecyclerOfferCardProps {
   material: string;
@@ -239,7 +254,7 @@ export const RecyclerOfferCard: React.FC<RecyclerOfferCardProps> = ({
   return (
     <TouchableOpacity style={offerStyles.card} onPress={onView} activeOpacity={0.8}>
       <View style={offerStyles.header}>
-        <Text style={offerStyles.icon}>{materialIcon ?? '📦'}</Text>
+        <AppIcon name={resolveMaterialIcon(materialIcon)} size={24} color="#22D3EE" />
         <View style={offerStyles.titleBlock}>
           <Text style={offerStyles.material} numberOfLines={1}>{material}</Text>
           {sellerName && <Text style={offerStyles.seller} numberOfLines={1}>{sellerName}</Text>}
@@ -319,7 +334,7 @@ export const InventoryLotCard: React.FC<InventoryLotCardProps> = ({
   return (
     <TouchableOpacity style={invStyles.card} onPress={onPress} activeOpacity={0.8}>
       <View style={invStyles.header}>
-        <Text style={invStyles.icon}>{materialIcon ?? '📦'}</Text>
+        <AppIcon name={resolveMaterialIcon(materialIcon)} size={22} color="#22D3EE" />
         <View style={invStyles.titleBlock}>
           <Text style={invStyles.material} numberOfLines={1}>{material}</Text>
           {receivedDate && <Text style={invStyles.date}>{receivedDate}</Text>}
@@ -435,7 +450,7 @@ export const RecyclerSpendRow: React.FC<RecyclerSpendRowProps> = ({
 }) => (
   <TouchableOpacity style={spendStyles.row} onPress={onPress} activeOpacity={0.75}>
     <View style={spendStyles.iconBox}>
-      <Text style={spendStyles.icon}>{materialIcon ?? '📦'}</Text>
+      <AppIcon name={resolveMaterialIcon(materialIcon)} size={20} color="#22D3EE" />
     </View>
     <View style={spendStyles.info}>
       <Text style={spendStyles.material} numberOfLines={1}>{material}</Text>
@@ -479,7 +494,7 @@ export const RateRow: React.FC<RateRowProps> = ({
   return (
     <View style={rateStyles.row}>
       <View style={rateStyles.iconBox}>
-        <Text style={rateStyles.icon}>{icon ?? '📦'}</Text>
+        <AppIcon name={resolveMaterialIcon(icon)} size={18} color="#22D3EE" />
       </View>
       <View style={rateStyles.info}>
         <Text style={rateStyles.category} numberOfLines={1}>{subcategory || category}</Text>
@@ -550,7 +565,7 @@ export const SourcingRequestCard: React.FC<SourcingRequestCardProps> = ({
     <TouchableOpacity style={sourcStyles.card} onPress={onPress} activeOpacity={0.8}>
       <View style={sourcStyles.header}>
         <View style={sourcStyles.materialBlock}>
-          <Text style={sourcStyles.icon}>{materialIcon ?? '📡'}</Text>
+          <AppIcon name={resolveMaterialIcon(materialIcon || 'radio')} size={22} color="#22D3EE" />
           <View>
             <Text style={sourcStyles.material} numberOfLines={1}>{material}</Text>
             <Text style={sourcStyles.need}>{t('recycler.kgNeeded', { count: quantityKg }, `${quantityKg} kg needed`)}</Text>
@@ -561,12 +576,18 @@ export const SourcingRequestCard: React.FC<SourcingRequestCardProps> = ({
       <View style={sourcStyles.pills}>
         {distanceKm !== undefined && (
           <View style={sourcStyles.pill}>
-            <Text style={sourcStyles.pillText}>📍 {t('recycler.kmRadius', { count: distanceKm }, `${distanceKm} km radius`)}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <AppIcon name="mapPin" size={11} color="rgba(255,255,255,0.6)" />
+              <Text style={sourcStyles.pillText}>{t('recycler.kmRadius', { count: distanceKm }, `${distanceKm} km radius`)}</Text>
+            </View>
           </View>
         )}
         {pickupRequired && (
           <View style={sourcStyles.pill}>
-            <Text style={sourcStyles.pillText}>🚚 {t('recycler.pickupNeeded', 'Pickup needed')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <AppIcon name="truck" size={11} color="rgba(255,255,255,0.6)" />
+              <Text style={sourcStyles.pillText}>{t('recycler.pickupNeeded', 'Pickup needed')}</Text>
+            </View>
           </View>
         )}
         {responseCount !== undefined && responseCount > 0 && (
@@ -618,7 +639,7 @@ export const PickupStatusCard: React.FC<PickupStatusCardProps> = ({
   <TouchableOpacity style={pickStyles.card} onPress={onView} activeOpacity={0.8}>
     <View style={pickStyles.header}>
       <View style={pickStyles.materialBlock}>
-        <Text style={pickStyles.icon}>{materialIcon ?? '🚚'}</Text>
+        <AppIcon name={resolveMaterialIcon(materialIcon || 'truck')} size={22} color="#22D3EE" />
         <View>
           <Text style={pickStyles.material} numberOfLines={1}>{material}</Text>
           {sellerName && <Text style={pickStyles.seller} numberOfLines={1}>{sellerName}</Text>}
@@ -627,8 +648,18 @@ export const PickupStatusCard: React.FC<PickupStatusCardProps> = ({
       <RecyclerStatusBadge status={status} />
     </View>
     <View style={pickStyles.details}>
-      {location && <Text style={pickStyles.location} numberOfLines={1}>📍 {location}</Text>}
-      {scheduledTime && <Text style={pickStyles.time}>🕐 {scheduledTime}</Text>}
+      {location && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 }}>
+          <AppIcon name="mapPin" size={11} color="rgba(255,255,255,0.45)" />
+          <Text style={pickStyles.location} numberOfLines={1}>{location}</Text>
+        </View>
+      )}
+      {scheduledTime && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <AppIcon name="clock" size={11} color="rgba(255,255,255,0.45)" />
+          <Text style={pickStyles.time}>{scheduledTime}</Text>
+        </View>
+      )}
       {weightKg !== undefined && <Text style={pickStyles.weight}>{weightKg} kg</Text>}
       {dealValue !== undefined && (
         <Text style={pickStyles.value}>₹{dealValue.toLocaleString('en-IN')}</Text>
@@ -649,7 +680,7 @@ const pickStyles = StyleSheet.create({
   material:      { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
   seller:        { color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '500', marginTop: 1 },
   details:       { flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignItems: 'center' },
-  location:      { color: 'rgba(255,255,255,0.45)', fontSize: 12, fontWeight: '600', flex: 1 },
+  location:      { color: 'rgba(255,255,255,0.45)', fontSize: 12, fontWeight: '600' },
   time:          { color: 'rgba(255,255,255,0.45)', fontSize: 12, fontWeight: '600' },
   weight:        { color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '700' },
   value:         { color: '#22D3EE', fontSize: 14, fontWeight: '900' },
@@ -671,7 +702,7 @@ export const PipelineStage: React.FC<PipelineStageProps> = ({ stages }) => (
             stage.done && pipeStyles.dotDone,
             stage.current && pipeStyles.dotCurrent,
           ]}>
-            {stage.done && <Text style={pipeStyles.checkmark}>✓</Text>}
+            {stage.done && <AppIcon name="check" size={12} color="#FFFFFF" />}
           </View>
           <Text style={[
             pipeStyles.stageLabel,

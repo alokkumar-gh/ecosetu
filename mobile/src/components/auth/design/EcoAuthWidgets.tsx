@@ -17,10 +17,11 @@ import {
   Animated,
   Easing,
 } from 'react-native';
-import { AUTH_COLORS, AUTH_RADIUS, AUTH_TIMING } from './AuthTheme';
+import { AppIcon, IconName } from '../../ui/AppIcon';
+import { AUTH_COLORS, AUTH_TIMING, AUTH_RADIUS } from './AuthTheme';
 
 interface EcoRoleCardProps {
-  icon: string;
+  icon: IconName | string;
   title: string;
   description: string;
   selected: boolean;
@@ -68,6 +69,24 @@ export const EcoRoleCard: React.FC<EcoRoleCardProps> = ({
     Animated.spring(scaleAnim, { toValue: 1, friction: 4, tension: 200, useNativeDriver: true }).start();
   };
 
+  const resolveRoleIcon = (rawIcon?: string): IconName => {
+    switch (rawIcon) {
+      case 'user':
+      case 'citizen':
+        return 'user';
+      case 'collector':
+      case 'truck':
+        return 'truck';
+      case 'recycler':
+      case 'recycle':
+        return 'recycle';
+      default:
+        return 'user';
+    }
+  };
+
+  const iconName: IconName = typeof icon === 'string' ? resolveRoleIcon(icon) : 'user';
+
   return (
     <Animated.View style={{ transform: [{ scale: scaleAnim }], flex: 1 }}>
       <TouchableOpacity
@@ -85,7 +104,9 @@ export const EcoRoleCard: React.FC<EcoRoleCardProps> = ({
             <View style={[styles.selectedDot, { backgroundColor: accentColor }]} />
           ) : null}
 
-          <Text style={styles.icon}>{icon}</Text>
+          <View style={styles.iconCircle}>
+            <AppIcon name={iconName} size={22} color={selected ? accentColor : AUTH_COLORS.textMuted} strokeWidth={2} />
+          </View>
           <Text style={[styles.title, selected && { color: accentColor }]}>{title}</Text>
           <Text style={styles.description}>{description}</Text>
         </Animated.View>
@@ -132,7 +153,7 @@ export const EcoStepIndicator: React.FC<EcoStepIndicatorProps> = ({
               ]}
             >
               {isDone ? (
-                <Text style={indicatorStyles.dotCheck}>✓</Text>
+                <AppIcon name="check" size={12} color={AUTH_COLORS.textPrimaryOnLight} />
               ) : (
                 <Text
                   style={[
@@ -240,6 +261,15 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+  },
+  iconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
   },
   icon: {
     fontSize: 26,

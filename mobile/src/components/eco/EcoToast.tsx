@@ -8,6 +8,8 @@ import { View, Text, StyleSheet, ViewStyle, Animated } from 'react-native';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 
+import { AppIcon, IconName } from '../ui/AppIcon';
+
 export type EcoToastTone = 'info' | 'success' | 'warning' | 'error';
 
 interface EcoToastProps {
@@ -62,26 +64,28 @@ export const EcoToast: React.FC<EcoToastProps> = memo(({
   let bg = 'rgba(7, 26, 33, 0.95)';
   let border = 'rgba(6, 182, 212, 0.40)';
   let text = '#FFFFFF';
-  let icon = 'ℹ';
+  let iconName: IconName = 'info';
 
   if (tone === 'success') {
     border = 'rgba(16, 185, 129, 0.50)';
     text = '#A7F3D0';
-    icon = '✓';
+    iconName = 'check';
   } else if (tone === 'warning') {
     border = 'rgba(245, 158, 11, 0.50)';
     text = '#FDE68A';
-    icon = '⚠';
+    iconName = 'alert';
   } else if (tone === 'error') {
     border = 'rgba(239, 68, 68, 0.50)';
     text = '#FCA5A5';
-    icon = '✕';
+    iconName = 'close';
   }
 
   return (
     <Animated.View style={[styles.container, { opacity }, style]}>
       <View style={[styles.toast, { backgroundColor: bg, borderColor: border }]}>
-        <Text style={[styles.icon, { color: text }]}>{icon}</Text>
+        <View style={styles.iconBox}>
+          <AppIcon name={iconName} size={16} color={text} strokeWidth={2.5} />
+        </View>
         <Text style={[styles.message, { color: text }]}>{message}</Text>
       </View>
     </Animated.View>
@@ -113,10 +117,10 @@ const styles = StyleSheet.create({
     elevation: 8,
     maxWidth: 420,
   },
-  icon: {
-    fontSize: 16,
-    fontWeight: '700',
+  iconBox: {
     marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   message: {
     fontSize: 14,

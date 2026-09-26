@@ -35,6 +35,7 @@ import sourcingService from '../../services/sourcingService';
 import { MATERIAL_TAXONOMY } from '../../config/materialTaxonomy';
 import { getSafetyTopicByCategory } from '../../data/safetyGuidance';
 import { ReportProblemModal } from '../../components/dispute/ReportProblemModal';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 const space = {
   xs: spacing.spaceXs,
@@ -99,6 +100,37 @@ export const CollectorLotDetailScreen: React.FC<CollectorLotDetailScreenProps> =
     }
   };
 
+  const getCategoryIcon = (cat: string): any => {
+    const map: Record<string, string> = {
+      CRT: 'tv',
+      LCD_PANEL: 'computer',
+      PCB: 'grid',
+      CABLE: 'link',
+      BATTERY: 'battery',
+      MOTOR: 'settings',
+      MAGNET_ASSEMBLY: 'refresh',
+      MIXED_PLASTIC: 'recycle',
+      MOBILE_PHONE: 'mobile',
+      LAPTOP: 'laptop',
+      MONITOR: 'computer',
+      PRINTER: 'file',
+      KEYBOARD_MOUSE: 'grid',
+      DESKTOP_COMPUTER: 'computer',
+      TABLET: 'mobile',
+    };
+    return map[cat] || 'package';
+  };
+
+  const getSafetyIcon = (topicId: string): any => {
+    const upper = (topicId || '').toUpperCase();
+    if (upper.includes('BATTER')) return 'battery';
+    if (upper.includes('CRT') || upper.includes('TV') || upper.includes('MONITOR')) return 'tv';
+    if (upper.includes('PCB') || upper.includes('CIRCUIT')) return 'cpu';
+    if (upper.includes('LAMP') || upper.includes('BULB') || upper.includes('MERCURY')) return 'lightbulb';
+    if (upper.includes('WIRE') || upper.includes('CABLE') || upper.includes('BURN')) return 'cable';
+    return 'shieldCheck';
+  };
+
   if (isLoading || !lot) {
     return (
       <EcoSetuBackground>
@@ -117,7 +149,7 @@ export const CollectorLotDetailScreen: React.FC<CollectorLotDetailScreenProps> =
   }
 
   const categoryDef = MATERIAL_TAXONOMY[lot.category] || {
-    symbol: '📦',
+    symbol: '',
     defaultName: lot.category,
     i18nKey: 'materialLots.categories.OTHER',
   };
@@ -143,7 +175,7 @@ export const CollectorLotDetailScreen: React.FC<CollectorLotDetailScreenProps> =
           <View style={styles.heroCard}>
             <View style={styles.heroHeader}>
               <View style={styles.categorySymbolCircle}>
-                <Text style={styles.categorySymbol}>{categoryDef.symbol}</Text>
+                <AppIcon name={getCategoryIcon(lot.category)} size={26} color="#14B8A6" />
               </View>
               <View style={styles.heroTextContainer}>
                 <Text style={styles.lotReferenceText}>{lot.referenceNumber}</Text>
@@ -164,16 +196,30 @@ export const CollectorLotDetailScreen: React.FC<CollectorLotDetailScreenProps> =
                   isDraft ? styles.statusBadgeDraft : styles.statusBadgeOpen,
                 ]}
               >
-                <Text style={styles.statusBadgeText}>
-                  {isDraft ? `📝 ${t('materialLots.offlineDraftBadge')}` : `🟢 ${lot.status}`}
-                </Text>
+                <View style={styles.rowCentered}>
+                  <AppIcon
+                    name={isDraft ? 'edit' : 'checkCircle'}
+                    size={12}
+                    color={isDraft ? '#F59E0B' : '#10B981'}
+                  />
+                  <Text style={styles.statusBadgeText}>
+                    {isDraft ? t('materialLots.offlineDraftBadge') : lot.status}
+                  </Text>
+                </View>
               </View>
 
               {lot.isOfflineDraft && (
                 <View style={styles.offlineBadge}>
-                  <Text style={styles.offlineBadgeText}>
-                    {lot.pendingSync ? `⏳ ${t('materialLots.pendingSyncBadge')}` : `💾 ${t('materialLots.offlineDraftBadge')}`}
-                  </Text>
+                  <View style={styles.rowCentered}>
+                    <AppIcon
+                      name={lot.pendingSync ? 'clock' : 'hardDrive'}
+                      size={11}
+                      color="rgba(255, 255, 255, 0.8)"
+                    />
+                    <Text style={styles.offlineBadgeText}>
+                      {lot.pendingSync ? t('materialLots.pendingSyncBadge') : t('materialLots.offlineDraftBadge')}
+                    </Text>
+                  </View>
                 </View>
               )}
             </View>
@@ -182,7 +228,10 @@ export const CollectorLotDetailScreen: React.FC<CollectorLotDetailScreenProps> =
           {/* Photo Gallery */}
           {lot.photos && lot.photos.length > 0 && (
             <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>📸 {t('materialLots.photos')} ({lot.photos.length})</Text>
+              <View style={[styles.rowCentered, { marginBottom: space.sm }]}>
+                <AppIcon name="camera" size={16} color="#FFFFFF" />
+                <Text style={styles.sectionTitle}>{t('materialLots.photos')} ({lot.photos.length})</Text>
+              </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoGallery}>
                 {lot.photos.map((p, idx) => (
                   <Image key={idx} source={{ uri: p.photoUrl }} style={styles.galleryImage} />
@@ -193,7 +242,10 @@ export const CollectorLotDetailScreen: React.FC<CollectorLotDetailScreenProps> =
 
           {/* Core Specifications Card */}
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>📋 {t('materialLots.specifications')}</Text>
+            <View style={[styles.rowCentered, { marginBottom: space.sm }]}>
+              <AppIcon name="fileText" size={16} color="#FFFFFF" />
+              <Text style={styles.sectionTitle}>{t('materialLots.specifications')}</Text>
+            </View>
 
             <View style={styles.specRow}>
               <Text style={styles.specLabel}>{t('materialLots.approximateWeight')}</Text>
@@ -204,9 +256,12 @@ export const CollectorLotDetailScreen: React.FC<CollectorLotDetailScreenProps> =
 
             <View style={styles.specRow}>
               <Text style={styles.specLabel}>{t('materialLots.category')}</Text>
-              <Text style={styles.specValue}>
-                {categoryDef.symbol} {t(categoryDef.i18nKey) || categoryDef.defaultName}
-              </Text>
+              <View style={styles.rowCentered}>
+                <AppIcon name={getCategoryIcon(lot.category)} size={14} color="#94A3B8" />
+                <Text style={styles.specValue}>
+                  {t(categoryDef.i18nKey) || categoryDef.defaultName}
+                </Text>
+              </View>
             </View>
 
             {lot.subcategory ? (
@@ -239,14 +294,20 @@ export const CollectorLotDetailScreen: React.FC<CollectorLotDetailScreenProps> =
           {/* Description */}
           {lot.description ? (
             <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>📝 {t('materialLots.description')}</Text>
+              <View style={[styles.rowCentered, { marginBottom: space.sm }]}>
+                <AppIcon name="fileText" size={16} color="#FFFFFF" />
+                <Text style={styles.sectionTitle}>{t('materialLots.description')}</Text>
+              </View>
               <Text style={styles.descriptionText}>{lot.description}</Text>
             </View>
           ) : null}
 
           {/* GPS Location Card */}
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>📍 {t('materialLots.locationEvidence')}</Text>
+            <View style={[styles.rowCentered, { marginBottom: space.sm }]}>
+              <AppIcon name="mapPin" size={16} color="#FFFFFF" />
+              <Text style={styles.sectionTitle}>{t('materialLots.locationEvidence')}</Text>
+            </View>
             {(lot.collectionLatitude || lot.collectionLat) && (lot.collectionLongitude || lot.collectionLng) ? (
               <View style={styles.gpsContainer}>
                 <Text style={styles.gpsCoordsText}>
@@ -273,9 +334,12 @@ export const CollectorLotDetailScreen: React.FC<CollectorLotDetailScreenProps> =
             accessibilityRole="button"
             accessibilityLabel={t('recyclerMatching.findRecycler')}
           >
-            <Text style={styles.findRecyclerButtonText}>
-              🔍 {t('recyclerMatching.findRecycler')}
-            </Text>
+            <View style={styles.btnRow}>
+              <AppIcon name="search" size={18} color={colors.primary || '#14B8A6'} />
+              <Text style={styles.findRecyclerButtonText}>
+                {t('recyclerMatching.findRecycler')}
+              </Text>
+            </View>
           </TouchableOpacity>
 
           {/* SIH-QUOTE-001..006: View Quotes Action */}
@@ -286,9 +350,12 @@ export const CollectorLotDetailScreen: React.FC<CollectorLotDetailScreenProps> =
             accessibilityRole="button"
             accessibilityLabel={t('quotation.quotes')}
           >
-            <Text style={styles.viewQuotesButtonText}>
-              📨 {t('quotation.quotes')}
-            </Text>
+            <View style={styles.btnRow}>
+              <AppIcon name="mail" size={18} color="#34D399" />
+              <Text style={styles.viewQuotesButtonText}>
+                {t('quotation.quotes')}
+              </Text>
+            </View>
           </TouchableOpacity>
 
           {/* SIH-HAND-001..007: Handover Action */}
@@ -300,9 +367,12 @@ export const CollectorLotDetailScreen: React.FC<CollectorLotDetailScreenProps> =
               accessibilityRole="button"
               accessibilityLabel={t('handover.digitalHandover')}
             >
-              <Text style={styles.handoverActionButtonText}>
-                🤝 {t('handover.digitalHandover')}
-              </Text>
+              <View style={styles.btnRow}>
+                <AppIcon name="users" size={18} color="#A7F3D0" />
+                <Text style={styles.handoverActionButtonText}>
+                  {t('handover.digitalHandover')}
+                </Text>
+              </View>
             </TouchableOpacity>
           )}
 
@@ -321,9 +391,12 @@ export const CollectorLotDetailScreen: React.FC<CollectorLotDetailScreenProps> =
                 accessibilityRole="button"
                 accessibilityLabel={`Safety Guidance for ${lot.category}`}
               >
-                <Text style={styles.safetyGuidanceButtonText}>
-                  🛡️ {safetyTopic.icon} {t(safetyTopic.titleKey as any) || safetyTopic.category} Guide
-                </Text>
+                <View style={styles.btnRow}>
+                  <AppIcon name={getSafetyIcon(safetyTopic.id)} size={18} color="#38bdf8" />
+                  <Text style={styles.safetyGuidanceButtonText}>
+                    {t(safetyTopic.titleKey as any) || safetyTopic.category} Guide
+                  </Text>
+                </View>
               </TouchableOpacity>
             );
           })()}
@@ -336,9 +409,12 @@ export const CollectorLotDetailScreen: React.FC<CollectorLotDetailScreenProps> =
             accessibilityRole="button"
             accessibilityLabel={t('lotTrace.viewJourney')}
           >
-            <Text style={styles.traceLotButtonText}>
-              🔍 {t('lotTrace.viewJourney')}
-            </Text>
+            <View style={styles.btnRow}>
+              <AppIcon name="search" size={18} color="#7DD3FC" />
+              <Text style={styles.traceLotButtonText}>
+                {t('lotTrace.viewJourney')}
+              </Text>
+            </View>
           </TouchableOpacity>
 
           {/* Phase 6: Sell Again for Completed Lot */}
@@ -359,9 +435,12 @@ export const CollectorLotDetailScreen: React.FC<CollectorLotDetailScreenProps> =
               }}
               activeOpacity={0.8}
             >
-              <Text style={styles.sellAgainButtonText}>
-                🔁 {t('sourcing.sellAgain', 'Sell Again')}
-              </Text>
+              <View style={styles.btnRow}>
+                <AppIcon name="refresh" size={18} color="#34D399" />
+                <Text style={styles.sellAgainButtonText}>
+                  {t('sourcing.sellAgain', 'Sell Again')}
+                </Text>
+              </View>
             </TouchableOpacity>
           )}
 
@@ -378,9 +457,12 @@ export const CollectorLotDetailScreen: React.FC<CollectorLotDetailScreenProps> =
               {isSubmitting ? (
                 <ActivityIndicator color="#071E22" />
               ) : (
-                <Text style={styles.submitDraftButtonText}>
-                  🚀 {t('materialLots.submitLot')}
-                </Text>
+                <View style={styles.btnRow}>
+                  <AppIcon name="send" size={18} color="#071E22" />
+                  <Text style={styles.submitDraftButtonText}>
+                    {t('materialLots.submitLot')}
+                  </Text>
+                </View>
               )}
             </TouchableOpacity>
           )}
@@ -392,9 +474,12 @@ export const CollectorLotDetailScreen: React.FC<CollectorLotDetailScreenProps> =
               onPress={() => setProblemModalVisible(true)}
               activeOpacity={0.8}
             >
-              <Text style={styles.reportProblemButtonText}>
-                🚨 {t('disputes.reportProblem', 'Report a Problem')}
-              </Text>
+              <View style={styles.btnRow}>
+                <AppIcon name="alertTriangle" size={18} color="#EF4444" />
+                <Text style={styles.reportProblemButtonText}>
+                  {t('disputes.reportProblem', 'Report a Problem')}
+                </Text>
+              </View>
             </TouchableOpacity>
           )}
 
@@ -719,6 +804,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.5,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  rowCentered: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
 });
 

@@ -19,6 +19,8 @@ import {
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 
+import { AppIcon } from '../ui/AppIcon';
+
 export interface GlassModalProps {
   visible: boolean;
   onClose: () => void;
@@ -59,7 +61,7 @@ export const GlassModal: React.FC<GlassModalProps> = ({
                       accessibilityLabel="Close dialog"
                       hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
-                      <Text style={styles.closeIcon}>✕</Text>
+                      <AppIcon name="close" size={18} color={colors.textSecondary} />
                     </TouchableOpacity>
                   </View>
                 )}

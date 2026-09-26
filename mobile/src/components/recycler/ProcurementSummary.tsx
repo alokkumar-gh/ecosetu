@@ -7,12 +7,13 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { AppIcon, AppIconName } from '../ui/AppIcon';
 
 interface ProcurementCounter {
   id: string;
   count: number;
   label: string;
-  icon: string;
+  icon?: AppIconName | string;
   color: string;
   onPress: () => void;
 }
@@ -21,6 +22,23 @@ interface ProcurementSummaryProps {
   counters: ProcurementCounter[];
   todayDate?: string;
 }
+
+const resolveIcon = (icon?: string): AppIconName => {
+  switch (icon) {
+    case '\u{1F4E6}':
+    case 'package':
+    case 'box':
+      return 'package';
+    case '\u{1F4CB}':
+    case 'clipboard':
+      return 'clipboard';
+    case '\u{1F69A}':
+    case 'truck':
+      return 'truck';
+    default:
+      return (icon as AppIconName) || 'package';
+  }
+};
 
 export const ProcurementSummary: React.FC<ProcurementSummaryProps> = ({
   counters,
@@ -47,7 +65,7 @@ export const ProcurementSummary: React.FC<ProcurementSummaryProps> = ({
             accessibilityLabel={`${c.count} ${c.label}`}
           >
             <View style={styles.counterTop}>
-              <Text style={styles.counterIcon}>{c.icon}</Text>
+              <AppIcon name={resolveIcon(c.icon)} size={18} color={c.color} />
               <Text style={[styles.counterNum, { color: c.color }]}>{c.count}</Text>
             </View>
             <Text style={styles.counterLabel} numberOfLines={2}>{c.label}</Text>

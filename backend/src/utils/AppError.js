@@ -56,6 +56,10 @@ class AppError extends Error {
   static serviceUnavailable(message = 'AI service is currently unavailable. Please select category manually.') {
     return new AppError(message, 503, ERROR_CODES.SERVICE_UNAVAILABLE);
   }
+
+  static timeoutError(message = 'Request timed out') {
+    return new AppError(message, 504, 'TIMEOUT_ERROR');
+  }
 }
 
 module.exports = AppError;

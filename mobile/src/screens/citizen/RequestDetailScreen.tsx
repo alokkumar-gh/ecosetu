@@ -27,6 +27,7 @@ import { REQUEST_STATUS } from '../../utils/constants';
 import { EcoSetuBackground } from '../../components/eco';
 import { AuthorizedImage } from '../../components/common/AuthorizedImage';
 import { colors } from '../../theme/colors';
+import { AppIcon, IconName } from '../../components/ui/AppIcon';
 
 type Props = NativeStackScreenProps<CitizenStackParamList, 'RequestDetail'>;
 
@@ -45,28 +46,28 @@ const STATUS_ORDER: Record<string, number> = {
   [REQUEST_STATUS.PICKED_UP]: 4,
 };
 
-const TIMELINE_STEPS = [
+const TIMELINE_STEPS: Array<{ id: string; icon: IconName; label: string; next: string }> = [
   {
     id: 'SUBMITTED',
-    icon: '📤',
+    icon: 'upload',
     label: 'Request Sent',
     next: 'Your request is being broadcast to nearby collectors.',
   },
   {
     id: 'ACCEPTED',
-    icon: '🤝',
+    icon: 'handshake',
     label: 'Collector Assigned',
     next: 'A local collector (Kabadiwala) will contact you to schedule pickup.',
   },
   {
     id: 'PICKUP_SCHEDULED',
-    icon: '📅',
+    icon: 'calendar',
     label: 'Pickup Scheduled',
     next: 'The collector will arrive at your address on the scheduled date.',
   },
   {
     id: 'PICKED_UP',
-    icon: '✅',
+    icon: 'checkCircle',
     label: 'Items Collected',
     next: 'Your e-waste has been responsibly handed over for recycling.',
   },
@@ -89,7 +90,7 @@ function getStatusBadgeMeta(status: string, t: any) {
     case REQUEST_STATUS.SUBMITTED:       return { label: t('status.awaitingCollector', 'Awaiting Collector'), color: '#60A5FA', bg: 'rgba(59,130,246,0.15)' };
     case REQUEST_STATUS.ACCEPTED:        return { label: t('status.collectorAssigned', 'Collector Assigned'), color: '#10B981', bg: 'rgba(16,185,129,0.15)' };
     case REQUEST_STATUS.PICKUP_SCHEDULED:return { label: t('status.pickupScheduled', 'Pickup Scheduled'),   color: '#34D399', bg: 'rgba(52,211,153,0.15)' };
-    case REQUEST_STATUS.PICKED_UP:       return { label: t('status.collected', 'Collected ✓'),        color: '#10B981', bg: 'rgba(16,185,129,0.18)' };
+    case REQUEST_STATUS.PICKED_UP:       return { label: t('status.collected', 'Collected'),        color: '#10B981', bg: 'rgba(16,185,129,0.18)' };
     case REQUEST_STATUS.CANCELLED:       return { label: t('status.cancelled', 'Cancelled'),           color: '#F87171', bg: 'rgba(239,68,68,0.15)' };
     case REQUEST_STATUS.EXPIRED:         return { label: t('status.expired', 'Expired'),             color: '#FBBF24', bg: 'rgba(245,158,11,0.15)' };
     default:                             return { label: status,               color: '#94A3B8', bg: 'rgba(148,163,184,0.15)' };
@@ -174,28 +175,28 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
 
-  const timelineSteps = [
+  const timelineSteps: Array<{ id: string; icon: IconName; label: string; next: string }> = [
     {
       id: 'SUBMITTED',
-      icon: '📤',
+      icon: 'upload',
       label: t('status.requestSent', 'Request Sent'),
       next: t('status.requestSentNext', 'Your request is being broadcast to nearby collectors.'),
     },
     {
       id: 'ACCEPTED',
-      icon: '🤝',
+      icon: 'handshake',
       label: t('status.collectorAssigned', 'Collector Assigned'),
       next: t('status.collectorAssignedNext', 'A local collector (Kabadiwala) will contact you to schedule pickup.'),
     },
     {
       id: 'PICKUP_SCHEDULED',
-      icon: '📅',
+      icon: 'calendar',
       label: t('status.pickupScheduled', 'Pickup Scheduled'),
       next: t('status.pickupScheduledNext', 'The collector will arrive at your address on the scheduled date.'),
     },
     {
       id: 'PICKED_UP',
-      icon: '✅',
+      icon: 'checkCircle',
       label: t('status.itemsCollected', 'Items Collected'),
       next: t('status.itemsCollectedNext', 'Your e-waste has been responsibly handed over for recycling.'),
     },
@@ -299,7 +300,7 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           <Text style={styles.backIcon}>← Back</Text>
         </TouchableOpacity>
         <View style={styles.errorBox}>
-          <Text style={styles.errorIcon}>⚠️</Text>
+          <AppIcon name="alert" size={32} color="#EF4444" style={{ marginBottom: 12 }} />
           <Text style={styles.errorTitle}>Couldn't Load Request</Text>
           <Text style={styles.errorMessage}>{errorMessage}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={() => { setIsLoading(true); loadRequest(); }}>
@@ -368,7 +369,7 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
         {status === REQUEST_STATUS.PICKED_UP && (
           <View style={styles.successCard}>
-            <Text style={styles.successIcon}>🎉</Text>
+            <AppIcon name="checkCircle" size={24} color="#10B981" style={{ marginRight: 10 }} />
             <Text style={styles.successText}>
               {t('common.collectedSuccessMsg', 'Your e-waste has been collected and handed to a verified recycler. Thank you for recycling responsibly!')}
             </Text>
@@ -396,7 +397,7 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                       isCancelledState && styles.timelineNodeCancelled,
                     ]}>
                       {state === 'done'
-                        ? <Text style={styles.timelineCheck}>✓</Text>
+                        ? <AppIcon name="check" size={10} color="#FFF" />
                         : state === 'current'
                           ? <View style={styles.timelinePulse} />
                           : <Text style={styles.timelineNum}>{i + 1}</Text>}
@@ -411,7 +412,13 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
                   {/* Content */}
                   <View style={[styles.timelineContent, { marginBottom: i < timelineSteps.length - 1 ? 0 : 4 }]}>
-                    <Text style={styles.timelineIcon}>{stepItem.icon}</Text>
+                    <View style={{ width: 26, alignItems: 'center' }}>
+                      <AppIcon
+                        name={stepItem.icon}
+                        size={18}
+                        color={state === 'done' ? '#10B981' : state === 'current' ? '#38BDF8' : '#94A3B8'}
+                      />
+                    </View>
                     <View style={styles.timelineTextBlock}>
                       <Text style={[
                         styles.timelineLabel,
@@ -433,7 +440,12 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             {/* Cancelled / expired terminal */}
             {(status === REQUEST_STATUS.CANCELLED || status === REQUEST_STATUS.EXPIRED) && (
               <View style={styles.cancelledBanner}>
-                <Text style={styles.cancelledIcon}>{status === REQUEST_STATUS.CANCELLED ? '✕' : '⏰'}</Text>
+                <AppIcon
+                  name={status === REQUEST_STATUS.CANCELLED ? 'close' : 'clock'}
+                  size={18}
+                  color="#F87171"
+                  style={{ marginRight: 8 }}
+                />
                 <Text style={styles.cancelledText}>
                   {status === REQUEST_STATUS.CANCELLED
                     ? t('status.cancelledMsg', 'Request cancelled.')
@@ -482,7 +494,7 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t('location.pickupLocation', 'Collection Address')}</Text>
             <View style={styles.addressCard}>
-              <Text style={styles.addressIcon}>📍</Text>
+              <AppIcon name="location" size={18} color="#10B981" style={{ marginRight: 8 }} />
               <Text style={styles.addressText}>{request.pickupAddress}</Text>
             </View>
           </View>

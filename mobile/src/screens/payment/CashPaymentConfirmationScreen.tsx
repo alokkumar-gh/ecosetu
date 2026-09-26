@@ -27,6 +27,7 @@ import paymentService, { type CashPaymentConfirmation } from '../../services/pay
 import transactionService, { type TransactionRecord } from '../../services/transactionService';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { colors } from '../../theme/colors';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 // ─── Party Status Bubble ──────────────────────────────────────────────────────
 
@@ -48,7 +49,7 @@ const PartyBubble = ({
   <View style={[styles.partyBubble, isUser && styles.partyBubbleUser]}>
     <View style={styles.partyLeft}>
       <View style={[styles.partyIconBox, isUser && styles.partyIconBoxUser]}>
-        <Text style={styles.partyIcon}>{isUser ? '👤' : '🤝'}</Text>
+        <AppIcon name={isUser ? 'user' : 'users'} size={18} color={isUser ? '#10B981' : '#3B82F6'} />
       </View>
       <View style={styles.partyTextGroup}>
         <Text style={styles.partyRole}>{role}</Text>
@@ -57,9 +58,12 @@ const PartyBubble = ({
       </View>
     </View>
     <View style={[styles.confirmBadge, confirmed ? styles.confirmBadgeDone : styles.confirmBadgePending]}>
-      <Text style={[styles.confirmBadgeText, confirmed ? styles.confirmBadgeTextDone : styles.confirmBadgeTextPending]}>
-        {confirmed ? t('payment.confirmed', '✓ Confirmed') : t('payment.waiting', 'Waiting…')}
-      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        {confirmed && <AppIcon name="check" size={11} color="#10B981" />}
+        <Text style={[styles.confirmBadgeText, confirmed ? styles.confirmBadgeTextDone : styles.confirmBadgeTextPending]}>
+          {confirmed ? t('payment.confirmed', 'Confirmed') : t('payment.waiting', 'Waiting…')}
+        </Text>
+      </View>
     </View>
   </View>
 );
@@ -228,7 +232,7 @@ export const CashPaymentConfirmationScreen: React.FC = () => {
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}
             accessibilityRole="button" accessibilityLabel={t('common.back', 'Go back')}>
-            <Text style={styles.backBtnText}>←</Text>
+            <AppIcon name="arrowLeft" size={20} color={C.text} />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>{t('payment.cashConfirmation', 'Cash Confirmation')}</Text>
@@ -245,7 +249,7 @@ export const CashPaymentConfirmationScreen: React.FC = () => {
 
           {/* ── Amount Card ── */}
           <View style={styles.amountCard}>
-            <Text style={styles.amountEmoji}>💵</Text>
+            <AppIcon name="wallet" size={38} color={C.green} />
             <Text style={styles.amountLabel}>{t('payment.expectedCashAmount', 'Expected Cash Amount')}</Text>
             <Text style={styles.amountValue}>₹{expected.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
             <Text style={styles.amountNote}>{t('payment.authoritativeSettlement', 'Authoritative settlement amount')}</Text>
@@ -276,7 +280,10 @@ export const CashPaymentConfirmationScreen: React.FC = () => {
           {/* ── State-conditional UI ── */}
           {isFullyConfirmed ? (
             <View style={styles.successCard}>
-              <Text style={styles.successTitle}>✅ {t('payment.paymentConfirmed', 'Payment Confirmed!')}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <AppIcon name="checkCircle" size={20} color="#10B981" />
+                <Text style={styles.successTitle}>{t('payment.paymentConfirmed', 'Payment Confirmed!')}</Text>
+              </View>
               <Text style={styles.successMessage}>
                 {t('payment.bothPartiesConfirmed', { amount: expected.toFixed(2) }, `Both parties confirmed ₹${expected.toFixed(2)}. Your official bill is ready.`)}
               </Text>
@@ -285,13 +292,19 @@ export const CashPaymentConfirmationScreen: React.FC = () => {
                 onPress={() => navigation.navigate(getBillDetailRoute(), { transactionId: confirmation.transactionId })}
                 activeOpacity={0.82}
               >
-                <Text style={styles.primaryBtnText}>🧾 {t('payment.viewOfficialBill', 'View Official Bill')}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <AppIcon name="fileText" size={16} color="#071E22" />
+                  <Text style={styles.primaryBtnText}>{t('payment.viewOfficialBill', 'View Official Bill')}</Text>
+                </View>
               </TouchableOpacity>
             </View>
 
           ) : isDisputed ? (
             <View style={styles.disputeCard}>
-              <Text style={styles.disputeTitle}>⚠️ {t('payment.amountDispute', 'Amount Dispute')}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <AppIcon name="alert" size={20} color="#F87171" />
+                <Text style={styles.disputeTitle}>{t('payment.amountDispute', 'Amount Dispute')}</Text>
+              </View>
               <Text style={styles.disputeMessage}>
                 {t('payment.discrepancyDetected', { amount: Number(confirmation.discrepancyAmount || 0).toFixed(2) }, `Discrepancy of ₹${Number(confirmation.discrepancyAmount || 0).toFixed(2)} detected. Payment is paused pending EcoSetu admin resolution.`)}
               </Text>
@@ -299,7 +312,10 @@ export const CashPaymentConfirmationScreen: React.FC = () => {
 
           ) : userHasConfirmed ? (
             <View style={styles.waitingCard}>
-              <Text style={styles.waitingTitle}>⏳ {t('payment.waitingOtherParty', 'Waiting for Other Party')}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <AppIcon name="clock" size={20} color="#FBBF24" />
+                <Text style={styles.waitingTitle}>{t('payment.waitingOtherParty', 'Waiting for Other Party')}</Text>
+              </View>
               <Text style={styles.waitingMessage}>
                 {t('payment.confirmationRecordedWait', 'Your confirmation is recorded. The settlement will finalize once the other party confirms.')}
               </Text>
@@ -316,9 +332,14 @@ export const CashPaymentConfirmationScreen: React.FC = () => {
               >
                 {submitting
                   ? <ActivityIndicator color="#071E22" />
-                  : <Text style={styles.primaryBtnText}>
-                      {isPayer ? `💵 ${t('payment.iHandedCash', 'I Handed Over Cash')}` : `💵 ${t('payment.iReceivedCashBtn', 'I Received Cash')}`}
-                    </Text>}
+                  : (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                      <AppIcon name="wallet" size={16} color="#071E22" />
+                      <Text style={styles.primaryBtnText}>
+                        {isPayer ? t('payment.iHandedCash', 'I Handed Over Cash') : t('payment.iReceivedCashBtn', 'I Received Cash')}
+                      </Text>
+                    </View>
+                  )}
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -326,7 +347,10 @@ export const CashPaymentConfirmationScreen: React.FC = () => {
                 onPress={() => setShowDiscrepancy(!showDiscrepancy)}
                 activeOpacity={0.75}
               >
-                <Text style={styles.discrepancyToggleText}>⚠️ {t('payment.amountDiffersDispute', 'Amount differs — Report discrepancy')}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  <AppIcon name="alert" size={14} color="#F87171" />
+                  <Text style={styles.discrepancyToggleText}>{t('payment.amountDiffersDispute', 'Amount differs — Report discrepancy')}</Text>
+                </View>
               </TouchableOpacity>
             </View>
           )}

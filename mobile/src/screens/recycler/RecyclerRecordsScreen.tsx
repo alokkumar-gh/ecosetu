@@ -29,6 +29,7 @@ import { GradientBackground } from '../../components/glass/GradientBackground';
 import { GlassCard } from '../../components/glass/GlassCard';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 const FILTER_STATUSES = [
   { key: 'ALL', label: 'All' },
@@ -226,7 +227,9 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
       <GradientBackground>
         <TopAppBar title="Recycling Records" />
         <View style={styles.accessRestrictedContainer}>
-          <Text style={styles.accessRestrictedIcon}>🔒</Text>
+          <View style={styles.accessRestrictedIconWrapper}>
+            <AppIcon name="lock" size={40} color={colors.warning} />
+          </View>
           <Text style={styles.accessRestrictedTitle}>Access Restricted</Text>
           <Text style={styles.accessRestrictedMessage}>
             Only authorized formal recycling facilities can inspect or process recycling records.
@@ -346,7 +349,10 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
                   setShowStartModal(true);
                 }}
               >
-                <Text style={styles.actionBtnText}>Start Processing ⚙️</Text>
+                <View style={styles.btnRow}>
+                  <AppIcon name="settings" size={14} color="#FFFFFF" />
+                  <Text style={styles.actionBtnText}>Start Processing</Text>
+                </View>
               </TouchableOpacity>
             )}
 
@@ -360,13 +366,17 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
                   setShowCompleteModal(true);
                 }}
               >
-                <Text style={styles.actionBtnText}>Complete Recycling ✅</Text>
+                <View style={styles.btnRow}>
+                  <AppIcon name="check" size={14} color="#FFFFFF" strokeWidth={2.5} />
+                  <Text style={styles.actionBtnText}>Complete Recycling</Text>
+                </View>
               </TouchableOpacity>
             )}
 
             {item.status === 'COMPLETED' && (
               <View style={styles.completedTag}>
-                <Text style={styles.completedTagText}>✓ Formally Recycled</Text>
+                <AppIcon name="check" size={12} color="#34D399" strokeWidth={2.5} style={{ marginRight: 4 }} />
+                <Text style={styles.completedTagText}>Formally Recycled</Text>
               </View>
             )}
 
@@ -448,7 +458,7 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       ) : error ? (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorIcon}>⚠️</Text>
+          <AppIcon name="alertTriangle" size={40} color={colors.error} style={{ marginBottom: 12 }} />
           <Text style={styles.errorTitle}>Unable to Load Records</Text>
           <Text style={styles.errorMessage}>{error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={() => loadRecords(false)}>
@@ -581,8 +591,9 @@ export const RecyclerRecordsScreen: React.FC<Props> = ({ navigation }) => {
             />
 
             <View style={styles.modalWarningBox}>
+              <AppIcon name="alertTriangle" size={16} color="#FBBF24" style={{ marginRight: 6, marginTop: 2 }} />
               <Text style={styles.modalWarningText}>
-                ⚠️ Completing recycling will atomically mark all linked e-waste items as RECYCLED and send a formal completion notification.
+                Completing recycling will atomically mark all linked e-waste items as RECYCLED and send a formal completion notification.
               </Text>
             </View>
 
@@ -949,6 +960,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   modalWarningBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     backgroundColor: 'rgba(245, 158, 11, 0.12)',
     padding: spacing.spaceSm,
     borderRadius: 8,
@@ -960,6 +973,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#FCD34D',
     lineHeight: 15,
+    flex: 1,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
   accessRestrictedContainer: {
     flex: 1,
@@ -967,8 +987,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.spaceXl,
   },
-  accessRestrictedIcon: {
-    fontSize: 48,
+  accessRestrictedIconWrapper: {
     marginBottom: spacing.spaceMd,
   },
   accessRestrictedTitle: {

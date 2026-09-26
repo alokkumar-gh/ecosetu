@@ -9,6 +9,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import { AppIcon } from '../../../ui/AppIcon';
 
 interface Props {
   active: boolean;
@@ -126,7 +127,7 @@ export const GraphicSmartCollection: React.FC<Props> = ({ active }) => {
         {/* Screen content area */}
         <View style={styles.phoneScreen}>
           {/* The item being scanned */}
-          <Text style={styles.scannedItem}>💻</Text>
+          <AppIcon name="laptop" size={32} color="#06B6D4" />
 
           {/* Scanning line */}
           <Animated.View
@@ -194,7 +195,7 @@ export const GraphicSmartCollection: React.FC<Props> = ({ active }) => {
           },
         ]}
       >
-        <Text style={styles.matchIcon}>🚛</Text>
+        <AppIcon name="truck" size={18} color="#34D399" />
         <View>
           <Text style={styles.matchTitle}>Match Found!</Text>
           <Text style={styles.matchSub}>Collector · 1.2km away</Text>

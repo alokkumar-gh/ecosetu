@@ -12,6 +12,8 @@ import { MarketplaceDisputeEvent } from '../../services/disputeService';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 
+import { AppIcon, IconName } from '../ui/AppIcon';
+
 interface Props {
   events?: MarketplaceDisputeEvent[];
 }
@@ -62,7 +64,10 @@ export const DisputeTimeline: React.FC<Props> = ({ events }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>📜 Dispute & Resolution Timeline</Text>
+      <View style={styles.titleRow}>
+        <AppIcon name="history" size={16} color={colors.primaryLight || '#10B981'} />
+        <Text style={styles.title}>Dispute & Resolution Timeline</Text>
+      </View>
       <View style={styles.timelineList}>
         {events.map((event, index) => {
           const isCollector = event.actorRole === 'INFORMAL_COLLECTOR';
@@ -70,6 +75,7 @@ export const DisputeTimeline: React.FC<Props> = ({ events }) => {
           const isAdmin = event.actorRole === 'ADMIN';
           const isResolved = ['DISPUTE_RESOLVED', 'WEIGHT_ACCEPTED', 'RETURN_COMPLETED', 'PARTIAL_ACCEPTANCE_ACCEPTED'].includes(event.eventType);
           const isCancelled = ['DISPUTE_CANCELLED', 'DEAL_CANCELLED'].includes(event.eventType);
+          const actorIconName: IconName = isCollector ? 'truck' : isRecycler ? 'warehouse' : isAdmin ? 'shield' : 'settings';
 
           return (
             <React.Fragment key={event.id || String(index)}>
@@ -92,9 +98,11 @@ export const DisputeTimeline: React.FC<Props> = ({ events }) => {
               >
                 <View style={styles.eventHeader}>
                   <View style={styles.actorBadge}>
-                    <Text style={styles.actorIcon}>
-                      {isCollector ? '👤' : isRecycler ? '🏭' : isAdmin ? '🛡️' : '⚙️'}
-                    </Text>
+                    <AppIcon
+                      name={actorIconName}
+                      size={13}
+                      color={isCollector ? colors.primary : isRecycler ? '#60A5FA' : isAdmin ? '#F59E0B' : colors.textSecondary}
+                    />
                     <Text style={styles.actorName}>
                       {isCollector ? 'Collector' : isRecycler ? 'Recycler' : isAdmin ? 'Admin' : 'System'}
                     </Text>
@@ -168,11 +176,16 @@ const styles = StyleSheet.create({
   container: {
     marginVertical: space.md,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: space.sm,
+  },
   title: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: space.sm,
   },
   timelineList: {
     flexDirection: 'column',

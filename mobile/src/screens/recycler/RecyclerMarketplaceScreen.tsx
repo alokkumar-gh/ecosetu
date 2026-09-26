@@ -31,6 +31,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import apiClient from '../../services/apiClient';
 import networkService from '../../services/networkService';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 const space = {
   xs: spacing.spaceXs,
@@ -42,13 +43,13 @@ const space = {
 
 const CATEGORIES = [
   { key: 'ALL', label: 'All' },
-  { key: 'BATTERY', label: '🔋 Battery' },
-  { key: 'PCB', label: '📟 PCB' },
-  { key: 'DISPLAY', label: '🖥️ Display' },
-  { key: 'WIRE_CABLE', label: '🔌 Cables' },
-  { key: 'BULK_APPLIANCE', label: '📦 Appliance' },
-  { key: 'IT_EQUIPMENT', label: '💻 IT Gear' },
-  { key: 'MIXED_METALS', label: '🔩 Metals' },
+  { key: 'BATTERY', label: 'Battery' },
+  { key: 'PCB', label: 'PCB' },
+  { key: 'DISPLAY', label: 'Display' },
+  { key: 'WIRE_CABLE', label: 'Cables' },
+  { key: 'BULK_APPLIANCE', label: 'Appliance' },
+  { key: 'IT_EQUIPMENT', label: 'IT Gear' },
+  { key: 'MIXED_METALS', label: 'Metals' },
 ];
 
 const CONDITIONS = [
@@ -60,9 +61,9 @@ const CONDITIONS = [
 ];
 
 const SORT_OPTIONS = [
-  { key: 'NEWEST', label: '⏱ Newest' },
-  { key: 'WEIGHT_HIGH', label: '⚖️ Weight (High-Low)' },
-  { key: 'WEIGHT_LOW', label: '⚖️ Weight (Low-High)' },
+  { key: 'NEWEST', label: 'Newest' },
+  { key: 'WEIGHT_HIGH', label: 'Weight (High-Low)' },
+  { key: 'WEIGHT_LOW', label: 'Weight (Low-High)' },
 ];
 
 export const RecyclerMarketplaceScreen: React.FC = () => {
@@ -181,7 +182,10 @@ export const RecyclerMarketplaceScreen: React.FC = () => {
             onPress={() => inspectMarketStats(selectedCategory)}
             accessibilityRole="button"
           >
-            <Text style={styles.insightsButtonText}>📊 Insights</Text>
+            <View style={styles.btnRow}>
+              <AppIcon name="barChart" size={14} color="#10B981" />
+              <Text style={styles.insightsButtonText}>Insights</Text>
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -219,7 +223,7 @@ export const RecyclerMarketplaceScreen: React.FC = () => {
           activeOpacity={0.8}
         >
           <View style={styles.sourcingBannerContent}>
-            <Text style={styles.sourcingBannerIcon}>📢</Text>
+            <AppIcon name="radio" size={20} color="#34D399" />
             <View style={{ flex: 1 }}>
               <Text style={styles.sourcingBannerTitle}>Need Specific Material? Post Sourcing Request</Text>
               <Text style={styles.sourcingBannerSubtitle}>Publish demand so eligible collectors can respond</Text>
@@ -231,7 +235,7 @@ export const RecyclerMarketplaceScreen: React.FC = () => {
         {/* Search Bar */}
         <View style={styles.searchSection}>
           <View style={styles.searchBarContainer}>
-            <Text style={styles.searchIcon}>🔍</Text>
+            <AppIcon name="search" size={16} color="#64748B" style={{ marginRight: space.xs }} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search material, subcategory, area..."
@@ -249,7 +253,7 @@ export const RecyclerMarketplaceScreen: React.FC = () => {
                 }}
                 style={styles.clearSearchBtn}
               >
-                <Text style={styles.clearSearchText}>✕</Text>
+                <AppIcon name="x" size={14} color="#64748B" />
               </TouchableOpacity>
             ) : null}
           </View>
@@ -352,7 +356,7 @@ export const RecyclerMarketplaceScreen: React.FC = () => {
           {/* Empty State - Honest, no fake listings */}
           {!loading && !error && lots.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyIcon}>📦</Text>
+              <AppIcon name="package" size={40} color="#64748B" style={{ marginBottom: space.sm }} />
               <Text style={styles.emptyTitle}>
                 No material lots currently available.
               </Text>
@@ -370,7 +374,10 @@ export const RecyclerMarketplaceScreen: React.FC = () => {
                     setSelectedSort('NEWEST');
                   }}
                 >
-                  <Text style={styles.clearFilterButtonText}>🔄 {t('recycler.marketplace.resetFilters') || 'Reset Filters'}</Text>
+                  <View style={styles.btnRow}>
+                    <AppIcon name="refresh" size={14} color="#10B981" />
+                    <Text style={styles.clearFilterButtonText}>{t('recycler.marketplace.resetFilters') || 'Reset Filters'}</Text>
+                  </View>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -390,11 +397,13 @@ export const RecyclerMarketplaceScreen: React.FC = () => {
                 {/* Header: Material Category & Number of Offers */}
                 <View style={styles.lotHeader}>
                   <View style={styles.categoryBadge}>
-                    <Text style={styles.categoryBadgeText}>📦 {lot.category}</Text>
+                    <AppIcon name="package" size={12} color="#34D399" style={{ marginRight: 4 }} />
+                    <Text style={styles.categoryBadgeText}>{lot.category}</Text>
                   </View>
                   <View style={[styles.offerBadge, offerCount > 0 ? styles.offerBadgeActive : null]}>
+                    <AppIcon name="messageSquare" size={11} color={offerCount > 0 ? '#93C5FD' : '#94A3B8'} style={{ marginRight: 4 }} />
                     <Text style={styles.offerBadgeText}>
-                      💬 {offerCount} {offerCount === 1 ? 'offer' : 'offers'}
+                      {offerCount} {offerCount === 1 ? 'offer' : 'offers'}
                     </Text>
                   </View>
                 </View>
@@ -409,20 +418,38 @@ export const RecyclerMarketplaceScreen: React.FC = () => {
                     {lot.subcategory ? (
                       <Text style={styles.lotSubcategory}>Subcategory: {lot.subcategory}</Text>
                     ) : null}
-                    <Text style={styles.lotDetail}>⚖️ Weight: <Text style={styles.boldWhite}>{weight} kg</Text></Text>
-                    <Text style={styles.lotDetail}>🔧 Condition: <Text style={styles.boldWhite}>{lot.condition || 'UNKNOWN'}</Text></Text>
-                    <Text style={styles.lotDetail}>📍 Area: <Text style={styles.boldWhite}>{location}</Text></Text>
-                    <Text style={styles.lotDetail}>🚚 Pickup: <Text style={styles.boldWhite}>Required / In-Person</Text></Text>
-                    <Text style={styles.lotTime}>
-                      🕒 Listed: {new Date(lot.createdAt).toLocaleDateString()}
-                    </Text>
+                    <View style={styles.detailRow}>
+                      <AppIcon name="scale" size={12} color="#94A3B8" />
+                      <Text style={styles.lotDetail}>Weight: <Text style={styles.boldWhite}>{weight} kg</Text></Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <AppIcon name="tool" size={12} color="#94A3B8" />
+                      <Text style={styles.lotDetail}>Condition: <Text style={styles.boldWhite}>{lot.condition || 'UNKNOWN'}</Text></Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <AppIcon name="mapPin" size={12} color="#94A3B8" />
+                      <Text style={styles.lotDetail}>Area: <Text style={styles.boldWhite}>{location}</Text></Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <AppIcon name="truck" size={12} color="#94A3B8" />
+                      <Text style={styles.lotDetail}>Pickup: <Text style={styles.boldWhite}>Required / In-Person</Text></Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <AppIcon name="clock" size={12} color="#64748B" />
+                      <Text style={styles.lotTime}>
+                        Listed: {new Date(lot.createdAt).toLocaleDateString()}
+                      </Text>
+                    </View>
                   </View>
                 </View>
 
                 {lot.description ? (
-                  <Text style={styles.lotDescription} numberOfLines={2}>
-                    📝 {lot.description}
-                  </Text>
+                  <View style={styles.descriptionRow}>
+                    <AppIcon name="fileText" size={12} color="#94A3B8" style={{ marginRight: 4, marginTop: 2 }} />
+                    <Text style={styles.lotDescription} numberOfLines={2}>
+                      {lot.description}
+                    </Text>
+                  </View>
                 ) : null}
 
                 {/* Primary CTA: "View Lot" | Secondary CTA: "Make Offer" */}
@@ -433,7 +460,10 @@ export const RecyclerMarketplaceScreen: React.FC = () => {
                     accessibilityRole="button"
                     accessibilityLabel="View Lot"
                   >
-                    <Text style={styles.viewLotButtonText}>🔍 View Lot</Text>
+                    <View style={styles.btnRow}>
+                      <AppIcon name="search" size={14} color="#10B981" />
+                      <Text style={styles.viewLotButtonText}>View Lot</Text>
+                    </View>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -442,7 +472,10 @@ export const RecyclerMarketplaceScreen: React.FC = () => {
                     accessibilityRole="button"
                     accessibilityLabel="Make Offer"
                   >
-                    <Text style={styles.makeOfferButtonText}>💰 Make Offer</Text>
+                    <View style={styles.btnRow}>
+                      <AppIcon name="dollarSign" size={14} color="#071E22" strokeWidth={2.5} />
+                      <Text style={styles.makeOfferButtonText}>Make Offer</Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -455,9 +488,12 @@ export const RecyclerMarketplaceScreen: React.FC = () => {
           <View style={styles.modalOverlay}>
             <View style={styles.marketModalCard}>
               <View style={styles.modalHeaderRow}>
-                <Text style={styles.marketModalTitle}>📊 MARKET & DEMAND INSIGHTS</Text>
+                <View style={styles.btnRow}>
+                  <AppIcon name="barChart" size={16} color="#FFFFFF" />
+                  <Text style={styles.marketModalTitle}>MARKET & DEMAND INSIGHTS</Text>
+                </View>
                 <TouchableOpacity onPress={() => setShowMarketModal(false)} style={styles.modalCloseBtn}>
-                  <Text style={styles.modalCloseText}>✕</Text>
+                  <AppIcon name="x" size={18} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
 
@@ -945,6 +981,8 @@ const styles = StyleSheet.create({
     marginBottom: space.sm,
   },
   categoryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
@@ -958,6 +996,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   offerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
@@ -999,10 +1039,29 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     marginBottom: 4,
   },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  descriptionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    padding: 8,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
   lotDetail: {
     fontSize: 12,
     color: '#94A3B8',
-    marginBottom: 2,
   },
   boldWhite: {
     color: '#FFFFFF',
@@ -1011,15 +1070,11 @@ const styles = StyleSheet.create({
   lotTime: {
     fontSize: 11,
     color: '#64748B',
-    marginTop: 4,
   },
   lotDescription: {
     fontSize: 12,
     color: '#CBD5E1',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    padding: 8,
-    borderRadius: 8,
-    marginBottom: 10,
+    flex: 1,
   },
   actionRow: {
     flexDirection: 'row',

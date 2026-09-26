@@ -57,15 +57,17 @@ import { materialLotService, MaterialLotItem } from '../../services/materialLotS
 import earningsService from '../../services/earningsService';
 import voiceService, { AnnouncementPriority } from '../../services/voiceService';
 import { MATERIAL_TAXONOMY } from '../../config/materialTaxonomy';
+import { AppIcon } from '../../components/ui/AppIcon';
+import { PageVoiceGuide } from '../../components/voice/PageVoiceGuide';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // QUICK ACCESS ACTIONS (bottom strip)
 // ─────────────────────────────────────────────────────────────────────────────
 const QUICK_ACTIONS = [
-  { id: 'prices',  icon: '📈', label: 'Price Board', route: 'CollectorPriceBoard' },
-  { id: 'pickups', icon: '🚚', label: 'Pickups',     route: 'CollectorPickups'   },
-  { id: 'browse',  icon: '🗺️',  label: 'Browse',      route: 'CollectorBrowse'    },
-  { id: 'safety',  icon: '🛡️',  label: 'Safety',      route: 'CollectorSafetyCenter' },
+  { id: 'prices',  icon: 'trending-up', label: 'Price Board', route: 'CollectorPriceBoard' },
+  { id: 'pickups', icon: 'truck', label: 'Pickups',     route: 'CollectorPickups'   },
+  { id: 'browse',  icon: 'map-pin',  label: 'Browse',      route: 'CollectorBrowse'    },
+  { id: 'safety',  icon: 'shield',  label: 'Safety',      route: 'CollectorSafetyCenter' },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -183,7 +185,7 @@ export const CollectorDashboardScreen: React.FC = () => {
   if (activePickups.length > 0) {
     attentionItems.push({
       id: 'pickup',
-      icon: '🚚',
+      icon: 'truck',
       label: t('collector.pendingPickups', 'Pending Pickups'),
       count: activePickups.length,
       color: '#10B981',
@@ -195,7 +197,7 @@ export const CollectorDashboardScreen: React.FC = () => {
   if (quotedLots.length > 0) {
     attentionItems.push({
       id: 'offers',
-      icon: '📩',
+      icon: 'mail',
       label: t('collector.newOffers', 'New Offers'),
       count: quotedLots.length,
       color: '#F59E0B',
@@ -207,7 +209,7 @@ export const CollectorDashboardScreen: React.FC = () => {
   if (acceptedLots.length > 0) {
     attentionItems.push({
       id: 'handover',
-      icon: '🤝',
+      icon: 'handshake',
       label: t('collector.handoverNeeded', 'Handover Needed'),
       count: acceptedLots.length,
       color: '#34D399',
@@ -225,7 +227,7 @@ export const CollectorDashboardScreen: React.FC = () => {
   if (activePickups.length > 0) {
     workItems.push({
       id: 'pickup',
-      label: t('collector.pickupsScheduledWork', { count: activePickups.length }, `🚚 ${activePickups.length} pickup${activePickups.length > 1 ? 's' : ''} scheduled for collection today`),
+      label: t('collector.pickupsScheduledWork', { count: activePickups.length }, `${activePickups.length} pickup${activePickups.length > 1 ? 's' : ''} scheduled for collection today`),
       status: 'action',
       actionLabel: t('collector.collectNow', 'Collect Now'),
       onPress: () => navigation.navigate('CollectorPickups'),
@@ -318,11 +320,14 @@ export const CollectorDashboardScreen: React.FC = () => {
           {/* Offline banner */}
           <OfflineBanner />
 
+          {/* Page Voice Guide for Informal Collector accessibility */}
+          <PageVoiceGuide pageKey="CollectorDashboard" />
+
           {/* ── 1. PRIMARY FEATURED HERO: PENDING PICKUPS ─────────────────── */}
           <View style={styles.pendingPickupsContainer}>
             <View style={styles.pendingPickupsHeader}>
               <View style={styles.pendingPickupsHeaderLeft}>
-                <Text style={styles.pendingPickupsIcon}>🚚</Text>
+                <AppIcon name="truck" size={22} color="#10B981" />
                 <Text style={styles.pendingPickupsTitle}>{t('collector.pendingPickups', 'Pending Pickups')}</Text>
                 {activePickups.length > 0 && (
                   <View style={styles.pendingPickupsBadge}>
@@ -397,20 +402,29 @@ export const CollectorDashboardScreen: React.FC = () => {
                             </Text>
                           </View>
                         </View>
-                        <Text style={styles.pickupCitizenName}>👤 {citizenName}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <AppIcon name="user" size={13} color="#94A3B8" style={{ marginRight: 4 }} />
+                          <Text style={styles.pickupCitizenName}>{citizenName}</Text>
+                        </View>
                       </View>
 
-                      <Text style={styles.pickupAddress} numberOfLines={2}>
-                        📍 {address}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginVertical: 4 }}>
+                        <AppIcon name="location" size={13} color="#94A3B8" style={{ marginRight: 4, marginTop: 2 }} />
+                        <Text style={styles.pickupAddress} numberOfLines={2}>
+                          {address}
+                        </Text>
+                      </View>
 
                       <View style={styles.pickupCardBottom}>
-                        <Text style={styles.pickupItemsCount}>
-                          {t('collector.itemsToCollect', { count: itemsCount }, `📦 ${itemsCount} item${itemsCount > 1 ? 's' : ''} to collect`)}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <AppIcon name="box" size={13} color="#94A3B8" style={{ marginRight: 4 }} />
+                          <Text style={styles.pickupItemsCount}>
+                            {t('collector.itemsToCollect', { count: itemsCount }, `${itemsCount} item${itemsCount > 1 ? 's' : ''} to collect`)}
+                          </Text>
+                        </View>
                         <View style={styles.pickupActionTag}>
                           <Text style={styles.pickupActionTagText}>
-                            {isInProgress ? t('collector.resume', 'Resume ➔') : t('collector.startPickup', 'Start Pickup ➔')}
+                            {isInProgress ? t('collector.resume', 'Resume →') : t('collector.startPickup', 'Start Pickup →')}
                           </Text>
                         </View>
                       </View>
@@ -421,8 +435,8 @@ export const CollectorDashboardScreen: React.FC = () => {
             ) : (
               <View style={styles.emptyPickupCard}>
                 <View style={styles.emptyPickupLeft}>
-                  <Text style={styles.emptyPickupIcon}>🎯</Text>
-                  <View style={{ flex: 1 }}>
+                  <AppIcon name="truck" size={24} color="#10B981" />
+                  <View style={{ flex: 1, marginLeft: 8 }}>
                     <Text style={styles.emptyPickupTitle}>{t('collector.noPickupsAssigned', 'No pickups assigned right now')}</Text>
                     <Text style={styles.emptyPickupSub}>
                       {availableRequests.length > 0
@@ -488,7 +502,7 @@ export const CollectorDashboardScreen: React.FC = () => {
             <View style={styles.dealsList}>
               {recentLots.map((lot) => {
                 const catMeta = MATERIAL_TAXONOMY[lot.category] || {
-                  symbol: '📦',
+                  symbol: 'package',
                   defaultName: lot.category,
                 };
                 const catName = (catMeta as any).i18nKey ? t((catMeta as any).i18nKey, catMeta.defaultName) : catMeta.defaultName;
@@ -543,10 +557,10 @@ export const CollectorDashboardScreen: React.FC = () => {
           <CollectorSectionHeader title={t('collector.quickAccess', 'Quick Access')} />
           <View style={styles.quickGrid}>
             {[
-              { id: 'prices',  icon: '📈', label: t('collector.priceBoard', 'Price Board'), route: 'CollectorPriceBoard' },
-              { id: 'pickups', icon: '🚚', label: t('collector.pickups', 'Pickups'),     route: 'CollectorPickups'   },
-              { id: 'browse',  icon: '🗺️',  label: t('collector.browse', 'Browse'),      route: 'CollectorBrowse'    },
-              { id: 'safety',  icon: '🛡️',  label: t('collector.safety', 'Safety'),      route: 'CollectorSafetyCenter' },
+              { id: 'prices',  icon: 'chart' as const, label: t('collector.priceBoard', 'Price Board'), route: 'CollectorPriceBoard' },
+              { id: 'pickups', icon: 'truck' as const, label: t('collector.pickups', 'Pickups'),     route: 'CollectorPickups'   },
+              { id: 'browse',  icon: 'location' as const,  label: t('collector.browse', 'Browse'),      route: 'CollectorBrowse'    },
+              { id: 'safety',  icon: 'shieldCheck' as const,  label: t('collector.safety', 'Safety'),      route: 'CollectorSafetyCenter' },
             ].map((qa) => (
               <TouchableOpacity
                 key={qa.id}
@@ -556,7 +570,7 @@ export const CollectorDashboardScreen: React.FC = () => {
                 accessibilityRole="button"
                 accessibilityLabel={qa.label}
               >
-                <Text style={styles.quickIcon}>{qa.icon}</Text>
+                <AppIcon name={qa.icon} size={22} color="#10B981" style={{ marginBottom: 6 }} />
                 <Text style={styles.quickLabel}>{qa.label}</Text>
               </TouchableOpacity>
             ))}

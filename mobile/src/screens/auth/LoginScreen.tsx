@@ -42,6 +42,7 @@ import { EcoAuthDivider, EcoGlassCard } from '../../components/auth/design/EcoAu
 import { PhoneAuthModal } from '../../components/auth/PhoneAuthModal';
 import { RoleSelectionModal } from '../../components/auth/RoleSelectionModal';
 import { LanguageSelector } from '../../components/common/LanguageSelector';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { AUTH_COLORS, AUTH_ORBS, AUTH_SPACE, AUTH_RADIUS } from '../../components/auth/design/AuthTheme';
 import { ROLES } from '../../utils/constants';
 
@@ -278,7 +279,8 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
               {/* Error Banner */}
               {errorMessage ? (
                 <View style={styles.errorBanner} accessibilityRole="alert">
-                  <Text style={styles.errorBannerText}>⚠ {errorMessage}</Text>
+                  <AppIcon name="alert" size={16} color={AUTH_COLORS.error} style={{ marginRight: 6 }} />
+                  <Text style={styles.errorBannerText}>{errorMessage}</Text>
                 </View>
               ) : null}
 
@@ -298,7 +300,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 {/* Email */}
                 <EcoInput
                   label={t('auth.email', 'Email address')}
-                  icon="✉"
+                  icon="mail"
                   value={email}
                   onChangeText={(v) => { setEmail(v); if (emailError) setEmailError(null); if (errorMessage) setErrorMessage(null); }}
                   keyboardType="email-address"
@@ -312,7 +314,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 {/* Password */}
                 <EcoInput
                   label={t('auth.password', 'Password')}
-                  icon="🔒"
+                  icon="lock"
                   value={password}
                   onChangeText={(v) => { setPassword(v); if (passwordError) setPasswordError(null); if (errorMessage) setErrorMessage(null); }}
                   secureTextEntry={!showPassword}
@@ -328,7 +330,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
                       accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
                       style={styles.eyeBtn}
                     >
-                      <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁'}</Text>
+                      <AppIcon name={showPassword ? 'eyeOff' : 'eye'} size={18} color="rgba(255,255,255,0.6)" />
                     </TouchableOpacity>
                   }
                 />
@@ -369,16 +371,21 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
                   label={t('auth.continueWithPhone', 'Continue with Phone')}
                   onPress={() => setPhoneModalVisible(true)}
                   disabled={isLoading || isGoogleLoading}
-                  leftContent={<Text style={{ fontSize: 16 }}>📱</Text>}
+                  leftContent={<AppIcon name="phone" size={16} color="#FFFFFF" />}
                   accessibilityLabel="Sign in with phone number"
                 />
               </EcoGlassCard>
 
               {/* Security chips */}
               <View style={styles.securityRow}>
-                {['🔒 Secure', '🎭 Role-based', '♻ Traceable'].map((chip) => (
-                  <View key={chip} style={styles.securityChip}>
-                    <Text style={styles.securityChipText}>{chip}</Text>
+                {[
+                  { name: 'shieldCheck' as const, label: 'Secure' },
+                  { name: 'user' as const, label: 'Role-based' },
+                  { name: 'recycle' as const, label: 'Traceable' },
+                ].map((chip) => (
+                  <View key={chip.label} style={styles.securityChip}>
+                    <AppIcon name={chip.name} size={12} color="rgba(255,255,255,0.7)" style={{ marginRight: 4 }} />
+                    <Text style={styles.securityChipText}>{chip.label}</Text>
                   </View>
                 ))}
               </View>

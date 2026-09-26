@@ -72,8 +72,8 @@ async function runVernacularLanguageVerification() {
       const closingMatches = (trimmed.match(/\}/g) || []).length;
       const openingMatches = (trimmed.match(/\{/g) || []).length;
       
-      // Match key: { or key: '...'
-      const keyMatch = trimmed.match(/^([a-zA-Z0-9_]+)\s*:\s*(\{)?/);
+      // Match key: { or key: '...' or "key": {
+      const keyMatch = trimmed.match(/^["']?([a-zA-Z0-9_]+)["']?\s*:\s*(\{)?/);
       if (keyMatch) {
         const key = keyMatch[1];
         const isObject = Boolean(keyMatch[2]);

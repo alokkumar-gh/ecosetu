@@ -32,6 +32,7 @@ import { spacing } from '../../theme/spacing';
 import apiClient from '../../services/apiClient';
 import networkService from '../../services/networkService';
 import { ReportProblemModal } from '../../components/dispute/ReportProblemModal';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 const space = {
   xs: spacing.spaceXs,
@@ -177,7 +178,7 @@ export const RecyclerLotDetailScreen: React.FC = () => {
             </View>
           ) : (
             <View style={styles.noPhotoBox}>
-              <Text style={styles.noPhotoIcon}>📷</Text>
+              <AppIcon name="camera" size={32} color={colors.textSecondary} style={{ marginBottom: 4 }} />
               <Text style={styles.noPhotoText}>{t('materialLots.noPhotos') || 'No photos attached'}</Text>
             </View>
           )}
@@ -186,7 +187,8 @@ export const RecyclerLotDetailScreen: React.FC = () => {
           <View style={styles.card}>
             <View style={styles.badgeRow}>
               <View style={styles.categoryBadge}>
-                <Text style={styles.categoryBadgeText}>📦 {lot?.category}</Text>
+                <AppIcon name="package" size={12} color="#34D399" style={{ marginRight: 4 }} />
+                <Text style={styles.categoryBadgeText}>{lot?.category}</Text>
               </View>
               <View style={styles.statusBadge}>
                 <Text style={styles.statusBadgeText}>● {lot?.status}</Text>
@@ -201,26 +203,41 @@ export const RecyclerLotDetailScreen: React.FC = () => {
             {/* Spec Matrix */}
             <View style={styles.specGrid}>
               <View style={styles.specItem}>
-                <Text style={styles.specLabel}>⚖️ {t('materialLots.weight') || 'Weight'}</Text>
+                <View style={styles.specLabelRow}>
+                  <AppIcon name="scale" size={12} color="#94A3B8" />
+                  <Text style={styles.specLabel}>{t('materialLots.weight') || 'Weight'}</Text>
+                </View>
                 <Text style={styles.specValue}>{weight} kg</Text>
               </View>
               <View style={styles.specItem}>
-                <Text style={styles.specLabel}>🔧 {t('materialLots.condition') || 'Condition'}</Text>
+                <View style={styles.specLabelRow}>
+                  <AppIcon name="tool" size={12} color="#94A3B8" />
+                  <Text style={styles.specLabel}>{t('materialLots.condition') || 'Condition'}</Text>
+                </View>
                 <Text style={styles.specValue}>{lot?.condition || 'UNKNOWN'}</Text>
               </View>
               <View style={styles.specItem}>
-                <Text style={styles.specLabel}>🏷️ Source</Text>
+                <View style={styles.specLabelRow}>
+                  <AppIcon name="tag" size={12} color="#94A3B8" />
+                  <Text style={styles.specLabel}>Source</Text>
+                </View>
                 <Text style={styles.specValue}>{lot?.sourceType || 'HOUSEHOLD'}</Text>
               </View>
               <View style={styles.specItem}>
-                <Text style={styles.specLabel}>📍 Location</Text>
+                <View style={styles.specLabelRow}>
+                  <AppIcon name="mapPin" size={12} color="#94A3B8" />
+                  <Text style={styles.specLabel}>Location</Text>
+                </View>
                 <Text style={styles.specValue}>{location}</Text>
               </View>
             </View>
 
             {lot?.description ? (
               <View style={styles.descriptionBox}>
-                <Text style={styles.descriptionLabel}>📝 Description:</Text>
+                <View style={styles.rowCentered}>
+                  <AppIcon name="fileText" size={12} color="#94A3B8" />
+                  <Text style={styles.descriptionLabel}>Description:</Text>
+                </View>
                 <Text style={styles.descriptionText}>{lot.description}</Text>
               </View>
             ) : null}
@@ -228,7 +245,10 @@ export const RecyclerLotDetailScreen: React.FC = () => {
 
           {/* Market Activity & Competition */}
           <View style={styles.card}>
-            <Text style={styles.sectionHeading}>📊 Market Activity</Text>
+            <View style={styles.titleRow}>
+              <AppIcon name="barChart" size={16} color={colors.textPrimary} />
+              <Text style={styles.sectionHeading}>Market Activity</Text>
+            </View>
             <View style={styles.activityRow}>
               <Text style={styles.activityLabel}>Active Offers:</Text>
               <Text style={styles.activityValueHighlight}>
@@ -251,7 +271,10 @@ export const RecyclerLotDetailScreen: React.FC = () => {
 
           {/* Seller / Contact Privacy Information */}
           <View style={styles.card}>
-            <Text style={styles.sectionHeading}>🏢 Seller Profile</Text>
+            <View style={styles.titleRow}>
+              <AppIcon name="briefcase" size={16} color={colors.textPrimary} />
+              <Text style={styles.sectionHeading}>Seller Profile</Text>
+            </View>
             <View style={styles.activityRow}>
               <Text style={styles.activityLabel}>Seller ID:</Text>
               <Text style={styles.activityValue}>
@@ -263,15 +286,19 @@ export const RecyclerLotDetailScreen: React.FC = () => {
               <Text style={styles.activityValue}>{location}</Text>
             </View>
             <View style={styles.privacyNote}>
+              <AppIcon name="lock" size={14} color="#FBBF24" style={{ marginRight: 6, marginTop: 1 }} />
               <Text style={styles.privacyNoteText}>
-                🔒 Direct phone and contact information are protected until quotation acceptance.
+                Direct phone and contact information are protected until quotation acceptance.
               </Text>
             </View>
           </View>
 
           {/* Sourcing Economic Guidance */}
           <View style={styles.card}>
-            <Text style={styles.sectionHeading}>💡 Factual Sourcing Guidance</Text>
+            <View style={styles.titleRow}>
+              <AppIcon name="info" size={16} color={colors.textPrimary} />
+              <Text style={styles.sectionHeading}>Factual Sourcing Guidance</Text>
+            </View>
             <Text style={styles.guidanceText}>
               • Make offers in INR (₹) per kg or unit based on your facility's processing capacity.
             </Text>
@@ -292,9 +319,12 @@ export const RecyclerLotDetailScreen: React.FC = () => {
             accessibilityRole="button"
             accessibilityLabel={t('recycler.marketplace.makeOffer') || 'Make Offer'}
           >
-            <Text style={styles.primaryActionText}>
-              💰 {t('recycler.marketplace.makeOffer') || 'Make Offer'}
-            </Text>
+            <View style={styles.btnRow}>
+              <AppIcon name="dollarSign" size={16} color="#071E22" strokeWidth={2.5} />
+              <Text style={styles.primaryActionText}>
+                {t('recycler.marketplace.makeOffer') || 'Make Offer'}
+              </Text>
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -302,7 +332,10 @@ export const RecyclerLotDetailScreen: React.FC = () => {
             onPress={() => setProblemModalVisible(true)}
             accessibilityRole="button"
           >
-            <Text style={styles.problemActionText}>🚨 Report Issue / Reject</Text>
+            <View style={styles.btnRow}>
+              <AppIcon name="alertTriangle" size={14} color="#EF4444" />
+              <Text style={styles.problemActionText}>Report Issue / Reject</Text>
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -449,6 +482,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   categoryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
@@ -524,11 +559,34 @@ const styles = StyleSheet.create({
     color: '#E2E8F0',
     lineHeight: 18,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  specLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
+  },
+  rowCentered: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
   sectionHeading: {
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 10,
   },
   activityRow: {
     flexDirection: 'row',
@@ -553,6 +611,8 @@ const styles = StyleSheet.create({
     color: '#34D399',
   },
   privacyNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     backgroundColor: 'rgba(245, 158, 11, 0.1)',
     borderRadius: 8,
     padding: space.sm,
@@ -564,6 +624,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#FDE68A',
     lineHeight: 16,
+    flex: 1,
   },
   guidanceText: {
     fontSize: 12,

@@ -24,6 +24,7 @@ import { getCurrentLocation } from '../../services/locationService';
 import networkService from '../../services/networkService';
 import voiceService from '../../services/voiceService';
 import { QuickNumberStepper } from '../../components/common/QuickNumberStepper';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 export const CollectorHandoverScreen: React.FC = () => {
   const { t, language } = useI18n();
@@ -221,15 +222,21 @@ export const CollectorHandoverScreen: React.FC = () => {
           </Text>
         </View>
         <TouchableOpacity style={styles.speechBtn} onPress={handleSpeak}>
-          <Text style={styles.speechBtnText}>🔊 {t('common.listen') || 'Listen'}</Text>
+          <View style={styles.btnRow}>
+            <AppIcon name="volume2" size={14} color="#0D9488" />
+            <Text style={styles.speechBtnText}>{t('common.listen') || 'Listen'}</Text>
+          </View>
         </TouchableOpacity>
       </View>
 
       {!isOnline && (
         <View style={styles.offlineBanner}>
-          <Text style={styles.offlineBannerText}>
-            ⚠️ {t('handover.connectToInternet') || 'You are currently offline. Connect to internet to confirm handover.'}
-          </Text>
+          <View style={styles.rowCentered}>
+            <AppIcon name="alertTriangle" size={14} color="#D97706" />
+            <Text style={styles.offlineBannerText}>
+              {t('handover.connectToInternet') || 'You are currently offline. Connect to internet to confirm handover.'}
+            </Text>
+          </View>
         </View>
       )}
 
@@ -303,13 +310,20 @@ export const CollectorHandoverScreen: React.FC = () => {
             onPress={handleCaptureLocation}
             disabled={locationStatus === 'CAPTURING'}
           >
-            <Text style={styles.gpsBtnText}>
-              {locationStatus === 'CAPTURING'
-                ? 'Acquiring GPS...'
-                : locationStatus === 'CAPTURED'
-                ? `✓ ${t('handover.gpsCaptured') || 'GPS Captured'}`
-                : `📍 ${t('handover.gpsCaptured') || 'Capture GPS'}`}
-            </Text>
+            <View style={styles.btnRow}>
+              <AppIcon
+                name={locationStatus === 'CAPTURING' ? 'clock' : locationStatus === 'CAPTURED' ? 'check' : 'mapPin'}
+                size={14}
+                color={locationStatus === 'CAPTURED' ? '#166534' : '#ffffff'}
+              />
+              <Text style={styles.gpsBtnText}>
+                {locationStatus === 'CAPTURING'
+                  ? 'Acquiring GPS...'
+                  : locationStatus === 'CAPTURED'
+                  ? (t('handover.gpsCaptured') || 'GPS Captured')
+                  : (t('handover.gpsCaptured') || 'Capture GPS')}
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -347,7 +361,10 @@ export const CollectorHandoverScreen: React.FC = () => {
 
       {/* Compliance Disclaimer */}
       <View style={styles.disclaimerBox}>
-        <Text style={styles.disclaimerTitle}>⚖️ {t('handover.legalDisclaimer') || 'Legal & Economic Confirmation'}</Text>
+        <View style={[styles.rowCentered, { marginBottom: 4 }]}>
+          <AppIcon name="shieldCheck" size={16} color="#0369a1" />
+          <Text style={styles.disclaimerTitle}>{t('handover.legalDisclaimer') || 'Legal & Economic Confirmation'}</Text>
+        </View>
         <Text style={styles.disclaimerText}>
           {t('handover.legalDisclaimer') ||
             'This digital handover record verifies that the physical material has been handed over to the authorized recycler. This record DOES NOT process payment or confirm recycling completion.'}
@@ -363,9 +380,12 @@ export const CollectorHandoverScreen: React.FC = () => {
         {submitting ? (
           <ActivityIndicator color="#ffffff" />
         ) : (
-          <Text style={styles.submitBtnText}>
-            ✓ {existingHandover ? (t('handover.confirmHandover') || 'Confirm Material Handover') : (t('handover.startHandover') || 'Start & Confirm Handover')}
-          </Text>
+          <View style={styles.btnRow}>
+            <AppIcon name="check" size={18} color="#ffffff" />
+            <Text style={styles.submitBtnText}>
+              {existingHandover ? (t('handover.confirmHandover') || 'Confirm Material Handover') : (t('handover.startHandover') || 'Start & Confirm Handover')}
+            </Text>
+          </View>
         )}
       </TouchableOpacity>
 
@@ -378,7 +398,10 @@ export const CollectorHandoverScreen: React.FC = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>🤝 {t('lowLiteracy.handoverConfirmTitle') || 'Confirm Material Handover'}</Text>
+            <View style={[styles.rowCentered, { marginBottom: 6 }]}>
+              <AppIcon name="users" size={20} color="#0f172a" />
+              <Text style={styles.modalTitle}>{t('lowLiteracy.handoverConfirmTitle') || 'Confirm Material Handover'}</Text>
+            </View>
             <Text style={styles.modalMessage}>
               {t('lowLiteracy.handoverConfirmMessage') || 'Please check the measured scale weight and buyer details before confirming.'}
             </Text>
@@ -406,9 +429,16 @@ export const CollectorHandoverScreen: React.FC = () => {
               </View>
               <View style={styles.confirmRow}>
                 <Text style={styles.confirmLabel}>{t('lowLiteracy.locationStatus')}:</Text>
-                <Text style={styles.confirmValue}>
-                  {locationStatus === 'CAPTURED' ? '✓ ' + (t('handover.gpsCaptured') || 'Captured') : '⚠️ ' + (t('handover.gpsUnavailable') || 'Unavailable')}
-                </Text>
+                <View style={styles.rowCentered}>
+                  <AppIcon
+                    name={locationStatus === 'CAPTURED' ? 'check' : 'alertTriangle'}
+                    size={14}
+                    color={locationStatus === 'CAPTURED' ? '#16a34a' : '#d97706'}
+                  />
+                  <Text style={styles.confirmValue}>
+                    {locationStatus === 'CAPTURED' ? (t('handover.gpsCaptured') || 'Captured') : (t('handover.gpsUnavailable') || 'Unavailable')}
+                  </Text>
+                </View>
               </View>
               <View style={styles.confirmRow}>
                 <Text style={styles.confirmLabel}>{t('lowLiteracy.photoCount')}:</Text>
@@ -435,9 +465,12 @@ export const CollectorHandoverScreen: React.FC = () => {
                 {submitting ? (
                   <ActivityIndicator color="#ffffff" />
                 ) : (
-                  <Text style={styles.modalConfirmBtnText}>
-                    ✓ {t('lowLiteracy.confirmHandoverAction') || 'Confirm Handover'}
-                  </Text>
+                  <View style={styles.btnRow}>
+                    <AppIcon name="check" size={16} color="#ffffff" />
+                    <Text style={styles.modalConfirmBtnText}>
+                      {t('lowLiteracy.confirmHandoverAction') || 'Confirm Handover'}
+                    </Text>
+                  </View>
                 )}
               </TouchableOpacity>
             </View>
@@ -770,6 +803,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: '#ffffff',
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  rowCentered: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
 });
 

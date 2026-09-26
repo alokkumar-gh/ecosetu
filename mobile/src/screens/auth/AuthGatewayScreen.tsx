@@ -24,6 +24,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types';
 import { AuthBackground } from '../../components/auth/design/AuthBackground';
 import { AUTH_COLORS, AUTH_ORBS, AUTH_SPACE, AUTH_RADIUS, AUTH_SHADOW } from '../../components/auth/design/AuthTheme';
+import { AppIcon, IconName } from '../../components/ui/AppIcon';
+
 import { LanguageSelector } from '../../components/common/LanguageSelector';
 
 const LOGO_IMAGE = require('../../assets/images/logo.png');
@@ -32,10 +34,10 @@ interface Props {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'AuthGateway'>;
 }
 
-const TRUST_BADGES = [
-  { icon: '🔒', label: 'Secure Auth' },
-  { icon: '♻️', label: 'Traceable' },
-  { icon: '🏆', label: 'MeitY Aligned' },
+const TRUST_BADGES: { icon: IconName; label: string }[] = [
+  { icon: 'shieldCheck', label: 'Secure Auth' },
+  { icon: 'recycle', label: 'Traceable' },
+  { icon: 'badge', label: 'MeitY Aligned' },
 ];
 
 export const AuthGatewayScreen: React.FC<Props> = ({ navigation }) => {
@@ -107,7 +109,7 @@ export const AuthGatewayScreen: React.FC<Props> = ({ navigation }) => {
         {/* Top bar: Language selector */}
         <View style={styles.topBar}>
           <View style={styles.logoChip}>
-            <Text style={styles.logoChipText}>♻</Text>
+            <AppIcon name="recycle" size={14} color="#10B981" strokeWidth={2.2} />
           </View>
           <Text style={styles.logoChipLabel}>ECOSETU</Text>
           <View style={styles.spacer} />
@@ -183,7 +185,7 @@ export const AuthGatewayScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.trustRow}>
             {TRUST_BADGES.map((badge) => (
               <View key={badge.label} style={styles.trustBadge}>
-                <Text style={styles.trustIcon}>{badge.icon}</Text>
+                <AppIcon name={badge.icon} size={14} color="#10B981" strokeWidth={2} />
                 <Text style={styles.trustLabel}>{badge.label}</Text>
               </View>
             ))}

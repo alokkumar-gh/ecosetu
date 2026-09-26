@@ -27,6 +27,7 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useI18n } from '../../i18n';
 import pickupBatchService, { PickupBatch, BatchStatus } from '../../services/pickupBatchService';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 interface Props {
   navigation: any;
@@ -116,7 +117,7 @@ export const RecyclerPickupManagementScreen: React.FC<Props> = ({ navigation }) 
 
           {item.scheduledDate ? (
             <View style={styles.metaRow}>
-              <Text style={styles.metaIcon}>📅</Text>
+              <AppIcon name="calendar" size={13} color={colors.textSecondary} style={styles.metaIcon} />
               <Text style={styles.metaText}>
                 {new Date(item.scheduledDate).toLocaleDateString('en-IN', {
                   day: 'numeric',
@@ -128,14 +129,14 @@ export const RecyclerPickupManagementScreen: React.FC<Props> = ({ navigation }) 
             </View>
           ) : (
             <View style={styles.metaRow}>
-              <Text style={styles.metaIcon}>🕒</Text>
+              <AppIcon name="clock" size={13} color={colors.textSecondary} style={styles.metaIcon} />
               <Text style={styles.metaText}>{t('logistics.notScheduled')}</Text>
             </View>
           )}
 
           {item.pickupAddress ? (
             <View style={styles.metaRow}>
-              <Text style={styles.metaIcon}>📍</Text>
+              <AppIcon name="mapPin" size={13} color={colors.textSecondary} style={styles.metaIcon} />
               <Text style={styles.metaText} numberOfLines={1}>
                 {item.pickupAddress}
               </Text>
@@ -201,7 +202,7 @@ export const RecyclerPickupManagementScreen: React.FC<Props> = ({ navigation }) 
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
             ListEmptyComponent={
               <EmptyState
-                icon="🚛"
+                icon="truck"
                 title={t('logistics.noBatches')}
                 message={t('logistics.noBatchesDesc')}
               />
@@ -337,7 +338,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   metaIcon: {
-    fontSize: 12,
     marginRight: 6,
   },
   metaText: {

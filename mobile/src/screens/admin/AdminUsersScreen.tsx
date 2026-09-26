@@ -54,6 +54,7 @@ import { AdminShell } from '../../components/admin/AdminShell';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 const ROLE_FILTERS = ['ALL', 'CITIZEN', 'INFORMAL_COLLECTOR', 'RECYCLER', 'ADMIN'];
 const STATUS_FILTERS = ['ALL', 'ACTIVE', 'SUSPENDED', 'DEACTIVATED', 'PENDING_VERIFICATION'];
@@ -288,7 +289,12 @@ export const AdminUsersScreen: React.FC<Props> = ({ navigation, route }) => {
 
       <View style={styles.cardMeta}>
         <Text style={styles.metaBadge}>{t('admin.users.roleLabel')}: {item.role}</Text>
-        {item.phone ? <Text style={styles.metaText}>📞 {item.phone}</Text> : null}
+        {item.phone ? (
+          <View style={styles.rowCentered}>
+            <AppIcon name="phone" size={11} color={colors.textSecondary} />
+            <Text style={styles.metaText}>{item.phone}</Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.cardFooter}>
@@ -472,18 +478,24 @@ export const AdminUsersScreen: React.FC<Props> = ({ navigation, route }) => {
                 {/* Pending Verification Notice & Bridge */}
                 {selectedUser.status === 'PENDING_VERIFICATION' && (
                   <View style={styles.pendingVerificationBox}>
-                    <Text style={styles.pendingVerificationText}>
-                      ⚠️ {t('admin.users.pendingVerificationNotice')}
-                    </Text>
+                    <View style={styles.rowCentered}>
+                      <AppIcon name="alertTriangle" size={14} color="#D97706" />
+                      <Text style={styles.pendingVerificationText}>
+                        {t('admin.users.pendingVerificationNotice')}
+                      </Text>
+                    </View>
                     <TouchableOpacity
                       style={styles.verificationBridgeButton}
                       onPress={handleNavigateToVerification}
                       accessibilityRole="button"
                       accessibilityLabel={t('admin.users.reviewVerification')}
                     >
-                      <Text style={styles.verificationBridgeText}>
-                        📑 {t('admin.users.reviewVerification')}
-                      </Text>
+                      <View style={styles.btnRow}>
+                        <AppIcon name="fileText" size={13} color="#FFFFFF" />
+                        <Text style={styles.verificationBridgeText}>
+                          {t('admin.users.reviewVerification')}
+                        </Text>
+                      </View>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -538,9 +550,12 @@ export const AdminUsersScreen: React.FC<Props> = ({ navigation, route }) => {
                 )}
 
                 {selectedUser.id === currentUser?.id && (
-                  <Text style={styles.selfNotice}>
-                    ℹ️ {t('admin.users.selfStatusForbiddenMessage')}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.spaceMd }}>
+                    <AppIcon name="info" size={14} color="#f59e0b" />
+                    <Text style={styles.selfNotice}>
+                      {t('admin.users.selfStatusForbiddenMessage')}
+                    </Text>
+                  </View>
                 )}
 
                 <View style={styles.modalActionsRow}>
@@ -891,6 +906,17 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  rowCentered: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
 });
 

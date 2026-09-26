@@ -22,6 +22,7 @@ import { useI18n } from '../../i18n';
 import disputeService, { MarketplaceDispute, DisputeStatus } from '../../services/disputeService';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 const STATUS_FILTERS: { key: DisputeStatus | 'ALL'; label: string }[] = [
   { key: 'ALL', label: 'All' },
@@ -134,7 +135,7 @@ export const RecyclerDisputesScreen: React.FC = () => {
 
           {disputes.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyIcon}>🛡️</Text>
+              <AppIcon name="shieldCheck" size={48} color="#94A3B8" />
               <Text style={styles.emptyTitle}>No Active Disputes</Text>
               <Text style={styles.emptyDesc}>
                 {selectedFilter === 'ALL'
@@ -166,7 +167,7 @@ export const RecyclerDisputesScreen: React.FC = () => {
 
                   <View style={styles.cardBody}>
                     <View style={styles.typeRow}>
-                      <Text style={styles.typeIcon}>⚠️</Text>
+                      <AppIcon name="alertTriangle" size={14} color="#D97706" />
                       <Text style={styles.typeLabel}>{d.disputeType.replace(/_/g, ' ')}</Text>
                     </View>
 

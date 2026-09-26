@@ -28,6 +28,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { AuthorizedImage } from '../../components/common/AuthorizedImage';
 import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 interface Props {
   navigation?: any;
@@ -111,7 +112,9 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
       <GradientBackground>
         <TopAppBar title="Consignment Details" onBack={() => navigation?.goBack()} />
         <View style={styles.accessRestrictedContainer}>
-          <Text style={styles.accessRestrictedIcon}>🔒</Text>
+          <View style={styles.accessRestrictedIconWrapper}>
+            <AppIcon name="lock" size={40} color={colors.warning} />
+          </View>
           <Text style={styles.accessRestrictedTitle}>Access Restricted</Text>
           <Text style={styles.accessRestrictedMessage}>
             Only authorized formal recycling facilities can inspect or manage consignments.
@@ -424,7 +427,7 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
       <GradientBackground>
         <TopAppBar title="Consignment Details" onBack={() => navigation?.goBack()} />
         <View style={styles.errorContainer}>
-          <Text style={styles.errorIcon}>⚠️</Text>
+          <AppIcon name="alertTriangle" size={40} color={colors.error} style={{ marginBottom: 12 }} />
           <Text style={styles.errorTitle}>Unable to Load Consignment</Text>
           <Text style={styles.errorMessage}>{error || 'Consignment data not found'}</Text>
           <TouchableOpacity
@@ -473,7 +476,7 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
         {/* Success Action Notification */}
         {actionSuccessMessage && (
           <View style={styles.successBanner}>
-            <Text style={styles.successIcon}>✓</Text>
+            <AppIcon name="check" size={14} color="#059669" strokeWidth={2.5} style={{ marginRight: 6 }} />
             <Text style={styles.successText}>{actionSuccessMessage}</Text>
           </View>
         )}
@@ -566,7 +569,10 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
                   }
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.viewRecordBtnText}>📋 View Full Processing Record →</Text>
+                  <View style={styles.rowCentered}>
+                    <AppIcon name="fileText" size={13} color={colors.primaryDark} />
+                    <Text style={styles.viewRecordBtnText}>View Full Processing Record →</Text>
+                  </View>
                 </TouchableOpacity>
               )}
             </View>
@@ -581,7 +587,7 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
           {isPendingDelivery && (
             <View style={styles.actionStateBox}>
               <View style={styles.pendingDeliveryBanner}>
-                <Text style={styles.pendingDeliveryIcon}>🚚</Text>
+                <AppIcon name="truck" size={18} color="#34D399" style={{ marginRight: spacing.spaceSm }} />
                 <Text style={styles.pendingDeliveryText}>
                   Consignment is currently {consignment.status}. Once the collector delivers the batch to your facility, confirm delivery below.
                 </Text>
@@ -600,7 +606,10 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
                 {isProcessing ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.primaryActionText}>📦 Mark Delivered / Arrived at Facility</Text>
+                  <View style={styles.btnRow}>
+                    <AppIcon name="package" size={16} color="#FFFFFF" />
+                    <Text style={styles.primaryActionText}>Mark Delivered / Arrived at Facility</Text>
+                  </View>
                 )}
               </TouchableOpacity>
             </View>
@@ -610,7 +619,7 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
           {isDelivered && (
             <View style={styles.actionStateBox}>
               <View style={styles.actionPromptBanner}>
-                <Text style={styles.actionPromptIcon}>📋</Text>
+                <AppIcon name="clipboard" size={18} color="#34D399" style={{ marginRight: spacing.spaceSm }} />
                 <Text style={styles.actionPromptText}>
                   Batch delivered to your facility. Inspect physical items before accepting custody.
                 </Text>
@@ -659,7 +668,7 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
           {isRecyclingReceived && (
             <View style={styles.actionStateBox}>
               <View style={styles.processingBanner}>
-                <Text style={styles.processingBannerIcon}>🔍</Text>
+                <AppIcon name="search" size={18} color="#60A5FA" style={{ marginRight: spacing.spaceSm }} />
                 <Text style={styles.processingBannerText}>
                   Batch accepted into facility custody. Start material dismantling and inspection.
                 </Text>
@@ -678,7 +687,10 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
                 {isProcessing ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.primaryActionText}>⚙️ Start Inspection / Processing</Text>
+                  <View style={styles.btnRow}>
+                    <AppIcon name="settings" size={16} color="#FFFFFF" />
+                    <Text style={styles.primaryActionText}>Start Inspection / Processing</Text>
+                  </View>
                 )}
               </TouchableOpacity>
             </View>
@@ -688,7 +700,7 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
           {isRecyclingProcessing && (
             <View style={styles.actionStateBox}>
               <View style={styles.processingBanner}>
-                <Text style={styles.processingBannerIcon}>♻️</Text>
+                <AppIcon name="recycle" size={18} color="#34D399" style={{ marginRight: spacing.spaceSm }} />
                 <Text style={styles.processingBannerText}>
                   Materials are in active processing. Record output yields to complete formal recycling.
                 </Text>
@@ -710,7 +722,10 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
                 {isProcessing ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.primaryActionText}>✅ Complete Recycling & Generate Certificate</Text>
+                  <View style={styles.btnRow}>
+                    <AppIcon name="check" size={16} color="#FFFFFF" strokeWidth={2.5} />
+                    <Text style={styles.primaryActionText}>Complete Recycling & Generate Certificate</Text>
+                  </View>
                 )}
               </TouchableOpacity>
             </View>
@@ -719,7 +734,7 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
           {/* State 5: Recycling COMPLETED */}
           {isRecyclingCompleted && (
             <View style={styles.completedNoticeBox}>
-              <Text style={styles.completedBadgeIcon}>🏅</Text>
+              <AppIcon name="award" size={36} color="#FBBF24" style={{ marginBottom: 6 }} />
               <Text style={styles.completedBadgeTitle}>Certified Formal Recycling Complete</Text>
               <Text style={styles.completedBadgeSub}>
                 Materials successfully recycled under CPCB compliance guidelines. All custody records are immutably sealed.
@@ -738,9 +753,12 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
           )}
 
           {isOffline && (
-            <Text style={styles.offlineActionNotice}>
-              ⚠️ Actions are disabled while offline. Internet connection required.
-            </Text>
+            <View style={styles.offlineNoticeRow}>
+              <AppIcon name="alertTriangle" size={14} color="#FBBF24" style={{ marginRight: 6 }} />
+              <Text style={styles.offlineActionNotice}>
+                Actions are disabled while offline. Internet connection required.
+              </Text>
+            </View>
           )}
         </GlassCard>
 
@@ -748,7 +766,7 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
         <GlassCard style={styles.card}>
           <Text style={styles.cardTitle}>Delivering Collector</Text>
           <View style={styles.collectorBox}>
-            <Text style={styles.collectorAvatar}>🚚</Text>
+            <AppIcon name="truck" size={24} color={colors.primary} style={{ marginRight: spacing.spaceSm }} />
             <View style={styles.collectorInfo}>
               <Text style={styles.collectorNameText}>{collectorName}</Text>
               <Text style={styles.collectorRoleText}>
@@ -1665,6 +1683,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  rowCentered: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  offlineNoticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  accessRestrictedIconWrapper: {
+    marginBottom: spacing.spaceMd,
   },
 });
 

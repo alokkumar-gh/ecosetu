@@ -7,6 +7,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { CompactStatusBadge } from './CompactStatusBadge';
+import { AppIcon, IconName } from '../ui/AppIcon';
 
 interface DealStatusRowProps {
   id: string;
@@ -23,9 +24,19 @@ interface DealStatusRowProps {
   isHighlighted?: boolean;
 }
 
+const mapMaterialIcon = (mat: string, fallback?: string): IconName => {
+  const m = (mat || '').toLowerCase();
+  if (m.includes('phone') || m.includes('mobile')) return 'phone';
+  if (m.includes('laptop') || m.includes('computer') || m.includes('pc')) return 'laptop';
+  if (m.includes('battery')) return 'battery';
+  if (m.includes('pcb') || m.includes('circuit')) return 'sparkles';
+  if (m.includes('cable') || m.includes('wire')) return 'recycle';
+  return 'box';
+};
+
 export const DealStatusRow: React.FC<DealStatusRowProps> = ({
   material,
-  materialIcon = '📦',
+  materialIcon,
   referenceNumber,
   status,
   quantityKg,
@@ -44,7 +55,7 @@ export const DealStatusRow: React.FC<DealStatusRowProps> = ({
   >
     {/* Icon */}
     <View style={[styles.iconBox, isHighlighted && styles.iconBoxHighlighted]}>
-      <Text style={styles.icon}>{materialIcon}</Text>
+      <AppIcon name={mapMaterialIcon(material, materialIcon)} size={18} color="#10B981" />
     </View>
 
     {/* Main info */}

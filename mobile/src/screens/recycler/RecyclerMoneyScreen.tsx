@@ -37,10 +37,16 @@ import transactionService from '../../services/transactionService';
 import { recyclingService } from '../../services/recyclingService';
 import { useAuth } from '../../hooks/useAuth';
 import { useI18n } from '../../i18n';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 const MATERIAL_ICON: Record<string, string> = {
-  MOBILE: '📱', LAPTOP: '💻', PCB: '🔧', CABLE: '🔌',
-  BATTERY: '🔋', APPLIANCE: '🏠', OTHER: '📦',
+  MOBILE: 'smartphone',
+  LAPTOP: 'laptop',
+  PCB: 'grid',
+  CABLE: 'zap',
+  BATTERY: 'battery',
+  APPLIANCE: 'home',
+  OTHER: 'package',
 };
 
 export const RecyclerMoneyScreen: React.FC = () => {
@@ -176,7 +182,7 @@ export const RecyclerMoneyScreen: React.FC = () => {
             onPress={() => navigation.navigate('RecyclerBills')}
             accessibilityRole="button"
           >
-            <Text style={styles.quickActionIcon}>🧾</Text>
+            <AppIcon name="fileText" size={20} color="#22D3EE" />
             <Text style={styles.quickActionLabel}>{t('recycler.bills', 'Bills')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -184,7 +190,7 @@ export const RecyclerMoneyScreen: React.FC = () => {
             onPress={() => navigation.navigate('RecyclerTransactions')}
             accessibilityRole="button"
           >
-            <Text style={styles.quickActionIcon}>📋</Text>
+            <AppIcon name="clipboard" size={20} color="#34D399" />
             <Text style={styles.quickActionLabel}>{t('recycler.transactions', 'Transactions')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -192,7 +198,7 @@ export const RecyclerMoneyScreen: React.FC = () => {
             onPress={() => navigation.navigate('RecyclerDisputes')}
             accessibilityRole="button"
           >
-            <Text style={styles.quickActionIcon}>⚠️</Text>
+            <AppIcon name="alertTriangle" size={20} color="#F59E0B" />
             <Text style={styles.quickActionLabel}>{t('recycler.disputes', 'Disputes')}</Text>
           </TouchableOpacity>
         </View>
@@ -209,7 +215,7 @@ export const RecyclerMoneyScreen: React.FC = () => {
       return (
         <RecyclerSpendRow
           material={tx.materialCategory || tx.category || t('recycler.transaction', 'Transaction')}
-          materialIcon={MATERIAL_ICON[category] || '📦'}
+          materialIcon={MATERIAL_ICON[category] || 'package'}
           source={tx.sellerName || tx.seller?.name || tx.collectorName}
           date={tx.createdAt
             ? new Date(tx.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })

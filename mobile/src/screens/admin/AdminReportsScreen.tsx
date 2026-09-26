@@ -29,6 +29,7 @@ import {
 } from 'react-native';
 import { TopAppBar } from '../../components/layout/TopAppBar';
 import { AdminShell } from '../../components/admin/AdminShell';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { MetricCard } from '../../components/common/MetricCard';
 import { Skeleton } from '../../components/common/Skeleton';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
@@ -248,29 +249,29 @@ export const AdminReportsScreen: React.FC<Props> = ({ navigation }) => {
     const c = analytics?.consignments || {};
 
     return [
-      '📊 ECOSETU PLATFORM EXECUTIVE SUMMARY',
+      'ECOSETU PLATFORM EXECUTIVE SUMMARY',
       '====================================',
       `Date: ${new Date().toLocaleDateString()}`,
       `Scope: Authoritative Governance Analytics`,
       '',
-      '👥 USER ECOSYSTEM:',
+      'USER ECOSYSTEM:',
       `• Total Users: ${u.total ?? 0}`,
       `  - Citizens: ${u.byRole?.CITIZEN ?? 0}`,
       `  - Informal Collectors: ${u.byRole?.INFORMAL_COLLECTOR ?? 0}`,
       `  - Verified Recyclers: ${u.byRole?.RECYCLER ?? 0}`,
       '',
-      '♻️ COLLECTION & LOGISTICS:',
+      'COLLECTION & LOGISTICS:',
       `• E-Waste Items Logged: ${analytics?.ewasteItems?.total ?? 0}`,
       `• Collection Requests: ${analytics?.requests?.total ?? 0}`,
       `• Completed Pickups: ${p.completed ?? 0}`,
       `• Total Collected Weight: ${p.totalWeightKg ?? 0} kg`,
       '',
-      '🏭 FORMAL RECYCLING:',
+      'FORMAL RECYCLING:',
       `• Consignments Delivered: ${c.accepted ?? 0}`,
       `• Recycled Batches: ${r.completed ?? 0}`,
       `• Output Weight Recovered: ${r.totalOutputWeightKg ?? 0} kg`,
       '',
-      '🛡️ PRIVACY & COMPLIANCE:',
+      'PRIVACY & COMPLIANCE:',
       '• Citizen household doorstep coordinates are strictly aggregated and never exposed.',
       '• Audit log records verified and immutable on ECOSETU.',
     ].join('\n');
@@ -348,11 +349,18 @@ export const AdminReportsScreen: React.FC<Props> = ({ navigation }) => {
 
       {/* Snapshot Information Banner */}
       <View style={styles.snapshotBanner}>
-        <Text style={styles.snapshotBannerText}>
-          {fromCache
-            ? `⚠️ ${t('admin.reports.offlineCachedNotice') || 'Showing cached reporting data (Offline).'}`
-            : `⚡ ${t('admin.reports.currentSnapshotNotice') || 'Snapshot: Reflects current platform-wide authoritative analytics.'}`}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <AppIcon
+            name={fromCache ? 'alertTriangle' : 'checkCircle'}
+            size={14}
+            color={fromCache ? '#FBBF24' : '#10B981'}
+          />
+          <Text style={[styles.snapshotBannerText, { flex: 1 }]}>
+            {fromCache
+              ? (t('admin.reports.offlineCachedNotice') || 'Showing cached reporting data (Offline).')
+              : (t('admin.reports.currentSnapshotNotice') || 'Snapshot: Reflects current platform-wide authoritative analytics.')}
+          </Text>
+        </View>
       </View>
 
       {/* Export Action Controls */}
@@ -372,9 +380,12 @@ export const AdminReportsScreen: React.FC<Props> = ({ navigation }) => {
           accessibilityRole="button"
           accessibilityLabel={t('admin.reports.exportCsv') || 'Export CSV Report'}
         >
-          <Text style={[styles.exportButtonText, styles.exportButtonTextCsv]}>
-            📄 {t('admin.reports.exportCsv') || 'Export CSV'}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <AppIcon name="download" size={14} color="#00695C" />
+            <Text style={[styles.exportButtonText, styles.exportButtonTextCsv]}>
+              {t('admin.reports.exportCsv') || 'Export CSV'}
+            </Text>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -384,18 +395,24 @@ export const AdminReportsScreen: React.FC<Props> = ({ navigation }) => {
           accessibilityRole="button"
           accessibilityLabel={t('admin.reports.exportSummary') || 'Share Summary Text'}
         >
-          <Text style={styles.exportButtonText}>
-            📤 {t('admin.reports.exportSummary') || 'Share Summary'}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <AppIcon name="share" size={14} color="#FFFFFF" />
+            <Text style={styles.exportButtonText}>
+              {t('admin.reports.exportSummary') || 'Share Summary'}
+            </Text>
+          </View>
         </TouchableOpacity>
       </View>
 
       {/* Enterprise Export Engine Limitation Notice */}
       <View style={styles.limitationCard}>
-        <Text style={styles.limitationText}>
-          {t('admin.reports.exportLimitationNotice') ||
-            'ℹ️ Direct PDF/Excel export requires the enterprise server reporting engine. Comprehensive CSV and text exports are generated on-device.'}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <AppIcon name="info" size={14} color={colors.textSecondary} />
+          <Text style={[styles.limitationText, { flex: 1 }]}>
+            {t('admin.reports.exportLimitationNotice') ||
+              'Direct PDF/Excel export requires the enterprise server reporting engine. Comprehensive CSV and text exports are generated on-device.'}
+          </Text>
+        </View>
       </View>
 
       {isLoading ? (
@@ -434,37 +451,37 @@ export const AdminReportsScreen: React.FC<Props> = ({ navigation }) => {
             <MetricCard
               value={analytics?.users?.total ?? 0}
               label={t('admin.reports.usersByRole') || 'Total Users'}
-              icon="👥"
+              icon="user"
               accentColor={colors.primary}
             />
             <MetricCard
               value={analytics?.ewasteItems?.total ?? 0}
               label={t('admin.reports.itemsByCategory') || 'E-Waste Items'}
-              icon="📱"
+              icon="smartphone"
               accentColor="#6A1B9A"
             />
             <MetricCard
               value={analytics?.requests?.total ?? 0}
               label={t('admin.reports.totalRequests') || 'Total Requests'}
-              icon="📋"
+              icon="clipboard"
               accentColor="#00695C"
             />
             <MetricCard
               value={`${analytics?.pickups?.totalWeightKg ?? 0} kg`}
               label={t('admin.reports.pickupsAndWeight') || 'Collected Wt'}
-              icon="⚖️"
+              icon="scale"
               accentColor="#2E7D32"
             />
             <MetricCard
               value={`${analytics?.recycling?.totalOutputWeightKg ?? 0} kg`}
               label={t('admin.reports.recyclingOutputs') || 'Recycled Wt'}
-              icon="🌿"
+              icon="recycle"
               accentColor="#1565C0"
             />
             <MetricCard
               value={recyclers.length}
               label={t('admin.reports.facilityCoverage') || 'Verified Recyclers'}
-              icon="🏭"
+              icon="factory"
               accentColor="#E65100"
             />
           </View>
@@ -502,23 +519,38 @@ export const AdminReportsScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
           <View style={styles.card}>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>🛵 Informal Collectors Registered:</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <AppIcon name="truck" size={14} color="#E65100" />
+                <Text style={styles.summaryLabel}>Informal Collectors Registered:</Text>
+              </View>
               <Text style={styles.summaryValue}>{analytics?.users?.byRole?.INFORMAL_COLLECTOR ?? 0}</Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>✅ Pickups Completed:</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <AppIcon name="checkCircle" size={14} color="#10B981" />
+                <Text style={styles.summaryLabel}>Pickups Completed:</Text>
+              </View>
               <Text style={styles.summaryValue}>{analytics?.pickups?.completed ?? 0}</Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>📦 Formal Consignments Accepted:</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <AppIcon name="package" size={14} color="#38BDF8" />
+                <Text style={styles.summaryLabel}>Formal Consignments Accepted:</Text>
+              </View>
               <Text style={styles.summaryValue}>{analytics?.consignments?.accepted ?? 0}</Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>❌ Consignments Rejected:</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <AppIcon name="xCircle" size={14} color="#EF4444" />
+                <Text style={styles.summaryLabel}>Consignments Rejected:</Text>
+              </View>
               <Text style={styles.summaryValue}>{analytics?.consignments?.rejected ?? 0}</Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>🏭 Recycling Records Completed:</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <AppIcon name="factory" size={14} color="#10B981" />
+                <Text style={styles.summaryLabel}>Recycling Records Completed:</Text>
+              </View>
               <Text style={styles.summaryValue}>{analytics?.recycling?.completed ?? 0}</Text>
             </View>
           </View>
@@ -540,15 +572,26 @@ export const AdminReportsScreen: React.FC<Props> = ({ navigation }) => {
                     <Text style={styles.facilityDistrict}>{reg.district}</Text>
                   </View>
                   <View style={styles.facilityStats}>
-                    <Text style={styles.facilityStatText}>
-                      🏭 {reg.facilityCount} facilities | 📦 {reg.totalConsignments} consignments
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <AppIcon name="factory" size={12} color={colors.textSecondary} />
+                      <Text style={styles.facilityStatText}>
+                        {reg.facilityCount} facilities
+                      </Text>
+                      <Text style={styles.facilityStatText}>|</Text>
+                      <AppIcon name="package" size={12} color={colors.textSecondary} />
+                      <Text style={styles.facilityStatText}>
+                        {reg.totalConsignments} consignments
+                      </Text>
+                    </View>
                   </View>
                 </View>
               ))}
-              <Text style={styles.privacyFootnote}>
-                🔒 Citizen household doorstep coordinates are strictly protected and never included in reports.
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 }}>
+                <AppIcon name="shield" size={13} color="#10B981" />
+                <Text style={[styles.privacyFootnote, { flex: 1, marginTop: 0 }]}>
+                  Citizen household doorstep coordinates are strictly protected and never included in reports.
+                </Text>
+              </View>
             </View>
           )}
 

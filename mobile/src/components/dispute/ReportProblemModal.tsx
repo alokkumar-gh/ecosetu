@@ -22,6 +22,8 @@ import disputeService, { DisputeType, MarketplaceDispute } from '../../services/
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 
+import { AppIcon, IconName } from '../ui/AppIcon';
+
 interface Props {
   visible: boolean;
   onClose: () => void;
@@ -37,16 +39,16 @@ interface Props {
   onDisputeCreated?: (dispute: MarketplaceDispute) => void;
 }
 
-const PROBLEM_OPTIONS: { type: DisputeType; label: string; icon: string; desc: string }[] = [
-  { type: 'WEIGHT_MISMATCH', label: 'Weight is Incorrect', icon: '⚖️', desc: 'Disagreement on estimated or final verified weight' },
-  { type: 'MATERIAL_MISMATCH', label: 'Material is Different', icon: '📦', desc: 'Material does not match listed category or grade' },
-  { type: 'CONDITION_MISMATCH', label: 'Condition Mismatch', icon: '🔍', desc: 'Contamination, damage, or wrong condition' },
-  { type: 'PARTIAL_ACCEPTANCE', label: 'Only Part Accepted', icon: '✂️', desc: 'Recycler accepts portion; rest rejected' },
-  { type: 'HANDOVER_REJECTION', label: 'Handover Rejected', icon: '🚫', desc: 'Material rejected at physical pickup' },
-  { type: 'PAYMENT_DISPUTE', label: 'Payment is Incorrect', icon: '💰', desc: 'Amount recorded does not match agreed terms' },
-  { type: 'CANCELLATION_REQUEST', label: 'Cancel Accepted Deal', icon: '🛑', desc: 'Request deal cancellation before completion' },
-  { type: 'RETURN_REQUEST', label: 'Request Return', icon: '🔄', desc: 'Request material to be returned/released' },
-  { type: 'OTHER', label: 'Other Issue', icon: '❓', desc: 'Any other commercial or operational dispute' },
+const PROBLEM_OPTIONS: { type: DisputeType; label: string; icon: IconName; desc: string }[] = [
+  { type: 'WEIGHT_MISMATCH', label: 'Weight is Incorrect', icon: 'scale', desc: 'Disagreement on estimated or final verified weight' },
+  { type: 'MATERIAL_MISMATCH', label: 'Material is Different', icon: 'box', desc: 'Material does not match listed category or grade' },
+  { type: 'CONDITION_MISMATCH', label: 'Condition Mismatch', icon: 'search', desc: 'Contamination, damage, or wrong condition' },
+  { type: 'PARTIAL_ACCEPTANCE', label: 'Only Part Accepted', icon: 'filter', desc: 'Recycler accepts portion; rest rejected' },
+  { type: 'HANDOVER_REJECTION', label: 'Handover Rejected', icon: 'close', desc: 'Material rejected at physical pickup' },
+  { type: 'PAYMENT_DISPUTE', label: 'Payment is Incorrect', icon: 'receipt', desc: 'Amount recorded does not match agreed terms' },
+  { type: 'CANCELLATION_REQUEST', label: 'Cancel Accepted Deal', icon: 'alert', desc: 'Request deal cancellation before completion' },
+  { type: 'RETURN_REQUEST', label: 'Request Return', icon: 'refresh', desc: 'Request material to be returned/released' },
+  { type: 'OTHER', label: 'Other Issue', icon: 'help', desc: 'Any other commercial or operational dispute' },
 ];
 
 export const ReportProblemModal: React.FC<Props> = ({
@@ -114,9 +116,12 @@ export const ReportProblemModal: React.FC<Props> = ({
       <View style={styles.overlay}>
         <View style={styles.contentCard}>
           <View style={styles.header}>
-            <Text style={styles.title}>🚨 Report a Problem</Text>
+            <View style={styles.headerTitleRow}>
+              <AppIcon name="alert" size={20} color="#EF4444" />
+              <Text style={styles.title}>Report a Problem</Text>
+            </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>✕</Text>
+              <AppIcon name="close" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -133,7 +138,13 @@ export const ReportProblemModal: React.FC<Props> = ({
                     onPress={() => setSelectedType(opt.type)}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.typeIcon}>{opt.icon}</Text>
+                    <View style={styles.iconContainer}>
+                      <AppIcon
+                        name={opt.icon}
+                        size={18}
+                        color={isSelected ? colors.primary : colors.textSecondary}
+                      />
+                    </View>
                     <View style={styles.typeTextWrap}>
                       <Text style={[styles.typeLabel, isSelected && styles.typeLabelSelected]}>
                         {opt.label}
@@ -235,6 +246,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: space.sm,
   },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   title: {
     fontSize: 18,
     fontWeight: '700',
@@ -243,9 +259,10 @@ const styles = StyleSheet.create({
   closeBtn: {
     padding: 6,
   },
-  closeBtnText: {
-    fontSize: 18,
-    color: colors.textSecondary,
+  iconContainer: {
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollArea: {
     marginBottom: space.md,

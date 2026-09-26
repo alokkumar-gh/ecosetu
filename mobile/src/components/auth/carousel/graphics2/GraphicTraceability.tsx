@@ -8,22 +8,23 @@
 
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import { AppIcon, IconName } from '../../../ui/AppIcon';
 
 interface Props {
   active: boolean;
 }
 
-const STEPS = [
-  { icon: '🏠', label: 'Citizen Drop-off', color: '#10B981', sublabel: 'QR scanned' },
-  { icon: '🚛', label: 'Collection', color: '#06B6D4', sublabel: 'GPS verified' },
-  { icon: '🏭', label: 'Facility Intake', color: '#A78BFA', sublabel: 'Weight logged' },
-  { icon: '♻️', label: 'Recycled', color: '#34D399', sublabel: 'Certificate issued' },
+const STEPS: { icon: IconName; label: string; color: string; sublabel: string }[] = [
+  { icon: 'home', label: 'Citizen Drop-off', color: '#10B981', sublabel: 'QR scanned' },
+  { icon: 'truck', label: 'Collection', color: '#06B6D4', sublabel: 'GPS verified' },
+  { icon: 'refresh', label: 'Facility Intake', color: '#A78BFA', sublabel: 'Weight logged' },
+  { icon: 'recycle', label: 'Recycled', color: '#34D399', sublabel: 'Certificate issued' },
 ];
 
 export const GraphicTraceability: React.FC<Props> = ({ active }) => {
-  const stepAnims = STEPS.map(() => useRef(new Animated.Value(0)).current);
-  const connectorAnims = STEPS.slice(0, -1).map(() => useRef(new Animated.Value(0)).current);
-  const checkAnims = STEPS.map(() => useRef(new Animated.Value(0)).current);
+  const stepAnims = useRef(STEPS.map(() => new Animated.Value(0))).current;
+  const connectorAnims = useRef(STEPS.slice(0, -1).map(() => new Animated.Value(0))).current;
+  const checkAnims = useRef(STEPS.map(() => new Animated.Value(0))).current;
 
   useEffect(() => {
     if (!active) return;
@@ -103,7 +104,7 @@ export const GraphicTraceability: React.FC<Props> = ({ active }) => {
               ]}
             >
               <View style={[styles.nodeCircle, { borderColor: step.color + '70' }]}>
-                <Text style={styles.nodeIcon}>{step.icon}</Text>
+                <AppIcon name={step.icon} size={18} color={step.color} />
               </View>
 
               {/* Checkmark */}
@@ -117,7 +118,7 @@ export const GraphicTraceability: React.FC<Props> = ({ active }) => {
                   },
                 ]}
               >
-                <Text style={styles.checkIcon}>✓</Text>
+                <AppIcon name="check" size={10} color="#071E22" />
               </Animated.View>
             </Animated.View>
 
@@ -145,7 +146,7 @@ export const GraphicTraceability: React.FC<Props> = ({ active }) => {
 
       {/* Certificate badge */}
       <View style={styles.certBadge}>
-        <Text style={styles.certIcon}>🏅</Text>
+        <AppIcon name="award" size={13} color="#FBBF24" />
         <Text style={styles.certText}>CPCB Traceable</Text>
       </View>
     </View>

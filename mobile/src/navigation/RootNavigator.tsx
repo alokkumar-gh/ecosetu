@@ -13,6 +13,7 @@ import { AccountDeactivatedScreen } from '../screens/auth/AccountDeactivatedScre
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
+import { AppIcon } from '../components/ui/AppIcon';
 
 export const RootNavigator: React.FC = () => {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -22,7 +23,7 @@ export const RootNavigator: React.FC = () => {
     return (
       <View style={styles.loadingContainer} accessibilityRole="progressbar" accessibilityLabel="Loading session">
         <View style={styles.logoCircle}>
-          <Text style={styles.logoIcon}>♻</Text>
+          <AppIcon name="recycle" size={38} color={colors.surface} />
         </View>
         <Text style={styles.loadingTitle}>EcoSetu</Text>
         <ActivityIndicator size="large" color={colors.primary} style={styles.spinner} />

@@ -1,10 +1,12 @@
 /**
- * EcoSetu — Eco-Saathi In-App Interactive Chat Modal with Voice Assistant
- * Source of Truth: docs/ECOSETU_ECO-SAATHI_IMPLEMENTATION_ARCHITECTURE_v1.0.md
+ * EcoSetu — Eco-Saathi In-App Interactive Chat Modal with Vernacular Voice Assistant
  * 
- * Production-quality Conversational UI with dark emerald glassmorphism,
- * Voice Assistant (STT Speech Recognition & TTS Speech Synthesis),
- * dynamic data alerts, safe navigation actions, and multilingual support.
+ * Collector-First Voice & Conversational Assistant:
+ * - Natural 4-language support: Odia (or), Hindi (hi), Marathi (mr), English (en)
+ * - Auto-speak preference toggle with manual "Listen" button on each message
+ * - Pre-permission explanation dialog in native language
+ * - Human-friendly processing states ("Listening...", "Understanding...", "Preparing answer...")
+ * - High-contrast institutional dark emerald design (no AI sparkle gimmicks)
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -22,13 +24,14 @@ import {
   StatusBar,
   NativeModules,
   PermissionsAndroid,
+  ActivityIndicator,
 } from 'react-native';
 import { useEcoSaathi, EcoSaathiMessage, QuickReplyOption } from '../../context/EcoSaathiContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useI18n } from '../../i18n';
 import { navigateSafely } from '../../navigation/navigationRef';
 import { voiceService } from '../../services/voiceService';
-import { colors } from '../../theme/colors';
+import { AppIcon } from '../ui/AppIcon';
 
 const { EcoSetuSpeech } = NativeModules;
 
@@ -42,7 +45,9 @@ const sanitizeTextForSpeech = (text: string): string => {
 
 export const EcoSaathiChatModal: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
-  const { t, language } = useI18n();
+  const { language } = useI18n();
+  const activeLang = language || 'en';
+
   const {
     isOpen,
     closeChat,
@@ -57,9 +62,102 @@ export const EcoSaathiChatModal: React.FC = () => {
   const [isListening, setIsListening] = useState(false);
   const [isVoiceOutputEnabled, setIsVoiceOutputEnabled] = useState(true);
   const [speechStatus, setSpeechStatus] = useState<string | null>(null);
+  const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
   const lastSpokenMessageIdRef = useRef<string | null>(null);
+
+  // Vernacular copy dictionary
+  const copy = {
+    title: 'Eco-Saathi',
+    subtitle:
+      activeLang === 'or'
+        ? 'ଆପଣଙ୍କ ସ୍ୱର ସହାୟକ'
+        : activeLang === 'hi'
+        ? 'आपका आवाज़ सहायक'
+        : activeLang === 'mr'
+        ? 'तुमचा आवाज सहाय्यक'
+        : 'Voice Assistant',
+    voiceOn:
+      activeLang === 'or' ? 'ସ୍ୱର: ଚାଲୁ' : activeLang === 'hi' ? 'आवाज़: चालू' : activeLang === 'mr' ? 'आवाज: चालू' : 'Voice: ON',
+    voiceOff:
+      activeLang === 'or' ? 'ସ୍ୱର: ବନ୍ଦ' : activeLang === 'hi' ? 'आवाज़: बंद' : activeLang === 'mr' ? 'आवाज: बंद' : 'Voice: OFF',
+    reset:
+      activeLang === 'or' ? 'ନୂଆ' : activeLang === 'hi' ? 'नया' : activeLang === 'mr' ? 'नवीन' : 'Reset',
+    listeningStatus:
+      activeLang === 'or'
+        ? 'ଶୁଣୁଛି... ଆପଣଙ୍କ ପ୍ରଶ୍ନ କୁହନ୍ତୁ'
+        : activeLang === 'hi'
+        ? 'सुन रहा हूँ... अपना सवाल बोलें'
+        : activeLang === 'mr'
+        ? 'ऐकत आहे... तुमचा प्रश्न बोला'
+        : 'Listening... Speak your question',
+    understandingStatus:
+      activeLang === 'or'
+        ? 'ବୁଝୁଛି...'
+        : activeLang === 'hi'
+        ? 'समझ रहा हूँ...'
+        : activeLang === 'mr'
+        ? 'समजून घेत आहे...'
+        : 'Understanding...',
+    preparingStatus:
+      activeLang === 'or'
+        ? 'ଉତ୍ତର ପ୍ରସ୍ତୁତ ହେଉଛି...'
+        : activeLang === 'hi'
+        ? 'उत्तर तैयार हो रहा है...'
+        : activeLang === 'mr'
+        ? 'उत्तर तयार होत आहे...'
+        : 'Preparing answer...',
+    inputPlaceholder:
+      activeLang === 'or'
+        ? 'କୁହନ୍ତୁ କିମ୍ବା ଟାଇପ୍ କରନ୍ତୁ...'
+        : activeLang === 'hi'
+        ? 'बोलें या टाइप करें...'
+        : activeLang === 'mr'
+        ? 'बोला किंवा टाइप करा...'
+        : 'Speak or type here...',
+    listenBtn:
+      activeLang === 'or' ? 'ଶୁଣନ୍ତୁ' : activeLang === 'hi' ? 'सुनें' : activeLang === 'mr' ? 'ऐका' : 'Listen',
+    stopBtn:
+      activeLang === 'or' ? 'ଥାଆନ୍ତୁ' : activeLang === 'hi' ? 'रोकें' : activeLang === 'mr' ? 'थांबवा' : 'Stop',
+    hazardAlert:
+      activeLang === 'or'
+        ? 'ସୁରକ୍ଷା ଚେତାବନୀ'
+        : activeLang === 'hi'
+        ? 'सुरक्षा चेतावनी'
+        : activeLang === 'mr'
+        ? 'सुरक्षा सूचना'
+        : 'SAFETY NOTICE',
+    offlineBanner:
+      activeLang === 'or'
+        ? 'ଅଫଲାଇନ୍ ମୋଡ୍ ଚାଲୁଅଛି — ସ୍ୱର ସହାୟତା ଉପଲବ୍ଧ।'
+        : activeLang === 'hi'
+        ? 'ऑफ़लाइन मोड सक्रिय — आवाज़ सहायता उपलब्ध है।'
+        : activeLang === 'mr'
+        ? 'ऑफलाइन मोड चालू आहे — आवाज मदत उपलब्ध आहे.'
+        : 'Offline mode active — Voice assistant available.',
+    permissionTitle:
+      activeLang === 'or'
+        ? 'ମାଇକ୍ରୋଫୋନ୍ ବ୍ୟବହାର'
+        : activeLang === 'hi'
+        ? 'माइक्रोफ़ोन का उपयोग'
+        : activeLang === 'mr'
+        ? 'मायक्रोफोनचा वापर'
+        : 'Microphone Permission',
+    permissionWhy:
+      activeLang === 'or'
+        ? 'ଆପଣ ଟାଇପ୍ ନକରି ନିଜ ସ୍ୱରରେ Eco-Saathi କୁ ପ୍ରଶ୍ନ ପଚାରିପାରିବେ।'
+        : activeLang === 'hi'
+        ? 'आप टाइप किए बिना अपनी आवाज़ में Eco-Saathi से सवाल पूछ सकते हैं।'
+        : activeLang === 'mr'
+        ? 'तुम्ही टाइप न करता आपल्या आवाजात Eco-Saathi ला प्रश्न विचारू शकता.'
+        : 'You can ask Eco-Saathi questions using your voice instead of typing.',
+    permissionAllow:
+      activeLang === 'or' ? 'ଅନୁମତି ଦିଅନ୍ତୁ' : activeLang === 'hi' ? 'अनुमति दें' : activeLang === 'mr' ? 'परवानगी द्या' : 'Allow',
+    permissionCancel:
+      activeLang === 'or' ? 'ଟାଇପ୍ କରିବି' : activeLang === 'hi' ? 'टाइप करूँगा' : activeLang === 'mr' ? 'टाइप करेन' : 'Type instead',
+  };
 
   // Auto-scroll to bottom on new message
   useEffect(() => {
@@ -70,7 +168,7 @@ export const EcoSaathiChatModal: React.FC = () => {
     }
   }, [messages]);
 
-  // Read out Eco-Saathi responses using Voice Assistant TTS when enabled
+  // Read out Eco-Saathi responses using Voice Assistant TTS when auto-speak is enabled
   useEffect(() => {
     if (messages.length > 0) {
       const lastMsg = messages[messages.length - 1];
@@ -81,11 +179,16 @@ export const EcoSaathiChatModal: React.FC = () => {
         lastSpokenMessageIdRef.current = lastMsg.id;
         if (isVoiceOutputEnabled) {
           const cleanText = sanitizeTextForSpeech(lastMsg.text);
-          voiceService.speak(cleanText, { force: true, language: language || 'en' });
+          setPlayingMessageId(lastMsg.id);
+          voiceService
+            .speak(cleanText, { force: true, language: activeLang })
+            .finally(() => {
+              setPlayingMessageId(null);
+            });
         }
       }
     }
-  }, [messages, isVoiceOutputEnabled, language]);
+  }, [messages, isVoiceOutputEnabled, activeLang]);
 
   if (!isOpen || !isAuthenticated || !user) {
     return null;
@@ -93,6 +196,7 @@ export const EcoSaathiChatModal: React.FC = () => {
 
   const handleClose = () => {
     voiceService.stop();
+    setPlayingMessageId(null);
     if (isListening && EcoSetuSpeech?.stopListening) {
       try {
         EcoSetuSpeech.stopListening();
@@ -104,6 +208,7 @@ export const EcoSaathiChatModal: React.FC = () => {
 
   const handleClear = () => {
     voiceService.stop();
+    setPlayingMessageId(null);
     clearChat();
   };
 
@@ -111,7 +216,20 @@ export const EcoSaathiChatModal: React.FC = () => {
     if (!inputText.trim()) return;
     const textToSend = inputText;
     setInputText('');
+    setSpeechStatus(copy.understandingStatus);
     sendMessage(textToSend);
+    setTimeout(() => setSpeechStatus(null), 1500);
+  };
+
+  const checkHasPermission = async (): Promise<boolean> => {
+    if (Platform.OS !== 'android') return true;
+    try {
+      return await PermissionsAndroid.check(
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
+      );
+    } catch {
+      return false;
+    }
   };
 
   const handleMicPress = async () => {
@@ -126,32 +244,39 @@ export const EcoSaathiChatModal: React.FC = () => {
       return;
     }
 
-    if (Platform.OS === 'android') {
-      try {
-        const hasPermission = await PermissionsAndroid.check(
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
-        );
-        if (!hasPermission) {
-          const result = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-            {
-              title: 'Microphone Permission',
-              message: 'Eco-Saathi uses your microphone to listen to your voice questions.',
-              buttonPositive: 'Allow',
-              buttonNegative: 'Cancel',
-            }
-          );
-          if (result !== PermissionsAndroid.RESULTS.GRANTED) {
-            setSpeechStatus('Microphone permission required for voice input.');
-            setTimeout(() => setSpeechStatus(null), 3000);
-            return;
-          }
-        }
-      } catch (e) {
-        console.warn('[EcoSaathiVoice] Permission check error:', e);
-      }
+    const hasPerm = await checkHasPermission();
+    if (!hasPerm) {
+      setShowPermissionModal(true);
+      return;
     }
 
+    startListeningFlow();
+  };
+
+  const handleGrantPermission = async () => {
+    setShowPermissionModal(false);
+    try {
+      const result = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        {
+          title: copy.permissionTitle,
+          message: copy.permissionWhy,
+          buttonPositive: copy.permissionAllow,
+          buttonNegative: copy.permissionCancel,
+        }
+      );
+      if (result === PermissionsAndroid.RESULTS.GRANTED) {
+        startListeningFlow();
+      } else {
+        setSpeechStatus(copy.permissionCancel);
+        setTimeout(() => setSpeechStatus(null), 2500);
+      }
+    } catch {
+      setShowPermissionModal(false);
+    }
+  };
+
+  const startListeningFlow = async () => {
     if (!EcoSetuSpeech?.startListening) {
       setSpeechStatus('Voice recognition not supported on this device.');
       setTimeout(() => setSpeechStatus(null), 3000);
@@ -159,43 +284,34 @@ export const EcoSaathiChatModal: React.FC = () => {
     }
 
     voiceService.stop();
+    setPlayingMessageId(null);
     setIsListening(true);
-    setSpeechStatus(
-      language === 'hi'
-        ? 'सुन रहा हूँ... अपना सवाल बोलें'
-        : language === 'mr'
-        ? 'ऐकत आहे... तुमचा प्रश्न बोला'
-        : language === 'or'
-        ? 'ଶୁଣୁଛି... ଆପଣଙ୍କ ପ୍ରଶ୍ନ କୁହନ୍ତୁ'
-        : 'Listening... Speak your question now'
-    );
+    setSpeechStatus(copy.listeningStatus);
 
     try {
-      const matches: string[] = await EcoSetuSpeech.startListening(language || 'en');
+      const matches: string[] = await EcoSetuSpeech.startListening(activeLang);
       setIsListening(false);
-      setSpeechStatus(null);
+      setSpeechStatus(copy.understandingStatus);
 
       if (matches && matches.length > 0 && matches[0].trim()) {
         const recognizedText = matches[0].trim();
         setInputText(recognizedText);
+        setSpeechStatus(copy.preparingStatus);
         sendMessage(recognizedText);
+        setTimeout(() => setSpeechStatus(null), 1500);
       } else {
-        setSpeechStatus('No speech detected. Please try again.');
-        setTimeout(() => setSpeechStatus(null), 3000);
+        setSpeechStatus(null);
       }
     } catch (err: any) {
       setIsListening(false);
-      if (err?.code === 'NO_SPEECH' || err?.message?.includes('cancelled')) {
-        setSpeechStatus(null);
-      } else {
-        setSpeechStatus('Voice input error. Please try again.');
-        setTimeout(() => setSpeechStatus(null), 3000);
-      }
+      setSpeechStatus(null);
     }
   };
 
   const handleQuickReplyPress = (qr: QuickReplyOption) => {
+    setSpeechStatus(copy.understandingStatus);
     sendMessage(qr.query);
+    setTimeout(() => setSpeechStatus(null), 1200);
   };
 
   const handleActionPress = (action: { route: string; params?: Record<string, any> }) => {
@@ -205,8 +321,26 @@ export const EcoSaathiChatModal: React.FC = () => {
     }, 200);
   };
 
+  const handlePlayIndividualMessage = async (msg: EcoSaathiMessage) => {
+    if (playingMessageId === msg.id) {
+      await voiceService.stop();
+      setPlayingMessageId(null);
+      return;
+    }
+
+    await voiceService.stop();
+    setPlayingMessageId(msg.id);
+    const cleanText = sanitizeTextForSpeech(msg.text);
+    try {
+      await voiceService.speak(cleanText, { force: true, language: activeLang });
+    } finally {
+      setPlayingMessageId(null);
+    }
+  };
+
   const renderMessageItem = ({ item }: { item: EcoSaathiMessage }) => {
     const isUser = item.sender === 'user';
+    const isThisPlaying = playingMessageId === item.id;
 
     return (
       <View
@@ -219,7 +353,7 @@ export const EcoSaathiChatModal: React.FC = () => {
       >
         {!isUser && (
           <View style={styles.saathiAvatarMini}>
-            <Text style={styles.saathiAvatarText}>🌿</Text>
+            <AppIcon name="eco" size={16} color="#10B981" />
           </View>
         )}
 
@@ -233,7 +367,8 @@ export const EcoSaathiChatModal: React.FC = () => {
           {/* Hazard Alert Badge */}
           {item.safetySensitivity === 'HAZARD_CRITICAL' && (
             <View style={styles.hazardBadge}>
-              <Text style={styles.hazardBadgeText}>⚠️ CRITICAL SAFETY HAZARD</Text>
+              <AppIcon name="alert" size={12} color="#FCA5A5" />
+              <Text style={styles.hazardBadgeText}>{copy.hazardAlert}</Text>
             </View>
           )}
 
@@ -242,13 +377,32 @@ export const EcoSaathiChatModal: React.FC = () => {
             {item.text}
           </Text>
 
-          {/* Dynamic Data Notification */}
-          {item.requiresDynamicData && (
-            <View style={styles.dynamicDataNotice}>
-              <Text style={styles.dynamicDataText}>
-                ℹ️ Requires live account data
+          {/* Individual Listen / Stop Button on Bot Messages */}
+          {!isUser && (
+            <TouchableOpacity
+              style={[
+                styles.bubbleListenBtn,
+                isThisPlaying && styles.bubbleListenBtnPlaying,
+              ]}
+              onPress={() => handlePlayIndividualMessage(item)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={`${isThisPlaying ? copy.stopBtn : copy.listenBtn} response`}
+            >
+              <AppIcon
+                name={isThisPlaying ? 'square' : 'volume'}
+                size={14}
+                color={isThisPlaying ? '#EF4444' : '#6EE7B7'}
+              />
+              <Text
+                style={[
+                  styles.bubbleListenText,
+                  isThisPlaying && styles.bubbleListenTextPlaying,
+                ]}
+              >
+                {isThisPlaying ? copy.stopBtn : copy.listenBtn}
               </Text>
-            </View>
+            </TouchableOpacity>
           )}
 
           {/* Suggested Navigation Action Button */}
@@ -277,7 +431,45 @@ export const EcoSaathiChatModal: React.FC = () => {
     >
       <SafeAreaView style={styles.safeArea}>
         <StatusBar barStyle="light-content" backgroundColor="#02080D" />
-        
+
+        {/* Pre-Permission Explanation Modal */}
+        <Modal
+          visible={showPermissionModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowPermissionModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalIconWrap}>
+                <AppIcon name="mic" size={28} color="#10B981" />
+              </View>
+              <Text style={styles.modalTitle}>{copy.permissionTitle}</Text>
+              <Text style={styles.modalBody}>{copy.permissionWhy}</Text>
+              <View style={styles.modalActionRow}>
+                <TouchableOpacity
+                  style={styles.modalSecondaryBtn}
+                  onPress={() => setShowPermissionModal(false)}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={copy.permissionCancel}
+                >
+                  <Text style={styles.modalSecondaryBtnText}>{copy.permissionCancel}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalPrimaryBtn}
+                  onPress={handleGrantPermission}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={copy.permissionAllow}
+                >
+                  <Text style={styles.modalPrimaryBtnText}>{copy.permissionAllow}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
         {/* Modal Container */}
         <KeyboardAvoidingView
           style={styles.container}
@@ -288,18 +480,12 @@ export const EcoSaathiChatModal: React.FC = () => {
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <View style={styles.avatarContainer}>
-                <Text style={styles.avatarEmoji}>🌿</Text>
+                <AppIcon name="eco" size={22} color="#10B981" />
                 <View style={styles.onlineDot} />
               </View>
               <View>
-                <Text style={styles.headerTitle}>Eco-Saathi</Text>
-                <Text style={styles.headerSubtitle}>
-                  {user?.role === 'INFORMAL_COLLECTOR'
-                    ? 'Voice & Collector Assistant'
-                    : user?.role === 'CITIZEN'
-                    ? 'Voice & Citizen Assistant'
-                    : 'Voice Assistant'}
-                </Text>
+                <Text style={styles.headerTitle}>{copy.title}</Text>
+                <Text style={styles.headerSubtitle}>{copy.subtitle}</Text>
               </View>
             </View>
 
@@ -315,13 +501,19 @@ export const EcoSaathiChatModal: React.FC = () => {
                   setIsVoiceOutputEnabled(nextState);
                   if (!nextState) {
                     voiceService.stop();
+                    setPlayingMessageId(null);
                   }
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={isVoiceOutputEnabled ? 'Mute Eco-Saathi voice' : 'Enable Eco-Saathi voice'}
+                accessibilityLabel={isVoiceOutputEnabled ? copy.voiceOn : copy.voiceOff}
               >
+                <AppIcon
+                  name={isVoiceOutputEnabled ? 'volume' : 'volumeMute'}
+                  size={14}
+                  color={isVoiceOutputEnabled ? '#6EE7B7' : '#94A3B8'}
+                />
                 <Text style={styles.voiceToggleText}>
-                  {isVoiceOutputEnabled ? '🔊 Voice' : '🔇 Muted'}
+                  {isVoiceOutputEnabled ? copy.voiceOn : copy.voiceOff}
                 </Text>
               </TouchableOpacity>
 
@@ -331,7 +523,8 @@ export const EcoSaathiChatModal: React.FC = () => {
                 accessibilityRole="button"
                 accessibilityLabel="Reset conversation"
               >
-                <Text style={styles.resetButtonText}>↺ Reset</Text>
+                <AppIcon name="refresh" size={13} color="#CBD5E1" />
+                <Text style={styles.resetButtonText}>{copy.reset}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -340,7 +533,7 @@ export const EcoSaathiChatModal: React.FC = () => {
                 accessibilityRole="button"
                 accessibilityLabel="Close Eco-Saathi"
               >
-                <Text style={styles.closeButtonText}>✕</Text>
+                <AppIcon name="close" size={16} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
           </View>
@@ -356,9 +549,8 @@ export const EcoSaathiChatModal: React.FC = () => {
           {/* Offline Banner */}
           {!isOnline && (
             <View style={styles.offlineBanner}>
-              <Text style={styles.offlineBannerText}>
-                📡 Offline Mode Active — Voice assistant and offline FAQs working.
-              </Text>
+              <AppIcon name="alert" size={14} color="#FDE68A" />
+              <Text style={styles.offlineBannerText}>{copy.offlineBanner}</Text>
             </View>
           )}
 
@@ -408,22 +600,16 @@ export const EcoSaathiChatModal: React.FC = () => {
               accessibilityRole="button"
               accessibilityLabel={isListening ? 'Stop voice input' : 'Start voice input'}
             >
-              <Text style={styles.micButtonIcon}>{isListening ? '⏹️' : '🎙️'}</Text>
+              <AppIcon
+                name={isListening ? 'square' : 'mic'}
+                size={20}
+                color={isListening ? '#EF4444' : '#10B981'}
+              />
             </TouchableOpacity>
 
             <TextInput
               style={[styles.input, isListening && styles.inputListening]}
-              placeholder={
-                isListening
-                  ? 'Listening...'
-                  : language === 'hi'
-                  ? 'बोलें या टाइप करें...'
-                  : language === 'mr'
-                  ? 'बोला किंवा टाइप करा...'
-                  : language === 'or'
-                  ? 'କୁହନ୍ତୁ କିମ୍ବା ଟାଇପ୍ କରନ୍ତୁ...'
-                  : 'Speak or ask prices, lots, payments...'
-              }
+              placeholder={isListening ? copy.listeningStatus : copy.inputPlaceholder}
               placeholderTextColor={isListening ? '#10B981' : '#64748B'}
               value={inputText}
               onChangeText={setInputText}
@@ -443,7 +629,11 @@ export const EcoSaathiChatModal: React.FC = () => {
               accessibilityRole="button"
               accessibilityLabel="Send message"
             >
-              <Text style={styles.sendButtonIcon}>➤</Text>
+              <AppIcon
+                name="send"
+                size={18}
+                color={inputText.trim() ? '#02080D' : '#64748B'}
+              />
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -487,9 +677,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'relative',
   },
-  avatarEmoji: {
-    fontSize: 20,
-  },
   onlineDot: {
     position: 'absolute',
     bottom: 0,
@@ -518,10 +705,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   voiceToggleButton: {
-    paddingHorizontal: 9,
-    paddingVertical: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 14,
     borderWidth: 1,
+    minHeight: 36,
   },
   voiceToggleActive: {
     backgroundColor: 'rgba(16, 185, 129, 0.20)',
@@ -537,12 +728,16 @@ const styles = StyleSheet.create({
     color: '#6EE7B7',
   },
   resetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 9,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
+    minHeight: 36,
   },
   resetButtonText: {
     fontSize: 11.5,
@@ -550,23 +745,18 @@ const styles = StyleSheet.create({
     color: '#CBD5E1',
   },
   closeButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  closeButtonText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '700',
   },
   speechStatusBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     backgroundColor: 'rgba(15, 23, 42, 0.95)',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
@@ -586,21 +776,25 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#F59E0B',
+    backgroundColor: '#10B981',
   },
   speechStatusText: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '600',
     color: '#F1F5F9',
   },
   offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     backgroundColor: 'rgba(245, 158, 11, 0.15)',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(245, 158, 11, 0.35)',
     paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingVertical: 8,
   },
   offlineBannerText: {
+    flex: 1,
     fontSize: 12,
     color: '#FDE68A',
     fontWeight: '600',
@@ -623,21 +817,18 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   saathiAvatarMini: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: 'rgba(16, 185, 129, 0.20)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 4,
   },
-  saathiAvatarText: {
-    fontSize: 14,
-  },
   messageBubble: {
-    maxWidth: '82%',
+    maxWidth: '84%',
     paddingHorizontal: 14,
-    paddingVertical: 11,
+    paddingVertical: 12,
     borderRadius: 18,
   },
   bubbleUser: {
@@ -645,16 +836,19 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 4,
   },
   bubbleSaathi: {
-    backgroundColor: 'rgba(7, 30, 34, 0.90)',
+    backgroundColor: '#071E22',
     borderWidth: 1,
     borderColor: 'rgba(16, 185, 129, 0.30)',
     borderBottomLeftRadius: 4,
   },
   bubbleHazard: {
     borderColor: '#EF4444',
-    backgroundColor: 'rgba(40, 10, 15, 0.92)',
+    backgroundColor: 'rgba(40, 10, 15, 0.95)',
   },
   hazardBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     backgroundColor: 'rgba(239, 68, 68, 0.25)',
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -680,16 +874,31 @@ const styles = StyleSheet.create({
     color: '#F1F5F9',
     fontWeight: '400',
   },
-  dynamicDataNotice: {
+  bubbleListenBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
     marginTop: 8,
-    paddingTop: 6,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    minHeight: 32,
   },
-  dynamicDataText: {
-    fontSize: 11,
-    color: '#94A3B8',
-    fontStyle: 'italic',
+  bubbleListenBtnPlaying: {
+    backgroundColor: 'rgba(239, 68, 68, 0.20)',
+    borderColor: '#EF4444',
+  },
+  bubbleListenText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6EE7B7',
+  },
+  bubbleListenTextPlaying: {
+    color: '#F87171',
   },
   actionButton: {
     marginTop: 10,
@@ -710,14 +919,14 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.06)',
-    backgroundColor: 'rgba(3, 12, 18, 0.95)',
+    backgroundColor: '#030C12',
   },
   quickRepliesList: {
     paddingHorizontal: 14,
     gap: 8,
   },
   quickReplyChip: {
-    backgroundColor: 'rgba(10, 35, 42, 0.90)',
+    backgroundColor: '#071E22',
     borderWidth: 1,
     borderColor: 'rgba(16, 185, 129, 0.35)',
     paddingHorizontal: 13,
@@ -734,15 +943,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: 'rgba(7, 30, 34, 0.98)',
+    backgroundColor: '#071E22',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.10)',
     gap: 8,
   },
   micButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: 'rgba(16, 185, 129, 0.15)',
     borderWidth: 1.5,
     borderColor: 'rgba(16, 185, 129, 0.40)',
@@ -753,15 +962,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(239, 68, 68, 0.25)',
     borderColor: '#EF4444',
   },
-  micButtonIcon: {
-    fontSize: 18,
-  },
   input: {
     flex: 1,
-    height: 44,
+    height: 48,
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: 22,
-    paddingHorizontal: 14,
+    borderRadius: 24,
+    paddingHorizontal: 16,
     color: '#FFFFFF',
     fontSize: 14,
     borderWidth: 1,
@@ -772,9 +978,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(16, 185, 129, 0.10)',
   },
   sendButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#10B981',
     justifyContent: 'center',
     alignItems: 'center',
@@ -782,11 +988,78 @@ const styles = StyleSheet.create({
   sendButtonDisabled: {
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
-  sendButtonIcon: {
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(2, 8, 13, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#071E22',
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    gap: 12,
+  },
+  modalIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(16, 185, 129, 0.18)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  modalBody: {
+    fontSize: 14,
+    color: '#CBD5E1',
+    textAlign: 'center',
+    lineHeight: 21,
+  },
+  modalActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+    width: '100%',
+  },
+  modalSecondaryBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  modalSecondaryBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  modalPrimaryBtn: {
+    flex: 1.2,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  modalPrimaryBtnText: {
+    fontSize: 13.5,
+    fontWeight: '800',
     color: '#02080D',
-    fontSize: 16,
-    fontWeight: '900',
-    marginLeft: 2,
   },
 });
 

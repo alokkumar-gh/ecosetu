@@ -11,6 +11,7 @@ import { GlassCard } from '../../components/glass/GlassCard';
 import { GlassButton } from '../../components/glass/GlassButton';
 import { useAuth } from '../../hooks/useAuth';
 import { useI18n } from '../../i18n';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -23,7 +24,7 @@ export const AccountDeactivatedScreen: React.FC = () => {
     <GradientBackground>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.iconCircle}>
-          <Text style={styles.iconText}>🔒</Text>
+          <AppIcon name="lock" size={32} color={colors.warning} />
         </View>
 
         <Text style={styles.headline}>{t('auth.accountDeactivated') || 'Account Deactivated'}</Text>

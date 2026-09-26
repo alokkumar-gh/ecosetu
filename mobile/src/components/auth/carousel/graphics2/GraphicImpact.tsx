@@ -10,16 +10,17 @@
 
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import { AppIcon, IconName } from '../../../ui/AppIcon';
 
 interface Props {
   active: boolean;
 }
 
-const LEAF_ICONS = ['🌿', '🌱', '🌳', '🌾', '🍀'];
+const LEAF_ICONS: IconName[] = ['leaf', 'sparkles', 'recycle', 'leaf', 'award'];
 
 export const GraphicImpact: React.FC<Props> = ({ active }) => {
   const ringRotate = useRef(new Animated.Value(0)).current;
-  const leafAnims = LEAF_ICONS.map(() => useRef(new Animated.Value(0)).current);
+  const leafAnims = useRef(LEAF_ICONS.map(() => new Animated.Value(0))).current;
   const coinBurst = useRef(new Animated.Value(0)).current;
   const globeGlow = useRef(new Animated.Value(0.7)).current;
   const counterAnim = useRef(new Animated.Value(0)).current;
@@ -128,9 +129,9 @@ export const GraphicImpact: React.FC<Props> = ({ active }) => {
       {/* Central globe glow */}
       <Animated.View style={[styles.globeGlow, { opacity: globeGlow }]} />
 
-      {/* Globe emoji */}
+      {/* Globe */}
       <View style={styles.globeWrap}>
-        <Text style={styles.globeEmoji}>🌏</Text>
+        <AppIcon name="globe" size={68} color="#10B981" />
 
         {/* Spinning circular arrow ring */}
         <Animated.View
@@ -173,7 +174,7 @@ export const GraphicImpact: React.FC<Props> = ({ active }) => {
             },
           ]}
         >
-          <Text style={styles.leafIcon}>{icon}</Text>
+          <AppIcon name={icon} size={18} color="#34D399" />
         </Animated.View>
       ))}
 
@@ -187,13 +188,13 @@ export const GraphicImpact: React.FC<Props> = ({ active }) => {
           },
         ]}
       >
-        <Text style={styles.coinIcon}>💰</Text>
+        <AppIcon name="award" size={14} color="#FBBF24" />
         <Text style={styles.coinText}>+₹500</Text>
       </Animated.View>
 
       {/* CO2 Saved label */}
       <View style={styles.co2Badge}>
-        <Text style={styles.co2Icon}>🌱</Text>
+        <AppIcon name="leaf" size={12} color="#10B981" />
         <Text style={styles.co2Text}>CO₂ Saved</Text>
       </View>
     </View>

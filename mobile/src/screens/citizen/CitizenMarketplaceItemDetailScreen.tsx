@@ -23,6 +23,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useI18n } from '../../i18n';
 import { useNetwork } from '../../hooks/useNetwork';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { quoteService } from '../../services/quoteService';
 import { MaterialLotItem } from '../../services/materialLotService';
 import { MATERIAL_TAXONOMY } from '../../config/materialTaxonomy';
@@ -108,9 +109,12 @@ const OfferModal: React.FC<OfferModalProps> = ({
           accessibilityLabel="Note to seller"
         />
 
-        <Text style={styles.modalNote}>
-          💡 {t('marketplace.bannerDesc', 'The seller reviews your offer and can accept, counter, or decline.')}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 }}>
+          <AppIcon name="info" size={14} color="#34D399" />
+          <Text style={[styles.modalNote, { marginTop: 0, flex: 1 }]}>
+            {t('marketplace.bannerDesc', 'The seller reviews your offer and can accept, counter, or decline.')}
+          </Text>
+        </View>
 
         <View style={styles.modalActions}>
           <TouchableOpacity style={styles.modalCancelBtn} onPress={onClose} disabled={isSubmitting}>
@@ -146,7 +150,7 @@ export const CitizenMarketplaceItemDetailScreen: React.FC = () => {
   const [showOffer, setShowOffer] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const cat = MATERIAL_TAXONOMY[lot?.category || 'OTHER'] || { symbol: '📦', defaultName: 'Electronics' };
+  const cat = MATERIAL_TAXONOMY[lot?.category || 'OTHER'] || { symbol: '', defaultName: 'Electronics' };
   const cond = conditionMeta(lot?.condition || '');
   const photos = lot?.photos?.length ? lot.photos : [];
   const hasAskingPrice = lot?.askingPrice && lot.askingPrice > 0;
@@ -166,7 +170,7 @@ export const CitizenMarketplaceItemDetailScreen: React.FC = () => {
       });
       setShowOffer(false);
       Alert.alert(
-        t('marketplace.offerSubmitted', 'Offer Sent ✓'),
+        t('marketplace.offerSubmitted', 'Offer Sent'),
         t('marketplace.offerSubmittedDesc', 'Your offer has been sent. You can track the seller\'s response in My Orders.'),
         [
           { text: t('marketplace.viewPurchases', 'View My Orders'), onPress: () => navigation.navigate('CitizenPurchases') },
@@ -197,11 +201,11 @@ export const CitizenMarketplaceItemDetailScreen: React.FC = () => {
       <EcoSetuBackground>
         <SafeAreaView style={styles.safe}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Text style={styles.backIcon}>←</Text>
+            <AppIcon name="arrowLeft" size={20} color="#FFFFFF" />
           </TouchableOpacity>
           <View style={styles.centerBox}>
-            <Text style={styles.errorIcon}>⚠️</Text>
-            <Text style={styles.errorText}>Item details not available.</Text>
+            <AppIcon name="alert" size={40} color="#F59E0B" />
+            <Text style={[styles.errorText, { marginTop: 12 }]}>Item details not available.</Text>
           </View>
         </SafeAreaView>
       </EcoSetuBackground>
@@ -222,7 +226,7 @@ export const CitizenMarketplaceItemDetailScreen: React.FC = () => {
             />
           ) : (
             <View style={styles.photoPlaceholder}>
-              <Text style={styles.photoPlaceholderIcon}>{cat.symbol}</Text>
+              <AppIcon name="box" size={48} color="rgba(255,255,255,0.4)" />
               <Text style={styles.photoPlaceholderLabel}>{cat.defaultName}</Text>
             </View>
           )}
@@ -235,7 +239,7 @@ export const CitizenMarketplaceItemDetailScreen: React.FC = () => {
               accessibilityRole="button"
               accessibilityLabel="Go back"
             >
-              <Text style={styles.backIcon}>←</Text>
+              <AppIcon name="arrowLeft" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </SafeAreaView>
 
@@ -281,13 +285,15 @@ export const CitizenMarketplaceItemDetailScreen: React.FC = () => {
           {(lot.collector?.city || lot.approximateTotalWeightKg) ? (
             <View style={styles.metaRow}>
               {lot.collector?.city && (
-                <View style={styles.metaPill}>
-                  <Text style={styles.metaPillText}>📍 {lot.collector.city}</Text>
+                <View style={[styles.metaPill, { flexDirection: 'row', alignItems: 'center', gap: 5 }]}>
+                  <AppIcon name="location" size={13} color="#34D399" />
+                  <Text style={styles.metaPillText}>{lot.collector.city}</Text>
                 </View>
               )}
               {lot.approximateTotalWeightKg ? (
-                <View style={styles.metaPill}>
-                  <Text style={styles.metaPillText}>⚖️ {lot.approximateTotalWeightKg} kg</Text>
+                <View style={[styles.metaPill, { flexDirection: 'row', alignItems: 'center', gap: 5 }]}>
+                  <AppIcon name="box" size={13} color="#34D399" />
+                  <Text style={styles.metaPillText}>{lot.approximateTotalWeightKg} kg</Text>
                 </View>
               ) : null}
             </View>
@@ -312,7 +318,7 @@ export const CitizenMarketplaceItemDetailScreen: React.FC = () => {
 
           {/* Transparency notice */}
           <View style={styles.trustBox}>
-            <Text style={styles.trustIcon}>🛡️</Text>
+            <AppIcon name="shieldCheck" size={18} color="#10B981" />
             <Text style={styles.trustText}>
               {t('auth.trustStatement', 'Peer-to-peer price. EcoSetu facilitates collection — no hidden fees. Pickup is arranged through a local informal collector.')}
             </Text>

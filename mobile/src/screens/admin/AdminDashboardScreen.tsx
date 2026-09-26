@@ -29,6 +29,7 @@ import {
 } from 'react-native';
 import { adminService } from '../../services/adminService';
 import { AdminShell } from '../../components/admin/AdminShell';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { AdminKPICard } from '../../components/admin/AdminKPICard';
 import { AdminActionCenter, ActionItem } from '../../components/admin/AdminActionCenter';
 import { AdminActivityFeed, ActivityEntry } from '../../components/admin/AdminActivityFeed';
@@ -147,7 +148,7 @@ export const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
       label: 'Disputed collections awaiting review',
       severity: 'critical' as const,
       screen: 'AdminDisputes',
-      icon: '⚠',
+      icon: '▲',
     },
     {
       id: 'overdue-pickups',
@@ -155,7 +156,7 @@ export const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
       label: 'Pickup requests overdue',
       severity: 'warning' as const,
       screen: 'AdminHome',
-      icon: '⏱',
+      icon: '◷',
     },
     {
       id: 'system-alerts',
@@ -241,9 +242,12 @@ export const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
         {/* Offline / cache notice */}
         {fromCache && (
           <View style={styles.cacheNotice}>
-            <Text style={styles.cacheNoticeText}>
-              ⚠ Viewing cached data (offline)
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <AppIcon name="alertTriangle" size={14} color="#FBBF24" />
+              <Text style={styles.cacheNoticeText}>
+                Viewing cached data (offline)
+              </Text>
+            </View>
           </View>
         )}
 
@@ -273,7 +277,7 @@ export const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
                 value={kpis.activeCollectors || '—'}
                 trend={kpis.collectorsTrend}
                 trendLabel={`vs prev ${period}`}
-                icon="♻"
+                icon="◈"
                 accentColor={ADMIN_COLOR.teal}
                 onPress={() => navigation?.navigate?.('AdminUsers')}
                 sparkData={kpis.collectorsSparkline}
@@ -381,7 +385,7 @@ export const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
             <AdminSectionHeader
               title="E-Waste Overview"
               subtitle={period + ' snapshot'}
-              icon="♻"
+              icon="◈"
               action={{
                 label: 'Analytics →',
                 onPress: () => navigation?.navigate?.('AdminHistoricalAnalytics'),

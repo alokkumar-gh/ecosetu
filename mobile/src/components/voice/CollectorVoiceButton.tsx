@@ -14,6 +14,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { colors } from '../../theme/colors';
 import { ROLES } from '../../utils/constants';
 
+import { AppIcon } from '../ui/AppIcon';
+
 export const CollectorVoiceButton: React.FC = () => {
   const { user } = useAuth();
   const { openVoiceModal, triggerListening } = useCollectorVoice();
@@ -40,7 +42,7 @@ export const CollectorVoiceButton: React.FC = () => {
       accessibilityLabel="Activate voice commands"
       accessibilityHint="Tap to speak a voice command"
     >
-      <Text style={styles.icon}>🎙️</Text>
+      <AppIcon name="mic" size={24} color="#10B981" />
     </TouchableOpacity>
   );
 };

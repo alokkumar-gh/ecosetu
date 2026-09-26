@@ -64,7 +64,7 @@ function consignmentToOrder(c: any): OrderItem {
   return {
     id:           c.id,
     material:     c.materialCategory || c.category || 'Material',
-    materialIcon: '📦',
+    materialIcon: 'package',
     counterparty: c.collectorName || c.collector?.name,
     weightKg:     c.actualWeightKg ?? c.approximateWeightKg ?? c.totalWeightKg,
     agreedRate:   c.agreedPricePerKg ?? c.pricePerKg,
@@ -80,7 +80,7 @@ function pickupToOrder(p: any): OrderItem {
   return {
     id:           p.id,
     material:     p.materialCategory || 'Pickup',
-    materialIcon: '🚚',
+    materialIcon: 'truck',
     counterparty: p.collectorName || p.collector?.name,
     weightKg:     p.totalWeightKg,
     totalValue:   p.totalValue,
@@ -174,7 +174,7 @@ export const RecyclerOrdersScreen: React.FC = () => {
   const isAuthorized = (profile as any)?.user?.status === 'ACTIVE' || user?.status === 'ACTIVE';
 
   const navigateToOrder = (order: OrderItem) => {
-    if (order.material === 'Pickup' || order.materialIcon === '🚚') {
+    if (order.material === 'Pickup' || order.materialIcon === 'truck') {
       navigation.navigate('RecyclerBatchDetail', { batchId: order.id });
     } else {
       navigation.navigate('ConsignmentDetail', { consignmentId: order.id });

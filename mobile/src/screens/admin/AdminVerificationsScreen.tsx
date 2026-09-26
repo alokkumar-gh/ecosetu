@@ -31,6 +31,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 const TABS = [
   { id: 'ALL', label: 'All', type: 'status' },
@@ -278,8 +279,14 @@ export const AdminVerificationsScreen: React.FC<{ navigation?: any }> = ({ navig
                   isCollector ? styles.roleBadgeCollector : styles.roleBadgeRecycler,
                 ]}
               >
+                <AppIcon
+                  name={isCollector ? 'truck' : 'factory'}
+                  size={12}
+                  color={isCollector ? '#10B981' : '#0284C7'}
+                  style={{ marginRight: 4 }}
+                />
                 <Text style={styles.roleBadgeText}>
-                  {isCollector ? '🚚 Collector' : '🏭 Recycler'}
+                  {isCollector ? 'Collector' : 'Recycler'}
                 </Text>
               </View>
               <Text style={styles.emailText}>{applicant.email}</Text>
@@ -290,8 +297,9 @@ export const AdminVerificationsScreen: React.FC<{ navigation?: any }> = ({ navig
 
         {/* Document Status */}
         <View style={styles.docStatusRow}>
+          <AppIcon name="document" size={13} color="#94A3B8" style={{ marginRight: 5 }} />
           <Text style={styles.docStatusText}>
-            📄 {item.documentType || (isCollector ? 'Aadhaar / ID Proof' : 'PCB Authorization')}
+            {item.documentType || (isCollector ? 'Aadhaar / ID Proof' : 'PCB Authorization')}
             {item.documentNumberMasked ? ` (${item.documentNumberMasked})` : ''}
           </Text>
         </View>
@@ -447,7 +455,7 @@ export const AdminVerificationsScreen: React.FC<{ navigation?: any }> = ({ navig
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>VERIFICATION INSPECTION</Text>
               <TouchableOpacity onPress={handleCloseModal} style={styles.modalCloseBtn}>
-                <Text style={styles.modalCloseText}>✕</Text>
+                <AppIcon name="x" size={18} color={ADMIN_COLOR.textMid} />
               </TouchableOpacity>
             </View>
 
@@ -549,18 +557,20 @@ export const AdminVerificationsScreen: React.FC<{ navigation?: any }> = ({ navig
                       />
                       <View style={styles.docPreviewActions}>
                         <TouchableOpacity
-                          style={styles.docActionBtn}
+                          style={[styles.docActionBtn, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}
                           onPress={() => setZoomDocVisible(true)}
                         >
-                          <Text style={styles.docActionBtnText}>🔍 ZOOM</Text>
+                          <AppIcon name="search" size={13} color="#38BDF8" />
+                          <Text style={styles.docActionBtnText}>ZOOM</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                          style={styles.docActionBtn}
+                          style={[styles.docActionBtn, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}
                           onPress={() =>
                             Alert.alert('Secure Document View', 'Authorized admin inspection mode active.')
                           }
                         >
-                          <Text style={styles.docActionBtnText}>👁 VIEW</Text>
+                          <AppIcon name="shield" size={13} color="#38BDF8" />
+                          <Text style={styles.docActionBtnText}>VIEW</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -673,7 +683,7 @@ export const AdminVerificationsScreen: React.FC<{ navigation?: any }> = ({ navig
                     onPress={() => toggleChangeReason(reason)}
                   >
                     <View style={[styles.checkboxBox, checked && styles.checkboxBoxChecked]}>
-                      {checked ? <Text style={styles.checkMark}>✓</Text> : null}
+                      {checked ? <AppIcon name="check" size={12} color="#000" /> : null}
                     </View>
                     <Text style={styles.checkboxLabel}>{reason}</Text>
                   </TouchableOpacity>
@@ -721,7 +731,10 @@ export const AdminVerificationsScreen: React.FC<{ navigation?: any }> = ({ navig
             style={styles.zoomCloseBtn}
             onPress={() => setZoomDocVisible(false)}
           >
-            <Text style={styles.zoomCloseText}>✕ Close</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <AppIcon name="x" size={16} color="#FFFFFF" />
+              <Text style={styles.zoomCloseText}>Close</Text>
+            </View>
           </TouchableOpacity>
           {selectedVerification?.documentUrl ? (
             <Image

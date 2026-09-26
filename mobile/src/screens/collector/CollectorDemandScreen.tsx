@@ -28,6 +28,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useI18n } from '../../i18n';
+import { AppIcon } from '../../components/ui/AppIcon';
 import sourcingService, { SourcingRequest, SourcingResponse } from '../../services/sourcingService';
 import { CollectorSourcingResponseModal } from '../../components/sourcing/CollectorSourcingResponseModal';
 
@@ -153,15 +154,19 @@ export const CollectorDemandScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.badgesGroup}>
             {item.pickupRequired && (
               <View style={styles.pickupBadge}>
+                <AppIcon name="truck" size={13} color="#10B981" />
                 <Text style={styles.pickupBadgeText}>
-                  🚚 {t('sourcing.pickupRequired', 'Pickup Required')}
+                  {t('sourcing.pickupRequired', 'Pickup Required')}
                 </Text>
               </View>
             )}
             {dateFormatted && (
-              <Text style={styles.expiryText}>
-                ⏳ {t('sourcing.neededBy', 'Needed by')} {dateFormatted}
-              </Text>
+              <View style={styles.expiryRow}>
+                <AppIcon name="clock" size={13} color="#94A3B8" />
+                <Text style={styles.expiryText}>
+                  {t('sourcing.neededBy', 'Needed by')} {dateFormatted}
+                </Text>
+              </View>
             )}
           </View>
 
@@ -242,7 +247,7 @@ export const CollectorDemandScreen: React.FC<Props> = ({ navigation }) => {
             }
             ListEmptyComponent={
               <EmptyState
-                icon="📦"
+                icon="package"
                 title={t('sourcing.noActiveRequests', 'No Active Buyer Requests')}
                 message={t(
                   'sourcing.noActiveRequestsDesc',
@@ -459,5 +464,10 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: colors.textPrimary,
     fontWeight: '600',
+  },
+  expiryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
 });

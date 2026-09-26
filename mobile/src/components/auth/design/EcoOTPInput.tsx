@@ -22,6 +22,7 @@ import {
   Platform,
 } from 'react-native';
 import { AUTH_COLORS, AUTH_RADIUS, AUTH_TIMING } from './AuthTheme';
+import { AppIcon } from '../../ui/AppIcon';
 
 const OTP_LENGTH = 6;
 
@@ -180,7 +181,10 @@ export const EcoOTPInput: React.FC<EcoOTPInputProps> = ({
 
       {error ? (
         <View style={styles.errorRow}>
-          <Text style={styles.errorText}>⚠ {error}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <AppIcon name="alert" size={13} color={AUTH_COLORS.error} />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
         </View>
       ) : null}
     </View>

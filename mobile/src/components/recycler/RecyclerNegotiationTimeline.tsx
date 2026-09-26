@@ -8,6 +8,7 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { AppIcon } from '../ui/AppIcon';
 
 export interface NegotiationEntry {
   id: string;
@@ -119,7 +120,8 @@ export const RecyclerNegotiationTimeline: React.FC<RecyclerNegotiationTimelinePr
               onPress={onAccept}
               accessibilityRole="button"
             >
-              <Text style={styles.acceptText}>✓ ACCEPT</Text>
+              <AppIcon name="check" size={16} color="#071E22" strokeWidth={3} />
+              <Text style={styles.acceptText}>ACCEPT</Text>
             </TouchableOpacity>
           )}
           {onCounter && (
@@ -128,7 +130,8 @@ export const RecyclerNegotiationTimeline: React.FC<RecyclerNegotiationTimelinePr
               onPress={onCounter}
               accessibilityRole="button"
             >
-              <Text style={styles.counterText}>↔ COUNTER</Text>
+              <AppIcon name="refresh" size={15} color="#22D3EE" />
+              <Text style={styles.counterText}>COUNTER</Text>
             </TouchableOpacity>
           )}
           {onReject && (
@@ -137,7 +140,7 @@ export const RecyclerNegotiationTimeline: React.FC<RecyclerNegotiationTimelinePr
               onPress={onReject}
               accessibilityRole="button"
             >
-              <Text style={styles.rejectText}>✕</Text>
+              <AppIcon name="close" size={18} color="#FCA5A5" />
             </TouchableOpacity>
           )}
         </View>
@@ -145,7 +148,8 @@ export const RecyclerNegotiationTimeline: React.FC<RecyclerNegotiationTimelinePr
 
       {!isMyTurn && entries.length > 0 && (
         <View style={styles.waitingRow}>
-          <Text style={styles.waitingText}>⏳ Waiting for seller response</Text>
+          <AppIcon name="clock" size={14} color="#FDE68A" />
+          <Text style={styles.waitingText}>Waiting for seller response</Text>
         </View>
       )}
     </View>
@@ -226,10 +230,13 @@ const styles = StyleSheet.create({
   },
   acceptBtn: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
     backgroundColor: '#10B981',
     borderRadius: 14,
     paddingVertical: 15,
-    alignItems: 'center',
     shadowColor: '#10B981',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
@@ -239,12 +246,15 @@ const styles = StyleSheet.create({
   acceptText:  { color: '#071E22', fontSize: 14, fontWeight: '900', letterSpacing: 0.3 },
   counterBtn: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
     backgroundColor: 'rgba(34,211,238,0.12)',
     borderWidth: 1,
     borderColor: 'rgba(34,211,238,0.35)',
     borderRadius: 14,
     paddingVertical: 15,
-    alignItems: 'center',
   },
   counterText: { color: '#22D3EE', fontSize: 14, fontWeight: '800' },
   rejectBtn: {
@@ -259,13 +269,16 @@ const styles = StyleSheet.create({
   },
   rejectText: { color: '#FCA5A5', fontSize: 16, fontWeight: '900' },
   waitingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
     backgroundColor: 'rgba(245,158,11,0.07)',
     borderWidth: 1,
     borderColor: 'rgba(245,158,11,0.15)',
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    alignItems: 'center',
   },
   waitingText: { color: '#FDE68A', fontSize: 13, fontWeight: '600' },
 });

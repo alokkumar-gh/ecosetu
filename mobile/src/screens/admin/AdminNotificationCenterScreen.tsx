@@ -29,6 +29,7 @@ import { GlassCard } from '../../components/glass/GlassCard';
 import { GlassButton } from '../../components/glass/GlassButton';
 import { GlassBadge } from '../../components/glass/GlassBadge';
 import { TopAppBar } from '../../components/layout/TopAppBar';
+import { AppIcon, AppIconName } from '../../components/ui/AppIcon';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { useNetwork } from '../../hooks/useNetwork';
 import { adminService } from '../../services/adminService';
@@ -49,7 +50,7 @@ interface TemplateItem {
   title: string;
   message: string;
   recommendedAudience: string;
-  icon: string;
+  icon: AppIconName;
   description: string;
 }
 
@@ -59,7 +60,7 @@ const NOTIFICATION_TEMPLATES: TemplateItem[] = [
     title: 'ECOSETU Service Update',
     message: 'Doorstep e-waste collection services in your district may experience minor delays today due to weather conditions. Thank you for your patience.',
     recommendedAudience: 'CITIZENS',
-    icon: 'ℹ️',
+    icon: 'info',
     description: 'Operational advisory on weather or district-wide logistics adjustments.',
   },
   {
@@ -67,7 +68,7 @@ const NOTIFICATION_TEMPLATES: TemplateItem[] = [
     title: 'Scheduled System Maintenance',
     message: 'The ECOSETU platform will undergo scheduled maintenance tonight between 02:00 AM and 03:00 AM IST. In-app features will resume immediately after.',
     recommendedAudience: 'ALL',
-    icon: '🛠️',
+    icon: 'shield',
     description: 'Advance notice for scheduled backend or server infrastructure maintenance.',
   },
   {
@@ -75,7 +76,7 @@ const NOTIFICATION_TEMPLATES: TemplateItem[] = [
     title: 'Important: E-Waste Safety Advisory',
     message: 'Please do not dismantle lithium-ion batteries or broken screens before pickup. Keep all electronic items intact for safe collector handling.',
     recommendedAudience: 'CITIZENS',
-    icon: '⚠️',
+    icon: 'alertTriangle',
     description: 'Hazard prevention guidelines for handling hazardous electronics.',
   },
   {
@@ -83,7 +84,7 @@ const NOTIFICATION_TEMPLATES: TemplateItem[] = [
     title: 'Collector Dispatch Update',
     message: 'High pickup volume in your sector. Authorized informal collectors are fulfilling pending requests sequentially.',
     recommendedAudience: 'CITIZENS',
-    icon: '🚚',
+    icon: 'truck',
     description: 'High-volume notice when collector queues are busy.',
   },
   {
@@ -91,7 +92,7 @@ const NOTIFICATION_TEMPLATES: TemplateItem[] = [
     title: 'Profile Verification Required',
     message: 'To accept collection requests and deliver consignments, please ensure your KYC document has been uploaded for administrative verification.',
     recommendedAudience: 'PENDING_VERIFICATION',
-    icon: '📋',
+    icon: 'clipboard',
     description: 'Prompt unverified collectors or recyclers to upload credentials.',
   },
   {
@@ -99,7 +100,7 @@ const NOTIFICATION_TEMPLATES: TemplateItem[] = [
     title: 'Circular Economy Spotlight',
     message: 'Every kilogram of e-waste recycled prevents toxic heavy metals from entering local landfills and recovers precious metals for reuse.',
     recommendedAudience: 'ALL',
-    icon: '♻️',
+    icon: 'recycle',
     description: 'Community educational broadcast on environmental preservation.',
   },
   {
@@ -107,21 +108,21 @@ const NOTIFICATION_TEMPLATES: TemplateItem[] = [
     title: 'Official ECOSETU Announcement',
     message: 'New authorized formal recycling facilities have onboarded in your state, expanding accepted categories for safe downstream processing.',
     recommendedAudience: 'COLLECTORS',
-    icon: '📢',
+    icon: 'bell',
     description: 'New facility or regional network expansion notice.',
   },
 ];
 
-const AUDIENCE_OPTIONS = [
-  { id: 'ALL', label: 'All Users', icon: '🌐' },
-  { id: 'CITIZENS', label: 'Citizens', icon: '👤' },
-  { id: 'COLLECTORS', label: 'Informal Collectors', icon: '🛵' },
-  { id: 'RECYCLERS', label: 'Formal Recyclers', icon: '🏭' },
-  { id: 'ADMINS', label: 'Administrators', icon: '🛡️' },
-  { id: 'VERIFIED', label: 'Verified Accounts', icon: '✅' },
-  { id: 'PENDING_VERIFICATION', label: 'Pending Verification', icon: '⏳' },
-  { id: 'SUSPENDED', label: 'Suspended Accounts', icon: '⚠️' },
-  { id: 'INDIVIDUAL', label: 'Specific User', icon: '🎯' },
+const AUDIENCE_OPTIONS: { id: string; label: string; icon: AppIconName }[] = [
+  { id: 'ALL', label: 'All Users', icon: 'users' },
+  { id: 'CITIZENS', label: 'Citizens', icon: 'user' },
+  { id: 'COLLECTORS', label: 'Informal Collectors', icon: 'truck' },
+  { id: 'RECYCLERS', label: 'Formal Recyclers', icon: 'factory' },
+  { id: 'ADMINS', label: 'Administrators', icon: 'shield' },
+  { id: 'VERIFIED', label: 'Verified Accounts', icon: 'checkCircle' },
+  { id: 'PENDING_VERIFICATION', label: 'Pending Verification', icon: 'clock' },
+  { id: 'SUSPENDED', label: 'Suspended Accounts', icon: 'alertTriangle' },
+  { id: 'INDIVIDUAL', label: 'Specific User', icon: 'user' },
 ];
 
 export const AdminNotificationCenterScreen: React.FC<Props> = ({ navigation, route }) => {
@@ -298,11 +299,11 @@ export const AdminNotificationCenterScreen: React.FC<Props> = ({ navigation, rou
         <View style={styles.tabBar}>
           {(['compose', 'history', 'templates', 'analytics'] as TabType[]).map((tab) => {
             const isActive = activeTab === tab;
-            const labels: Record<TabType, string> = {
-              compose: '✍️ Compose',
-              history: '📜 History',
-              templates: '📑 Templates',
-              analytics: '📊 Analytics',
+            const labels: Record<TabType, { label: string; icon: AppIconName }> = {
+              compose: { label: 'Compose', icon: 'edit' },
+              history: { label: 'History', icon: 'clock' },
+              templates: { label: 'Templates', icon: 'clipboard' },
+              analytics: { label: 'Analytics', icon: 'chart' },
             };
             return (
               <TouchableOpacity
@@ -312,9 +313,16 @@ export const AdminNotificationCenterScreen: React.FC<Props> = ({ navigation, rou
                 accessibilityRole="button"
                 accessibilityState={{ selected: isActive }}
               >
-                <Text style={[styles.tabButtonText, isActive && styles.tabButtonTextActive]}>
-                  {labels[tab]}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <AppIcon
+                    name={labels[tab].icon}
+                    size={13}
+                    color={isActive ? colors.textInverse : colors.textSecondary}
+                  />
+                  <Text style={[styles.tabButtonText, isActive && styles.tabButtonTextActive]}>
+                    {labels[tab].label}
+                  </Text>
+                </View>
               </TouchableOpacity>
             );
           })}
@@ -328,7 +336,10 @@ export const AdminNotificationCenterScreen: React.FC<Props> = ({ navigation, rou
             <View>
               {sendSuccessMessage && (
                 <GlassCard style={styles.successBanner}>
-                  <Text style={styles.successText}>✅ {sendSuccessMessage}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <AppIcon name="checkCircle" size={14} color="#10B981" />
+                    <Text style={styles.successText}>{sendSuccessMessage}</Text>
+                  </View>
                 </GlassCard>
               )}
 
@@ -342,7 +353,7 @@ export const AdminNotificationCenterScreen: React.FC<Props> = ({ navigation, rou
                     onPress={() => handleSelectTemplate(tpl)}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.templateChipIcon}>{tpl.icon}</Text>
+                    <AppIcon name={tpl.icon} size={14} color={colors.accent} style={{ marginRight: 6 }} />
                     <Text style={styles.templateChipText}>{tpl.title}</Text>
                   </TouchableOpacity>
                 ))}
@@ -363,7 +374,12 @@ export const AdminNotificationCenterScreen: React.FC<Props> = ({ navigation, rou
                       }}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.audienceIcon}>{opt.icon}</Text>
+                      <AppIcon
+                        name={opt.icon}
+                        size={14}
+                        color={isSelected ? colors.accent : colors.textSecondary}
+                        style={{ marginRight: 6 }}
+                      />
                       <Text style={[styles.audienceLabel, isSelected && styles.audienceLabelActive]}>
                         {opt.label}
                       </Text>
@@ -392,8 +408,9 @@ export const AdminNotificationCenterScreen: React.FC<Props> = ({ navigation, rou
                         <Text style={styles.selectedUserName}>{targetUser.name}</Text>
                         <Text style={styles.selectedUserMeta}>{targetUser.role} • {targetUser.status}</Text>
                       </View>
-                      <TouchableOpacity onPress={() => setTargetUser(null)}>
-                        <Text style={styles.removeUserBtn}>✕ Remove</Text>
+                      <TouchableOpacity onPress={() => setTargetUser(null)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <AppIcon name="x" size={12} color="#EF4444" />
+                        <Text style={styles.removeUserBtn}>Remove</Text>
                       </TouchableOpacity>
                     </View>
                   ) : (
@@ -468,8 +485,8 @@ export const AdminNotificationCenterScreen: React.FC<Props> = ({ navigation, rou
                 <View style={styles.androidNotificationBanner}>
                   <View style={styles.previewHeaderRow}>
                     <View style={styles.previewAppBrand}>
-                      <Text style={styles.previewAppIcon}>🛡️</Text>
-                      <Text style={styles.previewAppName}>ECOSETU</Text>
+                      <AppIcon name="shield" size={14} color={colors.primary} />
+                      <Text style={[styles.previewAppName, { marginLeft: 4 }]}>ECOSETU</Text>
                     </View>
                     <Text style={styles.previewTimestamp}>Just now</Text>
                   </View>
@@ -484,7 +501,7 @@ export const AdminNotificationCenterScreen: React.FC<Props> = ({ navigation, rou
 
               {/* Send Button */}
               <GlassButton
-                label={isSending ? 'Resolving Audience...' : '📢 Preview & Send Broadcast'}
+                label={isSending ? 'Resolving Audience...' : 'Preview & Send Broadcast'}
                 variant="primary"
                 onPress={handleInitiateSend}
                 disabled={isSending || !title.trim() || !message.trim()}
@@ -501,7 +518,7 @@ export const AdminNotificationCenterScreen: React.FC<Props> = ({ navigation, rou
               <View style={styles.historyHeader}>
                 <Text style={styles.sectionHeading}>Administrative Broadcast History</Text>
                 <TouchableOpacity onPress={loadHistory} style={styles.refreshIconBtn}>
-                  <Text style={{ fontSize: 16 }}>🔄</Text>
+                  <AppIcon name="refreshCw" size={16} color={colors.accent} />
                 </TouchableOpacity>
               </View>
 
@@ -509,7 +526,7 @@ export const AdminNotificationCenterScreen: React.FC<Props> = ({ navigation, rou
                 <ActivityIndicator size="large" color={colors.accent} style={{ marginVertical: 32 }} />
               ) : historyList.length === 0 ? (
                 <GlassCard style={styles.emptyCard}>
-                  <Text style={styles.emptyCardIcon}>📬</Text>
+                  <AppIcon name="inbox" size={32} color={colors.textSecondary} style={{ marginBottom: 8 }} />
                   <Text style={styles.emptyCardTitle}>No Broadcasts Yet</Text>
                   <Text style={styles.emptyCardSub}>
                     Administrative campaigns and custom messages sent to users will appear here.
@@ -564,7 +581,7 @@ export const AdminNotificationCenterScreen: React.FC<Props> = ({ navigation, rou
               {NOTIFICATION_TEMPLATES.map((tpl) => (
                 <GlassCard key={tpl.id} style={styles.templateCard}>
                   <View style={styles.templateHeader}>
-                    <Text style={styles.templateCardIcon}>{tpl.icon}</Text>
+                    <AppIcon name={tpl.icon} size={20} color={colors.accent} />
                     <View style={{ flex: 1, marginLeft: spacing.spaceSm }}>
                       <Text style={styles.templateCardTitle}>{tpl.title}</Text>
                       <GlassBadge label={tpl.recommendedAudience} tone="neutral" />

@@ -23,9 +23,9 @@ import {
   useWindowDimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SLIDE_DATA, TOTAL_SLIDES } from './data/slideData';
 import { OnboardingBackground } from './OnboardingBackground';
 import { OnboardingSlide } from './OnboardingSlide';
@@ -42,6 +42,7 @@ export const EcoCarousel: React.FC<EcoCarouselProps> = ({
   onSkip,
 }) => {
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -92,10 +93,18 @@ export const EcoCarousel: React.FC<EcoCarouselProps> = ({
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#020C14" translucent />
 
-      {/* Full-screen atmospheric background (slide-tinted glow pools) */}
+      {/* Full-screen atmospheric background behind status and navigation bars */}
       <OnboardingBackground slide={activeSlide} />
 
-      <SafeAreaView style={styles.safeArea}>
+      {/* Safe Area protected content layer */}
+      <View
+        style={[
+          styles.contentLayer,
+          {
+            paddingTop: insets.top,
+          },
+        ]}
+      >
         {/* Scrollable slides */}
         <ScrollView
           ref={scrollViewRef}
@@ -113,12 +122,20 @@ export const EcoCarousel: React.FC<EcoCarouselProps> = ({
               key={slide.id}
               slide={slide}
               active={index === activeIndex}
+              screenWidth={width}
             />
           ))}
         </ScrollView>
 
-        {/* Bottom control deck */}
-        <View style={styles.bottomDeck}>
+        {/* Bottom control deck: pagination + action buttons protected from navigation bar */}
+        <View
+          style={[
+            styles.bottomDeck,
+            {
+              paddingBottom: Math.max(insets.bottom, 12),
+            },
+          ]}
+        >
           {/* Pill-dot progress */}
           <OnboardingProgress
             total={TOTAL_SLIDES}
@@ -136,7 +153,7 @@ export const EcoCarousel: React.FC<EcoCarouselProps> = ({
             activeSlide={activeSlide}
           />
         </View>
-      </SafeAreaView>
+      </View>
     </View>
   );
 };
@@ -146,7 +163,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#020C14',
   },
-  safeArea: {
+  contentLayer: {
     flex: 1,
   },
   scrollView: {
@@ -156,8 +173,8 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
   },
   bottomDeck: {
-    paddingTop: 4,
-    paddingBottom: 10,
+    paddingTop: 8,
+    gap: 8,
   },
 });
 

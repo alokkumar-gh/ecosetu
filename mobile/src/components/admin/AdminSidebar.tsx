@@ -32,6 +32,8 @@ import {
   AdminNavItem,
 } from './AdminTheme';
 
+import { AppIcon, IconName } from '../ui/AppIcon';
+
 interface AdminSidebarProps {
   currentScreen: string;
   onNavigate: (screen: string) => void;
@@ -84,7 +86,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       {/* ── Logo / Brand ───────────────────────────────────────── */}
       <View style={styles.brand}>
         <View style={styles.brandLogoCircle}>
-          <Text style={styles.brandLogoText}>♻</Text>
+          <AppIcon name="recycle" size={18} color={ADMIN_COLOR.brand} strokeWidth={2.2} />
         </View>
         <Animated.View
           style={{
@@ -138,15 +140,15 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                   {/* Active indicator bar */}
                   {isActive && <View style={styles.activeBar} />}
 
-                  {/* Icon */}
-                  <Text
-                    style={[
-                      styles.navIcon,
-                      isActive && styles.navIconActive,
-                    ]}
-                  >
-                    {item.icon}
-                  </Text>
+                  {/* Vector Icon */}
+                  <View style={styles.navIconBox}>
+                    <AppIcon
+                      name={item.icon as IconName}
+                      size={16}
+                      color={isActive ? ADMIN_COLOR.brand : ADMIN_COLOR.textLow}
+                      strokeWidth={2}
+                    />
+                  </View>
 
                   {/* Label */}
                   <Animated.Text
@@ -179,7 +181,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           accessibilityLabel="Sign out"
           activeOpacity={0.75}
         >
-          <Text style={styles.signOutIcon}>⎋</Text>
+          <View style={styles.navIconBox}>
+            <AppIcon name="logout" size={16} color={ADMIN_COLOR.textMuted} strokeWidth={2} />
+          </View>
           <Animated.Text
             style={[
               styles.signOutLabel,
@@ -306,6 +310,13 @@ const styles = StyleSheet.create({
     width: 2.5,
     backgroundColor: ADMIN_COLOR.brand,
     borderRadius: 2,
+  },
+  navIconBox: {
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   navIcon: {
     fontSize: 15,

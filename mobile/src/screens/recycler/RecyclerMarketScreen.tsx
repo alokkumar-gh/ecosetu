@@ -51,6 +51,7 @@ import { materialLotService } from '../../services/materialLotService';
 import { useAuth } from '../../hooks/useAuth';
 import { recyclingService } from '../../services/recyclingService';
 import { MATERIAL_TAXONOMY } from '../../config/materialTaxonomy';
+import { AppIcon, AppIconName } from '../../components/ui/AppIcon';
 
 function mapLotToMarketLot(lot: any): MarketLot {
   const tax = MATERIAL_TAXONOMY[lot.category] || MATERIAL_TAXONOMY[lot.subcategory || ''];
@@ -58,7 +59,7 @@ function mapLotToMarketLot(lot: any): MarketLot {
     id:                    lot.id,
     category:              lot.category || 'Unknown',
     subcategory:           lot.subcategory,
-    materialIcon:          tax?.symbol ?? '📦',
+    materialIcon:          'package',
     condition:             lot.condition,
     approximateTotalWeightKg: lot.approximateTotalWeightKg || lot.weightKg,
     quantityUnits:         lot.quantityUnits,
@@ -91,17 +92,17 @@ export const RecyclerMarketScreen: React.FC = () => {
   const currentSearch = useRef('');
   const isLoadingMore = useRef(false);
 
-  const categoryFilters = [
-    { key: 'ALL',        label: t('common.all', 'All'),             icon: '🔍' },
-    { key: 'MOBILE',     label: t('categories.mobile', 'Mobiles'),  icon: '📱' },
-    { key: 'LAPTOP',     label: t('categories.laptop', 'Laptops'),  icon: '💻' },
-    { key: 'PCB',        label: t('categories.pcb', 'PCB'),         icon: '🔧' },
-    { key: 'CABLE',      label: t('categories.cable', 'Cables'),    icon: '🔌' },
-    { key: 'BATTERY',    label: t('categories.battery', 'Battery'), icon: '🔋' },
-    { key: 'APPLIANCE',  label: t('categories.appliances', 'Appliances'), icon: '🏠' },
-    { key: 'PRINTER',    label: t('categories.printers', 'Printers'), icon: '🖨️' },
-    { key: 'MONITOR',    label: t('categories.monitors', 'Monitors'), icon: '🖥️' },
-    { key: 'OTHER',      label: t('categories.other', 'Other'),     icon: '📦' },
+  const categoryFilters: { key: string; label: string; icon: AppIconName }[] = [
+    { key: 'ALL',        label: t('common.all', 'All'),             icon: 'search' },
+    { key: 'MOBILE',     label: t('categories.mobile', 'Mobiles'),  icon: 'smartphone' },
+    { key: 'LAPTOP',     label: t('categories.laptop', 'Laptops'),  icon: 'laptop' },
+    { key: 'PCB',        label: t('categories.pcb', 'PCB'),         icon: 'grid' },
+    { key: 'CABLE',      label: t('categories.cable', 'Cables'),    icon: 'zap' },
+    { key: 'BATTERY',    label: t('categories.battery', 'Battery'), icon: 'battery' },
+    { key: 'APPLIANCE',  label: t('categories.appliances', 'Appliances'), icon: 'home' },
+    { key: 'PRINTER',    label: t('categories.printers', 'Printers'), icon: 'printer' },
+    { key: 'MONITOR',    label: t('categories.monitors', 'Monitors'), icon: 'monitor' },
+    { key: 'OTHER',      label: t('categories.other', 'Other'),     icon: 'package' },
   ];
 
   const loadMarket = useCallback(async (opts: {
@@ -196,17 +197,17 @@ export const RecyclerMarketScreen: React.FC = () => {
           counters={[
             {
               id: 'lots', count: procCounters.newLots, label: t('recycler.newLots', 'New lots'),
-              icon: '📦', color: '#22D3EE',
+              icon: 'package', color: '#22D3EE',
               onPress: () => {},
             },
             {
               id: 'offers', count: procCounters.activeOffers, label: t('recycler.activeOffers', 'Active offers'),
-              icon: '📋', color: '#F59E0B',
+              icon: 'clipboard', color: '#F59E0B',
               onPress: () => navigation.navigate('RecyclerOrders'),
             },
             {
               id: 'pickups', count: procCounters.pickupsToday, label: t('recycler.pickupsToday', 'Pickups today'),
-              icon: '🚚', color: '#34D399',
+              icon: 'truck', color: '#34D399',
               onPress: () => navigation.navigate('RecyclerPickupManagement'),
             },
           ]}
@@ -215,7 +216,7 @@ export const RecyclerMarketScreen: React.FC = () => {
 
       {/* Search */}
       <View style={styles.searchContainer}>
-        <Text style={styles.searchIcon}>🔍</Text>
+        <AppIcon name="search" size={16} color="rgba(255,255,255,0.4)" />
         <TextInput
           style={styles.searchInput}
           placeholder={t('recycler.searchMaterialPlaceholder', 'Search material, category…')}
@@ -229,7 +230,7 @@ export const RecyclerMarketScreen: React.FC = () => {
         />
         {searchText.length > 0 && (
           <TouchableOpacity onPress={() => handleSearch('')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-            <Text style={styles.clearBtn}>✕</Text>
+            <AppIcon name="x" size={14} color="rgba(255,255,255,0.4)" />
           </TouchableOpacity>
         )}
       </View>
@@ -247,7 +248,11 @@ export const RecyclerMarketScreen: React.FC = () => {
             onPress={() => handleCategoryChange(item.key)}
             accessibilityRole="button"
           >
-            <Text style={styles.chipIcon}>{item.icon}</Text>
+            <AppIcon
+              name={item.icon}
+              size={14}
+              color={category === item.key ? '#22D3EE' : 'rgba(255,255,255,0.55)'}
+            />
             <Text style={[styles.chipLabel, category === item.key && styles.chipLabelActive]}>
               {item.label}
             </Text>

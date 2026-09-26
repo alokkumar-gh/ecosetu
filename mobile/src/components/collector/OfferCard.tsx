@@ -9,6 +9,8 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { CompactStatusBadge } from './CompactStatusBadge';
 
+import { AppIcon } from '../ui/AppIcon';
+
 export interface OfferCardData {
   id: string;
   buyerName: string;
@@ -63,7 +65,7 @@ export const OfferCard: React.FC<OfferCardProps> = ({
       {/* Material + financial summary */}
       <View style={styles.financialRow}>
         <View style={styles.materialBlock}>
-          <Text style={styles.materialIcon}>{offer.materialIcon || '📦'}</Text>
+          <AppIcon name="box" size={16} color="rgba(255,255,255,0.7)" />
           <Text style={styles.materialLabel} numberOfLines={1}>{offer.material}</Text>
         </View>
 
@@ -97,10 +99,16 @@ export const OfferCard: React.FC<OfferCardProps> = ({
       {(offer.pickupInfo || offer.validUntil) && (
         <View style={styles.infoRow}>
           {offer.pickupInfo && (
-            <Text style={styles.infoText} numberOfLines={1}>🚚 {offer.pickupInfo}</Text>
+            <View style={styles.infoPillRow}>
+              <AppIcon name="truck" size={12} color="rgba(255,255,255,0.45)" />
+              <Text style={styles.infoText} numberOfLines={1}>{offer.pickupInfo}</Text>
+            </View>
           )}
           {offer.validUntil && (
-            <Text style={styles.infoText} numberOfLines={1}>⏱ Valid: {offer.validUntil}</Text>
+            <View style={styles.infoPillRow}>
+              <AppIcon name="clock" size={12} color="rgba(255,255,255,0.45)" />
+              <Text style={styles.infoText} numberOfLines={1}>Valid: {offer.validUntil}</Text>
+            </View>
           )}
         </View>
       )}
@@ -251,7 +259,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   infoRow: {
-    gap: 4,
+    gap: 6,
+  },
+  infoPillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   infoText: {
     color: 'rgba(255,255,255,0.45)',

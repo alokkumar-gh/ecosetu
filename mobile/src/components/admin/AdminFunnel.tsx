@@ -21,6 +21,7 @@ import {
   ADMIN_RADIUS,
   ADMIN_SHADOW,
 } from './AdminTheme';
+import { AppIcon } from '../ui/AppIcon';
 
 export interface FunnelStage {
   label: string;
@@ -127,14 +128,17 @@ export const AdminFunnel: React.FC<Props> = ({ stages, isLoading }) => {
               {/* Conversion % */}
               {conversion !== null && (
                 <View style={styles.conversionCol}>
-                  <Text
-                    style={[
-                      styles.conversionText,
-                      { color: isDropOff ? ADMIN_COLOR.warning : ADMIN_COLOR.textLow },
-                    ]}
-                  >
-                    {isDropOff ? '⚠ ' : ''}{conversion}%
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                    {isDropOff && <AppIcon name="alert" size={11} color={ADMIN_COLOR.warning} />}
+                    <Text
+                      style={[
+                        styles.conversionText,
+                        { color: isDropOff ? ADMIN_COLOR.warning : ADMIN_COLOR.textLow },
+                      ]}
+                    >
+                      {conversion}%
+                    </Text>
+                  </View>
                 </View>
               )}
               {conversion === null && <View style={styles.conversionCol} />}

@@ -28,14 +28,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../hooks/useAuth';
 import { useI18n } from '../../i18n';
-import { LANGUAGE_OPTIONS, SupportedLanguage } from '../../i18n/config';
+import { SupportedLanguage, LANGUAGE_OPTIONS } from '../../i18n/config';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { recyclingService } from '../../services/recyclingService';
 import { useEcoSaathi } from '../../context/EcoSaathiContext';
+import { AppIcon, IconName } from '../../components/ui/AppIcon';
 
 // ─── MENU ROW ─────────────────────────────────────────────────────────────────
 const MenuRow: React.FC<{
-  icon: string;
+  icon: IconName;
   label: string;
   sub?: string;
   onPress?: () => void;
@@ -50,7 +51,7 @@ const MenuRow: React.FC<{
     accessibilityRole={onPress ? 'button' : 'text'}
   >
     <View style={styles.menuIconBox}>
-      <Text style={styles.menuIcon}>{icon}</Text>
+      <AppIcon name={icon} size={18} color={destructive ? '#FCA5A5' : '#10B981'} />
     </View>
     <View style={styles.menuTextCol}>
       <Text style={[styles.menuLabel, destructive && { color: '#FCA5A5' }]}>{label}</Text>
@@ -147,7 +148,12 @@ export const RecyclerNewProfileScreen: React.FC = () => {
 
             <Text style={styles.facilityName}>{facilityName}</Text>
 
-            {city ? <Text style={styles.facilityCity}>📍 {city}</Text> : null}
+            {city ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                <AppIcon name="location" size={13} color="rgba(255,255,255,0.6)" style={{ marginRight: 4 }} />
+                <Text style={styles.facilityCity}>{city}</Text>
+              </View>
+            ) : null}
 
             {/* Authorization status block */}
             <View style={[styles.authBlock, isAuthorized ? styles.authBlockOk : styles.authBlockPending]}>
@@ -169,35 +175,35 @@ export const RecyclerNewProfileScreen: React.FC = () => {
           {/* ── BUSINESS ─────────────────────────────────────────────── */}
           <MenuGroup label={t('collector.business', 'BUSINESS')}>
             <MenuRow
-              icon="📈"
+              icon="chart"
               label={t('recycler.myBuyingRates', 'My Buying Rates')}
               sub={t('recycler.ratesSub', 'Rates you pay per material category')}
               onPress={() => navigation.navigate('RecyclerRates')}
             />
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="📡"
+              icon="search"
               label={t('recycler.sourcingRequests', 'Sourcing Requests')}
               sub={t('recycler.sourcingSub', 'Find material to match your needs')}
               onPress={() => navigation.navigate('RecyclerSourcing')}
             />
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="🚚"
+              icon="truck"
               label={t('recycler.pickupManagement', 'Pickup Management')}
               sub={t('recycler.pickupSub', 'Scheduled and completed pickups')}
               onPress={() => navigation.navigate('RecyclerPickupManagement')}
             />
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="💳"
+              icon="wallet"
               label={t('recycler.transactions', 'Transactions')}
               sub={t('recycler.txSub', 'Purchase and payment history')}
               onPress={() => navigation.navigate('RecyclerTransactions')}
             />
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="🧾"
+              icon="receipt"
               label={t('recycler.bills', 'Bills')}
               sub={t('recycler.billsSub', 'Transaction bills and receipts')}
               onPress={() => navigation.navigate('RecyclerBills')}
@@ -207,28 +213,28 @@ export const RecyclerNewProfileScreen: React.FC = () => {
           {/* ── COMPLIANCE & SUPPORT ──────────────────────────────────── */}
           <MenuGroup label={t('recycler.complianceAndSupport', 'COMPLIANCE & SUPPORT')}>
             <MenuRow
-              icon="🌿"
+              icon="sparkles"
               label={t('saathi.title', 'Eco-Saathi AI Assistant')}
               sub={t('saathi.recyclerProfileSub', 'Ask about compliance, lots, sourcing & rates')}
               onPress={() => openChat('RecyclerProfile')}
             />
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="🏛️"
+              icon="shieldCheck"
               label={t('recycler.authorization', 'Authorization')}
               sub={isAuthorized ? t('recycler.authSubOk', 'CPCB/SPCB authorized') : t('recycler.authSubPending', 'Submit authorization documents')}
               onPress={() => navigation.navigate('Verification')}
             />
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="🔗"
+              icon="recycle"
               label={t('recycler.traceability', 'Traceability')}
               sub={t('recycler.traceSub', 'Lot-level material chain of custody')}
               onPress={() => navigation.navigate('RecyclerLotTrace', { lotId: '' })}
             />
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="⚠️"
+              icon="alert"
               label={t('recycler.disputes', 'Disputes')}
               sub={t('recycler.disputesSub', 'Raise or view dispute cases')}
               onPress={() => navigation.navigate('RecyclerDisputes')}
@@ -238,7 +244,7 @@ export const RecyclerNewProfileScreen: React.FC = () => {
           {/* ── ACCOUNT ──────────────────────────────────────────────── */}
           <MenuGroup label={t('collector.account', 'ACCOUNT')}>
             <MenuRow
-              icon="🌐"
+              icon="globe"
               label={t('profile.language', 'Language')}
               sub={currentLang?.label ?? language}
               onPress={() => setShowLangPicker(!showLangPicker)}
@@ -255,21 +261,21 @@ export const RecyclerNewProfileScreen: React.FC = () => {
                     <Text style={[styles.langLabel, language === opt.code && { color: '#22D3EE', fontWeight: '800' }]}>
                       {opt.label}
                     </Text>
-                    {language === opt.code && <Text style={{ color: '#22D3EE', fontSize: 14, fontWeight: '900' }}>✓</Text>}
+                    {language === opt.code && <AppIcon name="check" size={14} color="#22D3EE" />}
                   </TouchableOpacity>
                 ))}
               </View>
             )}
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="🔔"
+              icon="bell"
               label={t('profile.notifications', 'Notifications')}
               sub={t('recycler.notifSub', 'Offer and pickup alerts')}
               onPress={() => Alert.alert(t('profile.notifications', 'Notifications'), t('common.comingSoon', 'Coming soon'))}
             />
             <View style={styles.rowDivider} />
             <MenuRow
-              icon="📡"
+              icon="refresh"
               label={t('profile.offlineData', 'Offline Data')}
               sub={t('profile.offlineSub', 'Manage cached data')}
               onPress={() => Alert.alert(t('profile.offlineData', 'Offline Data'), t('common.comingSoon', 'Coming soon'))}
@@ -284,9 +290,12 @@ export const RecyclerNewProfileScreen: React.FC = () => {
               disabled={isLoggingOut}
               activeOpacity={0.8}
             >
-              <Text style={styles.signOutText}>
-                {isLoggingOut ? t('profile.signingOut', 'Signing out…') : `↩ ${t('profile.signOut', 'Sign Out')}`}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <AppIcon name="logout" size={16} color="#FCA5A5" style={{ marginRight: 6 }} />
+                <Text style={styles.signOutText}>
+                  {isLoggingOut ? t('profile.signingOut', 'Signing out…') : t('profile.signOut', 'Sign Out')}
+                </Text>
+              </View>
             </TouchableOpacity>
           </View>
 

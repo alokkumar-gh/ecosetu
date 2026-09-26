@@ -31,6 +31,7 @@ import sourcingService, {
   SourcingResponse,
   SourcingRequestStatus,
 } from '../../services/sourcingService';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 interface Props {
   navigation?: any;
@@ -213,7 +214,8 @@ export const RecyclerSourcingDetailScreen: React.FC<Props> = ({
                   onPress={() => handleStatusChange('PAUSED')}
                   disabled={actionLoading}
                 >
-                  <Text style={styles.pauseBtnText}>⏸ {t('sourcing.pause', 'Pause')}</Text>
+                  <AppIcon name="clock" size={13} color="#FACC15" />
+                  <Text style={styles.pauseBtnText}>{t('sourcing.pause', 'Pause')}</Text>
                 </TouchableOpacity>
               )}
 
@@ -223,7 +225,8 @@ export const RecyclerSourcingDetailScreen: React.FC<Props> = ({
                   onPress={() => handleStatusChange('OPEN')}
                   disabled={actionLoading}
                 >
-                  <Text style={styles.resumeBtnText}>▶️ {t('sourcing.resume', 'Resume')}</Text>
+                  <AppIcon name="arrowRight" size={13} color={colors.primaryLight} />
+                  <Text style={styles.resumeBtnText}>{t('sourcing.resume', 'Resume')}</Text>
                 </TouchableOpacity>
               )}
 
@@ -233,7 +236,8 @@ export const RecyclerSourcingDetailScreen: React.FC<Props> = ({
                   onPress={() => handleStatusChange('FULFILLED')}
                   disabled={actionLoading}
                 >
-                  <Text style={styles.fulfillBtnText}>✅ {t('sourcing.fulfill', 'Fulfill')}</Text>
+                  <AppIcon name="check" size={13} color="#38BDF8" strokeWidth={2.5} />
+                  <Text style={styles.fulfillBtnText}>{t('sourcing.fulfill', 'Fulfill')}</Text>
                 </TouchableOpacity>
               )}
 
@@ -242,7 +246,8 @@ export const RecyclerSourcingDetailScreen: React.FC<Props> = ({
                 onPress={handleSourceAgain}
                 disabled={actionLoading}
               >
-                <Text style={styles.sourceAgainText}>🔁 {t('sourcing.sourceAgain', 'Source Again')}</Text>
+                <AppIcon name="refresh" size={13} color={colors.textPrimary} />
+                <Text style={styles.sourceAgainText}>{t('sourcing.sourceAgain', 'Source Again')}</Text>
               </TouchableOpacity>
             </View>
           </GlassCard>
@@ -259,7 +264,7 @@ export const RecyclerSourcingDetailScreen: React.FC<Props> = ({
 
           {responses.length === 0 ? (
             <GlassCard style={styles.emptyResponsesCard}>
-              <Text style={styles.emptyIcon}>📬</Text>
+              <AppIcon name="inbox" size={32} color={colors.textTertiary} style={{ marginBottom: 8 }} />
               <Text style={styles.emptyTitle}>
                 {t('sourcing.noResponsesYet', 'No Collector Responses Yet')}
               </Text>
@@ -312,9 +317,12 @@ export const RecyclerSourcingDetailScreen: React.FC<Props> = ({
                     style={styles.quoteActionBtn}
                     onPress={() => handleInitiateQuote(res)}
                   >
-                    <Text style={styles.quoteActionText}>
-                      💬 {t('sourcing.requestQuote', 'Request Quote / Start Deal')}
-                    </Text>
+                    <View style={styles.btnRow}>
+                      <AppIcon name="messageSquare" size={14} color="#FFFFFF" />
+                      <Text style={styles.quoteActionText}>
+                        {t('sourcing.requestQuote', 'Request Quote / Start Deal')}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
               </GlassCard>
@@ -418,6 +426,9 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255, 255, 255, 0.08)',
   },
   controlBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
@@ -544,6 +555,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 13,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
   centered: {
     flex: 1,

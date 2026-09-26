@@ -23,11 +23,11 @@ interface WorkQueueProps {
   title?: string;
 }
 
-const STATUS_CONFIG: Record<WorkItemStatus, { icon: string; color: string; dotColor: string }> = {
-  done:    { icon: '✓', color: 'rgba(255,255,255,0.35)', dotColor: '#10B981' },
-  action:  { icon: '●', color: '#FFFFFF',                dotColor: '#F59E0B' },
-  pending: { icon: '○', color: 'rgba(255,255,255,0.55)', dotColor: '#64748B' },
-  info:    { icon: '·', color: 'rgba(255,255,255,0.45)', dotColor: '#06B6D4' },
+const STATUS_CONFIG: Record<WorkItemStatus, { color: string; dotColor: string }> = {
+  done:    { color: 'rgba(255,255,255,0.35)', dotColor: '#10B981' },
+  action:  { color: '#FFFFFF',                dotColor: '#F59E0B' },
+  pending: { color: 'rgba(255,255,255,0.55)', dotColor: '#64748B' },
+  info:    { color: 'rgba(255,255,255,0.45)', dotColor: '#06B6D4' },
 };
 
 export const WorkQueue: React.FC<WorkQueueProps> = ({ items, title = 'TODAY' }) => {

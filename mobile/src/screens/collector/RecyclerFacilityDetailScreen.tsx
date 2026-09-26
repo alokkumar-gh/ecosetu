@@ -34,6 +34,7 @@ import { TopAppBar } from '../../components/layout/TopAppBar';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { EcoSetuMap } from '../../components/map/EcoSetuMap';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { recyclingService } from '../../services/recyclingService';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
@@ -204,7 +205,7 @@ export const RecyclerFacilityDetailScreen: React.FC<Props> = ({ navigation, rout
         <View style={styles.headerCard}>
           <View style={styles.headerTopRow}>
             <View style={styles.iconCircle}>
-              <Text style={styles.iconText}>🏭</Text>
+              <AppIcon name="factory" size={24} color="#10B981" />
             </View>
             <View style={styles.headerTextContainer}>
               <Text style={styles.facilityTitle}>{facilityName}</Text>
@@ -216,8 +217,8 @@ export const RecyclerFacilityDetailScreen: React.FC<Props> = ({ navigation, rout
           </View>
 
           <View style={styles.statsRow}>
-            <View style={styles.statBadge}>
-              <Text style={styles.statIcon}>📦</Text>
+            <View style={[styles.statBadge, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+              <AppIcon name="box" size={14} color="rgba(255,255,255,0.7)" />
               <Text style={styles.statLabel}>
                 {totalConsignments} {t('collector.recyclers.consignmentsProcessed') || 'Consignments Processed'}
               </Text>
@@ -231,16 +232,22 @@ export const RecyclerFacilityDetailScreen: React.FC<Props> = ({ navigation, rout
               accessibilityHint="Reads recycler facility summary aloud"
               activeOpacity={0.8}
             >
-              <Text style={styles.readAloudBtnText}>🔊 {t('voice.readAloud') || 'Read Aloud'}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <AppIcon name="volume" size={14} color="#34D399" />
+                <Text style={styles.readAloudBtnText}>{t('voice.readAloud') || 'Read Aloud'}</Text>
+              </View>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Map Location Card */}
         <View style={styles.card}>
-          <Text style={styles.sectionHeading}>
-            📍 {t('collector.recyclers.facilityLocation') || 'Facility Location'}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+            <AppIcon name="location" size={16} color="#10B981" />
+            <Text style={[styles.sectionHeading, { marginBottom: 0 }]}>
+              {t('collector.recyclers.facilityLocation') || 'Facility Location'}
+            </Text>
+          </View>
 
           {hasValidCoordinates && lat !== null && lng !== null ? (
             <View style={styles.mapContainer}>
@@ -257,7 +264,7 @@ export const RecyclerFacilityDetailScreen: React.FC<Props> = ({ navigation, rout
             </View>
           ) : (
             <View style={styles.noLocationContainer}>
-              <Text style={styles.noLocationIcon}>📍</Text>
+              <AppIcon name="location" size={24} color="rgba(255,255,255,0.4)" />
               <Text style={styles.noLocationText}>
                 {t('collector.recyclers.noFacilityLocation') || 'Facility location coordinates are not specified.'}
               </Text>
@@ -273,18 +280,23 @@ export const RecyclerFacilityDetailScreen: React.FC<Props> = ({ navigation, rout
             accessibilityLabel={t('collector.recyclers.navigateToFacility') || 'Navigate to Facility via Google Maps'}
             activeOpacity={0.8}
           >
-            <Text style={styles.navButtonIcon}>🧭</Text>
-            <Text style={styles.navButtonText}>
-              {t('collector.recyclers.navigateToFacility') || 'Navigate to Facility'}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <AppIcon name="location" size={16} color="#FFFFFF" />
+              <Text style={styles.navButtonText}>
+                {t('collector.recyclers.navigateToFacility') || 'Navigate to Facility'}
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
 
         {/* Address Details Card */}
         <View style={styles.card}>
-          <Text style={styles.sectionHeading}>
-            🏢 {t('collector.recyclers.address') || 'Address'}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+            <AppIcon name="factory" size={16} color="#10B981" />
+            <Text style={[styles.sectionHeading, { marginBottom: 0 }]}>
+              {t('collector.recyclers.address') || 'Address'}
+            </Text>
+          </View>
           <Text style={styles.fullAddressText}>{facilityAddress}</Text>
 
           <View style={styles.addressGrid}>
@@ -318,9 +330,12 @@ export const RecyclerFacilityDetailScreen: React.FC<Props> = ({ navigation, rout
         {/* Accepted Categories Card */}
         {categories.length > 0 && (
           <View style={styles.card}>
-            <Text style={styles.sectionHeading}>
-              ♻ {t('collector.recyclers.acceptedCategories') || 'Accepted E-Waste Categories'}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <AppIcon name="recycle" size={16} color="#10B981" />
+              <Text style={[styles.sectionHeading, { marginBottom: 0 }]}>
+                {t('collector.recyclers.acceptedCategories') || 'Accepted E-Waste Categories'}
+              </Text>
+            </View>
             <View style={styles.categoryChipsContainer}>
               {categories.map((cat, idx) => (
                 <View key={`${cat}-${idx}`} style={styles.categoryChip}>
@@ -339,9 +354,13 @@ export const RecyclerFacilityDetailScreen: React.FC<Props> = ({ navigation, rout
           accessibilityLabel={`Consign e-waste to ${facilityName}`}
           activeOpacity={0.85}
         >
-          <Text style={styles.consignCTAText}>
-            📦 {t('collector.recyclers.consignEwaste') || 'Consign E-Waste'} →
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <AppIcon name="box" size={18} color="#FFFFFF" />
+            <Text style={styles.consignCTAText}>
+              {t('collector.recyclers.consignEwaste') || 'Consign E-Waste'}
+            </Text>
+            <AppIcon name="arrowRight" size={16} color="#FFFFFF" />
+          </View>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

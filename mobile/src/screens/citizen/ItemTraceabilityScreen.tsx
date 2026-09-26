@@ -28,6 +28,7 @@ import {
   PICKUP_STATUS,
 } from '../../utils/constants';
 import { colors } from '../../theme/colors';
+import { AppIcon, IconName } from '../../components/ui/AppIcon';
 
 type Props = NativeStackScreenProps<CitizenStackParamList, 'ItemTraceability'>;
 
@@ -35,7 +36,7 @@ type Props = NativeStackScreenProps<CitizenStackParamList, 'ItemTraceability'>;
 
 interface Stage {
   id: string;
-  icon: string;
+  icon: IconName;
   title: string;
   description: string;
 }
@@ -127,25 +128,25 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
   const stages: Stage[] = [
     {
       id: 'submitted',
-      icon: '📤',
+      icon: 'upload',
       title: t('traceability.stageSubmittedTitle', 'You gave it'),
       description: t('traceability.stageSubmittedDesc', 'You submitted this item for e-waste collection.'),
     },
     {
       id: 'collected',
-      icon: '🤝',
+      icon: 'handshake',
       title: t('traceability.stageCollectedTitle', 'Picked up'),
       description: t('traceability.stageCollectedDesc', 'A local collector (Kabadiwala) collected it from your doorstep.'),
     },
     {
       id: 'in_transit',
-      icon: '🚛',
+      icon: 'truck',
       title: t('traceability.stageTransitTitle', 'Handed over'),
       description: t('traceability.stageTransitDesc', 'The collector delivered it to a verified recycling facility.'),
     },
     {
       id: 'recycled',
-      icon: '♻️',
+      icon: 'recycle',
       title: t('traceability.stageRecycledTitle', 'Formally recycled'),
       description: t('traceability.stageRecycledDesc', 'The item has been responsibly processed at a certified recycler.'),
     },
@@ -249,7 +250,7 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
         </View>
       ) : error && !data ? (
         <View style={styles.center}>
-          <Text style={styles.errorIcon}>⚠️</Text>
+          <AppIcon name="alert" size={32} color="#EF4444" style={{ marginBottom: 12 }} />
           <Text style={styles.errorTitle}>{t('common.error', "Can't Load Journey")}</Text>
           <Text style={styles.errorMessage}>{error}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={() => { setIsLoading(true); load(); }}>
@@ -258,7 +259,7 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
         </View>
       ) : !data ? (
         <View style={styles.center}>
-          <Text style={styles.emptyIcon}>📦</Text>
+          <AppIcon name="box" size={36} color="#94A3B8" style={{ marginBottom: 12 }} />
           <Text style={styles.emptyTitle}>{t('emptyStates.noActivity', 'No Items Found')}</Text>
           <Text style={styles.emptyMessage}>
             {t('emptyStates.submitFirstItem', 'Submit an e-waste collection request first to see the journey of your items.')}
@@ -322,11 +323,13 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
                       state === 'current' && styles.stageNodeCurrent,
                     ]}>
                       {state === 'done' ? (
-                        <Text style={styles.stageNodeCheck}>✓</Text>
-                      ) : state === 'current' ? (
-                        <Text style={styles.stageNodeIcon}>{stage.icon}</Text>
+                        <AppIcon name="check" size={12} color="#FFF" />
                       ) : (
-                        <Text style={styles.stageNodeIconPending}>{stage.icon}</Text>
+                        <AppIcon
+                          name={stage.icon}
+                          size={15}
+                          color={state === 'current' ? '#38BDF8' : '#94A3B8'}
+                        />
                       )}
                     </View>
                     {!isLast && (
@@ -350,7 +353,8 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
                       </Text>
                       {state === 'done' && (
                         <View style={styles.stageDoneBadge}>
-                          <Text style={styles.stageDoneBadgeText}>✓ {t('status.completed', 'Done')}</Text>
+                          <AppIcon name="check" size={10} color="#10B981" style={{ marginRight: 3 }} />
+                          <Text style={styles.stageDoneBadgeText}>{t('status.completed', 'Done')}</Text>
                         </View>
                       )}
                       {state === 'current' && (
@@ -368,26 +372,32 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
                     </Text>
 
                     {date && state === 'done' && (
-                      <Text style={styles.stageDate}>📅 {date}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                        <AppIcon name="calendar" size={11} color="#94A3B8" style={{ marginRight: 4 }} />
+                        <Text style={styles.stageDate}>{date}</Text>
+                      </View>
                     )}
 
                     {/* Stage-specific detail */}
                     {stage.id === 'collected' && state !== 'pending' && collectorName && (
                       <View style={styles.detailPill}>
-                        <Text style={styles.detailPillText}>🧑 {collectorName}</Text>
+                        <AppIcon name="user" size={11} color="#34D399" style={{ marginRight: 4 }} />
+                        <Text style={styles.detailPillText}>{collectorName}</Text>
                       </View>
                     )}
                     {stage.id === 'recycled' && state !== 'pending' && recyclerName && (
                       <View style={styles.detailPill}>
+                        <AppIcon name="factory" size={11} color="#38BDF8" style={{ marginRight: 4 }} />
                         <Text style={styles.detailPillText}>
-                          🏭 {recyclerName}{recyclerLocation ? ` · ${recyclerLocation}` : ''}
+                          {recyclerName}{recyclerLocation ? ` · ${recyclerLocation}` : ''}
                         </Text>
                       </View>
                     )}
                     {stage.id === 'recycled' && state === 'done' && certId && (
                       <View style={[styles.detailPill, styles.certPill]}>
+                        <AppIcon name="shieldCheck" size={11} color="#A78BFA" style={{ marginRight: 4 }} />
                         <Text style={styles.certPillText}>
-                          🛡️ {t('traceability.certificate', 'Certificate')}: …{certId.slice(-8).toUpperCase()}
+                          {t('traceability.certificate', 'Certificate')}: …{certId.slice(-8).toUpperCase()}
                         </Text>
                       </View>
                     )}
@@ -400,8 +410,8 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
           {/* Completed summary */}
           {getStageState('recycled', data) === 'done' && (
             <View style={styles.completedCard}>
-              <Text style={styles.completedIcon}>🎉</Text>
-              <Text style={styles.completedTitle}>{t('traceability.fullyTraced', 'Fully Traced ✓')}</Text>
+              <AppIcon name="sparkles" size={24} color="#10B981" style={{ marginBottom: 6 }} />
+              <Text style={styles.completedTitle}>{t('traceability.fullyTraced', 'Fully Traced')}</Text>
               <Text style={styles.completedDesc}>
                 {t('traceability.fullyTracedDesc', 'Your e-waste has completed the full responsible recycling journey. It has been processed in a certified formal recycling facility.')}
               </Text>
@@ -410,7 +420,7 @@ export const ItemTraceabilityScreen: React.FC<Props> = ({ navigation, route }) =
 
           {/* Trust note */}
           <View style={styles.trustNote}>
-            <Text style={styles.trustNoteIcon}>ℹ️</Text>
+            <AppIcon name="info" size={14} color="#38BDF8" style={{ marginRight: 8 }} />
             <Text style={styles.trustNoteText}>
               {t('traceability.trustNote', 'Only verified and completed stages are shown. Unverified information is never displayed.')}
             </Text>

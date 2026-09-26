@@ -31,6 +31,7 @@ import { recyclingService } from '../../services/recyclingService';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 const getAuthStatusInfo = (status?: string | null) => {
   switch (status) {
@@ -163,7 +164,7 @@ export const RecyclerProfileScreen: React.FC = () => {
             {/* Facility Header Card */}
             <View style={styles.headerCard}>
               <View style={styles.avatarCircle}>
-                <Text style={styles.avatarIcon}>🏭</Text>
+                <AppIcon name="home" size={28} color={colors.primary || '#14B8A6'} />
               </View>
               <Text style={styles.facilityName} accessibilityRole="header">
                 {profile?.facilityName || user?.name || 'Recycling Center'}
@@ -220,7 +221,10 @@ export const RecyclerProfileScreen: React.FC = () => {
                 <View style={styles.chipContainer}>
                   {acceptedCategories.map((cat, idx) => (
                     <View key={idx} style={styles.streamChip}>
-                      <Text style={styles.streamChipText}>✓ {cat}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <AppIcon name="check" size={12} color="#22D3EE" />
+                        <Text style={styles.streamChipText}>{cat}</Text>
+                      </View>
                     </View>
                   ))}
                 </View>

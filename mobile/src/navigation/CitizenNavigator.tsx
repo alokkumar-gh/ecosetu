@@ -20,6 +20,8 @@ import { PaymentResultScreen } from '../screens/payment/PaymentResultScreen';
 import { useI18n } from '../i18n';
 import { colors } from '../theme/colors';
 
+import { AppIcon } from '../components/ui/AppIcon';
+
 const Tab = createBottomTabNavigator<CitizenTabParamList>();
 const Stack = createNativeStackNavigator<CitizenStackParamList>();
 
@@ -58,7 +60,7 @@ const CitizenTabs: React.FC = () => {
         component={CitizenDashboardScreen}
         options={{
           tabBarLabel: t('navigation.home', 'Home'),
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🏠</Text>,
+          tabBarIcon: ({ color }) => <AppIcon name="home" size={20} color={color} strokeWidth={2} />,
         }}
       />
       <Tab.Screen
@@ -66,7 +68,7 @@ const CitizenTabs: React.FC = () => {
         component={CitizenMarketplaceScreen}
         options={{
           tabBarLabel: t('navigation.marketplace', 'Shop'),
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🛍️</Text>,
+          tabBarIcon: ({ color }) => <AppIcon name="store" size={20} color={color} strokeWidth={2} />,
         }}
       />
       <Tab.Screen
@@ -74,7 +76,7 @@ const CitizenTabs: React.FC = () => {
         component={SubmitItemScreen}
         options={{
           tabBarLabel: t('navigation.submit', 'Give'),
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>♻️</Text>,
+          tabBarIcon: ({ color }) => <AppIcon name="recycle" size={20} color={color} strokeWidth={2} />,
         }}
       />
       <Tab.Screen
@@ -82,7 +84,7 @@ const CitizenTabs: React.FC = () => {
         component={CitizenOrdersScreen}
         options={{
           tabBarLabel: t('navigation.requests', 'Orders'),
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📋</Text>,
+          tabBarIcon: ({ color }) => <AppIcon name="clipboard" size={20} color={color} strokeWidth={2} />,
         }}
       />
       <Tab.Screen
@@ -90,7 +92,7 @@ const CitizenTabs: React.FC = () => {
         component={CitizenProfileScreen}
         options={{
           tabBarLabel: t('navigation.profile', 'Profile'),
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>👤</Text>,
+          tabBarIcon: ({ color }) => <AppIcon name="user" size={20} color={color} strokeWidth={2} />,
         }}
       />
     </Tab.Navigator>

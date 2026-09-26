@@ -26,6 +26,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useI18n } from '../../i18n';
+import { AppIcon } from '../../components/ui/AppIcon';
 import pickupBatchService, { PickupBatch, BatchStatus } from '../../services/pickupBatchService';
 
 interface Props {
@@ -111,7 +112,7 @@ export const CollectorPickupBatchesScreen: React.FC<Props> = ({ navigation }) =>
 
           {item.scheduledDate ? (
             <View style={styles.scheduleRow}>
-              <Text style={styles.scheduleIcon}>📅</Text>
+              <AppIcon name="calendar" size={14} color="#94A3B8" />
               <Text style={styles.scheduleText}>
                 {new Date(item.scheduledDate).toLocaleDateString('en-IN', {
                   day: 'numeric',
@@ -123,14 +124,14 @@ export const CollectorPickupBatchesScreen: React.FC<Props> = ({ navigation }) =>
             </View>
           ) : (
             <View style={styles.scheduleRow}>
-              <Text style={styles.scheduleIcon}>🕒</Text>
+              <AppIcon name="clock" size={14} color="#94A3B8" />
               <Text style={styles.scheduleText}>{t('logistics.unassignedSchedule')}</Text>
             </View>
           )}
 
           {item.pickupAddress ? (
             <View style={styles.addressRow}>
-              <Text style={styles.scheduleIcon}>📍</Text>
+              <AppIcon name="map-pin" size={14} color="#94A3B8" />
               <Text style={styles.addressText} numberOfLines={1}>
                 {item.pickupAddress}
               </Text>
@@ -200,7 +201,7 @@ export const CollectorPickupBatchesScreen: React.FC<Props> = ({ navigation }) =>
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
             ListEmptyComponent={
               <EmptyState
-                icon="📦"
+                icon="package"
                 title={t('logistics.noPickups')}
                 message={t('logistics.noPickupsDesc')}
               />

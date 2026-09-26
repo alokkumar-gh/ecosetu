@@ -23,6 +23,8 @@ import {
 } from 'react-native';
 import { spacing } from '../../theme/spacing';
 
+import { AppIcon } from '../ui/AppIcon';
+
 export interface EcoSelectOption {
   label: string;
   value: string;
@@ -84,16 +86,9 @@ export const EcoGlassSelect: React.FC<EcoGlassSelectProps> = ({
           style={[styles.triggerText, !selectedOption && styles.placeholderText]}
           numberOfLines={1}
         >
-          {selectedOption ? (
-            <>
-              {selectedOption.icon ? `${selectedOption.icon}  ` : ''}
-              {selectedOption.label}
-            </>
-          ) : (
-            placeholder
-          )}
+          {selectedOption ? selectedOption.label : placeholder}
         </Text>
-        <Text style={styles.chevron}>▾</Text>
+        <AppIcon name="chevronDown" size={14} color="#34D399" />
       </TouchableOpacity>
 
       {Boolean(error) && <Text style={styles.errorText}>{error}</Text>}
@@ -117,7 +112,7 @@ export const EcoGlassSelect: React.FC<EcoGlassSelectProps> = ({
                 onPress={() => setModalVisible(false)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Text style={styles.closeBtn}>✕</Text>
+                <AppIcon name="close" size={18} color="#94A3B8" />
               </TouchableOpacity>
             </View>
 
@@ -134,14 +129,15 @@ export const EcoGlassSelect: React.FC<EcoGlassSelectProps> = ({
                   >
                     <View style={styles.optionContent}>
                       <Text style={[styles.optionLabel, isSelected && styles.optionLabelSelected]}>
-                        {item.icon ? `${item.icon}  ` : ''}
                         {item.label}
                       </Text>
                       {Boolean(item.sublabel) && (
                         <Text style={styles.optionSublabel}>{item.sublabel}</Text>
                       )}
                     </View>
-                    {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                    {isSelected && (
+                      <AppIcon name="check" size={16} color="#34D399" strokeWidth={3} />
+                    )}
                   </TouchableOpacity>
                 );
               }}

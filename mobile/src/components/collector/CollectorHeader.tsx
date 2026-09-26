@@ -10,6 +10,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import { ConnectivityDot } from './ConnectivityDot';
+import { AppIcon } from '../ui/AppIcon';
 
 interface CollectorHeaderProps {
   name: string;
@@ -69,7 +70,7 @@ export const CollectorHeader: React.FC<CollectorHeaderProps> = ({
             </Text>
             {isVerified && (
               <View style={styles.verifiedBadge}>
-                <Text style={styles.verifiedText}>✓</Text>
+                <AppIcon name="check" size={10} color="#071E22" strokeWidth={3} />
               </View>
             )}
           </View>

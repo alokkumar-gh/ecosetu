@@ -11,8 +11,10 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 
+import { AppIcon, IconName } from '../ui/AppIcon';
+
 interface GlassEmptyStateProps {
-  icon?: string;
+  icon?: IconName | string;
   title: string;
   description: string;
   actionLabel?: string;
@@ -21,17 +23,19 @@ interface GlassEmptyStateProps {
 }
 
 export const GlassEmptyState: React.FC<GlassEmptyStateProps> = memo(({
-  icon = '📦',
+  icon = 'box',
   title,
   description,
   actionLabel,
   onAction,
   style,
 }) => {
+  const iconName: IconName = typeof icon === 'string' && icon.length > 0 ? (icon as IconName) : 'box';
+
   return (
     <GlassCard variant="standard" style={[styles.container, style]}>
       <View style={styles.iconCircle}>
-        <Text style={styles.iconText}>{icon}</Text>
+        <AppIcon name={iconName} size={28} color={colors.primary} />
       </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.description}>{description}</Text>

@@ -24,6 +24,7 @@ import transactionService, { type TransactionRecord } from '../../services/trans
 import paymentService from '../../services/paymentService';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { colors } from '../../theme/colors';
+import { AppIcon, IconName } from '../../components/ui/AppIcon';
 
 // ─── Method Option Card ───────────────────────────────────────────────────────
 
@@ -36,7 +37,7 @@ const MethodCard = ({
   onPress,
   accent,
 }: {
-  icon: string;
+  icon: IconName;
   title: string;
   description: string;
   badge?: string;
@@ -48,7 +49,7 @@ const MethodCard = ({
     onPress={onPress} disabled={loading} activeOpacity={0.82}
     accessibilityRole="button" accessibilityLabel={title}>
     <View style={[styles.methodIconBox, accent ? { backgroundColor: accent + '26', borderColor: accent + '50' } : undefined]}>
-      <Text style={styles.methodEmoji}>{icon}</Text>
+      <AppIcon name={icon} size={22} color={accent || colors.primary} />
     </View>
     <View style={styles.methodInfo}>
       <View style={styles.methodTitleRow}>
@@ -64,7 +65,7 @@ const MethodCard = ({
     <View style={styles.methodChevronBox}>
       {loading
         ? <ActivityIndicator size="small" color={colors.primary} />
-        : <Text style={[styles.methodChevron, accent ? { color: accent } : undefined]}>›</Text>}
+        : <AppIcon name="chevronRight" size={18} color={accent || C.green} />}
     </View>
   </TouchableOpacity>
 );
@@ -154,7 +155,7 @@ export const PaymentMethodScreen: React.FC = () => {
         <SafeAreaView style={styles.safe} edges={['top']}>
           <View style={styles.header}>
             <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-              <Text style={styles.backBtnText}>←</Text>
+              <AppIcon name="arrowLeft" size={20} color={C.text} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Payment</Text>
             <View style={styles.headerSpacer} />
@@ -180,7 +181,7 @@ export const PaymentMethodScreen: React.FC = () => {
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}
             accessibilityRole="button" accessibilityLabel={t('common.back', 'Go back')}>
-            <Text style={styles.backBtnText}>←</Text>
+            <AppIcon name="arrowLeft" size={20} color={C.text} />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>{t('common.selectPayment', 'Select Payment')}</Text>
@@ -217,7 +218,7 @@ export const PaymentMethodScreen: React.FC = () => {
 
           {/* ── Security Banner ── */}
           <View style={styles.securityBanner}>
-            <Text style={styles.securityIcon}>🔒</Text>
+            <AppIcon name="lock" size={14} color="#FBBF24" />
             <Text style={styles.securityText}>{t('common.secureSettlementGateway', 'Secure Settlement Gateway')}</Text>
           </View>
 
@@ -225,7 +226,7 @@ export const PaymentMethodScreen: React.FC = () => {
           <Text style={styles.methodsLabel}>{t('common.choosePaymentMethod', 'Choose Payment Method')}</Text>
 
           <MethodCard
-            icon="💵"
+            icon="wallet"
             title={t('common.cash', 'Cash')}
             description={t('common.cashMethodDesc', 'Physical cash exchange with two-party confirmation')}
             loading={processingMethod === 'CASH'}
@@ -234,7 +235,7 @@ export const PaymentMethodScreen: React.FC = () => {
           />
 
           <MethodCard
-            icon="⚡"
+            icon="zap"
             title={t('common.upiNetBanking', 'UPI / Net Banking')}
             description={t('common.upiMethodDesc', 'Instant transfer via Razorpay — Cards, UPI & Bank')}
             badge="SANDBOX"

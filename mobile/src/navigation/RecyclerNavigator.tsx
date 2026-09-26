@@ -17,6 +17,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Text, View, StyleSheet } from 'react-native';
+import { AppIcon } from '../components/ui/AppIcon';
 import { RecyclerTabParamList, RecyclerStackParamList } from './types';
 import { PlaceholderScreen } from '../components/common/PlaceholderScreen';
 import { colors } from '../theme/colors';
@@ -132,8 +133,8 @@ const RecyclerTabs: React.FC = () => {
         component={RecyclerMarketScreen}
         options={{
           tabBarLabel: t('navigation.marketplace', 'Market'),
-          tabBarIcon: ({ color, focused }) => (
-            <Text style={{ color, fontSize: focused ? 22 : 20 }}>🔍</Text>
+          tabBarIcon: ({ color }) => (
+            <AppIcon name="search" size={20} color={color} strokeWidth={2} />
           ),
         }}
       />
@@ -144,9 +145,7 @@ const RecyclerTabs: React.FC = () => {
           tabBarLabel: t('navigation.requests', 'Orders'),
           tabBarIcon: ({ focused }) => (
             <View style={focused ? tabStyles.buyIconActive : tabStyles.buyIcon}>
-              <Text style={{ fontSize: 16, color: focused ? '#071E22' : '#22D3EE', fontWeight: '900' }}>
-                📋
-              </Text>
+              <AppIcon name="clipboard" size={18} color={focused ? '#071E22' : '#22D3EE'} strokeWidth={2.4} />
             </View>
           ),
         }}
@@ -156,8 +155,8 @@ const RecyclerTabs: React.FC = () => {
         component={RecyclerInventoryScreen}
         options={{
           tabBarLabel: t('navigation.inventory', 'Stock'),
-          tabBarIcon: ({ color, focused }) => (
-            <Text style={{ color, fontSize: focused ? 22 : 20 }}>📦</Text>
+          tabBarIcon: ({ color }) => (
+            <AppIcon name="box" size={20} color={color} strokeWidth={2} />
           ),
         }}
       />
@@ -166,8 +165,8 @@ const RecyclerTabs: React.FC = () => {
         component={RecyclerMoneyScreen}
         options={{
           tabBarLabel: t('navigation.money', 'Money'),
-          tabBarIcon: ({ color, focused }) => (
-            <Text style={{ color, fontSize: focused ? 20 : 17, fontWeight: '900' }}>₹</Text>
+          tabBarIcon: ({ color }) => (
+            <AppIcon name="rupee" size={18} color={color} strokeWidth={2} />
           ),
         }}
       />
@@ -176,8 +175,8 @@ const RecyclerTabs: React.FC = () => {
         component={RecyclerNewProfileScreen}
         options={{
           tabBarLabel: t('navigation.profile', 'Profile'),
-          tabBarIcon: ({ color, focused }) => (
-            <Text style={{ color, fontSize: focused ? 22 : 20 }}>🏭</Text>
+          tabBarIcon: ({ color }) => (
+            <AppIcon name="factory" size={20} color={color} strokeWidth={2} />
           ),
         }}
       />

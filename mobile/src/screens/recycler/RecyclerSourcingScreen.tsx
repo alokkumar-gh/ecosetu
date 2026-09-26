@@ -192,7 +192,7 @@ export const RecyclerSourcingScreen: React.FC<Props> = ({ navigation }) => {
             }
             ListEmptyComponent={
               <EmptyState
-                icon="📋"
+                icon="fileText"
                 title={t('sourcing.noRequestsInTab')}
                 message={t('sourcing.noRequestsDesc')}
               />

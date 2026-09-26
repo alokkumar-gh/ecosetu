@@ -28,6 +28,7 @@ import { userProfileService } from '../../services/userProfileService';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 export const AdminProfileScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const { user, logout } = useAuth();
@@ -68,7 +69,7 @@ export const AdminProfileScreen: React.FC<{ navigation?: any }> = ({ navigation 
           {/* Profile Card */}
           <View style={styles.card}>
             <View style={styles.avatarContainer}>
-              <Text style={styles.avatarText}>🛡️</Text>
+              <AppIcon name="shield" size={32} color="#10B981" />
             </View>
             <Text style={styles.nameText}>{profileData?.name || 'Platform Administrator'}</Text>
             <Text style={styles.emailText}>{profileData?.email || 'admin@ecosetu.org'}</Text>
@@ -102,7 +103,10 @@ export const AdminProfileScreen: React.FC<{ navigation?: any }> = ({ navigation 
 
           {/* Eco-Saathi Help Assistant */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>🌿 Eco-Saathi AI Assistant</Text>
+            <View style={styles.titleWithIcon}>
+              <AppIcon name="leaf" size={16} color="#10B981" />
+              <Text style={styles.cardTitle}>Eco-Saathi AI Assistant</Text>
+            </View>
             <Text style={styles.sessionNotice}>
               Instant guidance on platform features, verification guidelines, regulations, and e-waste rules.
             </Text>
@@ -172,8 +176,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(16, 185, 129, 0.35)',
   },
-  avatarText: {
-    fontSize: 28,
+  titleWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: spacing.spaceSm,
   },
   nameText: {
     fontSize: typography.Subheading.fontSize,

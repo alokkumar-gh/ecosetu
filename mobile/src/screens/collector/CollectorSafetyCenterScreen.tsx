@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { TopAppBar } from '../../components/layout/TopAppBar';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
+import { AppIcon, AppIconName } from '../../components/ui/AppIcon';
 import {
   SAFETY_TOPICS,
   SafetyTopic,
@@ -23,6 +24,16 @@ import {
 } from '../../data/safetyGuidance';
 import voiceService, { AnnouncementPriority } from '../../services/voiceService';
 import { useTranslation } from '../../i18n';
+
+const getSafetyIcon = (topicId: string): AppIconName => {
+  const upper = topicId.toUpperCase();
+  if (upper.includes('BATTER')) return 'battery';
+  if (upper.includes('CRT') || upper.includes('TV') || upper.includes('MONITOR')) return 'tv';
+  if (upper.includes('PCB') || upper.includes('CIRCUIT')) return 'cpu';
+  if (upper.includes('LAMP') || upper.includes('BULB') || upper.includes('MERCURY')) return 'lightbulb';
+  if (upper.includes('WIRE') || upper.includes('CABLE') || upper.includes('BURN')) return 'cable';
+  return 'shieldCheck';
+};
 
 export const CollectorSafetyCenterScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -92,9 +103,7 @@ export const CollectorSafetyCenterScreen: React.FC = () => {
             activeOpacity={0.85}
           >
             <View style={styles.audioIconWrapper}>
-              <Text style={styles.audioBannerIcon}>
-                {isSpeaking ? '⏹️' : '🔊'}
-              </Text>
+              <AppIcon name={isSpeaking ? 'close' : 'volume'} size={20} color="#10B981" />
             </View>
             <View style={styles.audioBannerTextContainer}>
               <Text style={styles.audioBannerTitle}>
@@ -111,9 +120,9 @@ export const CollectorSafetyCenterScreen: React.FC = () => {
           </TouchableOpacity>
 
           {/* Offline Badge */}
-          <View style={styles.offlineNoticeContainer}>
-            <Text style={styles.offlineNoticeIcon}>📶</Text>
-            <Text style={styles.offlineNoticeText}>
+          <View style={[styles.offlineNoticeContainer, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+            <AppIcon name="shieldCheck" size={15} color="#34D399" />
+            <Text style={[styles.offlineNoticeText, { flex: 1 }]}>
               {t('safety.offlineNotice') ||
                 'Offline Mode: Complete safety guidance is available locally on your device.'}
             </Text>
@@ -142,7 +151,7 @@ export const CollectorSafetyCenterScreen: React.FC = () => {
                   <View style={styles.cardTopRow}>
                     {/* Visual Icon Badge */}
                     <View style={styles.iconCircle}>
-                      <Text style={styles.topicEmoji}>{topic.icon}</Text>
+                      <AppIcon name={getSafetyIcon(topic.id)} size={20} color="#10B981" />
                     </View>
 
                     {/* Danger / Severity Pill */}
@@ -159,11 +168,11 @@ export const CollectorSafetyCenterScreen: React.FC = () => {
                   </View>
 
                   {/* Learn Safety Action Row */}
-                  <View style={styles.actionRow}>
+                  <View style={[styles.actionRow, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
                     <Text style={styles.actionText}>
                       {t('safety.tapToLearn') || 'View Safety Guide'}
                     </Text>
-                    <Text style={styles.actionArrow}>→</Text>
+                    <AppIcon name="arrowRight" size={12} color="#10B981" />
                   </View>
                 </TouchableOpacity>
               );
@@ -171,9 +180,9 @@ export const CollectorSafetyCenterScreen: React.FC = () => {
           </View>
 
           {/* Emergency Safety Footer */}
-          <View style={styles.emergencyBox}>
-            <Text style={styles.emergencyIcon}>⚠️</Text>
-            <View style={styles.emergencyTextWrap}>
+          <View style={[styles.emergencyBox, { flexDirection: 'row', alignItems: 'flex-start', gap: 12 }]}>
+            <AppIcon name="alert" size={24} color="#F59E0B" />
+            <View style={[styles.emergencyTextWrap, { flex: 1 }]}>
               <Text style={styles.emergencyTitle}>
                 {t('safety.emergencyNoticeTitle') || 'Safety First Protocol'}
               </Text>

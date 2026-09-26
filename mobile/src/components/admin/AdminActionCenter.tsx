@@ -19,6 +19,7 @@ import {
   ADMIN_RADIUS,
   ADMIN_SHADOW,
 } from './AdminTheme';
+import { AppIcon } from '../ui/AppIcon';
 
 export interface ActionItem {
   id: string;
@@ -93,7 +94,7 @@ export const AdminActionCenter: React.FC<Props> = ({
         </View>
       ) : !hasItems ? (
         <View style={styles.allClear}>
-          <Text style={styles.allClearIcon}>✓</Text>
+          <AppIcon name="checkCircle" size={24} color={ADMIN_COLOR.success} />
           <View>
             <Text style={styles.allClearTitle}>All clear</Text>
             <Text style={styles.allClearSubtitle}>No pending actions require your attention.</Text>
@@ -136,7 +137,6 @@ export const AdminActionCenter: React.FC<Props> = ({
 
                   {/* Label */}
                   <Text style={styles.itemLabel} numberOfLines={1}>
-                    {item.icon ? `${item.icon} ` : ''}
                     {item.label}
                   </Text>
 
@@ -148,7 +148,10 @@ export const AdminActionCenter: React.FC<Props> = ({
                     accessibilityLabel={`View ${item.label}`}
                     activeOpacity={0.75}
                   >
-                    <Text style={styles.viewBtnText}>VIEW →</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                      <Text style={styles.viewBtnText}>VIEW</Text>
+                      <AppIcon name="arrowRight" size={11} color={ADMIN_COLOR.brand} />
+                    </View>
                   </TouchableOpacity>
                 </View>
               );

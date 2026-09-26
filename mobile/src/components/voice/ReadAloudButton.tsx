@@ -28,6 +28,8 @@ import { useI18n } from '../../i18n';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 
+import { AppIcon } from '../ui/AppIcon';
+
 export type ReadAloudVariant = 'pill' | 'compact' | 'icon';
 
 interface Props {
@@ -129,7 +131,11 @@ export const ReadAloudButton: React.FC<Props> = ({
         activeOpacity={0.8}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Text style={styles.speakerIcon}>{isSpeakingThis ? '⏹' : '🔊'}</Text>
+        <AppIcon
+          name={isSpeakingThis ? 'square' : 'volume'}
+          size={18}
+          color={isSpeakingThis ? colors.primary : colors.textPrimary}
+        />
       </TouchableOpacity>
     );
   }
@@ -149,7 +155,11 @@ export const ReadAloudButton: React.FC<Props> = ({
         activeOpacity={0.8}
         hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
       >
-        <Text style={styles.speakerIcon}>{isSpeakingThis ? '⏹' : '🔊'}</Text>
+        <AppIcon
+          name={isSpeakingThis ? 'square' : 'volume'}
+          size={15}
+          color={isSpeakingThis ? colors.primary : colors.textSecondary}
+        />
         <Text style={[styles.compactLabel, textStyle]}>{defaultLabel}</Text>
       </TouchableOpacity>
     );
@@ -169,7 +179,11 @@ export const ReadAloudButton: React.FC<Props> = ({
       activeOpacity={0.8}
     >
       <View style={styles.pillContent}>
-        <Text style={styles.pillIcon}>{isSpeakingThis ? '⏹' : '🔊'}</Text>
+        <AppIcon
+          name={isSpeakingThis ? 'square' : 'volume'}
+          size={16}
+          color={colors.primary}
+        />
         <Text
           style={[
             styles.pillLabel,

@@ -35,6 +35,7 @@ import { AdminHistoricalAnalyticsScreen } from '../screens/admin/AdminHistorical
 import { AdminDisputesScreen } from '../screens/admin/AdminDisputesScreen';
 import { BillsScreen } from '../screens/billing/BillsScreen';
 import { BillDetailScreen } from '../screens/billing/BillDetailScreen';
+import { BhashiniTestScreen } from '../screens/admin/BhashiniTestScreen';
 
 // Using the existing AdminTabParamList so navigation.navigate() calls throughout
 // the codebase continue to work without changes.
@@ -75,6 +76,9 @@ export const AdminNavigator: React.FC = () => {
       {/* ── Billing (preserved) ──────────────────────────────────────────── */}
       <Stack.Screen name="AdminBills" component={BillsScreen} />
       <Stack.Screen name="AdminBillDetail" component={BillDetailScreen} />
+
+      {/* ── BHASHINI Vernacular Diagnostics (Phase 20) ────────────────── */}
+      <Stack.Screen name="BhashiniTest" component={BhashiniTestScreen} />
     </Stack.Navigator>
   );
 };

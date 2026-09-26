@@ -214,38 +214,38 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   {
     group: 'OVERVIEW',
     items: [
-      { key: 'dashboard', label: 'Dashboard', icon: '⌂', screen: 'AdminHome', description: 'Platform command center' },
+      { key: 'dashboard', label: 'Dashboard', icon: 'home', screen: 'AdminHome', description: 'Platform command center' },
     ],
   },
   {
     group: 'OPERATIONS',
     items: [
-      { key: 'verifications', label: 'Verifications', icon: '◎', screen: 'AdminVerifications', description: 'Review pending applications' },
-      { key: 'disputes', label: 'Disputes', icon: '⚠', screen: 'AdminDisputes', description: 'Manage active disputes' },
-      { key: 'reports', label: 'Reports', icon: '⊞', screen: 'AdminReports', description: 'Export & schedule reports' },
+      { key: 'verifications', label: 'Verifications', icon: 'shieldCheck', screen: 'AdminVerifications', description: 'Review pending applications' },
+      { key: 'disputes', label: 'Disputes', icon: 'alert', screen: 'AdminDisputes', description: 'Manage active disputes' },
+      { key: 'reports', label: 'Reports', icon: 'document', screen: 'AdminReports', description: 'Export & schedule reports' },
     ],
   },
   {
     group: 'ECOSYSTEM',
     items: [
-      { key: 'users', label: 'Users', icon: '◈', screen: 'AdminUsers', description: 'Manage all platform users' },
-      { key: 'governance', label: 'Recyclers', icon: '◉', screen: 'AdminGovernance', description: 'Recycler governance & authorization' },
+      { key: 'users', label: 'Users', icon: 'user', screen: 'AdminUsers', description: 'Manage all platform users' },
+      { key: 'governance', label: 'Recyclers', icon: 'factory', screen: 'AdminGovernance', description: 'Recycler governance & authorization' },
     ],
   },
   {
     group: 'INSIGHTS',
     items: [
-      { key: 'analytics', label: 'Analytics', icon: '⊹', screen: 'AdminHistoricalAnalytics', description: 'Historical trends & insights' },
-      { key: 'geographic', label: 'Geographic', icon: '◑', screen: 'AdminGeographicAnalytics', description: 'Map & collection activity' },
+      { key: 'analytics', label: 'Analytics', icon: 'chart', screen: 'AdminHistoricalAnalytics', description: 'Historical trends & insights' },
+      { key: 'geographic', label: 'Geographic', icon: 'location', screen: 'AdminGeographicAnalytics', description: 'Map & collection activity' },
     ],
   },
   {
     group: 'SYSTEM',
     items: [
-      { key: 'notifications', label: 'Notifications', icon: '◻', screen: 'AdminNotificationCenter', description: 'Broadcast & manage alerts' },
-      { key: 'audit', label: 'Audit Log', icon: '▤', screen: 'AdminAuditLogs', description: 'Immutable action trail' },
-      { key: 'health', label: 'System Health', icon: '◐', screen: 'AdminSystemHealth', description: 'Backend diagnostics' },
-      { key: 'profile', label: 'My Profile', icon: '◯', screen: 'AdminProfile', description: 'Account & preferences' },
+      { key: 'notifications', label: 'Notifications', icon: 'bell', screen: 'AdminNotificationCenter', description: 'Broadcast & manage alerts' },
+      { key: 'audit', label: 'Audit Log', icon: 'clipboard', screen: 'AdminAuditLogs', description: 'Immutable action trail' },
+      { key: 'health', label: 'System Health', icon: 'refresh', screen: 'AdminSystemHealth', description: 'Backend diagnostics' },
+      { key: 'profile', label: 'My Profile', icon: 'user', screen: 'AdminProfile', description: 'Account & preferences' },
     ],
   },
 ];

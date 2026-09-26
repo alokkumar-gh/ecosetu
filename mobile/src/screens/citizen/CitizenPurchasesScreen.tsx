@@ -24,6 +24,7 @@ import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { quoteService, RecyclerQuote } from '../../services/quoteService';
 import { MATERIAL_TAXONOMY } from '../../config/materialTaxonomy';
 import { colors } from '../../theme/colors';
+import { AppIcon, IconName } from '../../components/ui/AppIcon';
 
 type FilterTab = 'ACTIVE' | 'ACCEPTED' | 'COMPLETED' | 'CANCELLED';
 
@@ -42,7 +43,7 @@ function quoteMeta(status: string) {
     case 'VIEWED':
       return { label: 'Awaiting Reply', color: '#60A5FA', bg: 'rgba(59,130,246,0.15)', tab: 'ACTIVE' };
     case 'ACCEPTED':
-      return { label: '✓ Accepted', color: '#10B981', bg: 'rgba(16,185,129,0.15)', tab: 'ACCEPTED' };
+      return { label: 'Accepted', color: '#10B981', bg: 'rgba(16,185,129,0.15)', tab: 'ACCEPTED' };
     case 'COMPLETED':
     case 'PAID':
     case 'HANDED_OVER':
@@ -81,7 +82,7 @@ const CounterModal: React.FC<CounterModalProps> = ({ quote, isSubmitting, onClos
 
   const parsed = parseFloat(amount);
   const valid = !isNaN(parsed) && parsed > 0;
-  const cat = MATERIAL_TAXONOMY[quote.category] || { symbol: '📦', defaultName: quote.category };
+  const cat = MATERIAL_TAXONOMY[quote.category] || { defaultName: quote.category };
 
   return (
     <Modal visible animationType="slide" transparent onRequestClose={onClose}>
@@ -90,7 +91,7 @@ const CounterModal: React.FC<CounterModalProps> = ({ quote, isSubmitting, onClos
         <View style={styles.sheetHandle} />
         <Text style={styles.modalTitle}>Revise Offer</Text>
         <Text style={styles.modalSubtitle}>
-          {cat.symbol} {quote.materialLot?.subcategory || cat.defaultName}
+          {quote.materialLot?.subcategory || cat.defaultName}
         </Text>
 
         <Text style={styles.fieldLabel}>Your revised offer (₹) *</Text>
@@ -143,7 +144,7 @@ interface OrderCardProps {
 }
 
 const OrderCard: React.FC<OrderCardProps> = React.memo(({ quote, onCancel, onCounter, onViewBills }) => {
-  const cat = MATERIAL_TAXONOMY[quote.materialLot?.category || quote.category] || { symbol: '📦', defaultName: quote.category };
+  const cat = MATERIAL_TAXONOMY[quote.materialLot?.category || quote.category] || { defaultName: quote.category };
   const meta = quoteMeta(quote.status);
   const isPending = quote.status === 'SENT' || quote.status === 'VIEWED';
   const isAccepted = quote.status === 'ACCEPTED';
@@ -156,7 +157,9 @@ const OrderCard: React.FC<OrderCardProps> = React.memo(({ quote, onCancel, onCou
       {/* Header */}
       <View style={styles.orderCardHeader}>
         <View style={styles.orderCardHeaderLeft}>
-          <Text style={styles.orderCategoryIcon}>{cat.symbol}</Text>
+          <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(16,185,129,0.12)', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+            <AppIcon name="box" size={18} color="#10B981" />
+          </View>
           <View style={styles.orderTitleBlock}>
             <Text style={styles.orderTitle} numberOfLines={1}>{itemName}</Text>
             <Text style={styles.orderRef}>
@@ -186,7 +189,7 @@ const OrderCard: React.FC<OrderCardProps> = React.memo(({ quote, onCancel, onCou
       {/* Collector info (revealed after acceptance) */}
       {isAccepted && quote.materialLot?.collector?.user && (
         <View style={styles.collectorReveal}>
-          <Text style={styles.collectorRevealIcon}>🤝</Text>
+          <AppIcon name="handshake" size={16} color="#10B981" style={{ marginRight: 8 }} />
           <View>
             <Text style={styles.collectorRevealName}>{quote.materialLot.collector.user.name}</Text>
             <Text style={styles.collectorRevealArea}>
@@ -251,7 +254,10 @@ const OrderCard: React.FC<OrderCardProps> = React.memo(({ quote, onCancel, onCou
             accessibilityRole="button"
             accessibilityLabel="View bills"
           >
-            <Text style={styles.viewBillsText}>🧾 View Bills & Receipt</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <AppIcon name="receipt" size={14} color="#FFF" style={{ marginRight: 6 }} />
+              <Text style={styles.viewBillsText}>View Bills & Receipt</Text>
+            </View>
           </TouchableOpacity>
         )}
       </View>
@@ -426,9 +432,12 @@ export const CitizenPurchasesScreen: React.FC = () => {
             }
             ListEmptyComponent={
               <View style={styles.emptyBox}>
-                <Text style={styles.emptyIcon}>
-                  {activeTab === 'ACTIVE' ? '🛍️' : activeTab === 'ACCEPTED' ? '🤝' : activeTab === 'COMPLETED' ? '✅' : '📁'}
-                </Text>
+                <AppIcon
+                  name={activeTab === 'ACTIVE' ? 'store' : activeTab === 'ACCEPTED' ? 'handshake' : activeTab === 'COMPLETED' ? 'checkCircle' : 'box'}
+                  size={36}
+                  color="#94A3B8"
+                  style={{ marginBottom: 12 }}
+                />
                 <Text style={styles.emptyTitle}>
                   {activeTab === 'ACTIVE' ? 'No pending offers'
                     : activeTab === 'ACCEPTED' ? 'No accepted offers'

@@ -101,7 +101,7 @@ export const CollectorDealsScreen: React.FC<Props> = ({ navigation }) => {
   // ── Item renderer ────────────────────────────────────────────────────────────
   const renderItem = useCallback(
     ({ item }: { item: MaterialLotItem }) => {
-      const catMeta = MATERIAL_TAXONOMY[item.category] || { symbol: '📦', defaultName: item.category };
+      const catMeta = MATERIAL_TAXONOMY[item.category] || { symbol: 'package', defaultName: item.category };
       const catName = (catMeta as any).i18nKey ? t((catMeta as any).i18nKey, catMeta.defaultName) : catMeta.defaultName;
       const isHighlighted = item.status === 'QUOTED' || item.status === 'ACCEPTED';
       const actionLabel =

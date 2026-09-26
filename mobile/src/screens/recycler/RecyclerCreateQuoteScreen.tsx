@@ -22,6 +22,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { quoteService } from '../../services/quoteService';
 import networkService from '../../services/networkService';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 const space = {
   xs: spacing.spaceXs,
@@ -128,12 +129,18 @@ export const RecyclerCreateQuoteScreen: React.FC = () => {
           {/* Material Lot Summary */}
           <View style={styles.lotCard}>
             <Text style={styles.lotReference}>{lot?.referenceNumber || 'LOT'}</Text>
-            <Text style={styles.lotCategory}>
-              📦 {lot?.category} {lot?.subcategory ? `• ${lot.subcategory}` : ''}
-            </Text>
-            <Text style={styles.lotWeight}>
-              ⚖️ Lot Weight: {initialWeight} kg
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+              <AppIcon name="package" size={14} color="#94A3B8" />
+              <Text style={styles.lotCategory}>
+                {lot?.category} {lot?.subcategory ? `• ${lot.subcategory}` : ''}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+              <AppIcon name="scale" size={14} color="#94A3B8" />
+              <Text style={styles.lotWeight}>
+                Lot Weight: {initialWeight} kg
+              </Text>
+            </View>
           </View>
 
           {/* Rate Input Section */}
@@ -228,7 +235,10 @@ export const RecyclerCreateQuoteScreen: React.FC = () => {
               {submitting ? (
                 <ActivityIndicator color="#071E22" />
               ) : (
-                <Text style={styles.submitButtonText}>🚀 {t('quotation.sendQuote')}</Text>
+                <View style={styles.btnRow}>
+                  <AppIcon name="send" size={18} color="#071E22" />
+                  <Text style={styles.submitButtonText}>{t('quotation.sendQuote')}</Text>
+                </View>
               )}
             </TouchableOpacity>
           </View>
@@ -383,6 +393,17 @@ const styles = StyleSheet.create({
     color: '#071E22',
     fontSize: 16,
     fontWeight: '800',
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  rowCentered: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
 });
 

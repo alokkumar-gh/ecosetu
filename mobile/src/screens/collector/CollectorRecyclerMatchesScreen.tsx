@@ -28,6 +28,8 @@ import {
 import { useI18n } from '../../i18n';
 import { TopAppBar } from '../../components/layout/TopAppBar';
 import { EcoSetuBackground } from '../../components/eco';
+import { AppIcon } from '../../components/ui/AppIcon';
+import { EmptyState } from '../../components/common/EmptyState';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { MATERIAL_TAXONOMY } from '../../config/materialTaxonomy';
@@ -163,11 +165,12 @@ export const CollectorRecyclerMatchesScreen: React.FC<CollectorRecyclerMatchesSc
         >
           {/* Stale Cache Warning Banner */}
           {data?.isOfflineCached && (
-            <View style={[styles.cacheBanner, data.isStale && styles.staleBanner]}>
-              <Text style={styles.cacheBannerText}>
+            <View style={[styles.cacheBanner, data.isStale && styles.staleBanner, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+              <AppIcon name={data.isStale ? "alert" : "box"} size={14} color="#FBBF24" />
+              <Text style={[styles.cacheBannerText, { flex: 1 }]}>
                 {data.isStale
-                  ? `⚠️ ${t('recyclerMatching.staleCacheWarning')}`
-                  : `📦 ${t('recyclerMatching.cachedDataNotice')}`}
+                  ? t('recyclerMatching.staleCacheWarning')
+                  : t('recyclerMatching.cachedDataNotice')}
                 {data.cachedAt ? ` (${new Date(data.cachedAt).toLocaleDateString()})` : ''}
               </Text>
             </View>
@@ -178,7 +181,7 @@ export const CollectorRecyclerMatchesScreen: React.FC<CollectorRecyclerMatchesSc
             <View style={styles.lotHeaderCard}>
               <View style={styles.lotHeaderTop}>
                 <View style={styles.categoryCircle}>
-                  <Text style={styles.categoryIcon}>{categoryTax?.symbol || '📦'}</Text>
+                  <AppIcon name="box" size={22} color="#10B981" />
                 </View>
                 <View style={styles.lotHeaderTextContainer}>
                   <Text style={styles.lotRefText}>
@@ -188,9 +191,12 @@ export const CollectorRecyclerMatchesScreen: React.FC<CollectorRecyclerMatchesSc
                     {categoryTax?.defaultName || activeLot.category}
                   </Text>
                   {activeLot.approximateTotalWeightKg ? (
-                    <Text style={styles.lotWeightText}>
-                      ⚖️ {activeLot.approximateTotalWeightKg} kg
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                      <AppIcon name="box" size={12} color="rgba(255,255,255,0.6)" />
+                      <Text style={styles.lotWeightText}>
+                        {activeLot.approximateTotalWeightKg} kg
+                      </Text>
+                    </View>
                   ) : null}
                 </View>
               </View>
@@ -199,9 +205,12 @@ export const CollectorRecyclerMatchesScreen: React.FC<CollectorRecyclerMatchesSc
               {data?.marketEstimate && (
                 <View style={styles.marketEstimateBox}>
                   <View style={styles.marketEstimateHeader}>
-                    <Text style={styles.marketEstimateTitle}>
-                      📊 {t('recyclerMatching.marketEstimateTitle')}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <AppIcon name="barChart" size={15} color="#10B981" />
+                      <Text style={styles.marketEstimateTitle}>
+                        {t('recyclerMatching.marketEstimateTitle')}
+                      </Text>
+                    </View>
                     <Text style={styles.marketEstimateRange}>
                       ₹{data.marketEstimate.marketRangeLow} – ₹{data.marketEstimate.marketRangeHigh} / kg
                     </Text>
@@ -218,9 +227,12 @@ export const CollectorRecyclerMatchesScreen: React.FC<CollectorRecyclerMatchesSc
                 onPress={() => navigation?.navigate('CollectorQuotes', { lotId: lotId, lot: activeLot })}
                 activeOpacity={0.8}
               >
-                <Text style={styles.viewQuotesBannerText}>
-                  📨 {t('quotation.quotes')} →
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  <AppIcon name="document" size={14} color="#34D399" />
+                  <Text style={styles.viewQuotesBannerText}>
+                    {t('quotation.quotes')} →
+                  </Text>
+                </View>
               </TouchableOpacity>
             </View>
           )}
@@ -236,9 +248,12 @@ export const CollectorRecyclerMatchesScreen: React.FC<CollectorRecyclerMatchesSc
                 onPress={() => setSortMode('PRICE')}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.sortButtonText, sortMode === 'PRICE' && styles.sortButtonTextActive]}>
-                  💰 {t('recyclerMatching.sortPrice')}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <AppIcon name="rupee" size={13} color={sortMode === 'PRICE' ? '#FFFFFF' : '#94A3B8'} />
+                  <Text style={[styles.sortButtonText, sortMode === 'PRICE' && styles.sortButtonTextActive]}>
+                    {t('recyclerMatching.sortPrice')}
+                  </Text>
+                </View>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -246,9 +261,12 @@ export const CollectorRecyclerMatchesScreen: React.FC<CollectorRecyclerMatchesSc
                 onPress={() => setSortMode('DISTANCE')}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.sortButtonText, sortMode === 'DISTANCE' && styles.sortButtonTextActive]}>
-                  📍 {t('recyclerMatching.sortDistance')}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <AppIcon name="location" size={13} color={sortMode === 'DISTANCE' ? '#FFFFFF' : '#94A3B8'} />
+                  <Text style={[styles.sortButtonText, sortMode === 'DISTANCE' && styles.sortButtonTextActive]}>
+                    {t('recyclerMatching.sortDistance')}
+                  </Text>
+                </View>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -256,9 +274,12 @@ export const CollectorRecyclerMatchesScreen: React.FC<CollectorRecyclerMatchesSc
                 onPress={() => setSortMode('FRESHNESS')}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.sortButtonText, sortMode === 'FRESHNESS' && styles.sortButtonTextActive]}>
-                  ⏱️ {t('recyclerMatching.sortFreshness')}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <AppIcon name="clock" size={13} color={sortMode === 'FRESHNESS' ? '#FFFFFF' : '#94A3B8'} />
+                  <Text style={[styles.sortButtonText, sortMode === 'FRESHNESS' && styles.sortButtonTextActive]}>
+                    {t('recyclerMatching.sortFreshness')}
+                  </Text>
+                </View>
               </TouchableOpacity>
             </View>
           </View>
@@ -275,8 +296,9 @@ export const CollectorRecyclerMatchesScreen: React.FC<CollectorRecyclerMatchesSc
 
           {/* Error Banner */}
           {errorMessage && !isLoading && (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>⚠️ {errorMessage}</Text>
+            <View style={[styles.errorContainer, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
+              <AppIcon name="alert" size={18} color="#EF4444" />
+              <Text style={[styles.errorText, { flex: 1 }]}>{errorMessage}</Text>
               <TouchableOpacity style={styles.retryButton} onPress={loadMatches}>
                 <Text style={styles.retryButtonText}>{t('common.retry')}</Text>
               </TouchableOpacity>
@@ -285,15 +307,11 @@ export const CollectorRecyclerMatchesScreen: React.FC<CollectorRecyclerMatchesSc
 
           {/* Empty State */}
           {!isLoading && !errorMessage && sortedMatches.length === 0 && (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyIcon}>🏢</Text>
-              <Text style={styles.emptyTitle}>
-                {t('recyclerMatching.noEligibleFound')}
-              </Text>
-              <Text style={styles.emptyDescription}>
-                {t('recyclerMatching.noEligibleDescription')}
-              </Text>
-            </View>
+            <EmptyState
+              icon="factory"
+              title={t('recyclerMatching.noEligibleFound')}
+              description={t('recyclerMatching.noEligibleDescription')}
+            />
           )}
 
           {/* Match Results List */}
@@ -317,10 +335,13 @@ export const CollectorRecyclerMatchesScreen: React.FC<CollectorRecyclerMatchesSc
                     <Text style={styles.facilityNameText}>
                       {match.facilityName}
                     </Text>
-                    <Text style={styles.locationSubText}>
-                      📍 {match.city ? `${match.city}, ${match.state || ''}` : match.serviceArea}
-                      {match.distanceKm !== null ? ` • ~${match.distanceKm} km` : ''}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                      <AppIcon name="location" size={12} color="rgba(255,255,255,0.6)" />
+                      <Text style={styles.locationSubText}>
+                        {match.city ? `${match.city}, ${match.state || ''}` : match.serviceArea}
+                        {match.distanceKm !== null ? ` • ~${match.distanceKm} km` : ''}
+                      </Text>
+                    </View>
                   </View>
 
                   <View style={styles.badgesColumn}>
@@ -345,9 +366,10 @@ export const CollectorRecyclerMatchesScreen: React.FC<CollectorRecyclerMatchesSc
                     </View>
 
                     {/* Authorization Status Badge */}
-                    <View style={styles.authBadge}>
+                    <View style={[styles.authBadge, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+                      <AppIcon name="shieldCheck" size={11} color="#10B981" />
                       <Text style={styles.authBadgeText}>
-                        ✓ {t('recyclerMatching.authorized')}
+                        {t('recyclerMatching.authorized')}
                       </Text>
                     </View>
                   </View>
@@ -384,23 +406,32 @@ export const CollectorRecyclerMatchesScreen: React.FC<CollectorRecyclerMatchesSc
                         : match.pickupAvailability === 'NOT_AVAILABLE'
                         ? styles.pickupBadgeDropoff
                         : styles.pickupBadgeUnknown,
+                      { flexDirection: 'row', alignItems: 'center', gap: 4 }
                     ]}
                   >
+                    <AppIcon
+                      name={match.pickupAvailability === 'AVAILABLE' ? 'truck' : 'factory'}
+                      size={12}
+                      color="#FFFFFF"
+                    />
                     <Text style={styles.pickupBadgeText}>
                       {match.pickupAvailability === 'AVAILABLE'
-                        ? `🚚 ${t('recyclerMatching.pickupAvailable')}`
+                        ? t('recyclerMatching.pickupAvailable')
                         : match.pickupAvailability === 'NOT_AVAILABLE'
-                        ? `🏢 ${t('recyclerMatching.pickupUnavailable')}`
-                        : `❓ ${t('recyclerMatching.pickupUnknown')}`}
+                        ? t('recyclerMatching.pickupUnavailable')
+                        : t('recyclerMatching.pickupUnknown')}
                     </Text>
                   </View>
                 </View>
 
                 {/* Match Reasons Checklist */}
                 <View style={styles.reasonsContainer}>
-                  <Text style={styles.reasonsHeader}>
-                    📋 {t('recyclerMatching.matchReasons')}:
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <AppIcon name="document" size={13} color="#10B981" />
+                    <Text style={styles.reasonsHeader}>
+                      {t('recyclerMatching.matchReasons')}:
+                    </Text>
+                  </View>
                   {match.matchReasons.map((reason, idx) => (
                     <Text key={idx} style={styles.reasonText}>
                       {reason}
@@ -421,9 +452,12 @@ export const CollectorRecyclerMatchesScreen: React.FC<CollectorRecyclerMatchesSc
                     accessibilityRole="button"
                     accessibilityLabel={t('recyclerDirectory.viewDetails') || 'View Recycler Details'}
                   >
-                    <Text style={styles.viewDetailButtonText}>
-                      🏢 {t('recyclerDirectory.viewDetails') || 'View Recycler Details'}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <AppIcon name="factory" size={14} color="#10B981" />
+                      <Text style={styles.viewDetailButtonText}>
+                        {t('recyclerDirectory.viewDetails') || 'View Recycler Details'}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -433,9 +467,12 @@ export const CollectorRecyclerMatchesScreen: React.FC<CollectorRecyclerMatchesSc
                     accessibilityRole="button"
                     accessibilityLabel={t('recyclerMatching.speakMatch')}
                   >
-                    <Text style={styles.speakButtonText}>
-                      {isSpeaking ? '🔊 Speaking...' : `🔊 ${t('recyclerMatching.speakMatch')}`}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <AppIcon name="volume" size={14} color="#34D399" />
+                      <Text style={styles.speakButtonText}>
+                        {isSpeaking ? 'Speaking...' : t('recyclerMatching.speakMatch')}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -444,9 +481,12 @@ export const CollectorRecyclerMatchesScreen: React.FC<CollectorRecyclerMatchesSc
 
           {/* Methodology Disclosure & Disclaimer */}
           <View style={styles.methodologyFooter}>
-            <Text style={styles.methodologyText}>
-              ℹ️ {t('recyclerMatching.methodologyDisclosure')}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <AppIcon name="info" size={13} color="#94A3B8" />
+              <Text style={styles.methodologyText}>
+                {t('recyclerMatching.methodologyDisclosure')}
+              </Text>
+            </View>
             <Text style={styles.disclaimerText}>
               {t('recyclerMatching.nonGuaranteeDisclaimer')}
             </Text>

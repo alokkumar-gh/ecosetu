@@ -27,6 +27,7 @@ import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { GlassCard } from '../../components/glass/GlassCard';
 import { GlassAvatar } from '../../components/glass/GlassAvatar';
 import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { useI18n } from '../../i18n';
 import { recyclingService } from '../../services/recyclingService';
 
@@ -91,12 +92,12 @@ export const RecyclerDashboardScreen: React.FC<Props> = ({ navigation }) => {
         {/* Top Header Bar */}
         <View style={styles.headerBar}>
           <View style={styles.userInfoRow}>
-            <GlassAvatar name={recyclerName} icon="🏭" size={44} online />
+            <GlassAvatar name={recyclerName} size={44} online />
             <View style={styles.userTextCol}>
               <Text style={styles.userGreeting}>Good Morning,</Text>
               <Text style={styles.userName}>{recyclerName}</Text>
               <View style={styles.facilityRow}>
-                <Text style={styles.facilityPin}>📍</Text>
+                <AppIcon name="mapPin" size={12} color="#10B981" />
                 <Text style={styles.facilityText}>{facilityLocation}</Text>
               </View>
             </View>
@@ -116,7 +117,7 @@ export const RecyclerDashboardScreen: React.FC<Props> = ({ navigation }) => {
               accessibilityRole="button"
               accessibilityLabel="Settings"
             >
-              <Text style={styles.settingsIcon}>⚙️</Text>
+              <AppIcon name="settings" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
         </View>
@@ -139,7 +140,7 @@ export const RecyclerDashboardScreen: React.FC<Props> = ({ navigation }) => {
           <GlassCard variant="elevated" style={styles.marketplaceCard}>
             <View style={styles.marketplaceRow}>
               <View style={styles.marketplaceIconWrap}>
-                <Text style={styles.marketplaceIcon}>🛒</Text>
+                <AppIcon name="search" size={22} color="#10B981" />
               </View>
               <View style={styles.marketplaceInfo}>
                 <Text style={styles.marketplaceTitle}>E-Waste Sourcing Marketplace</Text>
@@ -153,7 +154,7 @@ export const RecyclerDashboardScreen: React.FC<Props> = ({ navigation }) => {
               onPress={() => navigation?.navigate?.('RecyclerMarketplace')}
               accessibilityRole="button"
             >
-              <Text style={styles.marketplaceCtaText}>🔍 Find Material Lots ›</Text>
+              <Text style={styles.marketplaceCtaText}>Find Material Lots ›</Text>
             </TouchableOpacity>
           </GlassCard>
 
@@ -161,7 +162,7 @@ export const RecyclerDashboardScreen: React.FC<Props> = ({ navigation }) => {
           <GlassCard variant="elevated" style={[styles.marketplaceCard, { marginTop: 10, borderColor: 'rgba(0, 168, 150, 0.4)' }]}>
             <View style={styles.marketplaceRow}>
               <View style={styles.marketplaceIconWrap}>
-                <Text style={styles.marketplaceIcon}>🚛</Text>
+                <AppIcon name="truck" size={22} color="#00A896" />
               </View>
               <View style={styles.marketplaceInfo}>
                 <Text style={styles.marketplaceTitle}>Logistics & Multi-Lot Pickups</Text>
@@ -175,7 +176,7 @@ export const RecyclerDashboardScreen: React.FC<Props> = ({ navigation }) => {
               onPress={() => navigation?.navigate?.('RecyclerPickupManagement')}
               accessibilityRole="button"
             >
-              <Text style={[styles.marketplaceCtaText, { color: '#00A896' }]}>🚛 Manage Pickups & Batches ›</Text>
+              <Text style={[styles.marketplaceCtaText, { color: '#00A896' }]}>Manage Pickups & Batches ›</Text>
             </TouchableOpacity>
           </GlassCard>
 
@@ -212,7 +213,7 @@ export const RecyclerDashboardScreen: React.FC<Props> = ({ navigation }) => {
               <ActivityIndicator color="#10B981" style={{ marginVertical: 16 }} />
             ) : consignments.length === 0 ? (
               <View style={styles.emptyConsignmentsBox}>
-                <Text style={styles.emptyIconText}>📦</Text>
+                <AppIcon name="box" size={32} color="#10B981" style={{ marginBottom: 8 }} />
                 <Text style={styles.emptyConsignmentsTitle}>No incoming consignments yet</Text>
                 <Text style={styles.emptyConsignmentsDesc}>
                   Make offers on available lots in the marketplace. Once a collector accepts, consignments will appear here.
@@ -228,7 +229,7 @@ export const RecyclerDashboardScreen: React.FC<Props> = ({ navigation }) => {
                 >
                   <View style={styles.consignmentRow}>
                     <View style={styles.boxIconWrapper}>
-                      <Text style={styles.boxIcon}>📦</Text>
+                      <AppIcon name="box" size={18} color="#10B981" />
                     </View>
                     <View style={styles.consignmentInfoCol}>
                       <Text style={styles.consignmentId}>{item.manifestNumber || item.id}</Text>
@@ -276,7 +277,7 @@ export const RecyclerDashboardScreen: React.FC<Props> = ({ navigation }) => {
               {/* Impact Breakdown Stats */}
               <View style={styles.impactBreakdownCol}>
                 <View style={styles.breakdownItem}>
-                  <Text style={styles.breakdownIcon}>♻</Text>
+                  <AppIcon name="recycle" size={18} color="#10B981" style={{ marginRight: 8 }} />
                   <View>
                     <Text style={styles.breakdownValue}>{recoveredKg} kg</Text>
                     <Text style={styles.breakdownLabel}>Materials Recovered</Text>
@@ -284,7 +285,7 @@ export const RecyclerDashboardScreen: React.FC<Props> = ({ navigation }) => {
                 </View>
 
                 <View style={styles.breakdownItem}>
-                  <Text style={styles.breakdownIcon}>🌱</Text>
+                  <AppIcon name="leaf" size={18} color="#10B981" style={{ marginRight: 8 }} />
                   <View>
                     <Text style={styles.breakdownValue}>{co2SavedKg} kg</Text>
                     <Text style={styles.breakdownLabel}>CO₂ Saved</Text>

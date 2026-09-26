@@ -30,13 +30,14 @@ import {
   ADMIN_RADIUS,
   ADMIN_NAV_GROUPS,
 } from './AdminTheme';
+import { AppIcon, IconName } from '../ui/AppIcon';
 
 interface SearchResult {
   id: string;
   category: 'Pages' | 'Users' | 'Verifications';
   title: string;
   subtitle?: string;
-  icon: string;
+  icon: IconName | string;
   screen?: string;
   data?: any;
 }
@@ -108,7 +109,7 @@ export const AdminSearchPalette: React.FC<Props> = ({ onClose, onNavigate }) => 
         category: 'Users' as const,
         title: u.name || u.displayName || 'Unknown',
         subtitle: `${u.role?.replace('_', ' ')} · ${u.status}`,
-        icon: u.role === 'ADMIN' ? '🛡️' : u.role === 'INFORMAL_COLLECTOR' ? '♻️' : u.role === 'RECYCLER' ? '🏭' : '👤',
+        icon: u.role === 'ADMIN' ? 'shieldCheck' : u.role === 'INFORMAL_COLLECTOR' ? 'truck' : u.role === 'RECYCLER' ? 'refresh' : 'user',
         screen: 'AdminUsers',
         data: u,
       }));
@@ -180,7 +181,7 @@ export const AdminSearchPalette: React.FC<Props> = ({ onClose, onNavigate }) => 
         >
           {/* Search Input */}
           <View style={styles.searchRow}>
-            <Text style={styles.searchRowIcon}>⌕</Text>
+            <AppIcon name="search" size={16} color={ADMIN_COLOR.textMuted} />
             <TextInput
               ref={inputRef}
               style={styles.input}
@@ -232,7 +233,7 @@ export const AdminSearchPalette: React.FC<Props> = ({ onClose, onNavigate }) => 
                   activeOpacity={0.75}
                   accessibilityRole="button"
                 >
-                  <Text style={styles.resultIcon}>{item.icon}</Text>
+                  <AppIcon name={item.icon as any} size={16} color={ADMIN_COLOR.textMid} />
                   <View style={styles.resultText}>
                     <Text style={styles.resultTitle} numberOfLines={1}>
                       {item.title}
@@ -243,7 +244,7 @@ export const AdminSearchPalette: React.FC<Props> = ({ onClose, onNavigate }) => 
                       </Text>
                     )}
                   </View>
-                  <Text style={styles.resultArrow}>→</Text>
+                  <AppIcon name="arrowRight" size={12} color={ADMIN_COLOR.textLow} />
                 </TouchableOpacity>
               );
             }}

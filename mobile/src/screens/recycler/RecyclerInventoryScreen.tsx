@@ -68,7 +68,7 @@ export const RecyclerInventoryScreen: React.FC = () => {
     return {
       id:              c.id,
       material:        c.materialCategory || c.category || t('common.material', 'Material'),
-      materialIcon:    '📦',
+      materialIcon:    'package',
       weightKg:        c.actualWeightKg ?? c.approximateWeightKg ?? 0,
       condition:       condLabel,
       receivedDate:    c.deliveredAt
@@ -88,7 +88,7 @@ export const RecyclerInventoryScreen: React.FC = () => {
     return {
       id:              `rec-${r.id}`,
       material:        r.materialCategory || r.category || t('recycler.recyclingRecord', 'Recycling Record'),
-      materialIcon:    '♻️',
+      materialIcon:    'recycle',
       weightKg:        r.verifiedWeightKg ?? r.totalWeightKg ?? 0,
       condition:       undefined,
       receivedDate:    r.createdAt

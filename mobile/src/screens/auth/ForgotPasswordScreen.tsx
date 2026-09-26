@@ -30,6 +30,7 @@ import { EcoInput } from '../../components/auth/design/EcoInput';
 import { EcoButton } from '../../components/auth/design/EcoButton';
 import { EcoGlassCard } from '../../components/auth/design/EcoAuthWidgets';
 import { EcoSuccessAnimation } from '../../components/auth/design/EcoSuccessAnimation';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { AUTH_COLORS, AUTH_ORBS, AUTH_SPACE, AUTH_RADIUS } from '../../components/auth/design/AuthTheme';
 import { authService } from '../../services/authService';
 
@@ -157,7 +158,7 @@ export const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
               ]}
             >
               <View style={styles.lockBadge}>
-                <Text style={styles.lockIcon}>🔑</Text>
+                <AppIcon name="lock" size={28} color={AUTH_COLORS.primary} />
               </View>
               <Text style={styles.title}>FORGOT YOUR{'\n'}PASSWORD?</Text>
               <Text style={styles.subtitle}>
@@ -174,14 +175,15 @@ export const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
             >
               {errorMessage ? (
                 <View style={styles.errorBanner} accessibilityRole="alert">
-                  <Text style={styles.errorText}>⚠ {errorMessage}</Text>
+                  <AppIcon name="alert" size={16} color={AUTH_COLORS.error} style={{ marginRight: 6 }} />
+                  <Text style={styles.errorText}>{errorMessage}</Text>
                 </View>
               ) : null}
 
               <EcoGlassCard>
                 <EcoInput
                   label="Email address"
-                  icon="✉"
+                  icon="mail"
                   value={email}
                   onChangeText={(v) => {
                     setEmail(v);
@@ -202,7 +204,6 @@ export const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
                   loadingLabel="Sending..."
                   onPress={handleSendReset}
                   loading={isLoading}
-                  icon="✉"
                   accessibilityLabel="Send password reset link"
                 />
 
@@ -217,7 +218,7 @@ export const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
 
               {/* Security notice */}
               <View style={styles.securityNote}>
-                <Text style={styles.securityIcon}>🔒</Text>
+                <AppIcon name="lock" size={14} color="rgba(255,255,255,0.7)" style={{ marginRight: 6 }} />
                 <Text style={styles.securityText}>
                   For your security, reset links expire in 15 minutes and can only be used once.
                 </Text>

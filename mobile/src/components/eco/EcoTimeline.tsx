@@ -8,6 +8,8 @@ import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 
+import { AppIcon } from '../ui/AppIcon';
+
 export interface TimelineStep {
   id: string;
   title: string;
@@ -40,7 +42,7 @@ export const EcoTimeline: React.FC<EcoTimelineProps> = memo(({ steps, style }) =
                   isActive && styles.nodeActive,
                 ]}
               >
-                {isDone && <Text style={styles.checkText}>✓</Text>}
+                {isDone && <AppIcon name="check" size={11} color="#03120E" strokeWidth={3} />}
                 {isActive && <View style={styles.innerDot} />}
               </View>
               {!isLast && (

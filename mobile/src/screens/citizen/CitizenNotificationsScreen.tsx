@@ -50,6 +50,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { EcoSetuBackground } from '../../components/eco';
 import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
+import { AppIcon, IconName } from '../../components/ui/AppIcon';
 
 type Nav = NativeStackNavigationProp<CitizenStackParamList>;
 
@@ -89,7 +90,7 @@ const NOTIFICATION_TYPES = Object.freeze({
 // ─── Presentation Mapping ─────────────────────────────────────────────────────
 
 interface NotificationMeta {
-  icon: string;
+  icon: IconName;
   displayTitle: string;
   /** Collector-related: should use Kabadiwala/Informal Collector wording */
   isCollectorRelated?: boolean;
@@ -107,39 +108,39 @@ const getNotificationMeta = (type: string): NotificationMeta => {
   switch (type) {
     case NOTIFICATION_TYPES.REQUEST_ACCEPTED:
       return {
-        icon: '✅',
+        icon: 'checkCircle',
         displayTitle: 'Collector Accepted',
         isCollectorRelated: true,
       };
     case NOTIFICATION_TYPES.PICKUP_SCHEDULED:
       return {
-        icon: '📅',
+        icon: 'calendar',
         displayTitle: 'Pickup Scheduled',
         isCollectorRelated: true,
       };
     case NOTIFICATION_TYPES.PICKUP_COMPLETED:
       return {
-        icon: '📦',
+        icon: 'box',
         displayTitle: 'Pickup Completed',
         isCollectorRelated: true,
       };
     case NOTIFICATION_TYPES.REQUEST_CANCELLED:
-      return { icon: '❌', displayTitle: 'Request Cancelled' };
+      return { icon: 'close', displayTitle: 'Request Cancelled' };
     case NOTIFICATION_TYPES.RECYCLING_COMPLETED:
       // Informational only — no recycler action surface is exposed
-      return { icon: '♻️', displayTitle: 'Recycling Complete' };
+      return { icon: 'recycle', displayTitle: 'Recycling Complete' };
     case NOTIFICATION_TYPES.ACCOUNT_SUSPENDED:
-      return { icon: '⚠️', displayTitle: 'Account Suspended' };
+      return { icon: 'alert', displayTitle: 'Account Suspended' };
     case NOTIFICATION_TYPES.ACCOUNT_REACTIVATED:
-      return { icon: '🟢', displayTitle: 'Account Reactivated' };
+      return { icon: 'checkCircle', displayTitle: 'Account Reactivated' };
     case NOTIFICATION_TYPES.VERIFICATION_APPROVED:
-      return { icon: '🏅', displayTitle: 'Account Verified' };
+      return { icon: 'shieldCheck', displayTitle: 'Account Verified' };
     case NOTIFICATION_TYPES.VERIFICATION_REJECTED:
-      return { icon: '📋', displayTitle: 'Verification Update' };
+      return { icon: 'document', displayTitle: 'Verification Update' };
     case 'ADMIN_MESSAGE':
-      return { icon: '📢', displayTitle: 'Official Announcement' };
+      return { icon: 'bell', displayTitle: 'Official Announcement' };
     default:
-      return { icon: '🔔', displayTitle: 'Notification' };
+      return { icon: 'bell', displayTitle: 'Notification' };
   }
 };
 
@@ -273,7 +274,7 @@ const NotificationCard: React.FC<NotificationCardProps> = ({ item, onPress }) =>
           ]}
           accessibilityElementsHidden
         >
-          <Text style={styles.iconText}>{meta.icon}</Text>
+          <AppIcon name={meta.icon} size={18} color={isUnread ? '#34D399' : 'rgba(255, 255, 255, 0.7)'} />
         </View>
 
         {/* Body */}
@@ -489,9 +490,10 @@ export const CitizenNotificationsScreen: React.FC = () => {
       {/* Cached data notice */}
       {fromCache && (
         <View style={styles.cachedNotice}>
+          <AppIcon name="alert" size={13} color="#F59E0B" style={{ marginRight: 6 }} />
           <Text style={styles.cachedNoticeText}>
             {t('citizen.notifications.cachedNotice') ||
-              '📴 Showing cached notifications (last synced while online)'}
+              'Showing cached notifications (last synced while online)'}
           </Text>
         </View>
       )}
@@ -512,14 +514,17 @@ export const CitizenNotificationsScreen: React.FC = () => {
             {isMarkingAll ? (
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
-              <Text
-                style={[
-                  styles.markAllText,
-                  (!isConnected || isMarkingAll) && styles.markAllTextDisabled,
-                ]}
-              >
-                {t('citizen.notifications.markAllAsRead') || '✓ Mark all as read'}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <AppIcon name="check" size={12} color={colors.primary} style={{ marginRight: 5 }} />
+                <Text
+                  style={[
+                    styles.markAllText,
+                    (!isConnected || isMarkingAll) && styles.markAllTextDisabled,
+                  ]}
+                >
+                  {t('citizen.notifications.markAllAsRead') || 'Mark all as read'}
+                </Text>
+              </View>
             )}
           </TouchableOpacity>
         ) : (
@@ -559,7 +564,7 @@ export const CitizenNotificationsScreen: React.FC = () => {
           showBack={true}
         />
           <View style={styles.errorContainer}>
-            <Text style={styles.errorIcon}>⚠️</Text>
+            <AppIcon name="alert" size={32} color="#EF4444" style={{ marginBottom: 12 }} />
             <Text style={styles.errorTitle}>{t('common.couldNotLoadNotifications', 'Could Not Load Notifications')}</Text>
             <Text style={styles.errorMessage}>{errorMessage}</Text>
             <TouchableOpacity
@@ -595,7 +600,7 @@ export const CitizenNotificationsScreen: React.FC = () => {
           ListHeaderComponent={ListHeader}
           ListEmptyComponent={
             <EmptyState
-              icon="🔔"
+              icon="bell"
               title={t('citizen.notifications.empty') || 'No Notifications'}
               message={
                 t('citizen.notifications.emptyDesc') ||

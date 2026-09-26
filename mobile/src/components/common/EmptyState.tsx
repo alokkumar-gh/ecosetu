@@ -1,6 +1,8 @@
 /**
- * EmptyState — Glassmorphism Edition
- * Props interface unchanged.
+ * EmptyState — Professional Vector Edition
+ *
+ * Fully replaces emoji-based empty states with clean vector icons,
+ * structured typography, and clear call-to-action triggers.
  */
 
 import React, { memo } from 'react';
@@ -8,31 +10,65 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { AppIcon, IconName } from '../ui/AppIcon';
 
 interface EmptyStateProps {
-  icon?: string;
+  icon?: IconName | string;
   title?: string;
-  message: string;
+  message?: string;
+  description?: string;
   actionLabel?: string;
   onAction?: () => void;
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = memo(({
-  icon = '♻',
+  icon = 'recycle',
   title = 'No Activity Yet',
   message,
+  description,
   actionLabel,
   onAction,
 }) => {
+  const displayMessage = message || description || 'No items available.';
+  // Map icon strings to AppIcon names
+  const resolveIconName = (rawIcon?: string): IconName => {
+    switch (rawIcon) {
+      case 'box':
+        return 'box';
+      case 'truck':
+        return 'truck';
+      case 'requests':
+      case 'clipboard':
+        return 'clipboard';
+      case 'search':
+        return 'search';
+      case 'wallet':
+        return 'wallet';
+      case 'factory':
+        return 'factory';
+      case 'document':
+        return 'document';
+      case 'bell':
+        return 'bell';
+      case 'shield':
+        return 'shield';
+      case 'recycle':
+      default:
+        return 'recycle';
+    }
+  };
+
+  const resolvedIcon: IconName = typeof icon === 'string' ? resolveIconName(icon) : 'recycle';
+
   return (
     <View style={styles.container}>
       <View style={styles.iconCircle}>
-        <Text style={styles.iconText}>{icon}</Text>
+        <AppIcon name={resolvedIcon} size={32} color={colors.primary} strokeWidth={2} />
       </View>
       <Text style={styles.title} accessibilityRole="header">
         {title}
       </Text>
-      <Text style={styles.message}>{message}</Text>
+      <Text style={styles.message}>{displayMessage}</Text>
       {Boolean(actionLabel && onAction) && (
         <TouchableOpacity
           style={styles.actionButton}
@@ -62,19 +98,15 @@ const styles = StyleSheet.create({
     marginVertical: spacing.spaceMd,
   },
   iconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: colors.accentFill,
     borderWidth: 1,
     borderColor: colors.primaryDark,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.spaceMd,
-  },
-  iconText: {
-    fontSize: 36,
-    color: colors.primary,
   },
   title: {
     fontSize: typography.Title.fontSize,

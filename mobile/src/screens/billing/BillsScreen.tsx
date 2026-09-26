@@ -23,6 +23,7 @@ import { useAuth } from '../../hooks/useAuth';
 import billService, { type TransactionBill } from '../../services/billService';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { colors } from '../../theme/colors';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 type BillTab = 'ALL' | 'PAID' | 'PENDING' | 'DISPUTED';
 
@@ -31,18 +32,18 @@ type BillTab = 'ALL' | 'PAID' | 'PENDING' | 'DISPUTED';
 function getStatusMeta(status: string, t: any) {
   switch (status) {
     case 'PAID':
-      return { label: t('status.paid', 'Paid'), color: '#10B981', bg: 'rgba(16,185,129,0.14)', icon: '✅' };
+      return { label: t('status.paid', 'Paid'), color: '#10B981', bg: 'rgba(16,185,129,0.14)', icon: 'checkCircle' as const };
     case 'PENDING':
     case 'PROCESSING':
-      return { label: status === 'PROCESSING' ? t('status.processing', 'Processing') : t('status.pending', 'Pending'), color: '#FBBF24', bg: 'rgba(251,191,36,0.14)', icon: '⏳' };
+      return { label: status === 'PROCESSING' ? t('status.processing', 'Processing') : t('status.pending', 'Pending'), color: '#FBBF24', bg: 'rgba(251,191,36,0.14)', icon: 'clock' as const };
     case 'DISPUTED':
-      return { label: t('status.disputed', 'Disputed'), color: '#F87171', bg: 'rgba(239,68,68,0.14)', icon: '⚠️' };
+      return { label: t('status.disputed', 'Disputed'), color: '#F87171', bg: 'rgba(239,68,68,0.14)', icon: 'alert' as const };
     case 'ADJUSTED':
-      return { label: t('status.adjusted', 'Adjusted'), color: '#818CF8', bg: 'rgba(99,102,241,0.14)', icon: '🔄' };
+      return { label: t('status.adjusted', 'Adjusted'), color: '#818CF8', bg: 'rgba(99,102,241,0.14)', icon: 'refresh' as const };
     case 'REFUNDED':
-      return { label: t('status.refunded', 'Refunded'), color: '#60A5FA', bg: 'rgba(59,130,246,0.14)', icon: '↩️' };
+      return { label: t('status.refunded', 'Refunded'), color: '#60A5FA', bg: 'rgba(59,130,246,0.14)', icon: 'arrowLeft' as const };
     default:
-      return { label: status, color: '#94A3B8', bg: 'rgba(148,163,184,0.12)', icon: '🧾' };
+      return { label: status, color: '#94A3B8', bg: 'rgba(148,163,184,0.12)', icon: 'fileText' as const };
   }
 }
 
@@ -68,7 +69,7 @@ const BillCard = React.memo(({ item, onPress }: { item: TransactionBill; onPress
       {/* Top Row */}
       <View style={styles.billCardTop}>
         <View style={[styles.billIconBox, { backgroundColor: meta.bg }]}>
-          <Text style={styles.billIconText}>{meta.icon}</Text>
+          <AppIcon name={meta.icon as any} size={18} color={meta.color} />
         </View>
         <View style={styles.billCardInfo}>
           <Text style={styles.billNumber}>{item.billNumber}</Text>
@@ -103,9 +104,12 @@ const BillCard = React.memo(({ item, onPress }: { item: TransactionBill; onPress
 
       {/* Footer */}
       <View style={styles.billFooter}>
-        <Text style={styles.billPayMethod}>
-          {item.paymentMethod === 'CASH' ? `💵 ${t('common.cash', 'Cash')}` : item.paymentMethod === 'RAZORPAY_UPI' ? `⚡ ${t('common.upi', 'UPI')}` : `💳 ${item.paymentMethod}`}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+          <AppIcon name={item.paymentMethod === 'CASH' ? 'wallet' : 'creditCard'} size={12} color={C.textSub} />
+          <Text style={styles.billPayMethod}>
+            {item.paymentMethod === 'CASH' ? t('common.cash', 'Cash') : item.paymentMethod === 'RAZORPAY_UPI' ? t('common.upi', 'UPI') : item.paymentMethod}
+          </Text>
+        </View>
         <Text style={styles.billParty} numberOfLines={1}>{t('common.party', 'Party')}: {counterparty}</Text>
       </View>
     </TouchableOpacity>
@@ -165,7 +169,7 @@ export const BillsScreen: React.FC = () => {
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}
             accessibilityRole="button" accessibilityLabel={t('common.back', 'Go back')}>
-            <Text style={styles.backBtnText}>←</Text>
+            <AppIcon name="arrowLeft" size={20} color={C.text} />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>{t('billing.bills', 'Payment Records')}</Text>
@@ -209,7 +213,7 @@ export const BillsScreen: React.FC = () => {
             }
             ListEmptyComponent={
               <View style={styles.emptyBox}>
-                <Text style={styles.emptyIcon}>🧾</Text>
+                <AppIcon name="fileText" size={44} color="rgba(255,255,255,0.3)" />
                 <Text style={styles.emptyTitle}>{t('billing.noBills', 'No Payment Records')}</Text>
                 <Text style={styles.emptyMessage}>
                   {t('billing.noBillsDescription', 'Bills and receipts are generated automatically when transactions are settled.')}

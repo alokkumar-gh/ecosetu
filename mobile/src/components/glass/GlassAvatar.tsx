@@ -19,7 +19,7 @@ interface GlassAvatarProps {
 export const GlassAvatar: React.FC<GlassAvatarProps> = memo(({
   name,
   source,
-  icon = '👤',
+  icon = '',
   size = 48,
   online,
   style,

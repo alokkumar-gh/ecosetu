@@ -36,6 +36,8 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { materialLotService, MaterialLotItem } from '../../services/materialLotService';
 import { MATERIAL_TAXONOMY } from '../../config/materialTaxonomy';
+import { AppIcon } from '../../components/ui/AppIcon';
+import { PageVoiceGuide } from '../../components/voice/PageVoiceGuide';
 
 const space = {
   xs: spacing.spaceXs,
@@ -88,11 +90,35 @@ export const CollectorLotsScreen: React.FC<CollectorLotsScreenProps> = ({ naviga
     fetchLots();
   };
 
+  const getCategoryIcon = (cat: string): any => {
+    switch (cat) {
+      case 'CRT': return 'tv';
+      case 'LCD_PANEL': return 'computer';
+      case 'PCB': return 'grid';
+      case 'CABLE': return 'link';
+      case 'BATTERY': return 'battery';
+      case 'MOTOR': return 'settings';
+      case 'MAGNET_ASSEMBLY': return 'refresh';
+      case 'MIXED_PLASTIC': return 'recycle';
+      case 'MOBILE_PHONE': return 'mobile';
+      case 'LAPTOP': return 'laptop';
+      case 'MONITOR': return 'computer';
+      case 'PRINTER': return 'file';
+      case 'KEYBOARD_MOUSE': return 'grid';
+      case 'DESKTOP_COMPUTER': return 'computer';
+      case 'TABLET': return 'mobile';
+      default: return 'package';
+    }
+  };
+
   const renderStatusBadge = (status: string, isDraft?: boolean, pendingSync?: boolean) => {
     if (isDraft) {
       return (
         <View style={[styles.badge, styles.badgeDraft]}>
-          <Text style={styles.badgeText}>📝 {pendingSync ? t('materialLots.pendingSyncBadge') : t('materialLots.offlineDraftBadge')}</Text>
+          <View style={styles.rowCentered}>
+            <AppIcon name="document" size={11} color="#F59E0B" />
+            <Text style={styles.badgeText}>{pendingSync ? t('materialLots.pendingSyncBadge') : t('materialLots.offlineDraftBadge')}</Text>
+          </View>
         </View>
       );
     }
@@ -101,31 +127,46 @@ export const CollectorLotsScreen: React.FC<CollectorLotsScreenProps> = ({ naviga
       case 'OPEN':
         return (
           <View style={[styles.badge, styles.badgeOpen]}>
-            <Text style={styles.badgeText}>🟢 {t('materialLots.statuses.OPEN') || 'LISTED'}</Text>
+            <View style={styles.rowCentered}>
+              <AppIcon name="badge" size={11} color="#10B981" />
+              <Text style={styles.badgeText}>{t('materialLots.statuses.OPEN') || 'LISTED'}</Text>
+            </View>
           </View>
         );
       case 'QUOTED':
         return (
           <View style={[styles.badge, styles.badgeQuoted]}>
-            <Text style={styles.badgeText}>💬 {t('materialLots.statuses.QUOTED') || 'OFFERS RECEIVED'}</Text>
+            <View style={styles.rowCentered}>
+              <AppIcon name="mail" size={11} color="#38BDF8" />
+              <Text style={styles.badgeText}>{t('materialLots.statuses.QUOTED') || 'OFFERS RECEIVED'}</Text>
+            </View>
           </View>
         );
       case 'ACCEPTED':
         return (
           <View style={[styles.badge, styles.badgeAccepted]}>
-            <Text style={styles.badgeText}>🤝 {t('materialLots.statuses.ACCEPTED') || 'DEAL ACCEPTED'}</Text>
+            <View style={styles.rowCentered}>
+              <AppIcon name="handshake" size={11} color="#818CF8" />
+              <Text style={styles.badgeText}>{t('materialLots.statuses.ACCEPTED') || 'DEAL ACCEPTED'}</Text>
+            </View>
           </View>
         );
       case 'HANDOVER_PENDING':
         return (
           <View style={[styles.badge, styles.badgeHandover]}>
-            <Text style={styles.badgeText}>📦 {t('materialLots.statuses.HANDOVER_PENDING') || 'HANDED OVER'}</Text>
+            <View style={styles.rowCentered}>
+              <AppIcon name="package" size={11} color="#FBBF24" />
+              <Text style={styles.badgeText}>{t('materialLots.statuses.HANDOVER_PENDING') || 'HANDED OVER'}</Text>
+            </View>
           </View>
         );
       case 'COMPLETED':
         return (
           <View style={[styles.badge, styles.badgeCompleted]}>
-            <Text style={styles.badgeText}>✅ {t('materialLots.statuses.COMPLETED') || 'COMPLETED'}</Text>
+            <View style={styles.rowCentered}>
+              <AppIcon name="check" size={11} color="#34D399" />
+              <Text style={styles.badgeText}>{t('materialLots.statuses.COMPLETED') || 'COMPLETED'}</Text>
+            </View>
           </View>
         );
       default:
@@ -139,7 +180,7 @@ export const CollectorLotsScreen: React.FC<CollectorLotsScreenProps> = ({ naviga
 
   const renderItem = ({ item }: { item: MaterialLotItem }) => {
     const categoryDef = MATERIAL_TAXONOMY[item.category] || {
-      symbol: '📦',
+      symbol: 'package',
       defaultName: item.category,
       i18nKey: 'materialLots.categories.OTHER',
     };
@@ -156,7 +197,7 @@ export const CollectorLotsScreen: React.FC<CollectorLotsScreenProps> = ({ naviga
       >
         <View style={styles.lotCardHeader}>
           <View style={styles.categorySymbolBadge}>
-            <Text style={styles.categorySymbol}>{categoryDef.symbol}</Text>
+            <AppIcon name={getCategoryIcon(item.category)} size={20} color="#10B981" />
           </View>
           <View style={styles.lotHeaderInfo}>
             <Text style={styles.lotReference}>{item.referenceNumber}</Text>
@@ -180,11 +221,21 @@ export const CollectorLotsScreen: React.FC<CollectorLotsScreenProps> = ({ naviga
             <Text style={styles.lotMetaValue}>{item.condition || 'UNKNOWN'}</Text>
           </View>
 
+          {item.photos && item.photos.length > 0 ? (
+            <View style={styles.lotMetaItem}>
+              <Text style={styles.lotMetaLabel}>{t('materialLots.photos') || 'Photos'}</Text>
+              <Text style={styles.lotMetaValue}>{item.photos.length}</Text>
+            </View>
+          ) : null}
+
           <View style={styles.lotMetaItem}>
             <Text style={styles.lotMetaLabel}>Offers</Text>
-            <Text style={[styles.lotMetaValue, offerCount > 0 ? styles.offerHighlight : null]}>
-              💬 {offerCount}
-            </Text>
+            <View style={styles.rowCentered}>
+              <AppIcon name="mail" size={13} color={offerCount > 0 ? '#10B981' : '#94A3B8'} />
+              <Text style={[styles.lotMetaValue, offerCount > 0 ? styles.offerHighlight : null]}>
+                {offerCount}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -202,9 +253,12 @@ export const CollectorLotsScreen: React.FC<CollectorLotsScreenProps> = ({ naviga
               onPress={() => navigation.navigate('CollectorQuotes', { lotId: item.id, lot: item })}
               accessibilityRole="button"
             >
-              <Text style={styles.viewOffersButtonText}>
-                💬 View {offerCount} {offerCount === 1 ? 'Offer' : 'Offers'}
-              </Text>
+              <View style={styles.btnRow}>
+                <AppIcon name="mail" size={14} color="#071E22" />
+                <Text style={styles.viewOffersButtonText}>
+                  View {offerCount} {offerCount === 1 ? 'Offer' : 'Offers'}
+                </Text>
+              </View>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -212,9 +266,12 @@ export const CollectorLotsScreen: React.FC<CollectorLotsScreenProps> = ({ naviga
               onPress={() => navigation.navigate('CollectorRecyclerMatches', { lotId: item.id, lot: item })}
               accessibilityRole="button"
             >
-              <Text style={styles.findBuyersButtonText}>
-                🔍 Find Buyers
-              </Text>
+              <View style={styles.btnRow}>
+                <AppIcon name="search" size={14} color="#34D399" />
+                <Text style={styles.findBuyersButtonText}>
+                  Find Buyers
+                </Text>
+              </View>
             </TouchableOpacity>
           )}
 
@@ -223,7 +280,10 @@ export const CollectorLotsScreen: React.FC<CollectorLotsScreenProps> = ({ naviga
             onPress={() => navigation.navigate('CollectorLotDetail', { lotId: item.id, lot: item })}
             accessibilityRole="button"
           >
-            <Text style={styles.detailsButtonText}>Details →</Text>
+            <View style={styles.btnRow}>
+              <Text style={styles.detailsButtonText}>Details</Text>
+              <AppIcon name="arrowRight" size={12} color="#CBD5E1" />
+            </View>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -243,6 +303,8 @@ export const CollectorLotsScreen: React.FC<CollectorLotsScreenProps> = ({ naviga
           onBack={() => navigation.canGoBack && navigation.canGoBack() && navigation.goBack()}
         />
 
+        <PageVoiceGuide pageKey="CollectorLots" />
+
         {/* Sync & Offline status banner */}
         <OfflineBanner />
 
@@ -254,12 +316,12 @@ export const CollectorLotsScreen: React.FC<CollectorLotsScreenProps> = ({ naviga
             horizontal
             showsHorizontalScrollIndicator={false}
             data={[
-              { id: 'ALL', label: 'All' },
-              { id: 'OPEN', label: '🟢 Listed' },
-              { id: 'QUOTED', label: '💬 Offers Received' },
-              { id: 'ACCEPTED', label: '🤝 Deal Accepted' },
-              { id: 'COMPLETED', label: '✅ Completed' },
-              { id: 'DRAFT', label: '📝 Drafts' },
+              { id: 'ALL', label: 'All', icon: 'grid' },
+              { id: 'OPEN', label: 'Listed', icon: 'badge' },
+              { id: 'QUOTED', label: 'Offers Received', icon: 'mail' },
+              { id: 'ACCEPTED', label: 'Deal Accepted', icon: 'handshake' },
+              { id: 'COMPLETED', label: 'Completed', icon: 'check' },
+              { id: 'DRAFT', label: 'Drafts', icon: 'document' },
             ]}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.filterScroll}
@@ -271,9 +333,12 @@ export const CollectorLotsScreen: React.FC<CollectorLotsScreenProps> = ({ naviga
                   onPress={() => setFilterStatus(item.id as TabStatus)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.filterPillText, isSelected && styles.filterPillTextSelected]}>
-                    {item.label}
-                  </Text>
+                  <View style={styles.btnRow}>
+                    <AppIcon name={item.icon as any} size={13} color={isSelected ? '#071E22' : '#94A3B8'} />
+                    <Text style={[styles.filterPillText, isSelected && styles.filterPillTextSelected]}>
+                      {item.label}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               );
             }}
@@ -300,7 +365,7 @@ export const CollectorLotsScreen: React.FC<CollectorLotsScreenProps> = ({ naviga
             }
             ListEmptyComponent={
               <EmptyState
-                icon="📦"
+                icon="package"
                 title="No active marketplace listings."
                 message="You have no material lots currently listed under this status. Tap below to list material for sale."
                 actionLabel={t('lowLiteracy.captureFirstBatch') || 'List Material For Sale'}
@@ -321,8 +386,10 @@ export const CollectorLotsScreen: React.FC<CollectorLotsScreenProps> = ({ naviga
           accessibilityRole="button"
           accessibilityLabel={t('materialLots.createNewLot') || 'List Material For Sale'}
         >
-          <Text style={styles.fabIcon}>＋</Text>
-          <Text style={styles.fabText}>List For Sale</Text>
+          <View style={styles.btnRow}>
+            <AppIcon name="plus" size={18} color="#071E22" />
+            <Text style={styles.fabText}>List For Sale</Text>
+          </View>
         </TouchableOpacity>
       </SafeAreaView>
     </EcoSetuBackground>
@@ -620,6 +687,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#071E22',
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  rowCentered: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
 });
 

@@ -29,6 +29,21 @@ import { spacing } from '../../theme/spacing';
 import { lotTraceService, LotTraceData } from '../../services/lotTraceService';
 import { voiceService } from '../../services/voiceService';
 import { useI18n } from '../../i18n';
+import { AppIcon, AppIconName } from '../../components/ui/AppIcon';
+
+const getTimelineIcon = (stage: string, status: string): AppIconName => {
+  const upper = (stage || '').toUpperCase();
+  if (upper.includes('LOT') || upper.includes('CREATE')) return 'package';
+  if (upper.includes('PHOTO')) return 'camera';
+  if (upper.includes('LOCAT') || upper.includes('GPS')) return 'mapPin';
+  if (upper.includes('PRICE') || upper.includes('BENCH')) return 'tag';
+  if (upper.includes('QUOTE') || upper.includes('MATCH')) return 'mail';
+  if (upper.includes('HANDOVER') || upper.includes('TRANSFER')) return 'users';
+  if (upper.includes('PAY') || upper.includes('SALE') || upper.includes('TXN')) return 'creditCard';
+  if (upper.includes('RECYCL') || upper.includes('PROCESS')) return 'recycle';
+  if (upper.includes('AUDIT') || upper.includes('COMPLETE')) return 'checkCircle';
+  return status === 'COMPLETED' ? 'check' : 'clock';
+};
 
 export const CollectorLotTraceScreen: React.FC = () => {
   const route = useRoute<any>();
@@ -105,13 +120,13 @@ export const CollectorLotTraceScreen: React.FC = () => {
     );
   }
 
-  if (error || !trace) {
+    if (error || !trace) {
     return (
       <EcoSetuBackground>
         <SafeAreaView style={styles.safeArea}>
           <TopAppBar title={t('lotTrace.title')} showBack onBack={() => navigation.goBack()} />
           <View style={styles.centerContainer}>
-            <Text style={styles.errorIcon}>⚠️</Text>
+            <AppIcon name="alertTriangle" size={48} color="#EF4444" />
             <Text style={styles.errorText}>{error || 'Trace information unavailable'}</Text>
             <TouchableOpacity style={styles.retryButton} onPress={loadTrace}>
               <Text style={styles.retryButtonText}>{t('common.retry')}</Text>
@@ -145,14 +160,20 @@ export const CollectorLotTraceScreen: React.FC = () => {
           {/* Offline Banner */}
           {trace.isOfflineCached && (
             <View style={styles.offlineBanner}>
-              <Text style={styles.offlineBannerText}>
-                📶 {t('lotTrace.offlineCached')}
-                {trace.cachedAt ? ` (${new Date(trace.cachedAt).toLocaleTimeString()})` : ''}
-              </Text>
-              {trace.isStale && (
-                <Text style={styles.staleBannerText}>
-                  ⚠️ {t('lotTrace.staleWarning')}
+              <View style={styles.rowCentered}>
+                <AppIcon name="wifiOff" size={14} color="#F59E0B" />
+                <Text style={styles.offlineBannerText}>
+                  {t('lotTrace.offlineCached')}
+                  {trace.cachedAt ? ` (${new Date(trace.cachedAt).toLocaleTimeString()})` : ''}
                 </Text>
+              </View>
+              {trace.isStale && (
+                <View style={[styles.rowCentered, { marginTop: 4 }]}>
+                  <AppIcon name="alertTriangle" size={14} color="#EF4444" />
+                  <Text style={styles.staleBannerText}>
+                    {t('lotTrace.staleWarning')}
+                  </Text>
+                </View>
               )}
             </View>
           )}
@@ -199,16 +220,19 @@ export const CollectorLotTraceScreen: React.FC = () => {
               accessibilityRole="button"
               accessibilityLabel={t('lotTrace.listenJourney') || 'Listen to lot journey'}
             >
-              <Text style={styles.ttsButtonText}>
-                {isSpeaking ? '🔊 ' + t('lotTrace.stopAudio') : '🔊 ' + t('lotTrace.readJourney')}
-              </Text>
+              <View style={styles.btnRow}>
+                <AppIcon name={isSpeaking ? 'volumeX' : 'volume2'} size={18} color="#E0F2FE" />
+                <Text style={styles.ttsButtonText}>
+                  {isSpeaking ? t('lotTrace.stopAudio') : t('lotTrace.readJourney')}
+                </Text>
+              </View>
             </TouchableOpacity>
           </View>
 
           {/* 1. Material & Photos Section */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionIcon}>📦</Text>
+              <AppIcon name="package" size={18} color="#14B8A6" />
               <Text style={styles.sectionTitle}>{t('lotTrace.materialsTitle')}</Text>
             </View>
 
@@ -246,7 +270,7 @@ export const CollectorLotTraceScreen: React.FC = () => {
           {/* 2. Collection Location */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionIcon}>📍</Text>
+              <AppIcon name="mapPin" size={18} color="#14B8A6" />
               <Text style={styles.sectionTitle}>{t('lotTrace.locationTitle')}</Text>
             </View>
             <Text style={styles.locationText}>
@@ -262,7 +286,7 @@ export const CollectorLotTraceScreen: React.FC = () => {
           {/* 3. Market Price Benchmark */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionIcon}>💰</Text>
+              <AppIcon name="tag" size={18} color="#14B8A6" />
               <Text style={styles.sectionTitle}>{t('lotTrace.priceTitle')}</Text>
             </View>
             {trace.price.status === 'AVAILABLE' ? (
@@ -280,7 +304,7 @@ export const CollectorLotTraceScreen: React.FC = () => {
           {/* 4. Quotations Section */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionIcon}>💬</Text>
+              <AppIcon name="mail" size={18} color="#14B8A6" />
               <Text style={styles.sectionTitle}>{t('lotTrace.quotesTitle')}</Text>
             </View>
 
@@ -291,7 +315,10 @@ export const CollectorLotTraceScreen: React.FC = () => {
                     <Text style={styles.quoteRecycler}>{q.recyclerName}</Text>
                     {q.isAccepted && (
                       <View style={styles.acceptedBadge}>
-                        <Text style={styles.acceptedBadgeText}>✓ {t('lotTrace.accepted')}</Text>
+                        <View style={styles.rowCentered}>
+                          <AppIcon name="check" size={10} color="#071E22" />
+                          <Text style={styles.acceptedBadgeText}>{t('lotTrace.accepted')}</Text>
+                        </View>
                       </View>
                     )}
                   </View>
@@ -307,7 +334,7 @@ export const CollectorLotTraceScreen: React.FC = () => {
           {/* 5. Recycler Information */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionIcon}>♻️</Text>
+              <AppIcon name="recycle" size={18} color="#14B8A6" />
               <Text style={styles.sectionTitle}>{t('lotTrace.recyclerTitle')}</Text>
             </View>
 
@@ -336,7 +363,7 @@ export const CollectorLotTraceScreen: React.FC = () => {
           {/* 6. Handover Section */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionIcon}>🤝</Text>
+              <AppIcon name="users" size={18} color="#14B8A6" />
               <Text style={styles.sectionTitle}>{t('lotTrace.handoverTitle')}</Text>
             </View>
 
@@ -356,7 +383,10 @@ export const CollectorLotTraceScreen: React.FC = () => {
                     style={styles.receiptButton}
                     onPress={() => navigation.navigate('CollectorHandoverReceipt', { handoverId: trace.handover.id })}
                   >
-                    <Text style={styles.receiptButtonText}>📄 {t('lotTrace.viewReceipt')}</Text>
+                    <View style={styles.btnRow}>
+                      <AppIcon name="fileText" size={14} color="#34D399" />
+                      <Text style={styles.receiptButtonText}>{t('lotTrace.viewReceipt')}</Text>
+                    </View>
                   </TouchableOpacity>
                 )}
               </View>
@@ -368,7 +398,7 @@ export const CollectorLotTraceScreen: React.FC = () => {
           {/* 7. Sale & Payment Section */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionIcon}>💵</Text>
+              <AppIcon name="creditCard" size={18} color="#14B8A6" />
               <Text style={styles.sectionTitle}>{t('lotTrace.paymentTitle')}</Text>
             </View>
 
@@ -393,7 +423,7 @@ export const CollectorLotTraceScreen: React.FC = () => {
           {/* 8. Recycling Processing Section */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionIcon}>♻️</Text>
+              <AppIcon name="recycle" size={18} color="#14B8A6" />
               <Text style={styles.sectionTitle}>{t('lotTrace.recyclingTitle')}</Text>
             </View>
 
@@ -412,7 +442,7 @@ export const CollectorLotTraceScreen: React.FC = () => {
           {/* 9. Chronological Timeline */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionIcon}>🕒</Text>
+              <AppIcon name="clock" size={18} color="#14B8A6" />
               <Text style={styles.sectionTitle}>{t('lotTrace.timelineTitle')}</Text>
             </View>
 
@@ -425,7 +455,11 @@ export const CollectorLotTraceScreen: React.FC = () => {
                   <View key={event.id || idx} style={styles.timelineItem}>
                     <View style={styles.timelineIndicatorCol}>
                       <View style={[styles.timelineNode, isDone && styles.timelineNodeDone, isAction && styles.timelineNodeAction]}>
-                        <Text style={[styles.timelineNodeText, isDone && styles.timelineNodeTextDone]}>{event.icon}</Text>
+                        <AppIcon
+                          name={getTimelineIcon(event.stage, event.status)}
+                          size={12}
+                          color={isDone ? '#A7F3D0' : isAction ? '#F59E0B' : '#94A3B8'}
+                        />
                       </View>
                       {idx < trace.timeline.length - 1 && <View style={[styles.timelineLine, isDone && styles.timelineLineDone]} />}
                     </View>
@@ -445,7 +479,7 @@ export const CollectorLotTraceScreen: React.FC = () => {
           {/* 10. Append-Only Audit Trail */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionIcon}>📋</Text>
+              <AppIcon name="fileText" size={18} color="#14B8A6" />
               <Text style={styles.sectionTitle}>{t('lotTrace.auditTitle')}</Text>
             </View>
 
@@ -887,6 +921,17 @@ const styles = StyleSheet.create({
   auditTime: {
     color: '#64748B',
     fontSize: 11,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  rowCentered: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
 });
 

@@ -11,6 +11,8 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 
+import { AppIcon } from '../ui/AppIcon';
+
 interface GlassErrorStateProps {
   title?: string;
   message: string;
@@ -29,7 +31,7 @@ export const GlassErrorState: React.FC<GlassErrorStateProps> = memo(({
   return (
     <GlassCard variant="standard" style={[styles.container, style]}>
       <View style={styles.iconCircle}>
-        <Text style={styles.iconText}>⚠</Text>
+        <AppIcon name="alert" size={24} color={colors.error} />
       </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.message}>{message}</Text>

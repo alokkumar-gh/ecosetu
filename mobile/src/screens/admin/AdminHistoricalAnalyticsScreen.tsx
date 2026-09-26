@@ -31,6 +31,7 @@ import {
 import { TopAppBar } from '../../components/layout/TopAppBar';
 import { AdminShell } from '../../components/admin/AdminShell';
 import { MetricCard } from '../../components/common/MetricCard';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { analyticsService } from '../../services/analyticsService';
 import { useAuth } from '../../hooks/useAuth';
@@ -201,9 +202,16 @@ export const AdminHistoricalAnalyticsScreen: React.FC<Props> = ({ navigation, ro
 
       {isCached && (
         <View style={styles.cachedBadge}>
-          <Text style={styles.cachedText}>
-            {isStale ? '⚠️ Viewing cached analytics (>24h old)' : '⚡ Viewing cached offline telemetry'}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <AppIcon
+              name={isStale ? 'alertTriangle' : 'checkCircle'}
+              size={14}
+              color={isStale ? '#FBBF24' : '#10B981'}
+            />
+            <Text style={styles.cachedText}>
+              {isStale ? 'Viewing cached analytics (>24h old)' : 'Viewing cached offline telemetry'}
+            </Text>
+          </View>
         </View>
       )}
 
@@ -214,54 +222,96 @@ export const AdminHistoricalAnalyticsScreen: React.FC<Props> = ({ navigation, ro
             style={[styles.tabButton, activeTab === 'prices' && styles.tabButtonActive]}
             onPress={() => setActiveTab('prices')}
           >
-            <Text style={[styles.tabText, activeTab === 'prices' && styles.tabTextActive]}>
-              📈 {t('admin.analytics.tabPrices') || 'Prices'}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <AppIcon
+                name="chart"
+                size={14}
+                color={activeTab === 'prices' ? '#071e22' : colors.textSecondary}
+              />
+              <Text style={[styles.tabText, activeTab === 'prices' && styles.tabTextActive]}>
+                {t('admin.analytics.tabPrices') || 'Prices'}
+              </Text>
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.tabButton, activeTab === 'materials' && styles.tabButtonActive]}
             onPress={() => setActiveTab('materials')}
           >
-            <Text style={[styles.tabText, activeTab === 'materials' && styles.tabTextActive]}>
-              📦 {t('admin.analytics.tabMaterials') || 'Materials'}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <AppIcon
+                name="package"
+                size={14}
+                color={activeTab === 'materials' ? '#071e22' : colors.textSecondary}
+              />
+              <Text style={[styles.tabText, activeTab === 'materials' && styles.tabTextActive]}>
+                {t('admin.analytics.tabMaterials') || 'Materials'}
+              </Text>
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.tabButton, activeTab === 'transactions' && styles.tabButtonActive]}
             onPress={() => setActiveTab('transactions')}
           >
-            <Text style={[styles.tabText, activeTab === 'transactions' && styles.tabTextActive]}>
-              💰 {t('admin.analytics.tabTransactions') || 'Transactions'}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <AppIcon
+                name="rupee"
+                size={14}
+                color={activeTab === 'transactions' ? '#071e22' : colors.textSecondary}
+              />
+              <Text style={[styles.tabText, activeTab === 'transactions' && styles.tabTextActive]}>
+                {t('admin.analytics.tabTransactions') || 'Transactions'}
+              </Text>
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.tabButton, activeTab === 'recyclers' && styles.tabButtonActive]}
             onPress={() => setActiveTab('recyclers')}
           >
-            <Text style={[styles.tabText, activeTab === 'recyclers' && styles.tabTextActive]}>
-              🏭 {t('admin.analytics.tabRecyclers') || 'Recyclers'}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <AppIcon
+                name="factory"
+                size={14}
+                color={activeTab === 'recyclers' ? '#071e22' : colors.textSecondary}
+              />
+              <Text style={[styles.tabText, activeTab === 'recyclers' && styles.tabTextActive]}>
+                {t('admin.analytics.tabRecyclers') || 'Recyclers'}
+              </Text>
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.tabButton, activeTab === 'traceability' && styles.tabButtonActive]}
             onPress={() => setActiveTab('traceability')}
           >
-            <Text style={[styles.tabText, activeTab === 'traceability' && styles.tabTextActive]}>
-              🔄 {t('admin.analytics.tabLifecycle') || 'Lifecycle'}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <AppIcon
+                name="recycle"
+                size={14}
+                color={activeTab === 'traceability' ? '#071e22' : colors.textSecondary}
+              />
+              <Text style={[styles.tabText, activeTab === 'traceability' && styles.tabTextActive]}>
+                {t('admin.analytics.tabLifecycle') || 'Lifecycle'}
+              </Text>
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.tabButton, activeTab === 'quality' && styles.tabButtonActive]}
             onPress={() => setActiveTab('quality')}
           >
-            <Text style={[styles.tabText, activeTab === 'quality' && styles.tabTextActive]}>
-              🎯 {t('admin.analytics.tabQuality') || 'Quality'}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <AppIcon
+                name="award"
+                size={14}
+                color={activeTab === 'quality' ? '#071e22' : colors.textSecondary}
+              />
+              <Text style={[styles.tabText, activeTab === 'quality' && styles.tabTextActive]}>
+                {t('admin.analytics.tabQuality') || 'Quality'}
+              </Text>
+            </View>
           </TouchableOpacity>
         </ScrollView>
       </View>
@@ -315,7 +365,10 @@ export const AdminHistoricalAnalyticsScreen: React.FC<Props> = ({ navigation, ro
           </View>
         ) : error ? (
           <View style={styles.errorCard}>
-            <Text style={styles.errorText}>⚠️ {error}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <AppIcon name="alertTriangle" size={14} color="#ff6b6b" />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
           </View>
         ) : (
           <>
@@ -331,7 +384,7 @@ export const AdminHistoricalAnalyticsScreen: React.FC<Props> = ({ navigation, ro
 
                 {!pricesData || !pricesData.hasSufficientData ? (
                   <View style={styles.insufficientCard}>
-                    <Text style={styles.insufficientIcon}>ℹ️</Text>
+                    <AppIcon name="info" size={24} color="#38BDF8" style={{ marginBottom: 8 }} />
                     <Text style={styles.insufficientTitle}>Insufficient Historical Data</Text>
                     <Text style={styles.insufficientText}>
                       Not enough historical observations recorded for {selectedCategory} in the database. Historical trends
@@ -348,7 +401,7 @@ export const AdminHistoricalAnalyticsScreen: React.FC<Props> = ({ navigation, ro
                         <MetricCard
                           label="Average Price"
                           value={`₹${pricesData.averagePrice} / kg`}
-                          icon="📊"
+                          icon="chart"
                           accentColor={colors.primary}
                         />
                       </View>
@@ -356,7 +409,7 @@ export const AdminHistoricalAnalyticsScreen: React.FC<Props> = ({ navigation, ro
                         <MetricCard
                           label="Observed Range"
                           value={`₹${pricesData.minPrice} – ₹${pricesData.maxPrice}`}
-                          icon="📏"
+                          icon="scale"
                           accentColor={colors.textSecondary}
                         />
                       </View>
@@ -367,7 +420,7 @@ export const AdminHistoricalAnalyticsScreen: React.FC<Props> = ({ navigation, ro
                         <MetricCard
                           label="Total Observations"
                           value={`${pricesData.totalObservations} records`}
-                          icon="📝"
+                          icon="clipboard"
                           accentColor={colors.textSecondary}
                         />
                       </View>
@@ -379,7 +432,7 @@ export const AdminHistoricalAnalyticsScreen: React.FC<Props> = ({ navigation, ro
                               ? `${pricesData.percentageChange > 0 ? '+' : ''}${pricesData.percentageChange}%`
                               : 'N/A'
                           }
-                          icon={pricesData.trendDirection === 'UP' ? '📈' : pricesData.trendDirection === 'DOWN' ? '📉' : '➡️'}
+                          icon={pricesData.trendDirection === 'UP' ? 'trendingUp' : pricesData.trendDirection === 'DOWN' ? 'trendingDown' : 'chart'}
                           accentColor={pricesData.trendDirection === 'UP' ? '#10B981' : pricesData.trendDirection === 'DOWN' ? '#F59E0B' : colors.textSecondary}
                         />
                       </View>
@@ -403,7 +456,10 @@ export const AdminHistoricalAnalyticsScreen: React.FC<Props> = ({ navigation, ro
                     <View style={styles.disclaimerBox}>
                       <Text style={styles.disclaimerTitle}>Methodology & Provenance</Text>
                       <Text style={styles.disclaimerText}>{pricesData.methodology}</Text>
-                      <Text style={styles.disclaimerNote}>⚠️ {pricesData.disclaimer}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 4 }}>
+                        <AppIcon name="alertTriangle" size={13} color="#FBBF24" />
+                        <Text style={[styles.disclaimerNote, { flex: 1, marginTop: 0 }]}>{pricesData.disclaimer}</Text>
+                      </View>
                     </View>
                   </>
                 )}
@@ -419,7 +475,7 @@ export const AdminHistoricalAnalyticsScreen: React.FC<Props> = ({ navigation, ro
                     <MetricCard
                       label="Total Material Lots"
                       value={`${materialsData.totalMaterialLots} lots`}
-                      icon="📦"
+                      icon="package"
                       accentColor={colors.primary}
                     />
                   </View>
@@ -427,7 +483,7 @@ export const AdminHistoricalAnalyticsScreen: React.FC<Props> = ({ navigation, ro
                     <MetricCard
                       label="Approximate Weight"
                       value={`${materialsData.totalApproximateWeightKg} kg`}
-                      icon="⚖️"
+                      icon="scale"
                       accentColor="#10B981"
                     />
                   </View>
@@ -466,7 +522,7 @@ export const AdminHistoricalAnalyticsScreen: React.FC<Props> = ({ navigation, ro
                     <MetricCard
                       label="Recorded Transactions"
                       value={`${transactionsData.completedTransactions} settled`}
-                      icon="🧾"
+                      icon="clipboard"
                       accentColor={colors.primary}
                     />
                   </View>
@@ -474,7 +530,7 @@ export const AdminHistoricalAnalyticsScreen: React.FC<Props> = ({ navigation, ro
                     <MetricCard
                       label="Cancelled Records"
                       value={`${transactionsData.cancelledTransactions} cancelled`}
-                      icon="❌"
+                      icon="xCircle"
                       accentColor="#F59E0B"
                     />
                   </View>
@@ -485,7 +541,7 @@ export const AdminHistoricalAnalyticsScreen: React.FC<Props> = ({ navigation, ro
                     <MetricCard
                       label="Final Sale Value"
                       value={`₹${transactionsData.financialSummary?.totalFinalSaleValue}`}
-                      icon="💵"
+                      icon="rupee"
                       accentColor="#10B981"
                     />
                   </View>
@@ -493,7 +549,7 @@ export const AdminHistoricalAnalyticsScreen: React.FC<Props> = ({ navigation, ro
                     <MetricCard
                       label="Amount Paid"
                       value={`₹${transactionsData.financialSummary?.totalAmountPaid}`}
-                      icon="✅"
+                      icon="checkCircle"
                       accentColor={colors.primary}
                     />
                   </View>
@@ -504,7 +560,7 @@ export const AdminHistoricalAnalyticsScreen: React.FC<Props> = ({ navigation, ro
                     <MetricCard
                       label="Pending Dues"
                       value={`₹${transactionsData.financialSummary?.totalAmountDue}`}
-                      icon="⏳"
+                      icon="clock"
                       accentColor="#F59E0B"
                     />
                   </View>
@@ -512,7 +568,7 @@ export const AdminHistoricalAnalyticsScreen: React.FC<Props> = ({ navigation, ro
                     <MetricCard
                       label="Volume Procured"
                       value={`${transactionsData.quantityByUnit?.totalKg} kg / ${transactionsData.quantityByUnit?.totalUnits} units`}
-                      icon="⚖️"
+                      icon="scale"
                       accentColor={colors.textSecondary}
                     />
                   </View>
@@ -536,7 +592,7 @@ export const AdminHistoricalAnalyticsScreen: React.FC<Props> = ({ navigation, ro
                     <MetricCard
                       label="Total Facilities"
                       value={`${recyclersData.totalFacilities} registered`}
-                      icon="🏭"
+                      icon="factory"
                       accentColor={colors.primary}
                     />
                   </View>
@@ -544,7 +600,7 @@ export const AdminHistoricalAnalyticsScreen: React.FC<Props> = ({ navigation, ro
                     <MetricCard
                       label="Active Facilities"
                       value={`${recyclersData.activeFacilities} operational`}
-                      icon="🟢"
+                      icon="checkCircle"
                       accentColor="#10B981"
                     />
                   </View>

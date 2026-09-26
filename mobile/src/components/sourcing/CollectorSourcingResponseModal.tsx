@@ -28,6 +28,8 @@ import { typography } from '../../theme/typography';
 import { useI18n } from '../../i18n';
 import sourcingService, { SourcingRequest, SourcingResponse } from '../../services/sourcingService';
 
+import { AppIcon } from '../ui/AppIcon';
+
 interface Props {
   visible: boolean;
   request: SourcingRequest | null;
@@ -126,8 +128,9 @@ export const CollectorSourcingResponseModal: React.FC<Props> = ({
               </View>
 
               <View style={styles.infoBanner}>
+                <AppIcon name="info" size={14} color="#38BDF8" />
                 <Text style={styles.infoText}>
-                  ℹ️ {t('sourcing.supplyInterestNotice', 'This establishes supply availability. Price and terms are finalized in the formal quote process.')}
+                  {t('sourcing.supplyInterestNotice', 'This establishes supply availability. Price and terms are finalized in the formal quote process.')}
                 </Text>
               </View>
 
@@ -263,6 +266,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   infoBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
     backgroundColor: 'rgba(56, 189, 248, 0.12)',
     padding: spacing.spaceSm,
     borderRadius: 8,
@@ -271,6 +277,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.spaceMd,
   },
   infoText: {
+    flex: 1,
     fontSize: 12,
     color: '#38BDF8',
     lineHeight: 17,

@@ -16,6 +16,8 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 
+import { AppIcon } from '../ui/AppIcon';
+
 interface GlassBottomSheetProps {
   visible: boolean;
   onClose: () => void;
@@ -54,7 +56,7 @@ export const GlassBottomSheet: React.FC<GlassBottomSheetProps> = memo(({
                 accessibilityRole="button"
                 accessibilityLabel="Close sheet"
               >
-                <Text style={styles.closeText}>✕</Text>
+                <AppIcon name="close" size={16} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
           ) : null}

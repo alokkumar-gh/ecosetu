@@ -18,6 +18,7 @@ import {
 import { useNetwork } from '../../hooks/useNetwork';
 import { TopAppBar } from '../../components/layout/TopAppBar';
 import { EcoSetuBackground } from '../../components/eco';
+import { AppIcon, AppIconName } from '../../components/ui';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { useI18n } from '../../i18n';
@@ -140,76 +141,84 @@ export const CollectorRecyclerDetailScreen: React.FC<Props> = ({ navigation, rou
   const distanceKm = recycler?.distanceKm;
 
   // Authorization banner styling & label
-  const getAuthBadge = () => {
+  const getAuthBadge = (): { label: string; sublabel: string; bg: string; border: string; color: string; icon: AppIconName } => {
     if (authorizationStatus === 'AUTHORIZED') {
       return {
-        label: t('recyclerDirectory.statusAuthorized') || '✓ AUTHORIZED RECYCLER',
+        label: t('recyclerDirectory.statusAuthorized') || 'AUTHORIZED RECYCLER',
         sublabel: t('recyclerDirectory.authorizedDesc') || 'Active CPCB / SPCB Registration',
         bg: 'rgba(16, 185, 129, 0.18)',
         border: '#10B981',
         color: '#10B981',
+        icon: 'check-circle',
       };
     }
     if (authorizationStatus === 'PROVISIONAL') {
       return {
-        label: t('recyclerDirectory.statusProvisional') || '⚠️ PROVISIONAL AUTHORIZATION',
+        label: t('recyclerDirectory.statusProvisional') || 'PROVISIONAL AUTHORIZATION',
         sublabel: t('recyclerDirectory.provisionalDesc') || 'Conditional state authorization permit',
         bg: 'rgba(245, 158, 11, 0.18)',
         border: '#F59E0B',
         color: '#F59E0B',
+        icon: 'alert-triangle',
       };
     }
     if (authorizationStatus === 'PENDING' || authorizationStatus === 'PENDING_REVIEW') {
       return {
-        label: t('recyclerDirectory.statusPending') || '⏳ PENDING VERIFICATION',
+        label: t('recyclerDirectory.statusPending') || 'PENDING VERIFICATION',
         sublabel: t('recyclerDirectory.pendingDesc') || 'Authorization under administrative verification',
         bg: 'rgba(56, 189, 248, 0.18)',
         border: '#38BDF8',
         color: '#38BDF8',
+        icon: 'clock',
       };
     }
     if (authorizationStatus === 'SUSPENDED') {
       return {
-        label: t('recyclerDirectory.statusSuspended') || '⏸️ SUSPENDED FACILITY',
+        label: t('recyclerDirectory.statusSuspended') || 'SUSPENDED FACILITY',
         sublabel: t('recyclerDirectory.suspendedDesc') || 'Facility authorization suspended by administration',
         bg: 'rgba(249, 115, 22, 0.18)',
         border: '#F97316',
         color: '#F97316',
+        icon: 'alert-circle',
       };
     }
     if (authorizationStatus === 'REJECTED') {
       return {
-        label: t('recyclerDirectory.statusRejected') || '❌ REJECTED APPLICATION',
+        label: t('recyclerDirectory.statusRejected') || 'REJECTED APPLICATION',
         sublabel: t('recyclerDirectory.rejectedDesc') || 'Facility authorization application rejected',
         bg: 'rgba(239, 68, 68, 0.18)',
         border: '#EF4444',
         color: '#EF4444',
+        icon: 'x-circle',
       };
     }
     if (authorizationStatus === 'EXPIRED') {
       return {
-        label: t('recyclerDirectory.statusExpired') || '⌛ EXPIRED AUTHORIZATION',
+        label: t('recyclerDirectory.statusExpired') || 'EXPIRED AUTHORIZATION',
         sublabel: t('recyclerDirectory.expiredDesc') || 'State registration or permit has expired',
         bg: 'rgba(239, 68, 68, 0.18)',
         border: '#EF4444',
         color: '#EF4444',
+        icon: 'clock',
       };
     }
     if (authorizationStatus === 'INACTIVE') {
       return {
-        label: t('recyclerDirectory.statusInactive') || '⛔ INACTIVE FACILITY',
+        label: t('recyclerDirectory.statusInactive') || 'INACTIVE FACILITY',
         sublabel: t('recyclerDirectory.inactiveDesc') || 'Facility is currently inactive',
         bg: 'rgba(100, 116, 139, 0.18)',
         border: '#64748B',
         color: '#94A3B8',
+        icon: 'slash',
       };
     }
     return {
-      label: t('recyclerDirectory.statusUnavailable') || 'ℹ️ Authorization information unavailable',
+      label: t('recyclerDirectory.statusUnavailable') || 'Authorization information unavailable',
       sublabel: t('recyclerDirectory.unavailableDesc') || 'Not verified by central registry',
       bg: 'rgba(148, 163, 184, 0.18)',
       border: '#94A3B8',
       color: '#94A3B8',
+      icon: 'info',
     };
   };
 
@@ -228,13 +237,19 @@ export const CollectorRecyclerDetailScreen: React.FC<Props> = ({ navigation, rou
           {/* Offline / Cache Banner */}
           {isOfflineCached && (
             <View style={styles.cacheBanner}>
-              <Text style={styles.cacheBannerText}>
-                📴 {t('recyclerDirectory.offlineBanner') || 'Offline — showing cached recycler information'}
-              </Text>
-              {isStale && (
-                <Text style={styles.staleBannerText}>
-                  ⚠️ {t('recyclerDirectory.staleCacheWarning') || 'Cached more than 24 hours ago'}
+              <View style={styles.bannerRow}>
+                <AppIcon name="wifi-off" size={14} color="#F59E0B" />
+                <Text style={styles.cacheBannerText}>
+                  {t('recyclerDirectory.offlineBanner') || 'Offline — showing cached recycler information'}
                 </Text>
+              </View>
+              {isStale && (
+                <View style={styles.bannerRow}>
+                  <AppIcon name="alert-triangle" size={13} color="#EF4444" />
+                  <Text style={styles.staleBannerText}>
+                    {t('recyclerDirectory.staleCacheWarning') || 'Cached more than 24 hours ago'}
+                  </Text>
+                </View>
               )}
             </View>
           )}
@@ -252,7 +267,8 @@ export const CollectorRecyclerDetailScreen: React.FC<Props> = ({ navigation, rou
           {/* Error Message */}
           {errorMessage && !isLoading && (
             <View style={styles.errorBox}>
-              <Text style={styles.errorText}>⚠️ {errorMessage}</Text>
+              <AppIcon name="alert-circle" size={24} color="#EF4444" style={{ marginBottom: 6 }} />
+              <Text style={styles.errorText}>{errorMessage}</Text>
               <TouchableOpacity style={styles.retryBtn} onPress={loadDetails}>
                 <Text style={styles.retryBtnText}>{t('common.retry') || 'Retry'}</Text>
               </TouchableOpacity>
@@ -265,25 +281,31 @@ export const CollectorRecyclerDetailScreen: React.FC<Props> = ({ navigation, rou
               <View style={styles.card}>
                 <View style={styles.facilityHeaderRow}>
                   <View style={styles.facilityIconCircle}>
-                    <Text style={{ fontSize: 28 }}>🏢</Text>
+                    <AppIcon name="factory" size={24} color="#14B8A6" />
                   </View>
                   <View style={{ flex: 1, marginLeft: spacing.spaceSm }}>
                     <Text style={styles.facilityNameText} numberOfLines={2}>
                       {facilityName}
                     </Text>
                     {Boolean(city || state) && (
-                      <Text style={styles.cityStateText}>
-                        📍 {[city, state].filter(Boolean).join(', ')}
-                      </Text>
+                      <View style={styles.cityStateRow}>
+                        <AppIcon name="map-pin" size={12} color="#94A3B8" />
+                        <Text style={styles.cityStateText}>
+                          {[city, state].filter(Boolean).join(', ')}
+                        </Text>
+                      </View>
                     )}
                   </View>
                 </View>
 
                 {/* Strict Non-collapsed Authorization Banner */}
                 <View style={[styles.authBanner, { backgroundColor: authBadge.bg, borderColor: authBadge.border }]}>
-                  <Text style={[styles.authBannerLabel, { color: authBadge.color }]}>
-                    {authBadge.label}
-                  </Text>
+                  <View style={styles.authBannerHeaderRow}>
+                    <AppIcon name={authBadge.icon} size={15} color={authBadge.color} />
+                    <Text style={[styles.authBannerLabel, { color: authBadge.color }]}>
+                      {authBadge.label}
+                    </Text>
+                  </View>
                   <Text style={styles.authBannerSublabel}>
                     {authBadge.sublabel}
                   </Text>
@@ -298,14 +320,20 @@ export const CollectorRecyclerDetailScreen: React.FC<Props> = ({ navigation, rou
                     </Text>
                   )}
                   {Boolean(issuingAuthority) && (
-                    <Text style={[styles.licenseNumberText, { marginTop: 2 }]}>
-                      🏛️ {t('recyclerDirectory.issuingAuthority') || 'Authority'}: {issuingAuthority}
-                    </Text>
+                    <View style={styles.metaDetailRow}>
+                      <AppIcon name="shield-check" size={12} color="#94A3B8" />
+                      <Text style={styles.licenseNumberText}>
+                        {t('recyclerDirectory.issuingAuthority') || 'Authority'}: {issuingAuthority}
+                      </Text>
+                    </View>
                   )}
                   {Boolean(validTill) && (
-                    <Text style={[styles.licenseNumberText, { marginTop: 2 }]}>
-                      📅 {t('recyclerDirectory.validUntil') || 'Valid until'}: {validTill}
-                    </Text>
+                    <View style={styles.metaDetailRow}>
+                      <AppIcon name="calendar" size={12} color="#94A3B8" />
+                      <Text style={styles.licenseNumberText}>
+                        {t('recyclerDirectory.validUntil') || 'Valid until'}: {validTill}
+                      </Text>
+                    </View>
                   )}
                 </View>
 
@@ -317,17 +345,21 @@ export const CollectorRecyclerDetailScreen: React.FC<Props> = ({ navigation, rou
                   accessibilityRole="button"
                   accessibilityLabel={t('recyclerDirectory.speakDetails')}
                 >
+                  <AppIcon name="volume-2" size={18} color="#38BDF8" />
                   <Text style={styles.voiceButtonText}>
-                    {isSpeaking ? '🔊 Speaking...' : '🔊 ' + (t('recyclerDirectory.speakDetails') || 'Listen to Facility Details')}
+                    {isSpeaking ? 'Speaking...' : (t('recyclerDirectory.speakDetails') || 'Listen to Facility Details')}
                   </Text>
                 </TouchableOpacity>
               </View>
 
               {/* ── CARD 2: Location & Service Area ── */}
               <View style={styles.card}>
-                <Text style={styles.sectionHeader}>
-                  📍 {t('recyclerDirectory.locationCoverage') || 'Location & Service Area'}
-                </Text>
+                <View style={styles.sectionHeaderRow}>
+                  <AppIcon name="map-pin" size={16} color="#2DD4BF" />
+                  <Text style={styles.sectionHeader}>
+                    {t('recyclerDirectory.locationCoverage') || 'Location & Service Area'}
+                  </Text>
+                </View>
 
                 <View style={styles.infoRow}>
                   <Text style={styles.infoLabel}>{t('recyclerDirectory.address') || 'Address'}:</Text>
@@ -368,14 +400,16 @@ export const CollectorRecyclerDetailScreen: React.FC<Props> = ({ navigation, rou
                     accessibilityRole="button"
                     accessibilityLabel={t('recyclerDirectory.viewOnMap')}
                   >
+                    <AppIcon name="navigation" size={16} color="#10B981" />
                     <Text style={styles.mapButtonText}>
-                      🗺️ {t('recyclerDirectory.viewOnMap') || 'View on Google Maps'}
+                      {t('recyclerDirectory.viewOnMap') || 'View on Google Maps'}
                     </Text>
                   </TouchableOpacity>
                 ) : (
                   <View style={styles.mapUnavailableBox}>
+                    <AppIcon name="info" size={13} color="#94A3B8" />
                     <Text style={styles.mapUnavailableText}>
-                      ℹ️ {t('recyclerDirectory.mapCoordsUnavailable') || 'Exact GPS coordinates unavailable for map navigation'}
+                      {t('recyclerDirectory.mapCoordsUnavailable') || 'Exact GPS coordinates unavailable for map navigation'}
                     </Text>
                   </View>
                 )}
@@ -383,9 +417,12 @@ export const CollectorRecyclerDetailScreen: React.FC<Props> = ({ navigation, rou
 
               {/* ── CARD 3: Accepted Materials & Pickup ── */}
               <View style={styles.card}>
-                <Text style={styles.sectionHeader}>
-                  ♻️ {t('recyclerDirectory.materialsAndPickup') || 'Accepted Materials & Pickup'}
-                </Text>
+                <View style={styles.sectionHeaderRow}>
+                  <AppIcon name="recycle" size={16} color="#2DD4BF" />
+                  <Text style={styles.sectionHeader}>
+                    {t('recyclerDirectory.materialsAndPickup') || 'Accepted Materials & Pickup'}
+                  </Text>
+                </View>
 
                 {/* Pickup availability badge */}
                 <View style={styles.pickupRow}>
@@ -400,12 +437,17 @@ export const CollectorRecyclerDetailScreen: React.FC<Props> = ({ navigation, rou
                         : styles.pickupUnknown,
                     ]}
                   >
+                    <AppIcon
+                      name={pickup === 'AVAILABLE' ? 'truck' : 'factory'}
+                      size={12}
+                      color="#FFFFFF"
+                    />
                     <Text style={styles.pickupBadgeText}>
                       {pickup === 'AVAILABLE'
-                        ? '🚚 ' + (t('recyclerDirectory.pickupAvailable') || 'Pickup Available')
+                        ? (t('recyclerDirectory.pickupAvailable') || 'Pickup Available')
                         : pickup === 'NOT_AVAILABLE'
-                        ? '🏢 ' + (t('recyclerDirectory.dropoffRequired') || 'Facility Drop-off Required')
-                        : '❓ ' + (t('recyclerDirectory.pickupUnknown') || 'Pickup Unknown')}
+                        ? (t('recyclerDirectory.dropoffRequired') || 'Facility Drop-off Required')
+                        : (t('recyclerDirectory.pickupUnknown') || 'Pickup Unknown')}
                     </Text>
                   </View>
                 </View>
@@ -418,8 +460,9 @@ export const CollectorRecyclerDetailScreen: React.FC<Props> = ({ navigation, rou
                   <View style={styles.categoryChipsWrap}>
                     {categories.map((cat, idx) => (
                       <View key={idx} style={styles.categoryChip}>
+                        <AppIcon name="recycle" size={11} color="#2DD4BF" />
                         <Text style={styles.categoryChipText}>
-                          ♻️ {cat.replace(/_/g, ' ')}
+                          {cat.replace(/_/g, ' ')}
                         </Text>
                       </View>
                     ))}
@@ -434,9 +477,12 @@ export const CollectorRecyclerDetailScreen: React.FC<Props> = ({ navigation, rou
               {/* ── CARD 4: Recycler Offered Rates ── */}
               <View style={styles.card}>
                 <View style={styles.ratesHeaderRow}>
-                  <Text style={styles.sectionHeader}>
-                    💰 {t('recyclerDirectory.offeredRates') || 'Recycler Offered Rates'}
-                  </Text>
+                  <View style={styles.sectionHeaderRow}>
+                    <AppIcon name="dollar-sign" size={16} color="#2DD4BF" />
+                    <Text style={styles.sectionHeader}>
+                      {t('recyclerDirectory.offeredRates') || 'Recycler Offered Rates'}
+                    </Text>
+                  </View>
                   <View style={styles.ratesDisclaimerTag}>
                     <Text style={styles.ratesDisclaimerTagText}>
                       {t('recyclerDirectory.ratesNotMarket') || 'Recycler Offer · Not Market Price'}
@@ -464,23 +510,32 @@ export const CollectorRecyclerDetailScreen: React.FC<Props> = ({ navigation, rou
 
                       <View style={styles.rateMetaRow}>
                         {Boolean(rate.effectiveDate) && (
-                          <Text style={styles.rateMetaText}>
-                            ⏱️ Effective: {new Date(rate.effectiveDate).toLocaleDateString()}
-                          </Text>
+                          <View style={styles.rateMetaItem}>
+                            <AppIcon name="clock" size={11} color="#64748B" />
+                            <Text style={styles.rateMetaText}>
+                              Effective: {new Date(rate.effectiveDate).toLocaleDateString()}
+                            </Text>
+                          </View>
                         )}
                         {Boolean(rate.sourceReference) && (
-                          <Text style={styles.rateMetaText}>
-                            📋 Ref: {rate.sourceReference}
-                          </Text>
+                          <View style={styles.rateMetaItem}>
+                            <AppIcon name="file-text" size={11} color="#64748B" />
+                            <Text style={styles.rateMetaText}>
+                              Ref: {rate.sourceReference}
+                            </Text>
+                          </View>
                         )}
                       </View>
                     </View>
                   ))
                 ) : (
                   <View style={styles.emptyRatesBox}>
-                    <Text style={styles.emptyRatesText}>
-                      ℹ️ {t('recyclerDirectory.ratesUnavailable') || 'Current offered rate unavailable'}
-                    </Text>
+                    <View style={styles.bannerRow}>
+                      <AppIcon name="info" size={14} color="#F59E0B" />
+                      <Text style={styles.emptyRatesText}>
+                        {t('recyclerDirectory.ratesUnavailable') || 'Current offered rate unavailable'}
+                      </Text>
+                    </View>
                     <Text style={styles.emptyRatesSubtext}>
                       {t('recyclerDirectory.ratesUnavailableDesc') ||
                         'This recycler has not published active buying rates for browsing. Contact them directly or create a quote request.'}
@@ -491,9 +546,12 @@ export const CollectorRecyclerDetailScreen: React.FC<Props> = ({ navigation, rou
 
               {/* ── CARD 5: Contact Information & Actions ── */}
               <View style={styles.card}>
-                <Text style={styles.sectionHeader}>
-                  📞 {t('recyclerDirectory.contactFacility') || 'Contact Facility'}
-                </Text>
+                <View style={styles.sectionHeaderRow}>
+                  <AppIcon name="phone" size={16} color="#2DD4BF" />
+                  <Text style={styles.sectionHeader}>
+                    {t('recyclerDirectory.contactFacility') || 'Contact Facility'}
+                  </Text>
+                </View>
 
                 {phone || email ? (
                   <>
@@ -528,8 +586,9 @@ export const CollectorRecyclerDetailScreen: React.FC<Props> = ({ navigation, rou
                           accessibilityRole="button"
                           accessibilityLabel={`Call ${facilityName}`}
                         >
+                          <AppIcon name="phone" size={15} color="#051417" />
                           <Text style={styles.callButtonText}>
-                            📞 {t('recyclerDirectory.call') || 'Call Recycler'}
+                            {t('recyclerDirectory.call') || 'Call Recycler'}
                           </Text>
                         </TouchableOpacity>
 
@@ -540,8 +599,9 @@ export const CollectorRecyclerDetailScreen: React.FC<Props> = ({ navigation, rou
                           accessibilityRole="button"
                           accessibilityLabel={`Send SMS to ${facilityName}`}
                         >
+                          <AppIcon name="message-square" size={15} color="#38BDF8" />
                           <Text style={styles.messageButtonText}>
-                            💬 {t('recyclerDirectory.message') || 'Send SMS'}
+                            {t('recyclerDirectory.message') || 'Send SMS'}
                           </Text>
                         </TouchableOpacity>
                       </View>
@@ -549,9 +609,12 @@ export const CollectorRecyclerDetailScreen: React.FC<Props> = ({ navigation, rou
                   </>
                 ) : (
                   <View style={styles.contactUnavailableBox}>
-                    <Text style={styles.contactUnavailableText}>
-                      🔒 {t('recyclerDirectory.contactLocked') || 'Contact details are privacy-protected'}
-                    </Text>
+                    <View style={styles.bannerRow}>
+                      <AppIcon name="lock" size={14} color="#94A3B8" />
+                      <Text style={styles.contactUnavailableText}>
+                        {t('recyclerDirectory.contactLocked') || 'Contact details are privacy-protected'}
+                      </Text>
+                    </View>
                     <Text style={styles.contactUnavailableSubtext}>
                       {t('recyclerDirectory.contactLockedDesc') ||
                         'Direct phone and email contact are unlocked once you have an active quote or business interaction with this facility.'}
@@ -569,8 +632,9 @@ export const CollectorRecyclerDetailScreen: React.FC<Props> = ({ navigation, rou
                   accessibilityRole="button"
                   accessibilityLabel={t('recyclerDirectory.backToMatches')}
                 >
+                  <AppIcon name="package" size={16} color="#051417" />
                   <Text style={styles.primaryActionBtnText}>
-                    📦 {t('recyclerDirectory.backToMatches') || 'Return to Lot Matches'}
+                    {t('recyclerDirectory.backToMatches') || 'Return to Lot Matches'}
                   </Text>
                 </TouchableOpacity>
               ) : (
@@ -581,19 +645,27 @@ export const CollectorRecyclerDetailScreen: React.FC<Props> = ({ navigation, rou
                   accessibilityRole="button"
                   accessibilityLabel={t('recyclerDirectory.matchMaterialLot')}
                 >
+                  <AppIcon name="package" size={16} color="#051417" />
                   <Text style={styles.primaryActionBtnText}>
-                    📦 {t('recyclerDirectory.matchMaterialLot') || 'Match a Material Lot with Recyclers'}
+                    {t('recyclerDirectory.matchMaterialLot') || 'Match a Material Lot with Recyclers'}
                   </Text>
                 </TouchableOpacity>
               )}
 
               {/* Data Freshness Indicator */}
               <View style={styles.freshnessFooter}>
-                <Text style={styles.freshnessText}>
-                  {isOfflineCached
-                    ? `📴 Cached: ${cachedAt ? new Date(cachedAt).toLocaleString() : 'Recently'}`
-                    : `🟢 Live Data · Last updated: ${recycler.updatedAt ? new Date(recycler.updatedAt).toLocaleDateString() : 'Active'}`}
-                </Text>
+                <View style={styles.bannerRow}>
+                  <AppIcon
+                    name={isOfflineCached ? 'wifi-off' : 'check-circle'}
+                    size={12}
+                    color={isOfflineCached ? '#F59E0B' : '#10B981'}
+                  />
+                  <Text style={styles.freshnessText}>
+                    {isOfflineCached
+                      ? `Cached: ${cachedAt ? new Date(cachedAt).toLocaleString() : 'Recently'}`
+                      : `Live Data · Last updated: ${recycler.updatedAt ? new Date(recycler.updatedAt).toLocaleDateString() : 'Active'}`}
+                  </Text>
+                </View>
               </View>
             </>
           )}
@@ -695,16 +767,26 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
+  cityStateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
   cityStateText: {
     color: colors.textSecondary || '#94A3B8',
     fontSize: 13,
-    marginTop: 2,
   },
   authBanner: {
     borderWidth: 1,
     borderRadius: 8,
     padding: spacing.spaceSm,
     marginVertical: spacing.spaceSm,
+  },
+  authBannerHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   authBannerLabel: {
     fontSize: 14,
@@ -716,20 +798,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
+  metaDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
+  },
   licenseNumberText: {
     color: '#94A3B8',
     fontSize: 11,
-    marginTop: 4,
+    marginTop: 2,
     fontFamily: 'monospace',
   },
   voiceButton: {
+    flexDirection: 'row',
+    gap: 8,
     backgroundColor: 'rgba(56, 189, 248, 0.15)',
     borderColor: '#38BDF8',
     borderWidth: 1,
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    minHeight: 52,
+    minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 6,
@@ -739,11 +829,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: spacing.spaceSm,
+  },
   sectionHeader: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: spacing.spaceSm,
   },
   infoRow: {
     marginBottom: 8,
@@ -758,15 +853,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 1,
   },
+  bannerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   mapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
     backgroundColor: 'rgba(16, 185, 129, 0.2)',
     borderWidth: 1,
     borderColor: '#10B981',
     borderRadius: 8,
     paddingVertical: 12,
     minHeight: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginTop: 8,
   },
   mapButtonText: {
@@ -775,6 +877,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   mapUnavailableBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: 'rgba(148, 163, 184, 0.1)',
     borderRadius: 6,
     padding: 8,
@@ -783,6 +888,7 @@ const styles = StyleSheet.create({
   mapUnavailableText: {
     color: '#94A3B8',
     fontSize: 12,
+    flex: 1,
   },
   pickupRow: {
     flexDirection: 'row',
@@ -796,6 +902,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   pickupBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
@@ -826,6 +935,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: 'rgba(20, 184, 166, 0.15)',
     borderColor: 'rgba(20, 184, 166, 0.4)',
     borderWidth: 1,
@@ -903,6 +1015,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 4,
   },
+  rateMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   rateMetaText: {
     color: '#64748B',
     fontSize: 11,
@@ -929,9 +1046,11 @@ const styles = StyleSheet.create({
   },
   callButton: {
     flex: 1,
+    flexDirection: 'row',
+    gap: 6,
     backgroundColor: '#10B981',
     borderRadius: 8,
-    minHeight: 52,
+    minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -942,11 +1061,13 @@ const styles = StyleSheet.create({
   },
   messageButton: {
     flex: 1,
+    flexDirection: 'row',
+    gap: 6,
     backgroundColor: 'rgba(56, 189, 248, 0.2)',
     borderWidth: 1,
     borderColor: '#38BDF8',
     borderRadius: 8,
-    minHeight: 52,
+    minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -970,9 +1091,11 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   primaryActionBtn: {
+    flexDirection: 'row',
+    gap: 8,
     backgroundColor: colors.primary || '#14B8A6',
     borderRadius: 10,
-    minHeight: 56,
+    minHeight: 52,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: spacing.spaceSm,

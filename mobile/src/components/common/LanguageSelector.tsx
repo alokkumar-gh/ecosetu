@@ -20,6 +20,8 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 
 
+import { AppIcon } from '../ui/AppIcon';
+
 export interface LanguageSelectorProps {
   /**
    * 'chips' — horizontal row of language pill buttons
@@ -68,11 +70,11 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = memo(({
           accessibilityLabel={`Language selector, current language is ${activeOption.englishName}`}
           activeOpacity={0.75}
         >
-          <Text style={styles.globeIcon}>🌐</Text>
+          <AppIcon name="globe" size={15} color={isLight ? '#0F2942' : colors.primary} />
           <Text style={[styles.compactLabel, isLight && styles.compactLabelLight]}>
             {activeOption.label}
           </Text>
-          <Text style={[styles.dropdownArrow, isLight && styles.dropdownArrowLight]}>▼</Text>
+          <AppIcon name="chevronDown" size={12} color={isLight ? '#475569' : colors.textTertiary} />
         </TouchableOpacity>
 
         <Modal
@@ -99,7 +101,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = memo(({
                     style={styles.closeButton}
                     hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                   >
-                    <Text style={[styles.closeButtonText, isLight && styles.closeButtonTextLight]}>✕</Text>
+                    <AppIcon name="close" size={16} color={isLight ? '#475569' : colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
 
@@ -134,7 +136,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = memo(({
                         </View>
                         {isSelected && (
                           <View style={[styles.selectedBadge, isLight && styles.selectedBadgeLight]}>
-                            <Text style={styles.selectedCheck}>✓</Text>
+                            <AppIcon name="check" size={12} color={colors.textInverse} strokeWidth={3} />
                           </View>
                         )}
                       </TouchableOpacity>
@@ -178,7 +180,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = memo(({
                 </View>
                 {isSelected && (
                   <View style={styles.selectedBadge}>
-                    <Text style={styles.selectedCheck}>✓</Text>
+                    <AppIcon name="check" size={12} color={colors.textInverse} strokeWidth={3} />
                   </View>
                 )}
               </TouchableOpacity>
@@ -223,7 +225,12 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = memo(({
                 {opt.label}
               </Text>
               {isSelected && (
-                <Text style={[styles.chipCheck, isLight && styles.chipCheckLight]}> ✓</Text>
+                <AppIcon
+                  name="check"
+                  size={12}
+                  color={isLight ? '#FFFFFF' : colors.primary}
+                  strokeWidth={3}
+                />
               )}
             </TouchableOpacity>
           );

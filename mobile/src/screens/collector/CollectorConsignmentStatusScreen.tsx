@@ -22,6 +22,7 @@ import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { TopAppBar } from '../../components/layout/TopAppBar';
 import { recyclingService } from '../../services/recyclingService';
 import { useI18n } from '../../i18n';
+import { AppIcon } from '../../components/ui/AppIcon';
 
 // ── Canonical Consignment Lifecycle Statuses ──────────────────────────────
 export const CONSIGNMENT_STATUS = {
@@ -239,7 +240,7 @@ export const CollectorConsignmentStatusScreen: React.FC<Props> = ({
         <TopAppBar title="Consignment Status" onBack={() => navigation?.goBack?.()} />
         <View style={styles.contentPadding}>
           <EmptyState
-            icon="🔒"
+            icon="lock"
             title="Access Restricted"
             message="Only authenticated informal collectors can track consignment statuses."
             actionLabel="Go Back"
@@ -257,7 +258,7 @@ export const CollectorConsignmentStatusScreen: React.FC<Props> = ({
         <TopAppBar title="Consignment Status" onBack={() => navigation?.goBack?.()} />
         <View style={styles.contentPadding}>
           <EmptyState
-            icon="⚠"
+            icon="alert-triangle"
             title="Consignment Unavailable"
             message={error}
             actionLabel={isConnected ? 'Retry' : undefined}
@@ -394,7 +395,7 @@ export const CollectorConsignmentStatusScreen: React.FC<Props> = ({
           {(status === CONSIGNMENT_STATUS.CREATED || status === CONSIGNMENT_STATUS.IN_TRANSIT) && (
             <View style={styles.deliveryCard}>
               <View style={styles.deliveryHeaderRow}>
-                <Text style={styles.deliveryIcon}>🚚</Text>
+                <AppIcon name="truck" size={20} color={colors.primary} />
                 <View style={{ flex: 1, marginLeft: spacing.spaceSm }}>
                   <Text style={styles.deliveryCardTitle}>Facility Delivery Handoff</Text>
                   <Text style={styles.deliveryCardSubtitle}>
@@ -418,9 +419,12 @@ export const CollectorConsignmentStatusScreen: React.FC<Props> = ({
                 {isDelivering ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <Text style={styles.deliverButtonText}>
-                    {isConnected ? '📍 Mark as Delivered at Facility' : '⚠ Connect to Record Delivery'}
-                  </Text>
+                  <View style={styles.btnRow}>
+                    <AppIcon name={isConnected ? 'map-pin' : 'alert-triangle'} size={16} color="#FFFFFF" />
+                    <Text style={styles.deliverButtonText}>
+                      {isConnected ? 'Mark as Delivered at Facility' : 'Connect to Record Delivery'}
+                    </Text>
+                  </View>
                 )}
               </TouchableOpacity>
 
@@ -482,7 +486,7 @@ export const CollectorConsignmentStatusScreen: React.FC<Props> = ({
               Receiving Facility
             </Text>
             <View style={styles.recyclerHeader}>
-              <Text style={styles.recyclerIcon}>🏭</Text>
+              <AppIcon name="factory" size={20} color={colors.textSecondary} />
               <View style={{ flex: 1, marginLeft: spacing.spaceSm }}>
                 <Text style={styles.facilityName}>{facilityName}</Text>
                 <Text style={styles.facilityAddress}>{facilityAddress}</Text>
@@ -525,7 +529,7 @@ export const CollectorConsignmentStatusScreen: React.FC<Props> = ({
                 return (
                   <View key={item.id || idx} style={styles.itemRow}>
                     <View style={styles.itemBullet}>
-                      <Text style={styles.itemBulletText}>⚡</Text>
+                      <AppIcon name="zap" size={14} color={colors.primary} />
                     </View>
                     <View style={{ flex: 1, marginLeft: spacing.spaceSm }}>
                       <Text style={styles.itemCategory}>{category}</Text>
@@ -551,9 +555,12 @@ export const CollectorConsignmentStatusScreen: React.FC<Props> = ({
 
           {/* Read-Only Notice */}
           <View style={styles.readOnlyNotice} accessibilityRole="alert">
-            <Text style={styles.readOnlyNoticeText}>
-              🛡 Official Server Record: Consignment lifecycle statuses are determined authoritatively by the receiving formal recycling facility. Collectors cannot alter verification decisions.
-            </Text>
+            <View style={styles.shieldNoticeRow}>
+              <AppIcon name="shield" size={16} color={colors.textSecondary} />
+              <Text style={styles.readOnlyNoticeText}>
+                Official Server Record: Consignment lifecycle statuses are determined authoritatively by the receiving formal recycling facility. Collectors cannot alter verification decisions.
+              </Text>
+            </View>
           </View>
         </ScrollView>
       )}
@@ -997,6 +1004,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 6,
     fontStyle: 'italic',
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  shieldNoticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
 });
 

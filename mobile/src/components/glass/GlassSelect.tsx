@@ -17,6 +17,8 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 
+import { AppIcon } from '../ui/AppIcon';
+
 export interface SelectOption {
   label: string;
   value: string;
@@ -63,13 +65,9 @@ export const GlassSelect: React.FC<GlassSelectProps> = memo(({
           ]}
           numberOfLines={1}
         >
-          {selectedOption ? (
-            `${selectedOption.icon ? `${selectedOption.icon} ` : ''}${selectedOption.label}`
-          ) : (
-            placeholder
-          )}
+          {selectedOption ? selectedOption.label : placeholder}
         </Text>
-        <Text style={styles.arrowIcon}>▼</Text>
+        <AppIcon name="chevronDown" size={14} color="rgba(255, 255, 255, 0.70)" />
       </TouchableOpacity>
 
       <Modal
@@ -92,7 +90,7 @@ export const GlassSelect: React.FC<GlassSelectProps> = memo(({
                 accessibilityRole="button"
                 accessibilityLabel="Close selection dialog"
               >
-                <Text style={styles.closeIcon}>✕</Text>
+                <AppIcon name="close" size={16} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
 
@@ -120,10 +118,9 @@ export const GlassSelect: React.FC<GlassSelectProps> = memo(({
                         isItemActive && styles.optionTextActive,
                       ]}
                     >
-                      {item.icon ? `${item.icon} ` : ''}
                       {item.label}
                     </Text>
-                    {isItemActive && <Text style={styles.checkIcon}>✓</Text>}
+                    {isItemActive && <AppIcon name="check" size={16} color="#10B981" strokeWidth={3} />}
                   </TouchableOpacity>
                 );
               }}

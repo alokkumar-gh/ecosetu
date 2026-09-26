@@ -31,6 +31,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { quoteService, RecyclerQuote, LotQuotesResponse } from '../../services/quoteService';
 import { NegotiationTimeline } from '../../components/marketplace/NegotiationTimeline';
+import { AppIcon, AppIconName } from '../../components/ui';
 import voiceService from '../../services/voiceService';
 import networkService from '../../services/networkService';
 
@@ -227,18 +228,36 @@ export const CollectorQuotesScreen: React.FC = () => {
   const getStatusText = (status: string) => {
     switch (status) {
       case 'ACCEPTED':
-        return `✓ ${t('quotation.accepted') || 'Accepted'}`;
+        return t('quotation.accepted') || 'Accepted';
       case 'REJECTED':
-        return `✗ ${t('quotation.rejected') || 'Rejected'}`;
+        return t('quotation.rejected') || 'Rejected';
       case 'EXPIRED':
-        return `⏱ ${t('quotation.expired') || 'Expired'}`;
+        return t('quotation.expired') || 'Expired';
       case 'CANCELLED':
-        return `⊘ ${t('quotation.cancelled') || 'Cancelled'}`;
+        return t('quotation.cancelled') || 'Cancelled';
       case 'VIEWED':
-        return `👁 ${t('quotation.viewed') || 'Viewed'}`;
+        return t('quotation.viewed') || 'Viewed';
       case 'SENT':
       default:
-        return `● ${t('quotation.active') || 'Active'}`;
+        return t('quotation.active') || 'Active';
+    }
+  };
+
+  const getStatusIcon = (status: string): AppIconName => {
+    switch (status) {
+      case 'ACCEPTED':
+        return 'check-circle';
+      case 'REJECTED':
+        return 'x-circle';
+      case 'EXPIRED':
+        return 'clock';
+      case 'CANCELLED':
+        return 'slash';
+      case 'VIEWED':
+        return 'eye';
+      case 'SENT':
+      default:
+        return 'clock';
     }
   };
 
@@ -267,9 +286,16 @@ export const CollectorQuotesScreen: React.FC = () => {
           {/* Offline / Cached Notice */}
           {lotData?.isFromCache ? (
             <View style={[styles.cacheNoticeBanner, lotData.isStale && styles.staleBanner]}>
-              <Text style={styles.cacheNoticeText}>
-                {lotData.isStale ? `⚠️ ${t('recyclerMatching.staleCacheWarning')}` : `💾 ${t('quotation.offlineNotice')}`}
-              </Text>
+              <View style={styles.bannerRow}>
+                <AppIcon
+                  name={lotData.isStale ? 'alert-triangle' : 'wifi-off'}
+                  size={14}
+                  color={lotData.isStale ? '#EF4444' : '#F59E0B'}
+                />
+                <Text style={styles.cacheNoticeText}>
+                  {lotData.isStale ? t('recyclerMatching.staleCacheWarning') : t('quotation.offlineNotice')}
+                </Text>
+              </View>
             </View>
           ) : null}
 
@@ -283,17 +309,23 @@ export const CollectorQuotesScreen: React.FC = () => {
                 </Text>
               </View>
             </View>
-            <Text style={styles.lotMetaText}>
-              📦 {lotData?.category || initialLot?.category}
-              {lotData?.subcategory ? ` • ${lotData.subcategory}` : ''}
-              {lotData?.weightKg ? ` • ${lotData.weightKg} kg` : ''}
-            </Text>
+            <View style={styles.lotMetaRow}>
+              <AppIcon name="package" size={14} color="#94A3B8" />
+              <Text style={styles.lotMetaText}>
+                {lotData?.category || initialLot?.category}
+                {lotData?.subcategory ? ` • ${lotData.subcategory}` : ''}
+                {lotData?.weightKg ? ` • ${lotData.weightKg} kg` : ''}
+              </Text>
+            </View>
           </View>
 
           {/* Benchmark Market Valuation Context */}
           {lotData?.benchmarkEstimate && lotData.benchmarkEstimate.status === 'AVAILABLE' ? (
             <View style={styles.benchmarkCard}>
-              <Text style={styles.benchmarkHeader}>📊 {t('recyclerMatching.marketEstimateTitle') || 'Verified Market Price Reference'}</Text>
+              <View style={styles.benchmarkHeaderRow}>
+                <AppIcon name="bar-chart-2" size={16} color="#10B981" />
+                <Text style={styles.benchmarkHeader}>{t('recyclerMatching.marketEstimateTitle') || 'Verified Market Price Reference'}</Text>
+              </View>
               <Text style={styles.benchmarkValue}>
                 ₹{lotData.benchmarkEstimate.marketRangeLow} – ₹{lotData.benchmarkEstimate.marketRangeHigh} / kg
               </Text>
@@ -319,6 +351,7 @@ export const CollectorQuotesScreen: React.FC = () => {
           {/* Error Message */}
           {error ? (
             <View style={styles.errorContainer}>
+              <AppIcon name="alert-circle" size={24} color="#EF4444" style={{ marginBottom: 6 }} />
               <Text style={styles.errorText}>{error}</Text>
               <TouchableOpacity style={styles.retryButton} onPress={fetchQuotes}>
                 <Text style={styles.retryButtonText}>{t('common.retry') || 'Retry'}</Text>
@@ -329,7 +362,7 @@ export const CollectorQuotesScreen: React.FC = () => {
           {/* Empty State */}
           {!loading && !error && (!lotData?.quotes || lotData.quotes.length === 0) ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyIcon}>📨</Text>
+              <AppIcon name="mail" size={40} color="#64748B" style={{ marginBottom: 12 }} />
               <Text style={styles.emptyTitle}>No offers received yet.</Text>
               <Text style={styles.emptyDescription}>
                 {t('quotation.noQuotesDescription') || 'No verified recyclers have submitted bids for this material lot yet. Tap below to notify matched recyclers.'}
@@ -338,7 +371,8 @@ export const CollectorQuotesScreen: React.FC = () => {
                 style={styles.findRecyclerCta}
                 onPress={() => navigation.navigate('CollectorRecyclerMatches', { lotId })}
               >
-                <Text style={styles.findRecyclerCtaText}>🔍 {t('recyclerMatching.findRecycler') || 'Match Recyclers'}</Text>
+                <AppIcon name="search" size={16} color="#061A21" />
+                <Text style={styles.findRecyclerCtaText}>{t('recyclerMatching.findRecycler') || 'Match Recyclers'}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -351,32 +385,52 @@ export const CollectorQuotesScreen: React.FC = () => {
                 style={[styles.sortChip, sortBy === 'HIGHEST_RATE' && styles.sortChipActive]}
                 onPress={() => setSortBy('HIGHEST_RATE')}
               >
+                <AppIcon
+                  name="dollar-sign"
+                  size={12}
+                  color={sortBy === 'HIGHEST_RATE' ? '#10B981' : '#94A3B8'}
+                />
                 <Text style={[styles.sortChipText, sortBy === 'HIGHEST_RATE' && styles.sortChipTextActive]}>
-                  💰 Highest Rate
+                  Highest Rate
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.sortChip, sortBy === 'PICKUP' && styles.sortChipActive]}
                 onPress={() => setSortBy('PICKUP')}
               >
+                <AppIcon
+                  name="truck"
+                  size={12}
+                  color={sortBy === 'PICKUP' ? '#10B981' : '#94A3B8'}
+                />
                 <Text style={[styles.sortChipText, sortBy === 'PICKUP' && styles.sortChipTextActive]}>
-                  🚚 Pickup
+                  Pickup
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.sortChip, sortBy === 'NEWEST' && styles.sortChipActive]}
                 onPress={() => setSortBy('NEWEST')}
               >
+                <AppIcon
+                  name="clock"
+                  size={12}
+                  color={sortBy === 'NEWEST' ? '#10B981' : '#94A3B8'}
+                />
                 <Text style={[styles.sortChipText, sortBy === 'NEWEST' && styles.sortChipTextActive]}>
-                  ⏱ Newest
+                  Newest
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.sortChip, sortBy === 'NEAREST' && styles.sortChipActive]}
                 onPress={() => setSortBy('NEAREST')}
               >
+                <AppIcon
+                  name="map-pin"
+                  size={12}
+                  color={sortBy === 'NEAREST' ? '#10B981' : '#94A3B8'}
+                />
                 <Text style={[styles.sortChipText, sortBy === 'NEAREST' && styles.sortChipTextActive]}>
-                  📍 Nearest
+                  Nearest
                 </Text>
               </TouchableOpacity>
             </View>
@@ -397,11 +451,13 @@ export const CollectorQuotesScreen: React.FC = () => {
                     <Text style={styles.recyclerName}>{quote.recycler?.facilityName || 'Authorized Recycler'}</Text>
                     <View style={styles.badgeRow}>
                       <View style={[styles.statusBadge, getStatusBadgeStyle(quote.status)]}>
+                        <AppIcon name={getStatusIcon(quote.status)} size={11} color="#CBD5E1" />
                         <Text style={styles.statusBadgeText}>{getStatusText(quote.status)}</Text>
                       </View>
                       {quote.recycler?.user?.isVerified ? (
                         <View style={styles.verifiedBadge}>
-                          <Text style={styles.verifiedBadgeText}>✓ {t('recyclerMatching.authorized') || 'Authorized'}</Text>
+                          <AppIcon name="check-circle" size={11} color="#10B981" />
+                          <Text style={styles.verifiedBadgeText}>{t('recyclerMatching.authorized') || 'Authorized'}</Text>
                         </View>
                       ) : null}
                     </View>
@@ -428,29 +484,48 @@ export const CollectorQuotesScreen: React.FC = () => {
 
                 {/* Location & Logistics Specs */}
                 <View style={styles.specRow}>
-                  <Text style={styles.specText}>
-                    🚚 {quote.recycler?.pickupAvailable ? 'Pickup Available' : 'Self Drop / Handover'}
-                  </Text>
-                  {quote.recycler?.city ? (
+                  <View style={styles.specItem}>
+                    <AppIcon
+                      name={quote.recycler?.pickupAvailable ? 'truck' : 'factory'}
+                      size={12}
+                      color="#94A3B8"
+                    />
                     <Text style={styles.specText}>
-                      📍 {quote.recycler.city}{quote.recycler.state ? `, ${quote.recycler.state}` : ''}
+                      {quote.recycler?.pickupAvailable ? 'Pickup Available' : 'Self Drop / Handover'}
                     </Text>
+                  </View>
+                  {quote.recycler?.city ? (
+                    <View style={styles.specItem}>
+                      <AppIcon name="map-pin" size={12} color="#94A3B8" />
+                      <Text style={styles.specText}>
+                        {quote.recycler.city}{quote.recycler.state ? `, ${quote.recycler.state}` : ''}
+                      </Text>
+                    </View>
                   ) : null}
                   {(quote as any).distanceKm ? (
-                    <Text style={styles.specText}>
-                      📏 {(quote as any).distanceKm} km away
-                    </Text>
+                    <View style={styles.specItem}>
+                      <AppIcon name="navigation" size={12} color="#94A3B8" />
+                      <Text style={styles.specText}>
+                        {(quote as any).distanceKm} km away
+                      </Text>
+                    </View>
                   ) : null}
                 </View>
 
                 {/* Timestamp & Validity */}
                 <View style={styles.metaRow}>
-                  <Text style={styles.metaText}>
-                    🕒 Offered: {new Date(quote.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({new Date(quote.createdAt).toLocaleDateString()})
-                  </Text>
-                  <Text style={styles.metaText}>
-                    📅 Valid Until: {new Date(quote.validUntil).toLocaleDateString()}
-                  </Text>
+                  <View style={styles.metaItem}>
+                    <AppIcon name="clock" size={11} color="#64748B" />
+                    <Text style={styles.metaText}>
+                      Offered: {new Date(quote.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({new Date(quote.createdAt).toLocaleDateString()})
+                    </Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                    <AppIcon name="calendar" size={11} color="#64748B" />
+                    <Text style={styles.metaText}>
+                      Valid Until: {new Date(quote.validUntil).toLocaleDateString()}
+                    </Text>
+                  </View>
                 </View>
 
                 {/* Dedicated Negotiation Timeline Component */}
@@ -459,15 +534,17 @@ export const CollectorQuotesScreen: React.FC = () => {
                 {/* Rejection / Cancellation Reason if present */}
                 {quote.rejectionReason ? (
                   <View style={styles.reasonContainer}>
+                    <AppIcon name="x-circle" size={13} color="#EF4444" style={{ marginRight: 6 }} />
                     <Text style={styles.reasonText}>
-                      ✗ Rejection Reason: {quote.rejectionReason}
+                      Rejection Reason: {quote.rejectionReason}
                     </Text>
                   </View>
                 ) : null}
                 {quote.cancellationReason ? (
                   <View style={styles.reasonContainer}>
+                    <AppIcon name="slash" size={13} color="#94A3B8" style={{ marginRight: 6 }} />
                     <Text style={styles.cancellationText}>
-                      ⊘ {quote.cancellationReason === 'COMPETING_QUOTE_ACCEPTED' ? 'Another competing quote was accepted.' : quote.cancellationReason}
+                      {quote.cancellationReason === 'COMPETING_QUOTE_ACCEPTED' ? 'Another competing quote was accepted.' : quote.cancellationReason}
                     </Text>
                   </View>
                 ) : null}
@@ -481,7 +558,8 @@ export const CollectorQuotesScreen: React.FC = () => {
                     accessibilityRole="button"
                     accessibilityLabel="Speak Offer Summary"
                   >
-                    <Text style={styles.speakButtonText}>🔊 Speak Summary</Text>
+                    <AppIcon name="volume-2" size={15} color="#38BDF8" />
+                    <Text style={styles.speakButtonText}>Speak Summary</Text>
                   </TouchableOpacity>
 
                   {/* Decision CTAs */}
@@ -494,7 +572,8 @@ export const CollectorQuotesScreen: React.FC = () => {
                           setRejectModalVisible(true);
                         }}
                       >
-                        <Text style={styles.rejectButtonText}>✗ Reject</Text>
+                        <AppIcon name="x" size={14} color="#EF4444" />
+                        <Text style={styles.rejectButtonText}>Reject</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
@@ -506,7 +585,8 @@ export const CollectorQuotesScreen: React.FC = () => {
                           setCounterModalVisible(true);
                         }}
                       >
-                        <Text style={styles.counterButtonText}>💬 Counter</Text>
+                        <AppIcon name="message-square" size={14} color="#38BDF8" />
+                        <Text style={styles.counterButtonText}>Counter</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
@@ -516,7 +596,8 @@ export const CollectorQuotesScreen: React.FC = () => {
                           setAcceptModalVisible(true);
                         }}
                       >
-                        <Text style={styles.acceptButtonText}>✓ Accept</Text>
+                        <AppIcon name="check" size={14} color="#061A21" />
+                        <Text style={styles.acceptButtonText}>Accept</Text>
                       </TouchableOpacity>
                     </View>
                   ) : null}
@@ -530,7 +611,8 @@ export const CollectorQuotesScreen: React.FC = () => {
                         accessibilityRole="button"
                         accessibilityLabel="Start Handover"
                       >
-                        <Text style={styles.handoverButtonText}>🤝 Start Handover</Text>
+                        <AppIcon name="truck" size={15} color="#061A21" />
+                        <Text style={styles.handoverButtonText}>Start Handover</Text>
                       </TouchableOpacity>
                     </View>
                   ) : null}
@@ -549,7 +631,10 @@ export const CollectorQuotesScreen: React.FC = () => {
         >
           <View style={styles.modalOverlay}>
             <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>🤝 Confirm Quote Acceptance</Text>
+              <View style={styles.modalTitleRow}>
+                <AppIcon name="handshake" size={22} color="#10B981" />
+                <Text style={styles.modalTitle}>Confirm Quote Acceptance</Text>
+              </View>
               <Text style={styles.modalMessage}>
                 Accepting this quotation establishes an official commercial deal. All other competing bids for this material lot will be automatically cancelled.
               </Text>
@@ -589,9 +674,12 @@ export const CollectorQuotesScreen: React.FC = () => {
                 </View>
               ) : null}
 
-              <Text style={styles.modalWarningText}>
-                ⚠️ Server-authoritative acceptance: Competing quotes will be marked CANCELLED.
-              </Text>
+              <View style={styles.modalWarningBox}>
+                <AppIcon name="alert-triangle" size={16} color="#F59E0B" />
+                <Text style={styles.modalWarningText}>
+                  Server-authoritative acceptance: Competing quotes will be marked CANCELLED.
+                </Text>
+              </View>
 
               <View style={styles.modalActions}>
                 <TouchableOpacity
@@ -612,7 +700,10 @@ export const CollectorQuotesScreen: React.FC = () => {
                   {actionLoading ? (
                     <ActivityIndicator color="#071E22" />
                   ) : (
-                    <Text style={styles.modalConfirmAcceptButtonText}>✓ Accept Deal</Text>
+                    <View style={styles.btnContentRow}>
+                      <AppIcon name="check" size={18} color="#071E22" />
+                      <Text style={styles.modalConfirmAcceptButtonText}>Accept Deal</Text>
+                    </View>
                   )}
                 </TouchableOpacity>
               </View>
@@ -629,7 +720,10 @@ export const CollectorQuotesScreen: React.FC = () => {
         >
           <View style={styles.modalOverlay}>
             <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>💬 Propose Counter-Offer</Text>
+              <View style={styles.modalTitleRow}>
+                <AppIcon name="message-square" size={22} color="#38BDF8" />
+                <Text style={styles.modalTitle}>Propose Counter-Offer</Text>
+              </View>
               <Text style={styles.modalMessage}>
                 Submit a revised rate to the buyer. This will update the negotiation round while keeping the audit trail transparent.
               </Text>
@@ -691,7 +785,10 @@ export const CollectorQuotesScreen: React.FC = () => {
                   {actionLoading ? (
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.modalConfirmCounterButtonText}>💬 Send Counter</Text>
+                    <View style={styles.btnContentRow}>
+                      <AppIcon name="send" size={16} color="#FFFFFF" />
+                      <Text style={styles.modalConfirmCounterButtonText}>Send Counter</Text>
+                    </View>
                   )}
                 </TouchableOpacity>
               </View>
@@ -708,7 +805,10 @@ export const CollectorQuotesScreen: React.FC = () => {
         >
           <View style={styles.modalOverlay}>
             <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>✗ Reject Quotation</Text>
+              <View style={styles.modalTitleRow}>
+                <AppIcon name="x-circle" size={22} color="#EF4444" />
+                <Text style={styles.modalTitle}>Reject Quotation</Text>
+              </View>
               <Text style={styles.modalMessage}>Select a reason for declining this buyer's offer:</Text>
 
               {/* Reasons options */}
@@ -723,10 +823,16 @@ export const CollectorQuotesScreen: React.FC = () => {
                   style={[styles.reasonOption, rejectReason === item.key && styles.reasonOptionSelected]}
                   onPress={() => setRejectReason(item.key)}
                 >
-                  <Text style={[styles.reasonOptionText, rejectReason === item.key && styles.reasonOptionTextSelected]}>
-                    {rejectReason === item.key ? '● ' : '○ '}
-                    {item.label}
-                  </Text>
+                  <View style={styles.reasonOptionInner}>
+                    <AppIcon
+                      name={rejectReason === item.key ? 'radio-checked' : 'radio-unchecked'}
+                      size={16}
+                      color={rejectReason === item.key ? '#EF4444' : '#64748B'}
+                    />
+                    <Text style={[styles.reasonOptionText, rejectReason === item.key && styles.reasonOptionTextSelected]}>
+                      {item.label}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               ))}
 
@@ -747,7 +853,10 @@ export const CollectorQuotesScreen: React.FC = () => {
                   {actionLoading ? (
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.modalConfirmRejectButtonText}>✗ Confirm Rejection</Text>
+                    <View style={styles.btnContentRow}>
+                      <AppIcon name="x" size={16} color="#FFFFFF" />
+                      <Text style={styles.modalConfirmRejectButtonText}>Confirm Rejection</Text>
+                    </View>
                   )}
                 </TouchableOpacity>
               </View>
@@ -1397,6 +1506,58 @@ const styles = StyleSheet.create({
   reasonOptionTextSelected: {
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+    marginBottom: 8,
+  },
+  modalWarningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    padding: 8,
+    borderRadius: 8,
+    marginBottom: space.md,
+  },
+  btnContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  reasonOptionInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+  },
+  specItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  bannerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  lotMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  benchmarkHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
   },
 });
 
