@@ -245,7 +245,12 @@ class ApiClient {
       }
     }
 
-    const fullUrl = targetEndpoint.startsWith('http') ? targetEndpoint : `${this._baseUrl}${targetEndpoint.startsWith('/') ? '' : '/'}${targetEndpoint}`;
+    let cleanEndpoint = targetEndpoint;
+    if (this._baseUrl.endsWith('/api/v1') && cleanEndpoint.startsWith('/api/v1/')) {
+      cleanEndpoint = cleanEndpoint.substring('/api/v1'.length);
+    }
+
+    const fullUrl = cleanEndpoint.startsWith('http') ? cleanEndpoint : `${this._baseUrl}${cleanEndpoint.startsWith('/') ? '' : '/'}${cleanEndpoint}`;
     const isGet = method.toUpperCase() === 'GET';
     const cacheKey = `${method}:${fullUrl}`;
 

@@ -2,6 +2,7 @@
 // Canonical Reference: docs/10_BACKEND_ARCHITECTURE.md Section 5.6, docs/05_API_SPECIFICATION.md Section 7, docs/07_BUSINESS_WORKFLOWS.md
 
 const prisma = require('../config/database');
+const logger = require('../config/logger');
 const AppError = require('../utils/AppError');
 const notificationService = require('./notificationService');
 const auditService = require('./auditService');
@@ -118,6 +119,8 @@ class RequestService {
 
     // 5. If auto-submitted, notify eligible collectors
     if (autoSubmit) {
+      logger.info(`[PICKUP_FLOW] request created: ${request.id}`);
+      logger.info(`[PICKUP_FLOW] status: ${request.status}`);
       this._notifyEligibleCollectors(request, items).catch((err) => {
         console.warn('[RequestService] Collector notification error:', err?.message || err);
       });
@@ -176,6 +179,9 @@ class RequestService {
       });
 
       if (!activeCollectors || activeCollectors.length === 0) {
+        logger.info(`[PICKUP_FLOW] eligible collectors: 0`);
+        logger.info(`[PICKUP_FLOW] notifications created: 0`);
+        logger.info(`[PICKUP_FLOW] collector feed eligibility: PASS`);
         return;
       }
 
@@ -189,27 +195,36 @@ class RequestService {
 
       const area = request.district || request.city || request.landmark || 'your area';
 
+      const eligibleCollectors = [];
       for (const collector of activeCollectors) {
-        // Distance check if service area coords are set
+        const colLat = collector.collectorProfile?.serviceAreaLat ? parseFloat(collector.collectorProfile.serviceAreaLat) : null;
+        const colLng = collector.collectorProfile?.serviceAreaLng ? parseFloat(collector.collectorProfile.serviceAreaLng) : null;
+        const reqLat = request.pickupLat ? parseFloat(request.pickupLat) : null;
+        const reqLng = request.pickupLng ? parseFloat(request.pickupLng) : null;
+
         if (
-          collector.collectorProfile?.serviceAreaLat &&
-          collector.collectorProfile?.serviceAreaLng &&
-          request.pickupLat &&
-          request.pickupLng
+          colLat !== null && colLng !== null && reqLat !== null && reqLng !== null &&
+          !(colLat === 0 && colLng === 0) && !(reqLat === 0 && reqLng === 0)
         ) {
-          const dist = calculateDistanceKm(
-            parseFloat(collector.collectorProfile.serviceAreaLat),
-            parseFloat(collector.collectorProfile.serviceAreaLng),
-            parseFloat(request.pickupLat),
-            parseFloat(request.pickupLng)
-          );
+          const dist = calculateDistanceKm(colLat, colLng, reqLat, reqLng);
           const radius = parseFloat(collector.collectorProfile.serviceRadiusKm) || 25.0;
           if (dist > radius) {
             continue;
           }
+        } else if (collector.collectorProfile?.city && request.city) {
+          if (collector.collectorProfile.city.trim().toLowerCase() !== request.city.trim().toLowerCase()) {
+            continue;
+          }
         }
+        eligibleCollectors.push(collector);
+      }
 
-        await notificationService.createNotification({
+      logger.info(`[PICKUP_FLOW] eligible collectors: ${eligibleCollectors.length}`);
+      logger.info(`[PICKUP_FLOW] collector IDs: ${eligibleCollectors.map((c) => c.id.substring(0, 8)).join(', ')}`);
+
+      let notificationsCreated = 0;
+      for (const collector of eligibleCollectors) {
+        const notif = await notificationService.createNotification({
           userId: collector.id,
           type: NOTIFICATION_TYPES.REQUEST_AVAILABLE,
           title: 'New Pickup Request Available',
@@ -217,7 +232,11 @@ class RequestService {
           referenceType: 'collection_request',
           referenceId: request.id,
         });
+        if (notif) notificationsCreated++;
       }
+
+      logger.info(`[PICKUP_FLOW] notifications created: ${notificationsCreated}`);
+      logger.info(`[PICKUP_FLOW] collector feed eligibility: PASS`);
     } catch (err) {
       console.warn('[RequestService] _notifyEligibleCollectors error:', err?.message || err);
     }
@@ -342,14 +361,22 @@ class RequestService {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Distance filtering if location is known
+    // Distance filtering if location is known, with city-level fallback
     let filtered = allSubmitted;
-    if (searchLat !== null && searchLng !== null && !isNaN(searchLat) && !isNaN(searchLng)) {
+    if (searchLat !== null && searchLng !== null && !isNaN(searchLat) && !isNaN(searchLng) && !(searchLat === 0 && searchLng === 0)) {
       filtered = allSubmitted.filter((req) => {
         const reqLat = parseFloat(req.pickupLat);
         const reqLng = parseFloat(req.pickupLng);
-        const dist = calculateDistanceKm(searchLat, searchLng, reqLat, reqLng);
-        return dist <= searchRadius;
+        if (
+          !isNaN(reqLat) && !isNaN(reqLng) &&
+          !(reqLat === 0 && reqLng === 0)
+        ) {
+          const dist = calculateDistanceKm(searchLat, searchLng, reqLat, reqLng);
+          return dist <= searchRadius;
+        } else if (profile?.city && req.city) {
+          return profile.city.trim().toLowerCase() === req.city.trim().toLowerCase();
+        }
+        return true;
       });
     }
 
@@ -533,6 +560,9 @@ class RequestService {
       where: { collectionRequestId: requestId },
       data: { status: ITEM_STATUS.SUBMITTED },
     });
+
+    logger.info(`[PICKUP_FLOW] request submitted: ${updated.id}`);
+    logger.info(`[PICKUP_FLOW] status: ${updated.status}`);
 
     // Notify eligible collectors about new submitted request
     this._notifyEligibleCollectors(updated, request.ewasteItems).catch((err) => {

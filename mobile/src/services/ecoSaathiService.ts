@@ -30,6 +30,13 @@ export interface EcoSaathiResponse {
 export interface SendMessageOptions {
   message: string;
   language?: string;
+  context?: {
+    requestId?: string;
+    offerId?: string;
+    category?: string;
+    currentPage?: string;
+    currentRoute?: string;
+  };
   conversationContext?: {
     requestId?: string;
     offerId?: string;
@@ -45,10 +52,12 @@ class EcoSaathiService {
    */
   async sendMessage(options: SendMessageOptions): Promise<EcoSaathiResponse> {
     try {
-      const response = await apiClient.post('/api/v1/eco-saathi/message', {
+      const activeContext = options.context || options.conversationContext || {};
+      const response = await apiClient.post('/eco-saathi/message', {
         message: options.message,
         language: options.language || 'en',
-        conversationContext: options.conversationContext || {},
+        context: activeContext,
+        conversationContext: activeContext,
       });
 
       if (response && response.data) {
@@ -66,7 +75,7 @@ class EcoSaathiService {
    */
   async confirmAction(action: EcoSaathiAction, confirmed: boolean = true): Promise<EcoSaathiResponse> {
     try {
-      const response = await apiClient.post('/api/v1/eco-saathi/confirm-action', {
+      const response = await apiClient.post('/eco-saathi/confirm-action', {
         action,
         confirmed,
       });
@@ -86,7 +95,7 @@ class EcoSaathiService {
    */
   async getContext(): Promise<any> {
     try {
-      const response = await apiClient.get('/api/v1/eco-saathi/context');
+      const response = await apiClient.get('/eco-saathi/context');
       return response?.data || response;
     } catch (error: any) {
       console.warn('[EcoSaathiService] getContext error:', error?.message || error);

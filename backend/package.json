@@ -1,6 +1,6 @@
 {
   "name": "ecosetu-backend",
-  "version": "0.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "EcoSetu REST API backend service",
   "main": "src/index.js",

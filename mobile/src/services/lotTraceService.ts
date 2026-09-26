@@ -219,7 +219,7 @@ export const lotTraceService = {
 
     try {
       const response = await (apiClient as any).get(
-        `/api/v1/material-lots/${lotId}/trace`
+        `/material-lots/${lotId}/trace`
       );
       const traceData = response.data?.trace || response.data;
 

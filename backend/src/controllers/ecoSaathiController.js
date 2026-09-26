@@ -13,17 +13,24 @@ class EcoSaathiController {
    */
   async handleMessage(req, res, next) {
     try {
-      const { message, language, context, conversationHistory } = req.body;
+      const { message, language, context, conversationContext, conversationHistory, recentConversation } = req.body;
 
       if (!message || typeof message !== 'string' || !message.trim()) {
         throw AppError.badRequest('Message content is required');
       }
 
+      const activeContext = context || conversationContext || {};
+      const history = Array.isArray(conversationHistory)
+        ? conversationHistory
+        : Array.isArray(recentConversation)
+        ? recentConversation
+        : [];
+
       const response = await orchestrator.processMessage(req.user, {
         message: message.trim(),
         language: language || 'en',
-        context: context || {},
-        conversationHistory: Array.isArray(conversationHistory) ? conversationHistory : [],
+        context: activeContext,
+        conversationHistory: history,
       });
 
       res.status(200).json({

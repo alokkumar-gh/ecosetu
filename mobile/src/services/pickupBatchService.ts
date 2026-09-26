@@ -153,7 +153,7 @@ class PickupBatchService {
     }
 
     try {
-      const response = await apiClient.get('/api/v1/pickup-batches', { params });
+      const response = await apiClient.get('/pickup-batches', { params });
       if (response?.data?.success) {
         const batches = response.data.data.batches || [];
         await storage.setItem(cacheKey, JSON.stringify(batches));
@@ -186,7 +186,7 @@ class PickupBatchService {
       throw new Error('Offline: Detailed batch unavailable without connection');
     }
 
-    const response = await apiClient.get(`/api/v1/pickup-batches/${id}`);
+    const response = await apiClient.get(`/pickup-batches/${id}`);
     if (response?.data?.success) {
       const batch = response.data.data.batch;
       await storage.setItem(cacheKey, JSON.stringify(batch));
@@ -199,7 +199,7 @@ class PickupBatchService {
    * Create a new pickup batch
    */
   async createBatch(payload: CreateBatchPayload): Promise<PickupBatch> {
-    const response = await apiClient.post('/api/v1/pickup-batches', payload);
+    const response = await apiClient.post('/pickup-batches', payload);
     if (response?.data?.success) {
       return response.data.data.batch;
     }
@@ -210,7 +210,7 @@ class PickupBatchService {
    * Update pickup batch status
    */
   async updateBatchStatus(id: string, payload: UpdateBatchStatusPayload): Promise<PickupBatch> {
-    const response = await apiClient.patch(`/api/v1/pickup-batches/${id}/status`, payload);
+    const response = await apiClient.patch(`/pickup-batches/${id}/status`, payload);
     if (response?.data?.success) {
       return response.data.data.batch;
     }
@@ -221,7 +221,7 @@ class PickupBatchService {
    * Add lots to an existing active batch
    */
   async addLotsToBatch(id: string, materialLotIds: string[]): Promise<PickupBatch> {
-    const response = await apiClient.post(`/api/v1/pickup-batches/${id}/lots`, { materialLotIds });
+    const response = await apiClient.post(`/pickup-batches/${id}/lots`, { materialLotIds });
     if (response?.data?.success) {
       return response.data.data.batch;
     }
@@ -232,7 +232,7 @@ class PickupBatchService {
    * Remove a lot from an active batch
    */
   async removeLotFromBatch(id: string, lotId: string): Promise<PickupBatch> {
-    const response = await apiClient.delete(`/api/v1/pickup-batches/${id}/lots/${lotId}`);
+    const response = await apiClient.delete(`/pickup-batches/${id}/lots/${lotId}`);
     if (response?.data?.success) {
       return response.data.data.batch;
     }
@@ -243,7 +243,7 @@ class PickupBatchService {
    * Get eligible lots for consolidation
    */
   async getEligibleLots(collectorId?: string): Promise<any[]> {
-    const response = await apiClient.get('/api/v1/pickup-batches/eligible-lots', {
+    const response = await apiClient.get('/pickup-batches/eligible-lots', {
       params: collectorId ? { collectorId } : undefined,
     });
     if (response?.data?.success) {

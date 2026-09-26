@@ -68,7 +68,7 @@ const INTENT_DEFINITIONS = {
   },
   CREATE_PICKUP: {
     patterns: [
-      /\b(create pickup|book pickup|schedule pickup|new pickup|ewaste bechna hai|scrap bechna hai|submit ewaste)\b/i,
+      /\b(create (a )?pickup|book (a )?pickup|schedule (a )?pickup|ewaste bechna hai|scrap bechna hai|submit ewaste)\b/i,
       /\b(pura(na)? (mobile|phone|laptop|tv) (bechna|dena) hai)\b/i,
       /\b(ପିକଅପ୍ ବୁକ୍ କରନ୍ତୁ|ପୁରୁଣା ସାମଗ୍ରୀ ବିକ୍ରି)\b/i,
     ],
@@ -103,7 +103,7 @@ const INTENT_DEFINITIONS = {
   },
   VIEW_MATCHING_REQUESTS: {
     patterns: [
-      /\b(what new requests|show (.* )?requests|requests near me|within my service area|new ewaste requests|matching requests|nearby requests)\b/i,
+      /\b(what new (pickup )?requests|what (new )?(pickup )?requests do i have|show (.* )?requests|requests near me|within my service area|new ewaste requests|matching requests|nearby requests|pickup requests in my area|requests in my area)\b/i,
       /\b(which (one|request) is closest|nearest request|closest pickup|naya request dikhao|paas wale request|mere area ke request)\b/i,
       /\b(ନୂଆ ଅନୁରୋଧ|ପାଖରେ ଥିବା ଅନୁରୋଧ|ମୋ ଅଞ୍ଚଳର ଅନୁରୋଧ)\b/i,
     ],
