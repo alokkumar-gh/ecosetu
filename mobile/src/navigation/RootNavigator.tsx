@@ -14,6 +14,7 @@ import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import { AppIcon } from '../components/ui/AppIcon';
+import { EcoSetuLogo } from '../components/common/EcoSetuLogo';
 
 export const RootNavigator: React.FC = () => {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -22,9 +23,7 @@ export const RootNavigator: React.FC = () => {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer} accessibilityRole="progressbar" accessibilityLabel="Loading session">
-        <View style={styles.logoCircle}>
-          <AppIcon name="recycle" size={38} color={colors.surface} />
-        </View>
+        <EcoSetuLogo size={80} showGlow style={{ marginBottom: spacing.spaceMd }} />
         <Text style={styles.loadingTitle}>EcoSetu</Text>
         <ActivityIndicator size="large" color={colors.primary} style={styles.spinner} />
         <Text style={styles.loadingSubtitle}>Restoring secure session...</Text>

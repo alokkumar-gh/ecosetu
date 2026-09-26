@@ -71,51 +71,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    setIsLoading(true);
-    try {
-      const data = await authService.login(email, password);
-      setUser((data.user as UserProfile) || null);
-      setAccessToken(data.accessToken);
-      return data;
-    } finally {
-      setIsLoading(false);
-    }
+    const data = await authService.login(email, password);
+    setUser((data.user as UserProfile) || null);
+    setAccessToken(data.accessToken);
+    return data;
   };
 
   const loginWithFirebase = async (params: { idToken: string; provider?: string; role?: string; profileData?: any }) => {
-    setIsLoading(true);
-    try {
-      const data = await authService.loginWithFirebase(params);
-      if (!data?.isNewUser && data?.user) {
-        setUser((data.user as UserProfile) || null);
-        setAccessToken(data.accessToken || null);
-      }
-      return data;
-    } finally {
-      setIsLoading(false);
+    const data = await authService.loginWithFirebase(params);
+    if (!data?.isNewUser && data?.user) {
+      setUser((data.user as UserProfile) || null);
+      setAccessToken(data.accessToken || null);
     }
+    return data;
   };
 
   const register = async (userData: any) => {
-    setIsLoading(true);
-    try {
-      const data = await authService.register(userData);
-      setUser((data.user as UserProfile) || null);
-      setAccessToken(data.accessToken);
-      return data;
-    } finally {
-      setIsLoading(false);
-    }
+    const data = await authService.register(userData);
+    setUser((data.user as UserProfile) || null);
+    setAccessToken(data.accessToken);
+    return data;
   };
 
   const logout = async () => {
-    setIsLoading(true);
     try {
       await authService.logout();
+    } finally {
       setUser(null);
       setAccessToken(null);
-    } finally {
-      setIsLoading(false);
     }
   };
 

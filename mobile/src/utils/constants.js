@@ -264,14 +264,14 @@ const envOverride =
 
 const configuredBaseUrl = (
   (envOverride ? envOverride.trim().replace(/\/+$/, '') : null) ||
-  LOCAL_FALLBACK_API_BASE_URL
+  (isProductionBuild ? PRODUCTION_API_BASE_URL : LOCAL_DEV_API_BASE_URL)
 ).replace(/\/+$/, '');
 
 // Network and API Defaults
 export const API_CONFIG = Object.freeze({
   DEFAULT_BASE_URL: configuredBaseUrl,
   PRODUCTION_BASE_URL: PRODUCTION_API_BASE_URL,
-  LOCAL_DEV_BASE_URL: LOCAL_FALLBACK_API_BASE_URL,
+  LOCAL_DEV_BASE_URL: LOCAL_DEV_API_BASE_URL,
   FALLBACK_BASE_URL: PRODUCTION_API_BASE_URL,
   LAN_DEV_BASE_URL: LAN_DEV_API_BASE_URL,
   DEFAULT_TIMEOUT_MS: 15000,

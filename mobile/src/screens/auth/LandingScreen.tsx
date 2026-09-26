@@ -9,6 +9,7 @@ import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { STORAGE_KEYS } from '../../utils/constants';
 import { useI18n, SupportedLanguage, LANGUAGE_OPTIONS } from '../../i18n';
 import { AppIcon } from '../../components/ui/AppIcon';
+import { EcoSetuLogo } from '../../components/common/EcoSetuLogo';
 import voiceService from '../../services/voiceService';
 
 const { EcoSetuSpeech } = NativeModules;
@@ -221,9 +222,7 @@ export const LandingScreen: React.FC<Props> = ({ navigation, route }) => {
       <EcoSetuBackground>
         <SafeAreaView style={styles.safeArea}>
           <View style={styles.firstLaunchContainer}>
-            <View style={styles.logoBadge}>
-              <AppIcon name="globe" size={28} color="#10B981" />
-            </View>
+            <EcoSetuLogo size={64} showGlow style={{ marginBottom: 16 }} />
 
             <Text style={styles.firstLaunchTitle}>
               {selectedLang ? 'ECOSETU Voice' : 'Choose Language'}

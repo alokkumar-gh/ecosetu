@@ -33,6 +33,7 @@ import {
 } from './AdminTheme';
 
 import { AppIcon, IconName } from '../ui/AppIcon';
+import { EcoSetuLogo } from '../common/EcoSetuLogo';
 
 interface AdminSidebarProps {
   currentScreen: string;
@@ -85,9 +86,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     <Animated.View style={[styles.sidebar, { width: sidebarAnim }]}>
       {/* ── Logo / Brand ───────────────────────────────────────── */}
       <View style={styles.brand}>
-        <View style={styles.brandLogoCircle}>
-          <AppIcon name="recycle" size={18} color={ADMIN_COLOR.brand} strokeWidth={2.2} />
-        </View>
+        <EcoSetuLogo size={28} bordered={false} style={styles.brandLogoCircle} />
         <Animated.View
           style={{
             opacity: labelOpacity,
