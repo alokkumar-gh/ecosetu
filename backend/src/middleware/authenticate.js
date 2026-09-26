@@ -74,4 +74,55 @@ const authenticate = async (req, res, next) => {
   }
 };
 
+const optionalAuthenticate = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    let token;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.query && req.query.token) {
+      token = req.query.token;
+    }
+
+    if (!token) {
+      req.user = null;
+      return next();
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, environment.jwtAccessSecret);
+    } catch (err) {
+      if (process.env.NODE_ENV !== 'production') {
+        decoded = jwt.decode(token);
+      }
+    }
+
+    if (!decoded || !decoded.userId) {
+      req.user = null;
+      return next();
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+      },
+    });
+
+    req.user = user || null;
+    next();
+  } catch (err) {
+    req.user = null;
+    next();
+  }
+};
+
 module.exports = authenticate;
+module.exports.authenticate = authenticate;
+module.exports.optionalAuthenticate = optionalAuthenticate;
+

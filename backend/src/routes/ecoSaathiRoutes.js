@@ -4,18 +4,16 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/ecoSaathiController');
-const authenticate = require('../middleware/authenticate');
+const { authenticate, optionalAuthenticate } = require('../middleware/authenticate');
 
-// All Eco-Saathi endpoints enforce authenticated user identity
-router.use(authenticate);
+// 1. Process natural language query (optional authentication for general AI queries)
+router.post('/message', optionalAuthenticate, (req, res, next) => controller.handleMessage(req, res, next));
 
-// 1. Process natural language query
-router.post('/message', (req, res, next) => controller.handleMessage(req, res, next));
+// 2. Execute confirmed write action (requires authentication)
+router.post('/confirm-action', authenticate, (req, res, next) => controller.handleConfirmAction(req, res, next));
 
-// 2. Execute confirmed write action
-router.post('/confirm-action', (req, res, next) => controller.handleConfirmAction(req, res, next));
-
-// 3. Get user context
-router.get('/context', (req, res, next) => controller.getContext(req, res, next));
+// 3. Get user context (optional authentication)
+router.get('/context', optionalAuthenticate, (req, res, next) => controller.getContext(req, res, next));
 
 module.exports = router;
+
