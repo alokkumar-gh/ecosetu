@@ -78,7 +78,7 @@ const USER_STATUS = Object.freeze({
   DEACTIVATED: 'DEACTIVATED',
 });
 
-type FilterTab = 'ALL' | 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED';
+type FilterTab = 'ALL' | 'SCHEDULED' | 'IN_PROGRESS' | 'OFFERS' | 'COMPLETED';
 
 interface Props {
   navigation?: any;
@@ -133,6 +133,7 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
 
   // Pickups state
   const [pickups, setPickups] = useState<any[]>([]);
+  const [myOffers, setMyOffers] = useState<any[]>([]);
   const [pagination, setPagination] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -169,23 +170,35 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
     setIsVerificationError(false);
 
     try {
-      const result = await collectorService.getMyPickups({ page: 1, limit: 50 });
-      setPickups(result.pickups || []);
-      setPagination(result.pagination || null);
-      setFromCache(result.fromCache);
-    } catch (err: any) {
-      const status = err?.response?.status;
-      const msg =
-        err?.response?.data?.message ||
-        err?.message ||
-        'Unable to load your assigned pickups.';
+      const [pickupsRes, offersRes] = await Promise.allSettled([
+        collectorService.getMyPickups({ page: 1, limit: 50 }),
+        collectorService.getMyOffers(),
+      ]);
 
-      if (status === 403) {
-        setIsVerificationError(true);
-        setPickups([]);
+      if (pickupsRes.status === 'fulfilled') {
+        setPickups(pickupsRes.value.pickups || []);
+        setPagination(pickupsRes.value.pagination || null);
+        setFromCache(pickupsRes.value.fromCache);
       } else {
-        setError(msg);
+        const err: any = pickupsRes.reason;
+        const status = err?.response?.status;
+        const msg =
+          err?.response?.data?.message ||
+          err?.message ||
+          'Unable to load your assigned pickups.';
+        if (status === 403) {
+          setIsVerificationError(true);
+          setPickups([]);
+        } else {
+          setError(msg);
+        }
       }
+
+      if (offersRes.status === 'fulfilled') {
+        setMyOffers(Array.isArray(offersRes.value) ? offersRes.value : []);
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Unable to load pickups and offers.');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -499,6 +512,8 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
 
   // ── Filtered Pickups ───────────────────────────────────────────────────────
 
+  // ── Filtered Pickups & Offers ───────────────────────────────────────────────
+
   const filteredPickups = useMemo(() => {
     if (activeFilter === 'ALL') return pickups;
     if (activeFilter === 'SCHEDULED') {
@@ -534,84 +549,105 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
         completed++;
       }
     });
-    return { all: pickups.length, scheduled, inProgress, completed };
-  }, [pickups]);
+    return { all: pickups.length, scheduled, inProgress, offers: myOffers.length, completed };
+  }, [pickups, myOffers]);
 
   // ── Render Filter Chips ───────────────────────────────────────────────────
 
   const renderFilterChips = () => (
-    <View
-      style={styles.filterRow}
-      accessibilityRole="tablist"
-      accessibilityLabel="Filter pickups by status"
-    >
-      <TouchableOpacity
-        style={[styles.filterChip, activeFilter === 'ALL' && styles.filterChipActive]}
-        onPress={() => setActiveFilter('ALL')}
-        accessibilityRole="tab"
-        accessibilityLabel={`All pickups (${counts.all})`}
-        accessibilityState={{ selected: activeFilter === 'ALL' }}
+    <View style={styles.filterContainer}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterScrollContent}
+        accessibilityRole="tablist"
+        accessibilityLabel="Filter pickups by status"
       >
-        <Text
-          style={[
-            styles.filterChipText,
-            activeFilter === 'ALL' && styles.filterChipTextActive,
-          ]}
+        <TouchableOpacity
+          style={[styles.filterChip, activeFilter === 'ALL' && styles.filterChipActive]}
+          onPress={() => setActiveFilter('ALL')}
+          accessibilityRole="tab"
+          accessibilityLabel={`All pickups (${counts.all})`}
+          accessibilityState={{ selected: activeFilter === 'ALL' }}
         >
-          {t('collector.pickups.tabAll') || 'All'} ({counts.all})
-        </Text>
-      </TouchableOpacity>
+          <Text
+            style={[
+              styles.filterChipText,
+              activeFilter === 'ALL' && styles.filterChipTextActive,
+            ]}
+          >
+            {t('collector.pickups.tabAll') || 'All'} ({counts.all})
+          </Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={[styles.filterChip, activeFilter === 'SCHEDULED' && styles.filterChipActive]}
-        onPress={() => setActiveFilter('SCHEDULED')}
-        accessibilityRole="tab"
-        accessibilityLabel={`Scheduled pickups (${counts.scheduled})`}
-        accessibilityState={{ selected: activeFilter === 'SCHEDULED' }}
-      >
-        <Text
-          style={[
-            styles.filterChipText,
-            activeFilter === 'SCHEDULED' && styles.filterChipTextActive,
-          ]}
+        <TouchableOpacity
+          style={[styles.filterChip, activeFilter === 'SCHEDULED' && styles.filterChipActive]}
+          onPress={() => setActiveFilter('SCHEDULED')}
+          accessibilityRole="tab"
+          accessibilityLabel={`Scheduled pickups (${counts.scheduled})`}
+          accessibilityState={{ selected: activeFilter === 'SCHEDULED' }}
         >
-          {t('collector.pickups.tabScheduled') || 'Scheduled'} ({counts.scheduled})
-        </Text>
-      </TouchableOpacity>
+          <Text
+            style={[
+              styles.filterChipText,
+              activeFilter === 'SCHEDULED' && styles.filterChipTextActive,
+            ]}
+          >
+            {t('collector.pickups.tabScheduled') || 'Scheduled'} ({counts.scheduled})
+          </Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={[styles.filterChip, activeFilter === 'IN_PROGRESS' && styles.filterChipActive]}
-        onPress={() => setActiveFilter('IN_PROGRESS')}
-        accessibilityRole="tab"
-        accessibilityLabel={`In Progress pickups (${counts.inProgress})`}
-        accessibilityState={{ selected: activeFilter === 'IN_PROGRESS' }}
-      >
-        <Text
-          style={[
-            styles.filterChipText,
-            activeFilter === 'IN_PROGRESS' && styles.filterChipTextActive,
-          ]}
+        <TouchableOpacity
+          style={[styles.filterChip, activeFilter === 'IN_PROGRESS' && styles.filterChipActive]}
+          onPress={() => setActiveFilter('IN_PROGRESS')}
+          accessibilityRole="tab"
+          accessibilityLabel={`In Progress pickups (${counts.inProgress})`}
+          accessibilityState={{ selected: activeFilter === 'IN_PROGRESS' }}
         >
-          {t('collector.pickups.tabInProgress') || 'In Progress'} ({counts.inProgress})
-        </Text>
-      </TouchableOpacity>
+          <Text
+            style={[
+              styles.filterChipText,
+              activeFilter === 'IN_PROGRESS' && styles.filterChipTextActive,
+            ]}
+          >
+            {t('collector.pickups.tabInProgress') || 'In Progress'} ({counts.inProgress})
+          </Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={[styles.filterChip, activeFilter === 'COMPLETED' && styles.filterChipActive]}
-        onPress={() => setActiveFilter('COMPLETED')}
-        accessibilityRole="tab"
-        accessibilityLabel={`Completed pickups (${counts.completed})`}
-        accessibilityState={{ selected: activeFilter === 'COMPLETED' }}
-      >
-        <Text
-          style={[
-            styles.filterChipText,
-            activeFilter === 'COMPLETED' && styles.filterChipTextActive,
-          ]}
+        <TouchableOpacity
+          style={[styles.filterChip, activeFilter === 'OFFERS' && styles.filterChipActive]}
+          onPress={() => setActiveFilter('OFFERS')}
+          accessibilityRole="tab"
+          accessibilityLabel={`My Price Offers (${counts.offers})`}
+          accessibilityState={{ selected: activeFilter === 'OFFERS' }}
         >
-          History ({counts.completed})
-        </Text>
-      </TouchableOpacity>
+          <Text
+            style={[
+              styles.filterChipText,
+              activeFilter === 'OFFERS' && styles.filterChipTextActive,
+            ]}
+          >
+            💰 Offers ({counts.offers})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterChip, activeFilter === 'COMPLETED' && styles.filterChipActive]}
+          onPress={() => setActiveFilter('COMPLETED')}
+          accessibilityRole="tab"
+          accessibilityLabel={`Completed pickups (${counts.completed})`}
+          accessibilityState={{ selected: activeFilter === 'COMPLETED' }}
+        >
+          <Text
+            style={[
+              styles.filterChipText,
+              activeFilter === 'COMPLETED' && styles.filterChipTextActive,
+            ]}
+          >
+            History ({counts.completed})
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 
@@ -628,12 +664,24 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
       );
     }
 
-    if (!isConnected && pickups.length === 0) {
+    if (!isConnected && pickups.length === 0 && myOffers.length === 0) {
       return (
         <EmptyState
           icon="wifi-off"
           title="Offline — No Cached Pickups"
           message="You are currently offline and have no pickups cached on this device. Reconnect to sync with ECOSETU."
+        />
+      );
+    }
+
+    if (activeFilter === 'OFFERS') {
+      return (
+        <EmptyState
+          icon="award"
+          title="No Price Offers Placed"
+          message="You haven't made price offers on any open citizen collection requests yet. Explore nearby requests to give competitive doorstep offers."
+          actionLabel="Give Price Offers"
+          onAction={() => navigation?.navigate?.('CollectorBrowse')}
         />
       );
     }
@@ -678,6 +726,120 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
         actionLabel="Browse Requests"
         onAction={() => navigation?.navigate?.('CollectorBrowse')}
       />
+    );
+  };
+
+  // ── Render Offer Card ─────────────────────────────────────────────────────
+
+  const renderOfferCard = ({ item }: { item: any }) => {
+    const req = item.collectionRequest || {};
+    const items = req.ewasteItems || [];
+    const isPending = item.status === 'PENDING';
+    const isAccepted = item.status === 'ACCEPTED';
+    const isRejected = item.status === 'REJECTED';
+    const hasCounter = Boolean(item.counterPrice && Number(item.counterPrice) > 0);
+
+    return (
+      <View style={styles.card} key={item.id}>
+        <View style={styles.cardHeader}>
+          <View>
+            <Text style={styles.cardRef}>
+              OFFER #{item.id ? String(item.id).slice(0, 8).toUpperCase() : 'BID'}
+            </Text>
+            {req.id && (
+              <Text style={styles.cardReqRef}>Request: #{String(req.id).slice(0, 8).toUpperCase()}</Text>
+            )}
+          </View>
+          <View
+            style={[
+              styles.offerStatusBadge,
+              isAccepted
+                ? styles.offerStatusAccepted
+                : isRejected
+                ? styles.offerStatusRejected
+                : styles.offerStatusPending,
+            ]}
+          >
+            <Text
+              style={[
+                styles.offerStatusBadgeText,
+                isAccepted
+                  ? styles.offerStatusTextAccepted
+                  : isRejected
+                  ? styles.offerStatusTextRejected
+                  : styles.offerStatusTextPending,
+              ]}
+            >
+              {isAccepted ? 'ACCEPTED' : isRejected ? 'DECLINED' : 'PENDING REVIEW'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Offer Amount Highlight Card */}
+        <View style={styles.offerAmountBox}>
+          <View>
+            <Text style={styles.offerAmountLabel}>Your Offered Payout:</Text>
+            <Text style={styles.offerAmountValue}>₹{item.offeredPrice}</Text>
+          </View>
+          {hasCounter && (
+            <View style={styles.counterBox}>
+              <Text style={styles.counterLabel}>Citizen Counter:</Text>
+              <Text style={styles.counterValue}>₹{item.counterPrice}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Citizen & Location summary */}
+        <View style={styles.infoRow}>
+          <AppIcon name="map-pin" size={16} color={colors.primary} />
+          <View style={styles.infoTextContainer}>
+            <Text style={styles.infoLabel}>Pickup Area</Text>
+            <Text style={styles.infoValue}>
+              {req.pickupAddress || req.city || 'Doorstep Area'}
+            </Text>
+          </View>
+        </View>
+
+        {/* E-Waste Items Preview */}
+        <View style={styles.itemsSection}>
+          <Text style={styles.itemsTitle}>
+            E-Waste Items ({items.length})
+          </Text>
+          {items.map((it: any, idx: number) => (
+            <View key={it.id || idx} style={styles.itemRow}>
+              {Boolean(it.imageUrl) && (
+                <View style={{ width: 40, height: 40, borderRadius: 6, overflow: 'hidden', marginRight: 8 }}>
+                  <AuthorizedImage
+                    uri={it.imageUrl}
+                    style={{ width: 40, height: 40 }}
+                    categoryLabel={it.category}
+                  />
+                </View>
+              )}
+              <Text style={styles.itemBullet}>•</Text>
+              <Text style={styles.itemDesc}>
+                {it.category} • Qty: {it.quantity ?? 1} • ~{it.estimatedWeightKg ?? 1.0} kg
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Actions for Offer */}
+        <View style={styles.actionContainer}>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.mapNavBtn, { flex: 1 }]}
+            onPress={() => navigation?.navigate?.('CollectorBrowse')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.btnRow}>
+              <AppIcon name="edit" size={14} color={colors.textPrimary} />
+              <Text style={styles.mapNavBtnText}>
+                {isPending ? 'Edit Offer on Map' : 'View in Browse'}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </View>
     );
   };
 
@@ -755,6 +917,19 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
             </Text>
           </View>
         </View>
+
+        {/* Agreed Price / Acquisition Payout */}
+        {Boolean(item.totalAmount || req.agreedPrice || req.pickupOffers?.[0]?.offeredPrice || req.standardPrice?.estimatedTotal) && (
+          <View style={styles.cardPriceRow}>
+            <View style={styles.cardPriceLeft}>
+              <AppIcon name="award" size={15} color="#10B981" />
+              <Text style={styles.cardPriceLabel}>Agreed Doorstep Payout:</Text>
+            </View>
+            <Text style={styles.cardPriceValue}>
+              ₹{item.totalAmount || req.agreedPrice || req.pickupOffers?.[0]?.offeredPrice || req.standardPrice?.estimatedTotal}
+            </Text>
+          </View>
+        )}
 
         {/* Associated Items */}
         <View style={styles.itemsSection}>
@@ -981,8 +1156,8 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
         </View>
       ) : (
         <FlatList
-          data={filteredPickups}
-          renderItem={renderPickupCard}
+          data={activeFilter === 'OFFERS' ? myOffers : filteredPickups}
+          renderItem={activeFilter === 'OFFERS' ? renderOfferCard : renderPickupCard}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContent}
           refreshControl={
@@ -1020,10 +1195,19 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
               <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               {/* Modal Header */}
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>{t('collector.pickups.completeModalTitle') || 'Complete Pickup'}</Text>
-                <Text style={styles.modalSubtitle}>
-                  Record verified e-waste weights collected at the citizen doorstep.
-                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalTitle}>{t('collector.pickups.completeModalTitle') || 'Complete Pickup'}</Text>
+                  <Text style={styles.modalSubtitle}>
+                    Record verified e-waste weights collected at the citizen doorstep.
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={handleCloseCompleteModal}
+                  disabled={isSubmittingCompletion}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <AppIcon name="x" size={18} color="#94A3B8" />
+                </TouchableOpacity>
               </View>
 
               {/* Error Message */}
@@ -1082,21 +1266,11 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
                 editable={!isSubmittingCompletion}
               />
 
-              {/* Modal Action Buttons */}
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.modalCancelBtn}
-                  onPress={handleCloseCompleteModal}
-                  disabled={isSubmittingCompletion}
-                  accessibilityRole="button"
-                  accessibilityLabel="Cancel pickup completion"
-                >
-                  <Text style={styles.modalCancelText}>{t('collector.pickups.cancel') || 'Cancel'}</Text>
-                </TouchableOpacity>
-
+              {/* Modal Action: Single Prominent Full-Width Confirm & Complete */}
+              <View style={styles.modalSingleActionContainer}>
                 <TouchableOpacity
                   style={[
-                    styles.modalSubmitBtn,
+                    styles.modalSubmitBtnFull,
                     (isSubmittingCompletion || calculatedTotalWeight < 0.01) &&
                       styles.btnDisabled,
                   ]}
@@ -1104,16 +1278,25 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
                   disabled={isSubmittingCompletion || calculatedTotalWeight < 0.01}
                   accessibilityRole="button"
                   accessibilityLabel="Submit and finalize pickup"
-                  accessibilityState={{
-                    disabled: isSubmittingCompletion || calculatedTotalWeight < 0.01,
-                    busy: isSubmittingCompletion,
-                  }}
+                  activeOpacity={0.85}
                 >
                   {isSubmittingCompletion ? (
-                    <ActivityIndicator size="small" color={colors.surface} />
+                    <ActivityIndicator size="small" color="#02080D" />
                   ) : (
-                    <Text style={styles.modalSubmitText}>{t('collector.pickups.confirmCompletion') || 'Confirm Completion'}</Text>
+                    <Text style={styles.modalSubmitTextFull}>
+                      ✓ Confirm & Complete Pickup ({calculatedTotalWeight} kg)
+                    </Text>
                   )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalDismissLink}
+                  onPress={handleCloseCompleteModal}
+                  disabled={isSubmittingCompletion}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalDismissText}>
+                    {t('common.dismiss', 'Dismiss & Keep In Progress')}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -1545,43 +1728,142 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(6, 21, 27, 0.90)',
     marginBottom: spacing.spaceLg,
   },
-  modalActions: {
+  filterContainer: {
+    backgroundColor: 'rgba(6, 21, 27, 0.75)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(45, 212, 191, 0.20)',
+  },
+  filterScrollContent: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.spaceMd,
+    paddingVertical: spacing.spaceSm,
+  },
+  cardPriceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: spacing.spaceMd,
-  },
-  modalCancelBtn: {
-    flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    paddingVertical: spacing.spaceMd,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 10,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.20)',
-    minHeight: 48,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
+    borderRadius: 8,
+    paddingHorizontal: spacing.spaceSm + 2,
+    paddingVertical: 6,
+    marginBottom: spacing.spaceSm,
   },
-  modalCancelText: {
-    color: '#CBD5E1',
-    fontSize: typography.Button.fontSize,
+  cardPriceLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  cardPriceLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  cardPriceValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#10B981',
+  },
+  offerAmountBox: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.35)',
+    borderRadius: 8,
+    padding: spacing.spaceSm,
+    marginBottom: spacing.spaceSm,
+  },
+  offerAmountLabel: {
+    fontSize: 11,
+    color: '#94A3B8',
     fontWeight: '600',
+    textTransform: 'uppercase',
   },
-  modalSubmitBtn: {
-    flex: 2,
+  offerAmountValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#38BDF8',
+  },
+  counterBox: {
+    alignItems: 'flex-end',
+  },
+  counterLabel: {
+    fontSize: 11,
+    color: '#F59E0B',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  counterValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#F59E0B',
+  },
+  offerStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  offerStatusPending: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.40)',
+  },
+  offerStatusAccepted: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.40)',
+  },
+  offerStatusRejected: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.40)',
+  },
+  offerStatusBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  offerStatusTextPending: {
+    color: '#F59E0B',
+  },
+  offerStatusTextAccepted: {
+    color: '#10B981',
+  },
+  offerStatusTextRejected: {
+    color: '#EF4444',
+  },
+  modalSingleActionContainer: {
+    marginTop: spacing.spaceMd,
+    alignItems: 'center',
+    width: '100%',
+  },
+  modalSubmitBtnFull: {
+    width: '100%',
     backgroundColor: '#10B981',
     borderWidth: 1,
     borderColor: '#34D399',
     paddingVertical: spacing.spaceMd,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
-    minHeight: 48,
+    borderRadius: 12,
+    minHeight: 52,
   },
-  modalSubmitText: {
-    color: '#03120E',
+  modalSubmitTextFull: {
+    color: '#02080D',
     fontSize: typography.Button.fontSize,
     fontWeight: '800',
+  },
+  modalDismissLink: {
+    paddingVertical: spacing.spaceSm,
+    marginTop: spacing.spaceXs,
+  },
+  modalDismissText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   btnRow: {
     flexDirection: 'row',

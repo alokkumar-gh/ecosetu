@@ -458,6 +458,16 @@ export const CollectorDashboardScreen: React.FC = () => {
                         </Text>
                       </View>
 
+                      {/* Acquisition Price / Agreed Doorstep Payout */}
+                      {Boolean(pickup.totalAmount || pickup.request?.agreedPrice || pickup.agreedPrice || pickup.pickupOffers?.[0]?.offeredPrice || pickup.request?.standardPrice?.estimatedTotal) && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 3 }}>
+                          <AppIcon name="award" size={13} color="#10B981" style={{ marginRight: 4 }} />
+                          <Text style={{ fontSize: 12, fontWeight: '700', color: '#10B981' }}>
+                            Agreed Payout: ₹{pickup.totalAmount || pickup.request?.agreedPrice || pickup.agreedPrice || pickup.pickupOffers?.[0]?.offeredPrice || pickup.request?.standardPrice?.estimatedTotal}
+                          </Text>
+                        </View>
+                      )}
+
                       <View style={styles.pickupCardBottom}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                           <AppIcon name="box" size={13} color="#94A3B8" style={{ marginRight: 4 }} />

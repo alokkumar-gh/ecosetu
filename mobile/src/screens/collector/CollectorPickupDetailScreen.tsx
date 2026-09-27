@@ -520,6 +520,33 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
             </View>
           </GlassCard>
 
+          {/* 1.5. Doorstep Price / Acquisition Offer Card */}
+          {Boolean(acquisitionPrice) && (
+            <GlassCard style={styles.priceCard}>
+              <View style={styles.priceCardRow}>
+                <View style={styles.priceCardLeft}>
+                  <View style={styles.priceIconBadge}>
+                    <AppIcon name="award" size={20} color="#10B981" />
+                  </View>
+                  <View style={{ marginLeft: 10 }}>
+                    <Text style={styles.priceCardLabel}>
+                      {isCompleted ? 'Agreed Acquisition Payout' : 'Agreed Doorstep Offer'}
+                    </Text>
+                    <Text style={styles.priceCardSub}>
+                      Payable to citizen upon physical collection & weighing
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.priceCardRight}>
+                  <Text style={styles.priceValueText}>₹{acquisitionPrice}</Text>
+                  <Text style={styles.priceBadgePill}>
+                    {isCompleted ? 'PAID' : req.agreedPrice ? 'LOCKED OFFER' : 'ESTIMATE'}
+                  </Text>
+                </View>
+              </View>
+            </GlassCard>
+          )}
+
           {/* 2. Doorstep Address & Map Section */}
           <GlassCard style={styles.sectionCard}>
             <View style={styles.sectionHeaderRow}>
@@ -818,23 +845,31 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
                     editable={!isSubmittingCompletion}
                   />
 
-                  {/* Modal Action Buttons: Cancel and ONE Primary Confirm */}
-                  <View style={styles.modalActionsRow}>
+                  {/* Modal Action Buttons: Prominent Full-Width Confirm & Complete */}
+                  <View style={styles.modalActionsContainer}>
                     <GlassButton
-                      label={t('collector.pickups.cancel') || 'Cancel'}
-                      variant="outline"
-                      onPress={() => setIsCompleteModalVisible(false)}
-                      disabled={isSubmittingCompletion}
-                      style={styles.modalCancelBtn}
-                    />
-                    <GlassButton
-                      label={t('collector.pickups.confirmCompletion') || 'Confirm & Complete'}
+                      label={
+                        isSubmittingCompletion
+                          ? 'Finalizing Pickup...'
+                          : `✓ Complete Pickup (${Math.round(calculatedTotalWeight * 100) / 100} kg)`
+                      }
                       variant="primary"
                       onPress={handleConfirmCompletion}
                       loading={isSubmittingCompletion}
                       disabled={isSubmittingCompletion || calculatedTotalWeight < 0.01}
-                      style={styles.modalConfirmBtn}
+                      style={styles.modalPrimaryCompleteBtn}
+                      accessibilityLabel="Confirm verified weights and finalize pickup"
                     />
+                    <TouchableOpacity
+                      style={styles.modalDismissLink}
+                      onPress={() => !isSubmittingCompletion && setIsCompleteModalVisible(false)}
+                      disabled={isSubmittingCompletion}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.modalDismissText}>
+                        {t('common.dismiss', 'Dismiss & Keep In Progress')}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 </ScrollView>
               </View>
@@ -1273,16 +1308,80 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     fontSize: 13,
   },
-  modalActionsRow: {
-    flexDirection: 'row',
-    gap: spacing.spaceMd,
-    marginTop: spacing.spaceMd,
+  priceCard: {
+    marginBottom: spacing.spaceMd,
+    padding: spacing.spaceMd,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
   },
-  modalCancelBtn: {
+  priceCardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  priceCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
   },
-  modalConfirmBtn: {
-    flex: 2,
+  priceIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  priceCardLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  priceCardSub: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 2,
+    maxWidth: 200,
+  },
+  priceCardRight: {
+    alignItems: 'flex-end',
+  },
+  priceValueText: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#10B981',
+  },
+  priceBadgePill: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#064E3B',
+    backgroundColor: '#34D399',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginTop: 3,
+    overflow: 'hidden',
+  },
+  modalActionsContainer: {
+    marginTop: spacing.spaceMd,
+    width: '100%',
+    alignItems: 'center',
+  },
+  modalPrimaryCompleteBtn: {
+    width: '100%',
+    minHeight: 52,
+    borderRadius: 12,
+  },
+  modalDismissLink: {
+    paddingVertical: spacing.spaceSm,
+    marginTop: spacing.spaceXs,
+  },
+  modalDismissText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
 });
 

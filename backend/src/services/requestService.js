@@ -1036,6 +1036,13 @@ class RequestService {
         collectionRequest: {
           include: {
             ewasteItems: true,
+            citizen: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+              },
+            },
           },
         },
       },

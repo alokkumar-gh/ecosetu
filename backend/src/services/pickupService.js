@@ -44,6 +44,9 @@ class PickupService {
           collectionRequest: {
             include: {
               ewasteItems: true,
+              pickupOffers: {
+                where: { collectorId: profile.id },
+              },
               citizen: {
                 select: {
                   id: true,
@@ -83,6 +86,7 @@ class PickupService {
         collectionRequest: {
           include: {
             ewasteItems: true,
+            pickupOffers: true,
             citizen: {
               select: {
                 id: true,
