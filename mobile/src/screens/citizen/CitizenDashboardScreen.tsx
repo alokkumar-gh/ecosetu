@@ -302,6 +302,8 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
                   : isCancelled
                   ? 'rgba(239,68,68,0.12)'
                   : 'rgba(245,158,11,0.12)';
+                const offersCount = req.offersCount || (Array.isArray(req.pickupOffers) ? req.pickupOffers.filter((o: any) => o.status === 'PENDING').length : 0);
+
                 return (
                   <TouchableOpacity
                     key={req.id}
@@ -313,9 +315,19 @@ export const CitizenDashboardScreen: React.FC<Props> = ({ navigation }) => {
                       <AppIcon name="box" size={18} color="#0284C7" />
                     </View>
                     <View style={styles.activityInfo}>
-                      <Text style={styles.activityId} numberOfLines={1}>
-                        REQ-{req.id ? req.id.slice(0, 8).toUpperCase() : 'NEW'}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={styles.activityId} numberOfLines={1}>
+                          REQ-{req.id ? req.id.slice(0, 8).toUpperCase() : 'NEW'}
+                        </Text>
+                        {offersCount > 0 && rawStatus === 'SUBMITTED' && (
+                          <View style={styles.offersReceivedBadge}>
+                            <View style={styles.offersReceivedDot} />
+                            <Text style={styles.offersReceivedText}>
+                              {offersCount} {offersCount === 1 ? 'Offer' : 'Offers'}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={styles.activitySub} numberOfLines={1}>
                         {itemCount} {itemCount === 1 ? t('collector.browse.item', 'item') : t('collector.browse.items', 'items')} • {t('citizen.requestDetail.doorstepAddress', 'Doorstep Pickup')}
                       </Text>
@@ -473,6 +485,31 @@ const styles = StyleSheet.create({
   activitySub: { fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 2 },
   statusChip: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 10, borderWidth: 1 },
   statusChipText: { fontSize: 10, fontWeight: '700' },
+
+  // Offers Received Badge
+  offersReceivedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16,185,129,0.18)',
+    borderWidth: 1,
+    borderColor: '#10B981',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    gap: 4,
+  },
+  offersReceivedDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#34D399',
+  },
+  offersReceivedText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#34D399',
+    letterSpacing: 0.2,
+  },
 
   // Empty
   emptyCard: { alignItems: 'center', paddingVertical: 28, paddingHorizontal: 20 },

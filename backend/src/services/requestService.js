@@ -340,9 +340,10 @@ class RequestService {
     let searchRadius = radiusKm ? parseFloat(radiusKm) : 5.0;
     let collectorProfileId = null;
 
-    const profile = await prisma.collectorProfile.findUnique({
-      where: { userId: collectorUser.id },
-    });
+    const userId = typeof collectorUser === 'string' ? collectorUser : collectorUser?.id;
+    const profile = userId ? await prisma.collectorProfile.findUnique({
+      where: { userId },
+    }) : null;
     if (profile) {
       if (profile.isAvailable === false) {
         return {
@@ -490,7 +491,24 @@ class RequestService {
           select: {
             id: true,
             userId: true,
+            user: { select: { id: true, name: true, phone: true } },
           },
+        },
+        pickupOffers: {
+          include: {
+            collector: {
+              select: {
+                id: true,
+                serviceAreaLat: true,
+                serviceAreaLng: true,
+                serviceRadiusKm: true,
+                totalPickups: true,
+                bio: true,
+                user: { select: { id: true, name: true, status: true, avatarUrl: true } },
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
         },
       },
     });
@@ -503,6 +521,57 @@ class RequestService {
       if (request.citizenId !== actor.id) {
         throw AppError.forbidden('Access forbidden: You can only view your own requests');
       }
+
+      // Format and sanitize offers for citizen viewing
+      const sanitizedOffers = (request.pickupOffers || []).map((o) => {
+        let distanceKm = null;
+        if (
+          request.pickupLat &&
+          request.pickupLng &&
+          o.collector?.serviceAreaLat &&
+          o.collector?.serviceAreaLng
+        ) {
+          try {
+            const d = calculateDistanceKm(
+              parseFloat(request.pickupLat),
+              parseFloat(request.pickupLng),
+              parseFloat(o.collector.serviceAreaLat),
+              parseFloat(o.collector.serviceAreaLng)
+            );
+            distanceKm = typeof d === 'number' ? Math.round(d * 10) / 10 : null;
+          } catch (e) {}
+        }
+
+        return {
+          id: o.id,
+          collectionRequestId: o.collectionRequestId,
+          collectorId: o.collectorId,
+          offeredPrice: parseFloat(o.offeredPrice),
+          standardPrice: o.standardPrice ? parseFloat(o.standardPrice) : null,
+          notes: o.notes,
+          status: o.status,
+          createdAt: o.createdAt,
+          updatedAt: o.updatedAt,
+          collector: {
+            id: o.collector?.id,
+            name: o.collector?.user?.name || 'Local Collector',
+            isVerified: o.collector?.user?.status === 'ACTIVE',
+            totalPickups: o.collector?.totalPickups || 0,
+            bio: o.collector?.bio || null,
+            distanceKm,
+            avatarUrl: o.collector?.user?.avatarUrl || null,
+          },
+        };
+      });
+
+      const offersCount = sanitizedOffers.filter((o) => o.status === 'PENDING').length;
+
+      return {
+        ...request,
+        pickupOffers: sanitizedOffers,
+        offers: sanitizedOffers,
+        offersCount,
+      };
     } else if (actor.role === ROLES.INFORMAL_COLLECTOR) {
       // Collectors can view available SUBMITTED requests or requests assigned to them
       const isAssigned = request.collector && request.collector.userId === actor.id;
@@ -511,6 +580,14 @@ class RequestService {
       if (!isAssigned && !isAvailable) {
         throw AppError.forbidden('Access forbidden: You do not have permission to view this request');
       }
+
+      // Hide other collectors' offers from this collector
+      const collectorProfile = await prisma.collectorProfile.findUnique({
+        where: { userId: actor.id },
+      });
+      const myOffers = (request.pickupOffers || []).filter(
+        (o) => collectorProfile && o.collectorId === collectorProfile.id
+      );
 
       if (!isAssigned) {
         const formattedAddress = [
@@ -522,8 +599,6 @@ class RequestService {
           request.state,
           request.pincode,
         ].filter(Boolean).join(', ');
-
-        const { maskedLat, maskedLng } = maskCoordinates(request.pickupLat, request.pickupLng, 2);
 
         return {
           ...request,
@@ -539,8 +614,18 @@ class RequestService {
           pickupLat: null,
           pickupLng: null,
           locationAccuracy: null,
+          pickupOffers: myOffers,
+          offers: myOffers,
+          offersCount: myOffers.length,
         };
       }
+
+      return {
+        ...request,
+        pickupOffers: myOffers,
+        offers: myOffers,
+        offersCount: myOffers.length,
+      };
     }
 
     return request;
@@ -608,6 +693,13 @@ class RequestService {
    * @param {object} payload - { offeredPrice, notes }
    * @returns {Promise<object>} Created or updated PickupOffer
    */
+  /**
+   * Collector submits or updates an offer for a collection request
+   * @param {string} collectorUserId - Authenticated collector user UUID
+   * @param {string} requestId - Request UUID
+   * @param {object} payload - { offeredPrice, notes }
+   * @returns {Promise<object>} Created or updated PickupOffer
+   */
   async submitOffer(collectorUserId, requestId, { offeredPrice, notes }) {
     // 1. Resolve collector profile
     const profile = await prisma.collectorProfile.findUnique({
@@ -644,6 +736,24 @@ class RequestService {
 
     const standardPrice = await this._calculateStandardPrice(request.ewasteItems);
 
+    // Check if an offer already exists for negotiation history preservation
+    const existingOffer = await prisma.pickupOffer.findUnique({
+      where: {
+        collectionRequestId_collectorId: {
+          collectionRequestId: requestId,
+          collectorId: profile.id,
+        },
+      },
+    });
+
+    let newNotes = notes ? notes.trim() : null;
+    const isUpdate = Boolean(existingOffer);
+    if (isUpdate && existingOffer.notes) {
+      newNotes = `${existingOffer.notes}\n[Collector Offer: ₹${priceNum}] ${notes ? notes.trim() : ''}`.trim();
+    } else if (newNotes && !newNotes.startsWith('[')) {
+      newNotes = `[Collector Offer: ₹${priceNum}] ${newNotes}`.trim();
+    }
+
     // 3. Upsert offer (strictly one active offer per collector per request)
     const offer = await prisma.pickupOffer.upsert({
       where: {
@@ -655,7 +765,7 @@ class RequestService {
       update: {
         offeredPrice: priceNum,
         standardPrice,
-        notes: notes ? notes.trim() : null,
+        notes: newNotes,
         status: 'PENDING',
         updatedAt: new Date(),
       },
@@ -664,7 +774,7 @@ class RequestService {
         collectorId: profile.id,
         offeredPrice: priceNum,
         standardPrice,
-        notes: notes ? notes.trim() : null,
+        notes: newNotes,
         status: 'PENDING',
       },
       include: {
@@ -678,12 +788,17 @@ class RequestService {
       },
     });
 
-    // 4. Notify citizen about incoming offer
+    // 4. Notify citizen about incoming offer / counter
+    const notifTitle = isUpdate ? 'Collector sent a counter offer' : 'New collector offer received';
+    const notifMsg = isUpdate
+      ? `${profile.user.name || 'A local collector'} submitted an updated offer of ₹${priceNum} for your pickup request #${requestId.slice(0, 8)}.`
+      : `${profile.user.name || 'A local collector'} submitted an offer of ₹${priceNum} for your pickup request #${requestId.slice(0, 8)}.`;
+
     await notificationService.createNotification({
       userId: request.citizenId,
       type: NOTIFICATION_TYPES.OFFER_RECEIVED,
-      title: 'New Offer Received',
-      message: `${profile.user.name || 'A local collector'} submitted an offer of ₹${priceNum} for your pickup request.`,
+      title: notifTitle,
+      message: notifMsg,
       referenceType: 'collection_request',
       referenceId: requestId,
     });
@@ -691,16 +806,28 @@ class RequestService {
     // 5. Immutable Traceability Event
     await auditService.logAction({
       actorId: collectorUserId,
-      action: 'OFFER_SUBMITTED',
+      action: isUpdate ? 'OFFER_UPDATED' : 'OFFER_SUBMITTED',
       entityType: 'collection_requests',
       entityId: requestId,
       details: {
         offerId: offer.id,
         offeredPrice: priceNum,
         collectorName: profile.user?.name || 'Collector',
-        notes: notes ? notes.trim() : null,
+        notes: newNotes,
       },
     });
+
+    // 6. Realtime Event Bus
+    try {
+      const eventBus = require('./eventBus');
+      eventBus.emit('COLLECTOR_OFFER_SUBMITTED', {
+        offer,
+        requestId,
+        collectorId: profile.id,
+        citizenId: request.citizenId,
+        isUpdate,
+      });
+    } catch (e) {}
 
     return offer;
   }
@@ -745,7 +872,8 @@ class RequestService {
       throw AppError.notFound('Offer not found for this request');
     }
 
-    const counterNote = `[Citizen Counter: ₹${priceNum}] ${notes ? notes.trim() : ''}`.trim();
+    const historyPrefix = offer.notes ? `${offer.notes}\n` : '';
+    const counterNote = `${historyPrefix}[Citizen Counter: ₹${priceNum}] ${notes ? notes.trim() : ''}`.trim();
 
     const updatedOffer = await prisma.pickupOffer.update({
       where: { id: offerId },
@@ -789,6 +917,17 @@ class RequestService {
         notes: notes ? notes.trim() : null,
       },
     });
+
+    // Realtime Event Bus
+    try {
+      const eventBus = require('./eventBus');
+      eventBus.emit('COLLECTOR_OFFER_COUNTERED', {
+        offer: updatedOffer,
+        requestId,
+        collectorId: offer.collectorId,
+        citizenId,
+      });
+    } catch (e) {}
 
     return updatedOffer;
   }
@@ -863,6 +1002,16 @@ class RequestService {
       },
     });
 
+    // Realtime Event Bus
+    try {
+      const eventBus = require('./eventBus');
+      eventBus.emit('COLLECTOR_OFFER_REJECTED', {
+        offer: updatedOffer,
+        requestId,
+        collectorId: offer.collectorId,
+      });
+    } catch (e) {}
+
     return updatedOffer;
   }
 
@@ -899,7 +1048,7 @@ class RequestService {
    * List offers for a collection request (Citizen owner, Collector self, Admin)
    * @param {object} actor - Authenticated user
    * @param {string} requestId - Request UUID
-   * @returns {Promise<object>} { offers }
+   * @returns {Promise<object>} { offers, count, total }
    */
   async listOffers(actor, requestId) {
     const request = await prisma.collectionRequest.findUnique({
@@ -936,7 +1085,7 @@ class RequestService {
           },
         },
       });
-      return { offers: myOffers };
+      return { offers: myOffers, count: myOffers.length, total: myOffers.length };
     }
 
     if (!isOwner && !isAdmin) {
@@ -948,14 +1097,63 @@ class RequestService {
       orderBy: { createdAt: 'desc' },
       include: {
         collector: {
-          include: {
-            user: { select: { id: true, name: true, phone: true, email: true, status: true } },
+          select: {
+            id: true,
+            serviceAreaLat: true,
+            serviceAreaLng: true,
+            serviceRadiusKm: true,
+            totalPickups: true,
+            bio: true,
+            user: { select: { id: true, name: true, status: true, avatarUrl: true } },
           },
         },
       },
     });
 
-    return { offers };
+    const sanitizedOffers = offers.map((o) => {
+      let distanceKm = null;
+      if (
+        request.pickupLat &&
+        request.pickupLng &&
+        o.collector?.serviceAreaLat &&
+        o.collector?.serviceAreaLng
+      ) {
+        try {
+          const d = calculateDistanceKm(
+            parseFloat(request.pickupLat),
+            parseFloat(request.pickupLng),
+            parseFloat(o.collector.serviceAreaLat),
+            parseFloat(o.collector.serviceAreaLng)
+          );
+          distanceKm = typeof d === 'number' ? Math.round(d * 10) / 10 : null;
+        } catch (e) {}
+      }
+
+      return {
+        id: o.id,
+        collectionRequestId: o.collectionRequestId,
+        collectorId: o.collectorId,
+        offeredPrice: parseFloat(o.offeredPrice),
+        standardPrice: o.standardPrice ? parseFloat(o.standardPrice) : null,
+        notes: o.notes,
+        status: o.status,
+        createdAt: o.createdAt,
+        updatedAt: o.updatedAt,
+        collector: {
+          id: o.collector?.id,
+          name: o.collector?.user?.name || 'Local Collector',
+          isVerified: o.collector?.user?.status === 'ACTIVE',
+          totalPickups: o.collector?.totalPickups || 0,
+          bio: o.collector?.bio || null,
+          distanceKm,
+          avatarUrl: o.collector?.user?.avatarUrl || null,
+        },
+      };
+    });
+
+    const pendingCount = sanitizedOffers.filter((o) => o.status === 'PENDING').length;
+
+    return { offers: sanitizedOffers, count: pendingCount, total: sanitizedOffers.length };
   }
 
   /**
@@ -1027,7 +1225,7 @@ class RequestService {
       });
 
       // 2. Update selected offer -> ACCEPTED
-      await tx.pickupOffer.update({
+      const updatedOffer = await tx.pickupOffer.update({
         where: { id: offerId },
         data: { status: 'ACCEPTED' },
       });
@@ -1052,7 +1250,7 @@ class RequestService {
         },
       });
 
-      return { request: updatedRequest, offer, pickup };
+      return { request: updatedRequest, offer: updatedOffer, pickup };
     };
 
     const result = typeof prisma.$transaction === 'function'
@@ -1065,7 +1263,7 @@ class RequestService {
       await notificationService.createNotification({
         userId: offer.collector.userId,
         type: NOTIFICATION_TYPES.OFFER_ACCEPTED,
-        title: 'Offer Accepted!',
+        title: 'Your pickup offer was accepted',
         message: `Your offer of ₹${offer.offeredPrice} for collection request #${requestId.slice(0, 8)} was accepted! Pickup is now scheduled.`,
         referenceType: 'collection_request',
         referenceId: requestId,
@@ -1106,6 +1304,31 @@ class RequestService {
     } catch (notifErr) {
       console.warn('[RequestService] Failed to notify other collectors:', notifErr?.message || notifErr);
     }
+
+    // Append-only audit log / Traceability
+    await auditService.logAction({
+      actorId: citizenId,
+      action: 'OFFER_ACCEPTED',
+      entityType: 'collection_requests',
+      entityId: requestId,
+      details: {
+        offerId,
+        offeredPrice: parseFloat(offer.offeredPrice),
+        collectorId: offer.collectorId,
+        pickupId: result.pickup.id,
+      },
+    });
+
+    // Realtime Event Bus
+    try {
+      const eventBus = require('./eventBus');
+      eventBus.emit('COLLECTOR_OFFER_ACCEPTED', {
+        offer: result.offer,
+        request: result.request,
+        pickup: result.pickup,
+        citizenId,
+      });
+    } catch (e) {}
 
     return result;
   }

@@ -161,16 +161,29 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
     loadPickupDetails(true);
   }, [loadPickupDetails]);
 
-  // Derived state
-  const status: string = pickup?.status || PICKUP_STATUS.SCHEDULED;
   const req = pickup?.collectionRequest || {};
   const items: any[] = req.ewasteItems || [];
 
-  const isScheduled = status === PICKUP_STATUS.SCHEDULED;
-  const isInProgress = status === PICKUP_STATUS.IN_PROGRESS;
-  const isCompleted = status === PICKUP_STATUS.COMPLETED;
-  const isCancelled = status === PICKUP_STATUS.CANCELLED;
-  const isFailed = status === PICKUP_STATUS.FAILED;
+  // Derived state with robust normalization across Pickup and CollectionRequest models
+  const isReqCompleted = req.status === REQUEST_STATUS.PICKED_UP || req.status === 'PICKED_UP' || req.status === 'COMPLETED';
+  const isReqCancelled = req.status === REQUEST_STATUS.CANCELLED || req.status === 'CANCELLED' || req.status === 'REJECTED';
+
+  const rawStatus = pickup?.status || (isReqCompleted ? PICKUP_STATUS.COMPLETED : isReqCancelled ? PICKUP_STATUS.CANCELLED : PICKUP_STATUS.SCHEDULED);
+  const isCompleted = rawStatus === PICKUP_STATUS.COMPLETED || rawStatus === 'COMPLETED' || isReqCompleted;
+  const isCancelled = (rawStatus === PICKUP_STATUS.CANCELLED || rawStatus === 'CANCELLED' || isReqCancelled) && !isCompleted;
+  const isFailed = (rawStatus === PICKUP_STATUS.FAILED || rawStatus === 'FAILED') && !isCompleted && !isCancelled;
+  const isInProgress = (rawStatus === PICKUP_STATUS.IN_PROGRESS || rawStatus === 'IN_PROGRESS' || req.status === REQUEST_STATUS.PICKUP_SCHEDULED) && !isCompleted && !isCancelled && !isFailed;
+  const isScheduled = (rawStatus === PICKUP_STATUS.SCHEDULED || rawStatus === 'SCHEDULED' || req.status === REQUEST_STATUS.ACCEPTED) && !isInProgress && !isCompleted && !isCancelled && !isFailed;
+
+  const status: string = isCompleted
+    ? PICKUP_STATUS.COMPLETED
+    : isCancelled
+    ? PICKUP_STATUS.CANCELLED
+    : isFailed
+    ? PICKUP_STATUS.FAILED
+    : isInProgress
+    ? PICKUP_STATUS.IN_PROGRESS
+    : PICKUP_STATUS.SCHEDULED;
 
   // Authorization check: collector can view exact coordinates once assigned
   const isAuthorized = Boolean(
@@ -195,6 +208,15 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
   const totalEstWeight = useMemo(() => {
     return items.reduce((sum: number, it: any) => sum + (Number(it.estimatedWeightKg) || 0), 0);
   }, [items]);
+
+  // Acquisition or standard price estimate
+  const acquisitionPrice = useMemo(() => {
+    if (pickup?.totalAmount) return String(pickup.totalAmount);
+    if (req?.agreedPrice) return String(req.agreedPrice);
+    if (req?.standardPrice?.estimatedTotal) return String(req.standardPrice.estimatedTotal);
+    if (req?.standardPrice?.minEstimate) return String(req.standardPrice.minEstimate);
+    return null;
+  }, [pickup, req]);
 
   // Total verified weight in modal
   const calculatedTotalWeight = useMemo(() => {
@@ -610,15 +632,21 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
               <View style={styles.receiptHeader}>
                 <AppIcon name="check-circle" size={24} color="#10B981" />
                 <View>
-                  <Text style={styles.receiptTitle}>Pickup Completed</Text>
+                  <Text style={styles.receiptTitle}>✓ Pickup Completed</Text>
                   <Text style={styles.receiptSub}>Recorded in EcoSetu Chain of Custody</Text>
                 </View>
               </View>
               <View style={styles.receiptDivider} />
               <View style={styles.receiptRow}>
-                <Text style={styles.receiptLabel}>Total Collected Weight:</Text>
+                <Text style={styles.receiptLabel}>Actual Weight Collected:</Text>
                 <Text style={styles.receiptValue}>{pickup?.totalWeightKg || totalEstWeight} kg</Text>
               </View>
+              {Boolean(acquisitionPrice) && (
+                <View style={styles.receiptRow}>
+                  <Text style={styles.receiptLabel}>Acquisition Price:</Text>
+                  <Text style={[styles.receiptValue, { color: '#10B981', fontWeight: '800' }]}>₹{acquisitionPrice}</Text>
+                </View>
+              )}
               {pickup?.completedAt && (
                 <View style={styles.receiptRow}>
                   <Text style={styles.receiptLabel}>Completion Time:</Text>

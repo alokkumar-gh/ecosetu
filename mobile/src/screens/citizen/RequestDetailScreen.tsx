@@ -382,16 +382,16 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       return;
     }
 
-    const collectorName = offer.collector?.name || 'Local Collector';
+    const collectorName = offer.collector?.name || 'Collector';
     const price = offer.offeredPrice;
 
     Alert.alert(
-      'Accept Collector Offer',
-      `Accept offer of ₹${price} from ${collectorName}?\n\nThis will assign ${collectorName} to collect your e-waste and schedule the pickup.`,
+      'Accept Offer',
+      `Accept ₹${price} offer from ${collectorName}?`,
       [
         { text: t('common.cancel') || 'Cancel', style: 'cancel' },
         {
-          text: 'Accept Offer',
+          text: 'Confirm',
           style: 'default',
           onPress: async () => {
             setAcceptingOfferId(offer.id);
@@ -399,7 +399,7 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               await requestService.acceptOffer(requestId, offer.id);
               await loadRequest();
               Alert.alert(
-                'Collector Selected',
+                'Collector Assigned',
                 `${collectorName} has been assigned for your pickup. They will contact you shortly to schedule pickup.`,
                 [{ text: t('common.done') || 'OK' }]
               );
@@ -696,10 +696,10 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               <View style={styles.emptyOffersCard}>
                 <AppIcon name="clock" size={24} color="#38BDF8" style={{ marginBottom: 8 }} />
                 <Text style={styles.emptyOffersTitle}>
-                  {t('offers.waitingTitle', 'Awaiting Collector Offers')}
+                  No collector offers yet
                 </Text>
                 <Text style={styles.emptyOffersMsg}>
-                  {t('offers.waitingDesc', 'Your request has been broadcast to active local collectors. Custom price offers will appear here for you to compare and accept.')}
+                  Eligible collectors have been notified. You'll see offers here when they respond.
                 </Text>
               </View>
             ) : (
@@ -722,7 +722,7 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                         </View>
                         <View style={styles.offerCollectorInfo}>
                           <View style={styles.rowCentered}>
-                            <Text style={styles.offerCollectorName}>{collector.name || 'Local Collector'}</Text>
+                            <Text style={styles.offerCollectorName}>{collector.name || 'Collector'}</Text>
                             <View style={styles.verifiedBadge}>
                               <AppIcon name="check" size={10} color="#10B981" />
                               <Text style={styles.verifiedText}>Verified</Text>
@@ -730,7 +730,7 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                           </View>
                           <Text style={styles.offerCollectorSub}>
                             Material: <Text style={{ color: '#34D399', fontWeight: '700' }}>{materialName}</Text>
-                            {collector.distanceKm ? ` · ${collector.distanceKm} km away` : ''}
+                            {collector.distanceKm ? ` · ~${collector.distanceKm} km` : ''}
                           </Text>
                         </View>
                         <View style={styles.offerPriceBlock}>

@@ -253,9 +253,9 @@ const OfferModal: React.FC<OfferModalProps> = ({
             </View>
           ) : (
             <View style={modalStyles.noImageBox}>
-              <AppIcon name="alert" size={16} color="#EF4444" style={{ marginRight: 6 }} />
+              <AppIcon name="camera" size={16} color="#94A3B8" style={{ marginRight: 6 }} />
               <Text style={modalStyles.noImageText}>
-                Material image required before submitting an offer.
+                No photo uploaded · Visual inspection and weighing at doorstep
               </Text>
             </View>
           )}
@@ -348,10 +348,10 @@ const OfferModal: React.FC<OfferModalProps> = ({
           <TouchableOpacity
             style={[
               modalStyles.submitBtn,
-              (isSubmitting || !primaryImage) && { opacity: 0.6 },
+              isSubmitting && { opacity: 0.6 },
             ]}
             onPress={onSubmit}
-            disabled={isSubmitting || !primaryImage}
+            disabled={isSubmitting}
           >
             {isSubmitting ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
@@ -414,14 +414,14 @@ const modalStyles = StyleSheet.create({
   noImageBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(239,68,68,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 10,
-    padding: 10,
+    padding: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.35)',
+    borderColor: 'rgba(255,255,255,0.1)',
   },
-  noImageText: { fontSize: 12, color: '#F87171', flex: 1, fontWeight: '600' },
+  noImageText: { fontSize: 12, color: '#94A3B8', flex: 1, fontWeight: '500' },
   metaCard: {
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 10,
@@ -761,7 +761,7 @@ const RequestCard = React.memo<RequestCardProps>(
     const itemCount = countTotalItems(request.ewasteItems);
     const categories = summarizeCategories(request.ewasteItems);
     const estWeight = totalEstimatedWeight(request.ewasteItems) || (firstItem?.estimatedWeightKg ? `~${firstItem.estimatedWeightKg} kg` : '');
-    const canAccept = isConnected && isVerified && !isAccepting && hasImage;
+    const canAccept = isConnected && isVerified && !isAccepting;
     const standardPriceStr = fmtStandardPrice(request.standardPrice);
     const offersCount = request.offersCount || 0;
     const myOffer = request.myOffer;
@@ -821,7 +821,7 @@ const RequestCard = React.memo<RequestCardProps>(
 
         <View style={cardStyles.divider} />
 
-        {/* ── Citizen Uploaded Image Preview (MANDATORY BEFORE OFFERING) ── */}
+        {/* ── Citizen Uploaded Image Preview ── */}
         {hasImage ? (
           <View style={cardStyles.cardImageBox}>
             <AuthorizedImage
@@ -838,9 +838,9 @@ const RequestCard = React.memo<RequestCardProps>(
           </View>
         ) : (
           <View style={cardStyles.missingImageBox}>
-            <AppIcon name="alert" size={15} color="#EF4444" style={{ marginRight: 6 }} />
+            <AppIcon name="camera" size={15} color="#94A3B8" style={{ marginRight: 6 }} />
             <Text style={cardStyles.missingImageText}>
-              Material image required before submitting an offer.
+              No photo uploaded · Visual inspection and weighing at doorstep
             </Text>
           </View>
         )}
@@ -870,7 +870,7 @@ const RequestCard = React.memo<RequestCardProps>(
           <View style={cardStyles.myOfferBanner}>
             <AppIcon name="check" size={13} color="#38BDF8" />
             <Text style={cardStyles.myOfferText}>
-              Your Offer: <Text style={{ fontWeight: '700' }}>₹{myOffer.offeredPrice}</Text> ({myOffer.status})
+              Offer Submitted: <Text style={{ fontWeight: '700' }}>₹{myOffer.offeredPrice}</Text> ({myOffer.status})
             </Text>
           </View>
         )}
@@ -930,7 +930,7 @@ const RequestCard = React.memo<RequestCardProps>(
           </View>
         )}
 
-        {/* ── Actions: Read Aloud & Place Offer ── */}
+        {/* ── Actions: Read Aloud & Make Offer ── */}
         <View style={cardStyles.actionsRow}>
           {Boolean(onReadAloud) && (
             <TouchableOpacity
@@ -959,9 +959,9 @@ const RequestCard = React.memo<RequestCardProps>(
             activeOpacity={0.75}
           >
             <View style={styles.btnRow}>
-              <AppIcon name="award" size={15} color="#FFFFFF" />
+              <AppIcon name="award" size={15} color="#02080D" />
               <Text style={cardStyles.offerButtonText}>
-                {myOffer ? `Edit Offer (₹${myOffer.offeredPrice})` : 'Place Offer'}
+                {myOffer ? `Edit Offer (₹${myOffer.offeredPrice})` : 'Make Offer'}
               </Text>
             </View>
           </TouchableOpacity>
@@ -1766,9 +1766,9 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
                   activeOpacity={0.8}
                 >
                   <View style={styles.btnRow}>
-                    <AppIcon name="award" size={15} color="#FFFFFF" />
+                    <AppIcon name="award" size={15} color="#02080D" />
                     <Text style={styles.selectedAcceptBtnText}>
-                      {selectedMapRequest.myOffer ? `Edit Offer (₹${selectedMapRequest.myOffer.offeredPrice})` : 'Place Offer'}
+                      {selectedMapRequest.myOffer ? `Edit Offer (₹${selectedMapRequest.myOffer.offeredPrice})` : 'Make Offer'}
                     </Text>
                   </View>
                 </TouchableOpacity>

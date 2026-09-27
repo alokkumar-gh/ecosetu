@@ -123,6 +123,8 @@ const RequestCard = React.memo(({
   const refId = `REQ-${(item.id || '').substring(0, 8).toUpperCase()}`;
   const cancellable = canCancelRequest(item.status);
 
+  const offersCount = item.offersCount || (Array.isArray(item.pickupOffers) ? item.pickupOffers.filter((o: any) => o.status === 'PENDING').length : 0);
+
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.82}
       accessibilityRole="button" accessibilityLabel={`Request ${refId}, ${item.status}`}>
@@ -140,6 +142,15 @@ const RequestCard = React.memo(({
           <Text style={[styles.statusPillText, { color: meta.color }]}>{meta.label}</Text>
         </View>
       </View>
+
+      {offersCount > 0 && (item.status || '').toUpperCase() === 'SUBMITTED' && (
+        <View style={styles.cardOffersBadge}>
+          <View style={styles.cardOffersDot} />
+          <Text style={styles.cardOffersText}>
+            {offersCount} {offersCount === 1 ? 'Collector Offer Received' : 'Collector Offers Received'}
+          </Text>
+        </View>
+      )}
 
       {Boolean(item.pickupAddress) && (
         <View style={styles.cardMeta}>
@@ -935,6 +946,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, borderWidth: 1,
   },
   statusPillText: { fontSize: 10, fontWeight: '700' },
+
+  cardOffersBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16,185,129,0.18)',
+    borderWidth: 1,
+    borderColor: '#10B981',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginBottom: 8,
+    gap: 6,
+    alignSelf: 'flex-start',
+  },
+  cardOffersDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#34D399',
+  },
+  cardOffersText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#34D399',
+    letterSpacing: 0.2,
+  },
 
   cardMeta: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   cardMetaIcon: { fontSize: 12, marginRight: 5 },
