@@ -361,7 +361,13 @@ export const CollectorDashboardScreen: React.FC = () => {
           {/* ── 1. PRIMARY FEATURED HERO: PENDING PICKUPS ─────────────────── */}
           <View style={styles.pendingPickupsContainer}>
             <View style={styles.pendingPickupsHeader}>
-              <View style={styles.pendingPickupsHeaderLeft}>
+              <TouchableOpacity
+                style={styles.pendingPickupsHeaderLeft}
+                onPress={() => navigation.navigate('CollectorPickups')}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={t('collector.pendingPickups', 'Pending Pickups')}
+              >
                 <AppIcon name="truck" size={22} color="#10B981" />
                 <Text style={styles.pendingPickupsTitle}>{t('collector.pendingPickups', 'Pending Pickups')}</Text>
                 {activePickups.length > 0 && (
@@ -369,10 +375,12 @@ export const CollectorDashboardScreen: React.FC = () => {
                     <Text style={styles.pendingPickupsBadgeText}>{activePickups.length}</Text>
                   </View>
                 )}
-              </View>
+              </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => navigation.navigate('CollectorPickups')}
                 style={styles.pendingPickupsSeeAll}
+                activeOpacity={0.7}
+                accessibilityRole="button"
               >
                 <Text style={styles.pendingPickupsSeeAllText}>
                   {activePickups.length > 0

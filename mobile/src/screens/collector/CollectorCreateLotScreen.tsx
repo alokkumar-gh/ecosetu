@@ -59,6 +59,8 @@ interface CollectorCreateLotScreenProps {
       photos?: string[];
       lotId?: string;
       existingLot?: any;
+      approximateTotalWeightKg?: number;
+      intent?: string;
     };
   };
 }
@@ -80,7 +82,11 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
   const [photos] = useState<string[]>(params.photos || params.existingLot?.photos?.map((p: any) => p.photoUrl) || []);
 
   const [weightKg, setWeightKg] = useState<string>(
-    params.existingLot?.approximateTotalWeightKg ? String(params.existingLot.approximateTotalWeightKg) : ''
+    params.approximateTotalWeightKg != null
+      ? String(params.approximateTotalWeightKg)
+      : params.existingLot?.approximateTotalWeightKg
+      ? String(params.existingLot.approximateTotalWeightKg)
+      : ''
   );
   const [description, setDescription] = useState<string>(params.existingLot?.description || '');
   const [listingPurpose, setListingPurpose] = useState<'RECYCLING' | 'REUSE' | 'REPAIR_REUSE'>(
@@ -228,7 +234,7 @@ export const CollectorCreateLotScreen: React.FC<CollectorCreateLotScreenProps> =
         sourceType,
         listingPurpose,
         askingPrice: !isNaN(parsedAsking) && parsedAsking > 0 ? parsedAsking : null,
-        priceUnit: 'TOTAL',
+        priceUnit: 'PER_LOT',
         description: description.trim() || undefined,
         approximateTotalWeightKg: parsedWeight,
         status: targetStatus,

@@ -646,7 +646,7 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
             </GlassCard>
           )}
 
-          {/* 5. THE SINGLE PRIMARY ACTION CTA CONTAINER */}
+          {/* 5. PRIMARY ACTION CTA CONTAINER */}
           <View style={styles.primaryActionContainer}>
             {isScheduled && (
               <GlassButton
@@ -670,7 +670,31 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
               />
             )}
 
-            {/* When completed, cancelled, or failed: ZERO primary action CTA is displayed */}
+            {isCompleted && (
+              <View style={{ gap: 10, width: '100%' }}>
+                <GlassButton
+                  label="List Material for Resale →"
+                  variant="primary"
+                  onPress={() => {
+                    const firstItem = items[0] || {};
+                    navigation.navigate('CollectorCreateLot', {
+                      category: firstItem.category === 'SMARTPHONE' ? 'MOBILE_PHONE' : (firstItem.category || 'PCB'),
+                      condition: firstItem.condition || 'DAMAGED',
+                      sourceType: 'HOUSEHOLD',
+                      approximateTotalWeightKg: pickup?.totalWeightKg || totalEstWeight || 1.0,
+                    });
+                  }}
+                  style={styles.primaryCtaBtn}
+                  accessibilityLabel="List collected material for resale to recyclers"
+                />
+                <GlassButton
+                  label="Back to Pickups"
+                  variant="outline"
+                  onPress={() => navigation.navigate('CollectorPickups')}
+                  style={styles.primaryCtaBtn}
+                />
+              </View>
+            )}
           </View>
         </ScrollView>
 

@@ -11,12 +11,21 @@ const {
   PRICE_UNITS,
 } = require('../utils/constants');
 
-const VALID_CATEGORIES = Object.values(MATERIAL_CATEGORIES);
+const VALID_CATEGORIES = [
+  ...Object.values(MATERIAL_CATEGORIES),
+  'CIRCUIT_BOARD',
+  'CABLE_CHARGER',
+  'DESKTOP',
+  'TELEVISION',
+];
 const VALID_CONDITIONS = Object.values(ITEM_CONDITIONS);
 const VALID_SOURCE_TYPES = Object.values(MATERIAL_SOURCE_TYPES);
 const VALID_LOT_STATUSES = Object.values(MATERIAL_LOT_STATUS);
 const VALID_LISTING_PURPOSES = Object.values(LISTING_PURPOSE);
-const VALID_PRICE_UNITS = Object.values(PRICE_UNITS);
+const VALID_PRICE_UNITS = [
+  ...Object.values(PRICE_UNITS),
+  'TOTAL',
+];
 
 const PROTECTED_LOT_FIELDS = [
   'id',

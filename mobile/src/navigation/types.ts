@@ -50,6 +50,7 @@ export type CollectorTabParamList = {
 export type CollectorStackParamList = {
   CollectorTabs: undefined;
   PickupDetail: { pickupId: string; pickup?: any };
+  CollectorPickupDetail: { pickupId: string; pickup?: any };
   PickupExecution: { pickupId: string };
   RequestDetail: { requestId: string };
   Verification: undefined;

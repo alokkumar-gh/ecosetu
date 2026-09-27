@@ -246,6 +246,10 @@ export const CollectorNavigator: React.FC = () => {
           component={CollectorPickupDetailScreen}
         />
         <Stack.Screen
+          name="CollectorPickupDetail"
+          component={CollectorPickupDetailScreen}
+        />
+        <Stack.Screen
           name="PickupExecution"
           component={CollectorPickupDetailScreen}
           options={{ presentation: 'modal' }}

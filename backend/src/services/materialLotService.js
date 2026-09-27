@@ -58,6 +58,26 @@ class MaterialLotService {
     return profile;
   }
 
+  normalizeCategory(cat) {
+    if (!cat) return null;
+    const upper = String(cat).trim().toUpperCase();
+    if (upper === 'SMARTPHONE' || upper === 'MOBILE_PHONE') return 'MOBILE_PHONE';
+    if (upper === 'DESKTOP' || upper === 'DESKTOP_COMPUTER') return 'DESKTOP_COMPUTER';
+    if (upper === 'CIRCUIT_BOARD' || upper === 'PCB') return 'PCB';
+    if (upper === 'CABLE_CHARGER' || upper === 'CABLE') return 'CABLE';
+    if (upper === 'TELEVISION') return 'CRT';
+    if (MATERIAL_CATEGORIES[upper]) return upper;
+    return 'OTHER';
+  }
+
+  normalizePriceUnit(unit) {
+    if (!unit) return null;
+    const upper = String(unit).trim().toUpperCase();
+    if (upper === 'TOTAL' || upper === 'PER_LOT') return 'PER_LOT';
+    if (PRICE_UNITS[upper]) return upper;
+    return 'PER_LOT';
+  }
+
   /**
    * Create a new standalone Material Item
    * @param {string} collectorUserId - Authenticated collector User ID
@@ -68,7 +88,8 @@ class MaterialLotService {
     const userId = typeof collectorUserId === 'string' ? collectorUserId : (collectorUserId?.id || collectorUserId?.userId);
     const collectorProfile = await this.getCollectorProfileOrThrow(userId);
 
-    if (!data.category || !MATERIAL_CATEGORIES[data.category]) {
+    const category = this.normalizeCategory(data.category);
+    if (!category || !MATERIAL_CATEGORIES[category]) {
       throw AppError.badRequest(`Invalid material category: ${data.category}`, ERROR_CODES.VALIDATION_ERROR);
     }
 
@@ -151,7 +172,7 @@ class MaterialLotService {
     }
 
     // Validate category
-    const category = data.category === 'SMARTPHONE' ? 'MOBILE_PHONE' : data.category;
+    const category = this.normalizeCategory(data.category);
     if (!category || !MATERIAL_CATEGORIES[category]) {
       throw AppError.badRequest(`Invalid material category: ${data.category}`, ERROR_CODES.VALIDATION_ERROR);
     }
@@ -304,7 +325,7 @@ class MaterialLotService {
       if (!isNaN(p) && p >= 0) askingPrice = p;
     }
 
-    const priceUnit = data.priceUnit && PRICE_UNITS[data.priceUnit] ? data.priceUnit : null;
+    const priceUnit = data.priceUnit ? this.normalizePriceUnit(data.priceUnit) : null;
 
     // Create lot with transactions
     const lot = await prisma.$transaction(async (tx) => {
@@ -679,10 +700,11 @@ class MaterialLotService {
     }
 
     if (data.category) {
-      if (!MATERIAL_CATEGORIES[data.category]) {
+      const category = this.normalizeCategory(data.category);
+      if (!category || !MATERIAL_CATEGORIES[category]) {
         throw AppError.badRequest(`Invalid material category: ${data.category}`, ERROR_CODES.VALIDATION_ERROR);
       }
-      updateData.category = data.category;
+      updateData.category = category;
     }
 
     if (data.subcategory !== undefined) {
@@ -732,7 +754,7 @@ class MaterialLotService {
     }
 
     if (data.priceUnit !== undefined) {
-      updateData.priceUnit = data.priceUnit && PRICE_UNITS[data.priceUnit] ? data.priceUnit : null;
+      updateData.priceUnit = data.priceUnit ? this.normalizePriceUnit(data.priceUnit) : null;
     }
 
     const updatedLot = await prisma.$transaction(async (tx) => {

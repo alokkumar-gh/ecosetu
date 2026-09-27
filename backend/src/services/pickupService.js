@@ -170,10 +170,34 @@ class PickupService {
         collectionRequest: {
           include: {
             ewasteItems: true,
+            citizen: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                email: true,
+              },
+            },
           },
         },
       },
     });
+
+    // Emit realtime event
+    const eventBus = require('./eventBus');
+    eventBus.emit('PICKUP_STARTED', { pickup: updated });
+
+    // Notify citizen that collector is on the way
+    if (pickup.collectionRequest && pickup.collectionRequest.citizenId) {
+      await notificationService.createNotification({
+        userId: pickup.collectionRequest.citizenId,
+        type: NOTIFICATION_TYPES.PICKUP_SCHEDULED,
+        title: 'Pickup In Progress',
+        message: 'Your collector is now heading to your location to collect the e-waste.',
+        referenceType: 'pickup',
+        referenceId: pickupId,
+      }).catch((err) => console.warn('[PickupService] Start pickup citizen notification error:', err?.message));
+    }
 
     return updated;
   }
@@ -215,7 +239,14 @@ class PickupService {
       (pickup.collectionRequest.ewasteItems || []).map((item) => [item.id, item])
     );
 
-    for (const it of items) {
+    const safeItems = Array.isArray(items) && items.length > 0
+      ? items
+      : (pickup.collectionRequest.ewasteItems || []).map((it) => ({
+          itemId: it.id,
+          actualWeightKg: it.estimatedWeightKg || 1.0,
+        }));
+
+    for (const it of safeItems) {
       if (!requestItemMap.has(it.itemId)) {
         throw AppError.badRequest(`Item with ID ${it.itemId} does not belong to this collection request`);
       }
@@ -229,7 +260,7 @@ class PickupService {
         data: {
           status: PICKUP_STATUS.COMPLETED,
           completedAt: new Date(),
-          totalWeightKg: parseFloat(totalWeightKg),
+          totalWeightKg: parseFloat(totalWeightKg) || 1.0,
           collectorNotes: collectorNotes ? collectorNotes.trim() : null,
         },
         include: {
@@ -249,12 +280,12 @@ class PickupService {
       });
 
       // 3. Update all collected EwasteItems to COLLECTED and record actualWeightKg
-      for (const it of items) {
+      for (const it of safeItems) {
         await tx.ewasteItem.update({
           where: { id: it.itemId },
           data: {
             status: ITEM_STATUS.COLLECTED,
-            actualWeightKg: parseFloat(it.actualWeightKg),
+            actualWeightKg: parseFloat(it.actualWeightKg) || 1.0,
           },
         });
       }
@@ -274,10 +305,14 @@ class PickupService {
       ? await prisma.$transaction(executeTransaction)
       : await executeTransaction(prisma);
 
+    // Emit realtime event
+    const eventBus = require('./eventBus');
+    eventBus.emit('PICKUP_COMPLETED', { pickup: result, items: safeItems });
+
     // Notify citizen that pickup was completed (docs/23_NOTIFICATION_SYSTEM.md Section 2)
     if (pickup.collectionRequest && pickup.collectionRequest.citizenId) {
-      const itemCount = (items && items.length) || 0;
-      const weight = parseFloat(totalWeightKg);
+      const itemCount = (safeItems && safeItems.length) || 0;
+      const weight = parseFloat(totalWeightKg) || 0;
       await notificationService.createNotification({
         userId: pickup.collectionRequest.citizenId,
         type: NOTIFICATION_TYPES.PICKUP_COMPLETED,
@@ -285,8 +320,18 @@ class PickupService {
         message: `Your e-waste has been collected. ${itemCount} items, ${weight}kg total.`,
         referenceType: 'pickup',
         referenceId: pickupId,
-      });
+      }).catch((err) => console.warn('[PickupService] Citizen notification error:', err?.message));
     }
+
+    // Notify collector as well
+    await notificationService.createNotification({
+      userId: collectorUserId,
+      type: NOTIFICATION_TYPES.PICKUP_COMPLETED,
+      title: 'Pickup Completed Successfully',
+      message: `Pickup #${pickupId.slice(0, 8).toUpperCase()} completed. E-waste is now in your collected inventory.`,
+      referenceType: 'pickup',
+      referenceId: pickupId,
+    }).catch((err) => console.warn('[PickupService] Collector notification error:', err?.message));
 
     return result;
   }

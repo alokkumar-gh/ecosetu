@@ -358,12 +358,16 @@ class QuoteService {
       return quote;
     });
 
+    // Realtime event emission
+    const eventBus = require('./eventBus');
+    eventBus.emit('RECYCLER_BID_CREATED', { quote: createdQuote, lot });
+
     // Send resilient notification to collector
     try {
       if (lot.collector?.userId) {
-        const notifTitle = isCitizen ? 'New Citizen Purchase Offer Received' : 'New Recycler Quote Received';
+        const notifTitle = isCitizen ? 'New Citizen Purchase Offer Received' : 'New Recycler Bid Received';
         const senderName = isCitizen ? (user.name || 'A Citizen') : (recyclerProfile?.facilityName || 'Recycler');
-        const notifMessage = `${senderName} offered ₹${unitPrice}/${unitLabel} for ${lot.subcategory || lot.category} (${lot.referenceNumber})`;
+        const notifMessage = `${senderName} submitted a bid of ₹${unitPrice}/${unitLabel} for ${lot.subcategory || lot.category} (${lot.referenceNumber})`;
 
         await notificationService.createNotification({
           userId: lot.collector.userId,
@@ -378,7 +382,7 @@ class QuoteService {
       logger.warn(`Failed to dispatch quote notification: ${notifErr.message}`);
     }
 
-    logger.info(`[QuoteService] Offer ${referenceNumber} created for lot ${lot.referenceNumber} by ${isCitizen ? 'citizen ' + user.id : 'recycler ' + recyclerProfile?.facilityName}`);
+    logger.info(`[QuoteService] Bid ${referenceNumber} created for lot ${lot.referenceNumber} by ${isCitizen ? 'citizen ' + user.id : 'recycler ' + recyclerProfile?.facilityName}`);
     return createdQuote;
   }
 
@@ -488,6 +492,8 @@ class QuoteService {
       category: lot.category,
       subcategory: lot.subcategory,
       weightKg: lot.approximateTotalWeightKg ? Number(lot.approximateTotalWeightKg) : null,
+      askingPrice: lot.askingPrice ? Number(lot.askingPrice) : null,
+      priceUnit: lot.priceUnit || 'PER_LOT',
       benchmarkEstimate,
       quotes: evaluatedQuotes,
       totalQuotes: evaluatedQuotes.length,
@@ -629,8 +635,21 @@ class QuoteService {
       }
     }
 
+    // Retrieve all open competing quotes for this lot to notify outbid parties
+    const competingQuotes = await prisma.quote.findMany({
+      where: {
+        materialLotId: quote.materialLotId,
+        id: { not: quote.id },
+        status: { in: [QUOTE_STATUS.SENT, QUOTE_STATUS.VIEWED] },
+      },
+      include: {
+        buyerUser: true,
+        recycler: true,
+      },
+    });
+
     // Execute atomic acceptance & competing quote cancellation
-    const acceptedQuote = await prisma.$transaction(async (tx) => {
+    const { updated: acceptedQuote, handover } = await prisma.$transaction(async (tx) => {
       // 1. Mark accepted quote
       const updated = await tx.quote.update({
         where: { id: quote.id },
@@ -659,7 +678,32 @@ class QuoteService {
         data: { status: 'ACCEPTED' },
       });
 
-      // 4. Log audit records
+      // 4. Create HandoverRecord if not already created
+      let createdHandover = await tx.handoverRecord.findFirst({
+        where: { quoteId: quote.id },
+      });
+      if (!createdHandover) {
+        const hdoYear = new Date().getFullYear();
+        const hdoMonth = String(new Date().getMonth() + 1).padStart(2, '0');
+        const hdoHex = crypto.randomBytes(3).toString('hex').toUpperCase().substring(0, 5);
+        const hdoRef = `HDO-${hdoYear}${hdoMonth}-${hdoHex}`;
+        createdHandover = await tx.handoverRecord.create({
+          data: {
+            referenceNumber: hdoRef,
+            materialLotId: quote.materialLotId,
+            quoteId: quote.id,
+            collectorId: quote.materialLot.collectorId,
+            recyclerId: quote.recyclerId || null,
+            buyerUserId: quote.buyerUserId || null,
+            buyerRole: quote.buyerRole || (quote.isConsumerOffer ? ROLES.CITIZEN : ROLES.RECYCLER),
+            status: 'PENDING_COLLECTOR',
+            declaredWeightKg: quote.materialLot.approximateTotalWeightKg || null,
+            createdById: user.id,
+          },
+        });
+      }
+
+      // 5. Log audit records
       await auditService.logAction(
         {
           actorId: user.id,
@@ -673,14 +717,19 @@ class QuoteService {
             recyclerId: quote.recyclerId,
             quotedTotal: Number(quote.quotedTotal),
             competingCancelledCount: competingCancel.count,
+            handoverId: createdHandover?.id,
           },
           ipAddress,
         },
         tx
       );
 
-      return updated;
+      return { updated, handover: createdHandover };
     });
+
+    // Realtime event emission
+    const eventBus = require('./eventBus');
+    eventBus.emit('RECYCLER_BID_ACCEPTED', { quote: acceptedQuote, lot: quote.materialLot, handover });
 
     // Notify winning buyer (Citizen or Recycler)
     try {
@@ -689,17 +738,32 @@ class QuoteService {
         await notificationService.createNotification({
           userId: winnerUserId,
           type: 'QUOTE_ACCEPTED',
-          title: quote.isConsumerOffer ? 'Purchase Offer Accepted by Collector!' : 'Quote Accepted by Collector!',
-          message: `Collector accepted your offer ${quote.referenceNumber} for ${quote.materialLot.referenceNumber}`,
+          title: quote.isConsumerOffer ? 'Purchase Offer Accepted by Collector!' : 'Bid Accepted by Collector!',
+          message: `Collector accepted your bid ${quote.referenceNumber} for ${quote.materialLot.referenceNumber}`,
           referenceType: 'quotes',
           referenceId: quote.id,
         });
       }
+
+      // Notify outbid / cancelled competitors
+      for (const comp of competingQuotes) {
+        const compUserId = comp.isConsumerOffer ? comp.buyerUserId : comp.recycler?.userId;
+        if (compUserId && compUserId !== winnerUserId) {
+          await notificationService.createNotification({
+            userId: compUserId,
+            type: 'QUOTE_CANCELLED',
+            title: 'Material Lot Deal Closed',
+            message: `Another offer was accepted for lot ${quote.materialLot.referenceNumber}. Your bid has been closed.`,
+            referenceType: 'quotes',
+            referenceId: comp.id,
+          }).catch(() => {});
+        }
+      }
     } catch (notifErr) {
-      logger.warn(`Failed to notify winner of quote acceptance: ${notifErr.message}`);
+      logger.warn(`Failed to notify parties of quote acceptance: ${notifErr.message}`);
     }
 
-    logger.info(`[QuoteService] Quote ${quote.referenceNumber} ACCEPTED by collector ${user.id}. Competing quotes cancelled.`);
+    logger.info(`[QuoteService] Quote ${quote.referenceNumber} ACCEPTED by collector ${user.id}. Competing quotes closed.`);
     return acceptedQuote;
   }
 
@@ -760,6 +824,10 @@ class QuoteService {
       },
       ipAddress,
     });
+
+    // Realtime event emission
+    const eventBus = require('./eventBus');
+    eventBus.emit('RECYCLER_BID_REJECTED', { quote: rejectedQuote, lot: quote.materialLot });
 
     try {
       const recipientUserId = quote.isConsumerOffer ? quote.buyerUserId : quote.recycler?.userId;
@@ -892,6 +960,9 @@ class QuoteService {
 
       return q;
     });
+
+    // Realtime event emission
+    eventBus.emit('RECYCLER_BID_COUNTERED', { quote: updatedQuote, lot: quote.materialLot, actor: actorLabel });
 
     // Notify opposite party
     try {
