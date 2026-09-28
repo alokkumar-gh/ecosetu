@@ -151,11 +151,12 @@ class LotTraceService {
         throw AppError.forbidden('Recycler profile not found');
       }
 
-      const isQuoted = lot.quotes.some((q) => q.recyclerId === recyclerProfile.id);
-      const isHandedOver = lot.handovers.some((h) => h.recyclerId === recyclerProfile.id);
-      const isTransacted = lot.transactions.some((t) => t.recyclerId === recyclerProfile.id);
+      const isQuoted = lot.quotes.some((q) => q.recyclerId === recyclerProfile.id || q.buyerUserId === actor.id);
+      const isHandedOver = lot.handovers.some((h) => h.recyclerId === recyclerProfile.id || h.buyerUserId === actor.id);
+      const isTransacted = lot.transactions.some((t) => t.recyclerId === recyclerProfile.id || t.buyerUserId === actor.id);
+      const isBatched = lot.pickupBatchLots.some((pbl) => pbl.batch?.recyclerId === recyclerProfile.id || pbl.batch?.createdById === actor.id);
 
-      if (!isQuoted && !isHandedOver && !isTransacted) {
+      if (!isQuoted && !isHandedOver && !isTransacted && !isBatched) {
         throw AppError.forbidden('Access forbidden: You are not involved with this material lot');
       }
     } else if (actor.role !== ROLES.ADMIN) {

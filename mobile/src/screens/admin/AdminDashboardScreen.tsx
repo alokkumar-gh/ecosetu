@@ -29,6 +29,7 @@ import {
   useWindowDimensions,
   PixelRatio,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { adminService } from '../../services/adminService';
 import { AdminShell } from '../../components/admin/AdminShell';
 import { AppIcon } from '../../components/ui/AppIcon';
@@ -104,6 +105,12 @@ export const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
   useEffect(() => {
     loadData(period);
   }, [period]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData(period, true);
+    }, [period, loadData])
+  );
 
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);

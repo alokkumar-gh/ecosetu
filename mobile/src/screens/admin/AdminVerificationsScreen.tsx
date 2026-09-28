@@ -32,6 +32,7 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { ReadAloudButton } from '../../components/voice/ReadAloudButton';
 import { AppIcon } from '../../components/ui/AppIcon';
+import { AuthorizedImage } from '../../components/common/AuthorizedImage';
 
 const TABS = [
   { id: 'ALL', label: 'All', type: 'status' },
@@ -550,10 +551,13 @@ export const AdminVerificationsScreen: React.FC<{ navigation?: any }> = ({ navig
                   <Text style={styles.inspectionTitle}>IDENTITY DOCUMENT</Text>
                   {selectedVerification.documentUrl ? (
                     <View style={styles.docPreviewCard}>
-                      <Image
-                        source={{ uri: selectedVerification.documentUrl }}
+                      <AuthorizedImage
+                        uri={selectedVerification.documentUrl}
                         style={styles.docThumbnail}
-                        resizeMode="cover"
+                        resizeMode="contain"
+                        allowFullscreen={true}
+                        categoryLabel="Identity Document"
+                        fallbackText="Document Preview Unavailable"
                       />
                       <View style={styles.docPreviewActions}>
                         <TouchableOpacity

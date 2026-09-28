@@ -47,11 +47,14 @@ import { RecyclerCreateSourcingRequestScreen } from '../screens/recycler/Recycle
 import { RecyclerSourcingDetailScreen }     from '../screens/recycler/RecyclerSourcingDetailScreen';
 import { RecyclerDisputesScreen }           from '../screens/recycler/RecyclerDisputesScreen';
 import { RecyclerDisputeDetailScreen }      from '../screens/recycler/RecyclerDisputeDetailScreen';
+import { RecyclerAuthorizationScreen }      from '../screens/recycler/RecyclerAuthorizationScreen';
 import { PaymentMethodScreen }              from '../screens/payment/PaymentMethodScreen';
 import { CashPaymentConfirmationScreen }    from '../screens/payment/CashPaymentConfirmationScreen';
 import { PaymentResultScreen }              from '../screens/payment/PaymentResultScreen';
 import { BillsScreen }                      from '../screens/billing/BillsScreen';
 import { BillDetailScreen }                 from '../screens/billing/BillDetailScreen';
+import { NotificationSettingsScreen }       from '../screens/common/NotificationSettingsScreen';
+import { OfflineDataScreen }                from '../screens/common/OfflineDataScreen';
 // Legacy RecyclerMarketplaceScreen still accessible via stack
 import { RecyclerMarketplaceScreen }        from '../screens/recycler/RecyclerMarketplaceScreen';
 
@@ -84,15 +87,7 @@ const RecyclerVerificationModal = ({ navigation }: any) => (
   />
 );
 
-const RecyclerRatesPlaceholder = ({ navigation }: any) => (
-  <PlaceholderScreen
-    title="My Buying Rates"
-    role="RECYCLER"
-    description="Manage your buying rates per material category. Collectors can see what you pay."
-    apiEndpoints={['GET /api/v1/recyclers/rates', 'POST /api/v1/recyclers/rates']}
-    onBack={() => navigation.goBack()}
-  />
-);
+import { RecyclerRatesScreen }             from '../screens/recycler/RecyclerRatesScreen';
 
 import { useI18n } from '../i18n';
 
@@ -189,7 +184,7 @@ export const RecyclerNavigator: React.FC = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="RecyclerTabs"             component={RecyclerTabs} />
-      <Stack.Screen name="Verification"             component={RecyclerVerificationModal}        options={{ presentation: 'modal' }} />
+      <Stack.Screen name="Verification"             component={RecyclerAuthorizationScreen}        options={{ presentation: 'card' }} />
       <Stack.Screen name="RecyclerMarketplace"      component={RecyclerMarketplaceScreen}        options={{ presentation: 'card' }} />
       <Stack.Screen name="ConsignmentDetail"        component={ConsignmentDetailScreen}          options={{ presentation: 'card' }} />
       <Stack.Screen name="RecyclingRecordDetail"    component={RecyclingRecordDetailScreen}      options={{ presentation: 'card' }} />
@@ -213,7 +208,10 @@ export const RecyclerNavigator: React.FC = () => {
       <Stack.Screen name="PaymentResult"            component={PaymentResultScreen}              options={{ presentation: 'card' }} />
       <Stack.Screen name="RecyclerBills"            component={BillsScreen}                      options={{ presentation: 'card' }} />
       <Stack.Screen name="RecyclerBillDetail"       component={BillDetailScreen}                 options={{ presentation: 'card' }} />
-      <Stack.Screen name="RecyclerRates"            component={RecyclerRatesPlaceholder}         options={{ presentation: 'card' }} />
+      <Stack.Screen name="RecyclerRates"            component={RecyclerRatesScreen}              options={{ presentation: 'card' }} />
+      <Stack.Screen name="NotificationSettings"     component={NotificationSettingsScreen}       options={{ presentation: 'card' }} />
+      <Stack.Screen name="OfflineData"              component={OfflineDataScreen}                options={{ presentation: 'card' }} />
+      <Stack.Screen name="Settings"                 component={NotificationSettingsScreen}       options={{ presentation: 'card' }} />
     </Stack.Navigator>
   );
 };

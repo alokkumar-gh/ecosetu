@@ -17,6 +17,8 @@ import { BillDetailScreen } from '../screens/billing/BillDetailScreen';
 import { PaymentMethodScreen } from '../screens/payment/PaymentMethodScreen';
 import { CashPaymentConfirmationScreen } from '../screens/payment/CashPaymentConfirmationScreen';
 import { PaymentResultScreen } from '../screens/payment/PaymentResultScreen';
+import { NotificationSettingsScreen } from '../screens/common/NotificationSettingsScreen';
+import { OfflineDataScreen } from '../screens/common/OfflineDataScreen';
 import { useI18n } from '../i18n';
 import { colors } from '../theme/colors';
 
@@ -145,6 +147,18 @@ export const CitizenNavigator: React.FC = () => {
       <Stack.Screen
         name="PaymentResult"
         component={PaymentResultScreen}
+      />
+      <Stack.Screen
+        name="NotificationSettings"
+        component={NotificationSettingsScreen}
+      />
+      <Stack.Screen
+        name="OfflineData"
+        component={OfflineDataScreen}
+      />
+      <Stack.Screen
+        name="Settings"
+        component={NotificationSettingsScreen}
       />
     </Stack.Navigator>
   );

@@ -166,6 +166,7 @@ export const BillDetailScreen: React.FC = () => {
   const traceRoute =
     user?.role === 'CITIZEN' ? 'ItemTraceability'
     : user?.role === 'COLLECTOR' ? 'CollectorLotTrace'
+    : user?.role === 'RECYCLER' ? 'RecyclerLotTrace'
     : null;
 
   return (
@@ -315,6 +316,8 @@ export const BillDetailScreen: React.FC = () => {
                   onPress={() => {
                     if (user?.role === 'CITIZEN') {
                       navigation.navigate('ItemTraceability', { itemId: bill.materialLotId });
+                    } else if (user?.role === 'RECYCLER') {
+                      navigation.navigate('RecyclerLotTrace', { lotId: bill.materialLotId });
                     } else {
                       navigation.navigate('CollectorLotTrace', { lotId: bill.materialLotId });
                     }

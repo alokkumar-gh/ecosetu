@@ -32,6 +32,7 @@ import { spacing } from '../../theme/spacing';
 import apiClient from '../../services/apiClient';
 import networkService from '../../services/networkService';
 import { AppIcon } from '../../components/ui/AppIcon';
+import { AuthorizedImage } from '../../components/common/AuthorizedImage';
 
 const space = {
   xs: spacing.spaceXs,
@@ -411,13 +412,17 @@ export const RecyclerMarketplaceScreen: React.FC = () => {
                 {/* Body: Thumbnail + Prioritized Information */}
                 <View style={styles.lotBody}>
                   {photoUrl ? (
-                    <Image source={{ uri: photoUrl }} style={styles.lotThumbnail} resizeMode="cover" />
+                    <AuthorizedImage uri={photoUrl} style={styles.lotThumbnail} resizeMode="cover" allowFullscreen={false} categoryLabel={lot.category} />
                   ) : null}
                   <View style={styles.lotInfo}>
                     <Text style={styles.lotRef}>{lot.referenceNumber}</Text>
                     {lot.subcategory ? (
                       <Text style={styles.lotSubcategory}>Subcategory: {lot.subcategory}</Text>
                     ) : null}
+                    <View style={styles.detailRow}>
+                      <AppIcon name="user" size={12} color="#94A3B8" />
+                      <Text style={styles.lotDetail}>Collector: <Text style={styles.boldWhite}>{lot.collector?.user?.name || 'Collector'}</Text></Text>
+                    </View>
                     <View style={styles.detailRow}>
                       <AppIcon name="scale" size={12} color="#94A3B8" />
                       <Text style={styles.lotDetail}>Weight: <Text style={styles.boldWhite}>{weight} kg</Text></Text>

@@ -497,10 +497,24 @@ export const CollectorProfileScreen: React.FC<{ navigation?: any }> = ({
 
             <View style={styles.rowDivider} />
             <MenuRow
+              icon="package"
+              label={t('collector.doorToDoorCollections', 'Door-to-Door Collections')}
+              sub={t('collector.doorToDoorSub', 'View offline & synced door-to-door collected e-waste')}
+              onPress={() => navigation.navigate('CollectorDoorToDoor')}
+            />
+            <View style={styles.rowDivider} />
+            <MenuRow
               icon="settings"
               label={t('profile.settings', 'Settings')}
               sub={t('profile.settingsSub', 'Notifications, app preferences')}
               onPress={() => navigation.navigate('Settings')}
+            />
+            <View style={styles.rowDivider} />
+            <MenuRow
+              icon="refresh"
+              label={t('profile.offlineData', 'Offline Data')}
+              sub={t('profile.offlineSub', 'Manage local sync cache')}
+              onPress={() => navigation.navigate('OfflineData')}
             />
 
             <View style={styles.rowDivider} />

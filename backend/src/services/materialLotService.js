@@ -281,6 +281,14 @@ class MaterialLotService {
         }
       }
     }
+    if (photosToCreate.length === 0 && (data.photoUrl || data.imageUrl)) {
+      const singleUrl = data.photoUrl || data.imageUrl;
+      photosToCreate.push({
+        photoUrl: singleUrl,
+        mimeType: 'image/jpeg',
+        capturedAt: new Date(),
+      });
+    }
 
     // Prepare items to link
     const itemIdsToLink = [];
@@ -526,6 +534,7 @@ class MaterialLotService {
             select: {
               id: true,
               name: true,
+              status: true,
             },
           },
         }
@@ -597,6 +606,7 @@ class MaterialLotService {
               select: {
                 id: true,
                 name: true,
+                status: true,
                 phone: userRole !== ROLES.RECYCLER && userRole !== ROLES.CITIZEN, // Mask phone for recyclers and citizens
               },
             },
@@ -611,6 +621,9 @@ class MaterialLotService {
 
     // Role-based authorization
     if (userRole === ROLES.INFORMAL_COLLECTOR) {
+      if (!userId) {
+        throw AppError.unauthorized('User identity required');
+      }
       const profile = await prisma.collectorProfile.findUnique({
         where: { userId },
       });

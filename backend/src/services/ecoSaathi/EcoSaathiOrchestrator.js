@@ -160,6 +160,50 @@ class EcoSaathiOrchestrator {
           break;
         }
 
+        case 'PICKUP_LOCATION': {
+          responseType = 'STATUS_CARD';
+          let req = context.activeRequest;
+
+          if (!req && actor.role === ROLES.INFORMAL_COLLECTOR) {
+            const activePickupsRes = await toolRegistry.executeTool('getCollectorActivePickups', {}, actor);
+            if (activePickupsRes.success && activePickupsRes.data?.pickups?.length > 0) {
+              const topP = activePickupsRes.data.pickups[0];
+              req = {
+                id: topP.requestId,
+                shortId: topP.shortId,
+                pickupAddress: topP.address || topP.pickupAddress,
+                isAuthorizedForExactAddress: true,
+              };
+            }
+          }
+
+          if (req && req.pickupAddress) {
+            const citizenName = req.citizenName ? ` (${req.citizenName})` : '';
+            if (req.isAuthorizedForExactAddress !== false) {
+              responseMessage = context.language === 'hi'
+                ? `आपका पिकअप स्थान${citizenName} है: ${req.pickupAddress}।`
+                : `Your pickup is scheduled at ${req.pickupAddress}.`;
+            } else {
+              responseMessage = context.language === 'hi'
+                ? `सटीक पता ऑफर स्वीकार होने के बाद उपलब्ध होगा। सामान्य क्षेत्र: ${req.pickupAddress}।`
+                : `The exact pickup address will be available once the offer is accepted. General area: ${req.pickupAddress}.`;
+            }
+            responseData = {
+              requestId: req.id,
+              shortId: req.shortId,
+              pickupAddress: req.pickupAddress,
+              pickupLocation: req.pickupLocation || null,
+            };
+            quickActions = ["What's next?", 'View Details', 'Navigate'];
+          } else {
+            responseMessage = context.language === 'hi'
+              ? 'वर्तमान में कोई सक्रिय पिकअप पता नहीं मिला।'
+              : 'No active pickup location found for your account.';
+            quickActions = ['Active Pickups', 'Browse Requests'];
+          }
+          break;
+        }
+
         case 'PICKUP_STATUS': {
           responseType = 'STATUS_CARD';
           const result = await toolRegistry.executeTool('getPickupRequestStatus', {

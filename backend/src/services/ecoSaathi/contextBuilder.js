@@ -6,6 +6,24 @@ const prisma = require('../../config/database');
 const { ROLES, REQUEST_STATUS } = require('../../utils/constants');
 const { interpretRequestState } = require('./requestStateIntelligence');
 
+function formatPickupAddress(req) {
+  if (!req) return '';
+  const parts = [
+    req.houseNumber ? String(req.houseNumber).trim() : null,
+    req.street ? String(req.street).trim() : null,
+    req.landmark ? `Near ${String(req.landmark).trim()}` : null,
+    req.city ? String(req.city).trim() : null,
+    req.district && req.district !== req.city ? String(req.district).trim() : null,
+    req.state ? String(req.state).trim() : null,
+    req.pincode ? `PIN ${String(req.pincode).trim()}` : null,
+  ].filter(Boolean);
+
+  if (parts.length > 0) {
+    return parts.join(', ');
+  }
+  return req.pickupAddress ? String(req.pickupAddress).trim() : '';
+}
+
 class ContextBuilder {
   /**
    * Build authorized context for current request
@@ -38,7 +56,7 @@ class ContextBuilder {
     };
 
     try {
-      const explicitRequestId = clientContext.requestId || clientContext.activeRequestId || clientContext.entityId;
+      const explicitRequestId = clientContext.requestId || clientContext.activeRequestId || clientContext.entityId || clientContext.pickupId;
 
       if (actor.role === ROLES.CITIZEN) {
         let activeReq = null;
@@ -126,12 +144,23 @@ class ContextBuilder {
 
         if (activeReq) {
           const stateIntel = interpretRequestState(activeReq, context.language);
+          const fullAddr = formatPickupAddress(activeReq);
 
           context.activeRequest = {
             id: activeReq.id,
             shortId: activeReq.id.substring(0, 8),
             status: activeReq.status,
-            pickupAddress: activeReq.pickupAddress,
+            pickupAddress: fullAddr,
+            pickupLocation: {
+              houseNumber: activeReq.houseNumber || null,
+              street: activeReq.street || null,
+              landmark: activeReq.landmark || null,
+              city: activeReq.city || null,
+              district: activeReq.district || null,
+              state: activeReq.state || null,
+              pincode: activeReq.pincode || null,
+              fullAddress: fullAddr,
+            },
             pickupLat: activeReq.pickupLat,
             pickupLng: activeReq.pickupLng,
             scheduledDate: activeReq.scheduledDate,
@@ -144,6 +173,7 @@ class ContextBuilder {
             stateIntel,
             offersCount: activeReq.pickupOffers.length,
             assignedCollector: activeReq.collector?.user?.name || null,
+            isAuthorizedForExactAddress: true,
           };
 
           context.currentOffers = activeReq.pickupOffers.map((o) => ({
@@ -166,9 +196,100 @@ class ContextBuilder {
         });
 
         if (profile) {
-          const pendingPickupsCount = await prisma.collectionRequest.count({
-            where: { collectorId: profile.id, status: REQUEST_STATUS.ACCEPTED },
-          });
+          let activeReq = null;
+
+          // 1. If explicit requestId or pickupId sent by client context
+          if (explicitRequestId) {
+            let targetReqId = explicitRequestId;
+
+            // Check if explicitRequestId is a Pickup UUID
+            const pickupRecord = await prisma.pickup.findUnique({
+              where: { id: explicitRequestId },
+              select: { collectionRequestId: true, collectorId: true }
+            }).catch(() => null);
+
+            if (pickupRecord) {
+              targetReqId = pickupRecord.collectionRequestId;
+            }
+
+            activeReq = await prisma.collectionRequest.findUnique({
+              where: { id: targetReqId },
+              include: {
+                ewasteItems: true,
+                citizen: { select: { id: true, name: true, phone: true } },
+                collector: { select: { id: true, userId: true } },
+              },
+            });
+          }
+
+          // 2. Fallback to latest active assigned pickup/request for this collector
+          if (!activeReq) {
+            activeReq = await prisma.collectionRequest.findFirst({
+              where: {
+                collectorId: profile.id,
+                status: {
+                  in: [
+                    REQUEST_STATUS.ACCEPTED,
+                    REQUEST_STATUS.PICKUP_SCHEDULED,
+                    REQUEST_STATUS.PICKED_UP,
+                  ],
+                },
+              },
+              orderBy: { updatedAt: 'desc' },
+              include: {
+                ewasteItems: true,
+                citizen: { select: { id: true, name: true, phone: true } },
+                collector: { select: { id: true, userId: true } },
+              },
+            });
+          }
+
+          if (activeReq) {
+            const isAssigned = activeReq.collectorId === profile.id;
+            const isAuthorized = isAssigned || actor.role === ROLES.ADMIN;
+            const fullAddr = formatPickupAddress(activeReq);
+            const maskedAddr = [activeReq.city, activeReq.state].filter(Boolean).join(', ') || 'Approximate Area';
+
+            context.activeRequest = {
+              id: activeReq.id,
+              shortId: activeReq.id.substring(0, 8),
+              status: activeReq.status,
+              citizenName: activeReq.citizen?.name || 'Citizen',
+              citizenPhone: isAuthorized ? activeReq.citizen?.phone : null,
+              pickupAddress: isAuthorized ? fullAddr : maskedAddr,
+              pickupLocation: isAuthorized ? {
+                houseNumber: activeReq.houseNumber || null,
+                street: activeReq.street || null,
+                landmark: activeReq.landmark || null,
+                city: activeReq.city || null,
+                district: activeReq.district || null,
+                state: activeReq.state || null,
+                pincode: activeReq.pincode || null,
+                fullAddress: fullAddr,
+              } : {
+                city: activeReq.city || null,
+                state: activeReq.state || null,
+                fullAddress: maskedAddr,
+              },
+              items: activeReq.ewasteItems.map((item) => ({
+                id: item.id,
+                category: item.category,
+                condition: item.condition,
+                weightKg: item.estimatedWeightKg ? parseFloat(item.estimatedWeightKg) : null,
+              })),
+              isAuthorizedForExactAddress: isAuthorized,
+            };
+          }
+
+          const [pendingRequestsCount, pendingHandoversCount] = await Promise.all([
+            prisma.collectionRequest.count({
+              where: { collectorId: profile.id, status: REQUEST_STATUS.ACCEPTED },
+            }),
+            prisma.handoverRecord.count({
+              where: { collectorId: profile.id, status: { in: ['PENDING_COLLECTOR', 'COLLECTOR_CONFIRMED', 'RECYCLER_CONFIRMED'] } },
+            }),
+          ]);
+          const pendingPickupsCount = pendingRequestsCount + pendingHandoversCount;
 
           const pendingOffers = await prisma.pickupOffer.findMany({
             where: { collectorId: profile.id, status: 'PENDING' },
@@ -210,7 +331,9 @@ class ContextBuilder {
     let reqSummary = 'No active request.';
     if (context.activeRequest) {
       const itemNames = context.activeRequest.items.map((i) => `${i.category} (${i.condition})`).join(', ');
-      reqSummary = `Active Request: #${context.activeRequest.shortId} | Status: ${context.activeRequest.status} | Items: [${itemNames}] | Offers: ${context.activeRequest.offersCount}`;
+      const citizenInfo = context.activeRequest.citizenName ? ` | Citizen: ${context.activeRequest.citizenName}` : '';
+      const addressInfo = context.activeRequest.pickupAddress ? ` | Pickup Address: ${context.activeRequest.pickupAddress}` : '';
+      reqSummary = `Active Request: #${context.activeRequest.shortId} | Status: ${context.activeRequest.status}${citizenInfo}${addressInfo} | Items: [${itemNames}]`;
     }
 
     let offersSummary = '';

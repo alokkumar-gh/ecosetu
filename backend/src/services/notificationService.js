@@ -20,6 +20,15 @@ class NotificationService {
     }
 
     try {
+      const category = this.getCategoryForType(type);
+      if (category) {
+        const prefs = await this.getPreferences(userId);
+        if (prefs && prefs[category] === false) {
+          logger.info(`Notification of type [${type}] suppressed for user ${userId} per preference [${category}=false]`);
+          return null;
+        }
+      }
+
       const client = tx || prisma;
       const notification = await client.notification.create({
         data: {
@@ -55,6 +64,47 @@ class NotificationService {
       logger.warn(`Failed to create notification for user ${userId}: ${err.message}`);
       return null;
     }
+  }
+
+  /**
+   * Map a notification type to a preference category
+   * @param {string} type
+   * @returns {string|null}
+   */
+  getCategoryForType(type) {
+    if (!type) return null;
+    const t = String(type).toUpperCase();
+    if (['REQUEST_ACCEPTED', 'REQUEST_AVAILABLE', 'COLLECTOR_PICKUP_REQUEST_AVAILABLE', 'PICKUP_SCHEDULED', 'PICKUP_COMPLETED', 'REQUEST_CANCELLED'].includes(t)) {
+      return 'pickups';
+    }
+    if (['OFFER_RECEIVED', 'OFFER_ACCEPTED', 'OFFER_REJECTED', 'RECYCLER_BID_CREATED'].includes(t)) {
+      return 'offersAndBids';
+    }
+    if (['RECYCLER_BID_ACCEPTED', 'RECYCLER_BID_COUNTERED', 'RECYCLER_BID_REJECTED', 'SOURCING_RESPONSE'].includes(t)) {
+      return 'sourcingAndBids';
+    }
+    if (['QUOTE_COUNTERED', 'NEGOTIATION_UPDATE'].includes(t)) {
+      return 'negotiations';
+    }
+    if (['VERIFICATION_SUBMITTED', 'VERIFICATION_UNDER_REVIEW', 'VERIFICATION_APPROVED', 'VERIFICATION_REJECTED', 'VERIFICATION_CHANGES_REQUESTED', 'AUTHORIZATION_UPDATED'].includes(t)) {
+      return 'verifications';
+    }
+    if (['HANDOVER_CREATED', 'HANDOVER_COLLECTOR_CONFIRMED', 'HANDOVER_RECYCLER_CONFIRMED', 'HANDOVER_CONFIRMED'].includes(t)) {
+      return 'handovers';
+    }
+    if (['RECYCLING_COMPLETED', 'TRACEABILITY_UPDATED'].includes(t)) {
+      return 'traceability';
+    }
+    if (['CONSIGNMENT_INCOMING', 'CONSIGNMENT_ACCEPTED', 'CONSIGNMENT_REJECTED'].includes(t)) {
+      return 'consignments';
+    }
+    if (['TRANSACTION_RECORDED', 'TRANSACTION_PAYMENT_UPDATED', 'TRANSACTION_CANCELLED', 'CASH_CONFIRMATION_REQUESTED', 'CASH_PAYMENT_CONFIRMED', 'DIGITAL_PAYMENT_COMPLETED', 'BILL_GENERATED', 'PAYMENT_DISCREPANCY_FLAGGED'].includes(t)) {
+      return 'transactions';
+    }
+    if (['ACCOUNT_SUSPENDED', 'ACCOUNT_REACTIVATED', 'ADMIN_MESSAGE', 'DISPUTE_OPENED', 'DISPUTE_UPDATED', 'DISPUTE_RESOLVED', 'DISPUTE_REJECTED', 'RETURN_REQUESTED', 'RETURN_COMPLETED'].includes(t)) {
+      return 'systemAlerts';
+    }
+    return null;
   }
 
   /**
@@ -240,7 +290,135 @@ class NotificationService {
       return { unregistered: false };
     }
   }
+
+  /**
+   * Get user notification preferences from DB or return defaults
+   * @param {string} userId - User UUID
+   * @returns {Promise<object>}
+   */
+  async getPreferences(userId) {
+    if (!userId) {
+      throw AppError.badRequest('User ID is required');
+    }
+    try {
+      let pref = await prisma.notificationPreference.findUnique({
+        where: { userId },
+      });
+      if (!pref) {
+        return {
+          userId,
+          pickups: true,
+          offersAndBids: true,
+          sourcingAndBids: true,
+          negotiations: true,
+          verifications: true,
+          handovers: true,
+          traceability: true,
+          consignments: true,
+          transactions: true,
+          systemAlerts: true,
+        };
+      }
+      return {
+        userId: pref.userId,
+        pickups: pref.pickups,
+        offersAndBids: pref.offersAndBids,
+        sourcingAndBids: pref.sourcingAndBids,
+        negotiations: pref.negotiations,
+        verifications: pref.verifications,
+        handovers: pref.handovers,
+        traceability: pref.traceability,
+        consignments: pref.consignments,
+        transactions: pref.transactions,
+        systemAlerts: pref.systemAlerts,
+        updatedAt: pref.updatedAt,
+      };
+    } catch (err) {
+      logger.warn(`Failed to fetch notification preferences for user ${userId}: ${err.message}`);
+      return {
+        userId,
+        pickups: true,
+        offersAndBids: true,
+        sourcingAndBids: true,
+        negotiations: true,
+        verifications: true,
+        handovers: true,
+        traceability: true,
+        consignments: true,
+        transactions: true,
+        systemAlerts: true,
+      };
+    }
+  }
+
+  /**
+   * Update user notification preferences in DB
+   * @param {string} userId - User UUID
+   * @param {object} payload - Preference toggles
+   * @returns {Promise<object>}
+   */
+  async updatePreferences(userId, payload = {}) {
+    if (!userId) {
+      throw AppError.badRequest('User ID is required');
+    }
+    if (!payload || typeof payload !== 'object') {
+      throw AppError.badRequest('Payload must be an object');
+    }
+
+    const fields = [
+      'pickups',
+      'offersAndBids',
+      'sourcingAndBids',
+      'negotiations',
+      'verifications',
+      'handovers',
+      'traceability',
+      'consignments',
+      'transactions',
+      'systemAlerts',
+    ];
+
+    const current = await this.getPreferences(userId);
+    const updateData = {};
+    for (const f of fields) {
+      if (payload[f] !== undefined) {
+        updateData[f] = Boolean(payload[f]);
+      }
+    }
+
+    const pref = await prisma.notificationPreference.upsert({
+      where: { userId },
+      create: {
+        userId,
+        pickups: updateData.pickups !== undefined ? updateData.pickups : current.pickups,
+        offersAndBids: updateData.offersAndBids !== undefined ? updateData.offersAndBids : current.offersAndBids,
+        sourcingAndBids: updateData.sourcingAndBids !== undefined ? updateData.sourcingAndBids : current.sourcingAndBids,
+        negotiations: updateData.negotiations !== undefined ? updateData.negotiations : current.negotiations,
+        verifications: updateData.verifications !== undefined ? updateData.verifications : current.verifications,
+        handovers: updateData.handovers !== undefined ? updateData.handovers : current.handovers,
+        traceability: updateData.traceability !== undefined ? updateData.traceability : current.traceability,
+        consignments: updateData.consignments !== undefined ? updateData.consignments : current.consignments,
+        transactions: updateData.transactions !== undefined ? updateData.transactions : current.transactions,
+        systemAlerts: updateData.systemAlerts !== undefined ? updateData.systemAlerts : current.systemAlerts,
+      },
+      update: updateData,
+    });
+
+    return {
+      userId: pref.userId,
+      pickups: pref.pickups,
+      offersAndBids: pref.offersAndBids,
+      sourcingAndBids: pref.sourcingAndBids,
+      negotiations: pref.negotiations,
+      verifications: pref.verifications,
+      handovers: pref.handovers,
+      traceability: pref.traceability,
+      consignments: pref.consignments,
+      transactions: pref.transactions,
+      systemAlerts: pref.systemAlerts,
+      updatedAt: pref.updatedAt,
+    };
+  }
 }
 
 module.exports = new NotificationService();
-

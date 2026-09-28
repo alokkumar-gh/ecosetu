@@ -73,6 +73,7 @@ class AuthService {
     }
 
     this._notifyListeners({ event: 'LOGIN', user });
+    fcmClientService.requestAndSyncToken().catch(() => {});
     return response.data;
   }
 
@@ -116,6 +117,7 @@ class AuthService {
     }
 
     this._notifyListeners({ event: 'LOGIN', user });
+    fcmClientService.requestAndSyncToken().catch(() => {});
     return response.data;
   }
 
@@ -145,6 +147,7 @@ class AuthService {
     }
 
     this._notifyListeners({ event: 'LOGIN', user });
+    fcmClientService.requestAndSyncToken().catch(() => {});
     return response.data;
   }
 

@@ -3,7 +3,7 @@
 
 const AppError = require('../utils/AppError');
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB limit
 const JPEG_MAGIC = Buffer.from([0xff, 0xd8, 0xff]);
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
 const WEBP_RIFF = Buffer.from([0x52, 0x49, 0x46, 0x46]); // 'RIFF'
@@ -57,7 +57,7 @@ function parseMultipart(buffer, boundary) {
 }
 
 /**
- * Express middleware to capture and validate uploaded image files up to 10MB
+ * Express middleware to capture and validate uploaded image files up to 5MB
  */
 function handleImageUpload(req, res, next) {
   const contentType = req.headers['content-type'] || '';
@@ -74,7 +74,7 @@ function handleImageUpload(req, res, next) {
     totalLength += chunk.length;
     if (totalLength > MAX_FILE_SIZE) {
       req.pause();
-      return next(AppError.badRequest('File size must be under 10MB'));
+      return next(AppError.badRequest('File size must be under 5MB'));
     }
     chunks.push(chunk);
   });
@@ -127,7 +127,7 @@ function validateImageFile(file) {
   }
 
   if (file.buffer.length > MAX_FILE_SIZE) {
-    throw AppError.badRequest('File size must be under 10MB');
+    throw AppError.badRequest('File size must be under 5MB');
   }
 
   const filename = file.filename || '';

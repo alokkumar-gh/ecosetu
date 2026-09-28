@@ -231,5 +231,13 @@ router.patch(
   (req, res, next) => adminController.updateRecyclerProfile(req, res, next)
 );
 
+// Get real-time system health & component diagnostics (Admin only)
+router.get(
+  '/system-health',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  (req, res, next) => adminController.getSystemHealth(req, res, next)
+);
+
 module.exports = router;
 

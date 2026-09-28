@@ -27,6 +27,7 @@ export interface VerificationStatusResponse {
     status: 'NOT_SUBMITTED' | 'SUBMITTED' | 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'CHANGES_REQUIRED';
     documentType: string;
     documentNumberMasked?: string;
+    documentUrl?: string;
     submittedAt: string;
     reviewedAt?: string;
     reviewNotes?: string;

@@ -393,7 +393,14 @@ export const CitizenProfileScreen: React.FC = () => {
               icon="bell"
               label={t('citizen.profile.notifications', 'Notifications')}
               sub={t('citizen.profile.notificationsSub', 'Collector arrivals and reward updates')}
-              onPress={() => Alert.alert('Notifications', 'Notification preferences enabled.')}
+              onPress={() => navigation.navigate('NotificationSettings')}
+            />
+            <View style={styles.rowDivider} />
+            <MenuRow
+              icon="refresh"
+              label={t('profile.offlineData', 'Offline Data')}
+              sub={t('profile.offlineSub', 'Manage cached offline data')}
+              onPress={() => navigation.navigate('OfflineData')}
             />
           </MenuGroup>
 

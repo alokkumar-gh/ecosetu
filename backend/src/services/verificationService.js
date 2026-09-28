@@ -68,6 +68,35 @@ class VerificationService {
    * @returns {Promise<object>} { verifications, pagination, metrics }
    */
   async listVerifications({ status = 'PENDING', role = 'ALL', page = 1, limit = 20 } = {}) {
+    // 0. Ensure any orphan PENDING_VERIFICATION collector or recycler has an active Verification record
+    try {
+      const orphanUsers = await prisma.user.findMany({
+        where: {
+          role: { in: [ROLES.INFORMAL_COLLECTOR, ROLES.RECYCLER] },
+          status: USER_STATUS.PENDING_VERIFICATION,
+          verifications: { none: {} },
+        },
+        select: { id: true, role: true },
+      });
+
+      if (orphanUsers.length > 0) {
+        await prisma.$transaction(
+          orphanUsers.map((u) =>
+            prisma.verification.create({
+              data: {
+                userId: u.id,
+                role: u.role,
+                status: VERIFICATION_STATUS.PENDING,
+                documentType: u.role === ROLES.RECYCLER ? 'RECYCLER_LICENSE' : 'AADHAAR',
+              },
+            })
+          )
+        );
+      }
+    } catch (orphanErr) {
+      console.warn('[VerificationService] Orphan backfill non-fatal warning:', orphanErr.message);
+    }
+
     const where = {};
 
     // 1. Status Filter Mapping
@@ -372,15 +401,43 @@ class VerificationService {
       throw AppError.badRequest('Citizens do not require identity verification');
     }
 
-    const {
+    let {
       documentType = user.role === ROLES.RECYCLER ? 'RECYCLER_LICENSE' : 'AADHAAR',
       documentNumberMasked,
       documentUrl,
       storageKey,
       mimeType,
       fileSize,
+      fileBase64,
+      fileExtension,
       reviewNotes,
     } = submissionData;
+
+    if (fileBase64 && (!documentUrl || !storageKey)) {
+      const base64Data = fileBase64.replace(/^data:[^;]+;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+      const ext = (fileExtension || 'jpg').toLowerCase().replace('.', '');
+      const { validateDocumentFile } = require('../middleware/uploadMiddleware');
+      validateDocumentFile({
+        filename: `upload.${ext}`,
+        mimetype: mimeType || (ext === 'pdf' ? 'application/pdf' : 'image/jpeg'),
+        buffer,
+      });
+      const path = require('path');
+      const fs = require('fs');
+      const environment = require('../config/environment');
+      const SECURE_DOCS_DIR = path.resolve(process.cwd(), environment.uploadDir || './uploads', 'verification_docs');
+      if (!fs.existsSync(SECURE_DOCS_DIR)) fs.mkdirSync(SECURE_DOCS_DIR, { recursive: true });
+
+      const safeName = `doc_${userId}_${Date.now()}.${ext}`;
+      const filePath = path.join(SECURE_DOCS_DIR, safeName);
+      fs.writeFileSync(filePath, buffer);
+
+      storageKey = safeName;
+      mimeType = mimeType || (ext === 'pdf' ? 'application/pdf' : 'image/jpeg');
+      fileSize = buffer.length;
+      documentUrl = `/api/v1/verifications/document/${safeName}`;
+    }
 
     if (!documentUrl && !storageKey) {
       throw AppError.badRequest('Identity document file or URL is required');
@@ -389,22 +446,48 @@ class VerificationService {
     const now = new Date();
 
     const result = await prisma.$transaction(async (tx) => {
-      // Create new verification record
-      const verification = await tx.verification.create({
-        data: {
-          userId,
-          role: user.role,
-          status: VERIFICATION_STATUS.SUBMITTED,
-          documentType,
-          documentNumberMasked: documentNumberMasked || null,
-          documentUrl: documentUrl || null,
-          storageKey: storageKey || null,
-          mimeType: mimeType || null,
-          fileSize: fileSize || null,
-          submittedAt: now,
-          reviewNotes: reviewNotes || null,
-        },
+      // Check if an existing non-approved verification record exists for this user
+      const existing = await tx.verification.findFirst({
+        where: { userId, status: { not: VERIFICATION_STATUS.APPROVED } },
+        orderBy: { submittedAt: 'desc' },
       });
+
+      let verification;
+      if (existing) {
+        // Update existing record to prevent duplicate entries on retries
+        verification = await tx.verification.update({
+          where: { id: existing.id },
+          data: {
+            role: user.role,
+            status: VERIFICATION_STATUS.SUBMITTED,
+            documentType,
+            documentNumberMasked: documentNumberMasked || existing.documentNumberMasked,
+            documentUrl: documentUrl || existing.documentUrl,
+            storageKey: storageKey || existing.storageKey,
+            mimeType: mimeType || existing.mimeType,
+            fileSize: fileSize || existing.fileSize,
+            submittedAt: now,
+            reviewNotes: reviewNotes || existing.reviewNotes,
+          },
+        });
+      } else {
+        // Create new verification record
+        verification = await tx.verification.create({
+          data: {
+            userId,
+            role: user.role,
+            status: VERIFICATION_STATUS.SUBMITTED,
+            documentType,
+            documentNumberMasked: documentNumberMasked || null,
+            documentUrl: documentUrl || null,
+            storageKey: storageKey || null,
+            mimeType: mimeType || null,
+            fileSize: fileSize || null,
+            submittedAt: now,
+            reviewNotes: reviewNotes || null,
+          },
+        });
+      }
 
       // Update role profile document reference
       if (user.role === ROLES.INFORMAL_COLLECTOR) {

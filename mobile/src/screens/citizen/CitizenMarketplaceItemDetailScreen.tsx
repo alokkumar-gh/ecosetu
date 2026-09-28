@@ -28,6 +28,7 @@ import { quoteService } from '../../services/quoteService';
 import { MaterialLotItem } from '../../services/materialLotService';
 import { MATERIAL_TAXONOMY } from '../../config/materialTaxonomy';
 import { colors } from '../../theme/colors';
+import { AuthorizedImage } from '../../components/common/AuthorizedImage';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -219,10 +220,12 @@ export const CitizenMarketplaceItemDetailScreen: React.FC = () => {
         {/* ── Photo Gallery (full width, no SafeArea padding) ── */}
         <View style={styles.gallery}>
           {photos.length > 0 ? (
-            <Image
-              source={{ uri: photos[selectedPhoto]?.photoUrl }}
+            <AuthorizedImage
+              uri={photos[selectedPhoto]?.photoUrl}
               style={styles.mainPhoto}
               resizeMode="cover"
+              allowFullscreen={true}
+              categoryLabel={cat.defaultName}
             />
           ) : (
             <View style={styles.photoPlaceholder}>
@@ -253,9 +256,10 @@ export const CitizenMarketplaceItemDetailScreen: React.FC = () => {
             <View style={styles.thumbStrip}>
               {photos.map((p, i) => (
                 <TouchableOpacity key={p.id || i} onPress={() => setSelectedPhoto(i)}>
-                  <Image
-                    source={{ uri: p.photoUrl }}
+                  <AuthorizedImage
+                    uri={p.photoUrl}
                     style={[styles.thumb, i === selectedPhoto && styles.thumbActive]}
+                    allowFullscreen={false}
                   />
                 </TouchableOpacity>
               ))}

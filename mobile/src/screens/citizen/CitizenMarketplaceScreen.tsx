@@ -37,6 +37,7 @@ import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { AppIcon, IconName } from '../../components/ui/AppIcon';
+import { AuthorizedImage } from '../../components/common/AuthorizedImage';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CARD_W = (SCREEN_W - 48) / 2;
@@ -112,7 +113,7 @@ const ProductCard = React.memo<ProductCardProps>(({ item, onPress }) => {
       {/* Photo */}
       <View style={styles.productPhoto}>
         {photoUrl ? (
-          <Image source={{ uri: photoUrl }} style={styles.productImg} resizeMode="cover" />
+          <AuthorizedImage uri={photoUrl} style={styles.productImg} resizeMode="cover" allowFullscreen={false} categoryLabel={title} />
         ) : (
           <View style={styles.productImgPlaceholder}>
             <AppIcon name="box" size={24} color="rgba(255,255,255,0.4)" />

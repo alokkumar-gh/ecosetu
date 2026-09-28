@@ -45,7 +45,7 @@ export const RecyclerSourcingScreen: React.FC<Props> = ({ navigation }) => {
   const fetchRequests = useCallback(async () => {
     try {
       setError(null);
-      const params: any = {};
+      const params: any = { myRequests: true };
       if (activeTab !== 'ALL') {
         params.status = activeTab;
       }

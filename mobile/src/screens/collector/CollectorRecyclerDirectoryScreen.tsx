@@ -130,7 +130,7 @@ export const CollectorRecyclerDirectoryScreen: React.FC<Props> = ({ navigation }
       return (
         <View style={[styles.badge, styles.badgeAuthorized]}>
           <AppIcon name="check-circle" size={11} color="#10B981" />
-          <Text style={styles.badgeTextAuthorized}>{t('recyclerDirectory.statusAuthorized') || 'Authorized'}</Text>
+          <Text style={styles.badgeTextAuthorized}>✓ {t('recyclerDirectory.statusAuthorized') || 'Authorized'}</Text>
         </View>
       );
     }
@@ -138,7 +138,7 @@ export const CollectorRecyclerDirectoryScreen: React.FC<Props> = ({ navigation }
       return (
         <View style={[styles.badge, styles.badgeProvisional]}>
           <AppIcon name="alert-triangle" size={11} color="#F59E0B" />
-          <Text style={styles.badgeTextProvisional}>{t('recyclerDirectory.statusProvisional') || 'Provisional'}</Text>
+          <Text style={styles.badgeTextProvisional}>⚠️ {t('recyclerDirectory.statusProvisional') || 'Provisional'}</Text>
         </View>
       );
     }
@@ -146,7 +146,7 @@ export const CollectorRecyclerDirectoryScreen: React.FC<Props> = ({ navigation }
       return (
         <View style={[styles.badge, styles.badgePending]}>
           <AppIcon name="clock" size={11} color="#38BDF8" />
-          <Text style={styles.badgeTextPending}>{t('recyclerDirectory.statusPending') || 'Pending Review'}</Text>
+          <Text style={styles.badgeTextPending}>⏳ {t('recyclerDirectory.statusPending') || 'Pending Review'}</Text>
         </View>
       );
     }
@@ -154,7 +154,7 @@ export const CollectorRecyclerDirectoryScreen: React.FC<Props> = ({ navigation }
       return (
         <View style={[styles.badge, styles.badgeSuspended]}>
           <AppIcon name="alert-circle" size={11} color="#F97316" />
-          <Text style={styles.badgeTextSuspended}>{t('recyclerDirectory.statusSuspended') || 'Suspended'}</Text>
+          <Text style={styles.badgeTextSuspended}>⏸️ {t('recyclerDirectory.statusSuspended') || 'Suspended'}</Text>
         </View>
       );
     }
@@ -162,7 +162,7 @@ export const CollectorRecyclerDirectoryScreen: React.FC<Props> = ({ navigation }
       return (
         <View style={[styles.badge, styles.badgeRejected]}>
           <AppIcon name="x-circle" size={11} color="#EF4444" />
-          <Text style={styles.badgeTextRejected}>{t('recyclerDirectory.statusRejected') || 'Rejected'}</Text>
+          <Text style={styles.badgeTextRejected}>❌ {t('recyclerDirectory.statusRejected') || 'Rejected'}</Text>
         </View>
       );
     }

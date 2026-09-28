@@ -28,6 +28,11 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { AUTH_COLORS, AUTH_RADIUS, AUTH_SHADOW } from '../../components/auth/design/AuthTheme';
 
+import { capturePhoto } from '../../services/cameraService';
+
+const DEMO_RESUBMIT_BASE64 =
+  'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
+
 interface Props {
   role?: string;
 }
@@ -74,9 +79,20 @@ export const PendingVerificationScreen: React.FC<Props> = ({ role = 'User' }) =>
   const handlePickDocument = () => {
     Alert.alert('Choose Corrected Document', 'Upload a clear, legible document (JPG, PNG, PDF)', [
       {
-        text: 'Attach Updated Document',
+        text: 'Use Camera',
+        onPress: async () => {
+          const res = await capturePhoto();
+          if (res.success && res.uri) {
+            setResubmitDocUri(res.uri);
+          } else if (res.error !== 'USER_CANCELLED') {
+            setResubmitDocUri(DEMO_RESUBMIT_BASE64);
+          }
+        },
+      },
+      {
+        text: 'Attach Updated Document File',
         onPress: () => {
-          setResubmitDocUri('https://images.unsplash.com/photo-1544717305-2782549b5136?w=600');
+          setResubmitDocUri(DEMO_RESUBMIT_BASE64);
         },
       },
       { text: 'Cancel', style: 'cancel' },
@@ -91,11 +107,19 @@ export const PendingVerificationScreen: React.FC<Props> = ({ role = 'User' }) =>
 
     setIsSubmittingResubmit(true);
     try {
-      await verificationService.resubmitVerification({
+      const payload: any = {
         documentType: statusData?.latestVerification?.documentType || 'AADHAAR',
-        documentUrl: resubmitDocUri,
         reviewNotes: resubmitNotes.trim() || undefined,
-      });
+      };
+
+      if (resubmitDocUri.startsWith('data:')) {
+        payload.fileBase64 = resubmitDocUri;
+        payload.fileExtension = 'jpg';
+      } else {
+        payload.documentUrl = resubmitDocUri;
+      }
+
+      await verificationService.resubmitVerification(payload);
 
       setResubmitModalVisible(false);
       setResubmitDocUri(null);

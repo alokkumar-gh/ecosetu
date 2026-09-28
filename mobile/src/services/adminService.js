@@ -445,6 +445,15 @@ class AdminService {
   }
 
   /**
+   * Fetch authoritative system health from backend diagnostic probe
+   * @returns {Promise<object>}
+   */
+  async getSystemHealth() {
+    const response = await apiClient.get('/admin/system-health');
+    return response.data?.data || response.data;
+  }
+
+  /**
    * Retrieve cached system diagnostics snapshot.
    * @returns {Promise<object|null>}
    */

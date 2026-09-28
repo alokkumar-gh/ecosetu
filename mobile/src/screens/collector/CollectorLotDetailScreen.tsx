@@ -36,6 +36,7 @@ import { MATERIAL_TAXONOMY } from '../../config/materialTaxonomy';
 import { getSafetyTopicByCategory } from '../../data/safetyGuidance';
 import { ReportProblemModal } from '../../components/dispute/ReportProblemModal';
 import { AppIcon } from '../../components/ui/AppIcon';
+import { AuthorizedImage } from '../../components/common/AuthorizedImage';
 
 const space = {
   xs: spacing.spaceXs,
@@ -234,7 +235,7 @@ export const CollectorLotDetailScreen: React.FC<CollectorLotDetailScreenProps> =
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoGallery}>
                 {lot.photos.map((p, idx) => (
-                  <Image key={idx} source={{ uri: p.photoUrl }} style={styles.galleryImage} />
+                  <AuthorizedImage key={p.id || idx} uri={p.photoUrl} style={styles.galleryImage} allowFullscreen={true} />
                 ))}
               </ScrollView>
             </View>

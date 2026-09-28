@@ -131,8 +131,7 @@ const updateVerification = [
     .withMessage('Target verification ID must be a valid UUID'),
 
   body('status')
-    .exists({ checkNull: true })
-    .withMessage('status is required')
+    .optional()
     .isIn([
       VERIFICATION_STATUS.APPROVED,
       VERIFICATION_STATUS.REJECTED,

@@ -21,6 +21,7 @@ import { useI18n } from '../../i18n';
 import handoverService, { HandoverRecord } from '../../services/handoverService';
 import networkService from '../../services/networkService';
 import { AppIcon } from '../../components/ui/AppIcon';
+import { AuthorizedImage } from '../../components/common/AuthorizedImage';
 
 export const RecyclerHandoverConfirmScreen: React.FC = () => {
   const { t } = useI18n();
@@ -176,7 +177,7 @@ export const RecyclerHandoverConfirmScreen: React.FC = () => {
           <Text style={styles.cardHeader}>{t('handover.evidencePhotos') || 'Evidence Photos'}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
             {handover.photos.map((p) => (
-              <Image key={p.id} source={{ uri: p.photoUrl }} style={styles.photoThumb} />
+              <AuthorizedImage key={p.id} uri={p.photoUrl} style={styles.photoThumb} allowFullscreen={true} />
             ))}
           </ScrollView>
         </View>

@@ -426,6 +426,7 @@ model User {
   verifications         Verification[]      @relation("UserVerifications")
   reviewedVerifications Verification[]      @relation("AdminReviewedVerifications")
   notifications         Notification[]      @relation("UserNotifications")
+  notificationPreference NotificationPreference? @relation("UserNotificationPreferences")
   deviceTokens          DeviceToken[]       @relation("UserDeviceTokens")
   auditLogs             AuditLog[]          @relation("ActorAuditLogs")
   createdPrices         PriceData[]         @relation("AdminCreatedPrices")
@@ -761,6 +762,27 @@ model Notification {
   @@index([userId, isRead], map: "idx_n_read")
   @@index([createdAt], map: "idx_n_created")
   @@map("notifications")
+}
+
+model NotificationPreference {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @unique @map("user_id") @db.Uuid
+  pickups         Boolean  @default(true)
+  offersAndBids   Boolean  @default(true) @map("offers_and_bids")
+  sourcingAndBids Boolean  @default(true) @map("sourcing_and_bids")
+  negotiations    Boolean  @default(true)
+  verifications   Boolean  @default(true)
+  handovers       Boolean  @default(true)
+  traceability    Boolean  @default(true)
+  consignments    Boolean  @default(true)
+  transactions    Boolean  @default(true)
+  systemAlerts    Boolean  @default(true) @map("system_alerts")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation("UserNotificationPreferences", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
 }
 
 model AuditLog {

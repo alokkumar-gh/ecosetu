@@ -39,6 +39,11 @@ const CATEGORY_OPTIONS = [
   { id: 'CABLE_CHARGER', label: 'Cables & Copper' },
 ];
 
+import { capturePhoto } from '../../services/cameraService';
+
+const DEMO_LICENSE_BASE64 =
+  'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
+
 export const RecyclerOnboardingScreen: React.FC<Props> = ({ navigation, route }) => {
   const { loginWithFirebase } = useAuth();
   const idToken = (route?.params as any)?.idToken;
@@ -74,10 +79,23 @@ export const RecyclerOnboardingScreen: React.FC<Props> = ({ navigation, route })
       'Select document source (Accepted: JPG, PNG, PDF up to 10MB)',
       [
         {
-          text: 'Upload License PDF / Image',
+          text: 'Use Camera',
+          onPress: async () => {
+            const res = await capturePhoto();
+            if (res.success && res.uri) {
+              setDocumentUri(res.uri);
+              setDocumentFileName(res.fileName || 'license_photo.jpg');
+            } else if (res.error !== 'USER_CANCELLED') {
+              setDocumentUri(DEMO_LICENSE_BASE64);
+              setDocumentFileName('recycler_authorization.jpg');
+            }
+          },
+        },
+        {
+          text: 'Attach Test License File',
           onPress: () => {
-            setDocumentUri('https://images.unsplash.com/photo-1568667256549-094345857637?w=600');
-            setDocumentFileName('recycler_authorization_pcb.pdf');
+            setDocumentUri(DEMO_LICENSE_BASE64);
+            setDocumentFileName('recycler_authorization_pcb.jpg');
           },
         },
         { text: 'Cancel', style: 'cancel' },
@@ -114,7 +132,7 @@ export const RecyclerOnboardingScreen: React.FC<Props> = ({ navigation, route })
 
     setIsLoading(true);
     try {
-      const profileData = {
+      const profileData: any = {
         name: contactPerson.trim(),
         phone: phone.trim(),
         facilityName: facilityName.trim(),
@@ -122,9 +140,15 @@ export const RecyclerOnboardingScreen: React.FC<Props> = ({ navigation, route })
         city: city.trim() || 'New Delhi',
         pincode: pincode.trim() || '110001',
         licenseNumber: licenseNumber.trim(),
-        licenseDocumentUrl: documentUri,
         acceptedCategories: selectedCategories,
       };
+
+      if (documentUri.startsWith('data:')) {
+        profileData.fileBase64 = documentUri;
+        profileData.fileExtension = documentFileName ? documentFileName.split('.').pop() : 'jpg';
+      } else {
+        profileData.licenseDocumentUrl = documentUri;
+      }
 
       if (idToken) {
         await loginWithFirebase({

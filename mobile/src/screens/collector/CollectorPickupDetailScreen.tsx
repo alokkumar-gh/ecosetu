@@ -209,14 +209,30 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
     return items.reduce((sum: number, it: any) => sum + (Number(it.estimatedWeightKg) || 0), 0);
   }, [items]);
 
-  // Acquisition or standard price estimate
-  const acquisitionPrice = useMemo(() => {
-    if (pickup?.totalAmount) return String(pickup.totalAmount);
-    if (req?.agreedPrice) return String(req.agreedPrice);
-    if (req?.standardPrice?.estimatedTotal) return String(req.standardPrice.estimatedTotal);
-    if (req?.standardPrice?.minEstimate) return String(req.standardPrice.minEstimate);
+  // Acquisition agreed price or standard reference value
+  const priceInfo = useMemo(() => {
+    const acceptedPrice = pickup?.totalAmount || req?.agreedPrice || (req?.pickupOffers || []).find((o: any) => o.status === 'ACCEPTED')?.offeredPrice;
+    if (acceptedPrice) {
+      return {
+        amount: String(acceptedPrice),
+        isAccepted: true,
+        label: isCompleted ? 'Agreed Acquisition Payout' : 'Agreed Acquisition Price',
+        badge: isCompleted ? 'PAID' : 'ACCEPTED OFFER',
+        subtitle: 'Payable to citizen upon physical collection & weighing',
+      };
+    }
+    const est = req?.standardPrice?.estimatedTotal || req?.standardPrice?.minEstimate;
+    if (est) {
+      return {
+        amount: String(est),
+        isAccepted: false,
+        label: 'Estimated Reference Value',
+        badge: 'ESTIMATE',
+        subtitle: 'Benchmark category estimation before offer acceptance',
+      };
+    }
     return null;
-  }, [pickup, req]);
+  }, [pickup, req, isCompleted]);
 
   // Total verified weight in modal
   const calculatedTotalWeight = useMemo(() => {
@@ -227,20 +243,41 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
   }, [itemWeights]);
 
   // Doorstep address string
-  const doorstepAddress = req.pickupAddress || [req.houseNumber, req.street, req.landmark, req.city, req.pincode].filter(Boolean).join(', ') || '';
+  const doorstepAddress = useMemo(() => {
+    const parts = [
+      req.houseNumber ? String(req.houseNumber).trim() : null,
+      req.street ? String(req.street).trim() : null,
+      req.landmark ? `Near ${String(req.landmark).trim()}` : null,
+      req.city ? String(req.city).trim() : null,
+      req.district && req.district !== req.city ? String(req.district).trim() : null,
+      req.state ? String(req.state).trim() : null,
+      req.pincode ? `PIN ${String(req.pincode).trim()}` : null,
+    ].filter(Boolean);
+    if (parts.length > 0) return parts.join(', ');
+    return req.pickupAddress ? String(req.pickupAddress).trim() : '';
+  }, [req]);
+
+  const citizenName = req.citizen?.name || req.citizenName || pickup?.citizenName || 'Citizen Requester';
+
+  const categories = useMemo(() => {
+    if (!items || items.length === 0) return 'E-Waste';
+    const cats = items.map((it: any) => (it.category ? String(it.category).replace(/_/g, ' ') : 'E-Waste'));
+    return Array.from(new Set(cats)).join(', ');
+  }, [items]);
 
   const handleReadAloudAuthorizedPickup = useCallback(async () => {
     if (!isAuthorized) return;
     const parts = [
-      `Pickup for ${items.length} e-waste items.`,
+      `Pickup request from ${citizenName} for ${items.length} e-waste items.`,
       `Status is ${status.replace('_', ' ').toLowerCase()}.`,
       doorstepAddress ? `Doorstep address: ${doorstepAddress}.` : '',
+      priceInfo ? `${priceInfo.label} is ₹${priceInfo.amount}.` : '',
     ];
     await voiceService.speak(parts.filter(Boolean).join(' '), {
       priority: AnnouncementPriority.NORMAL,
       force: true,
     });
-  }, [isAuthorized, items.length, status, doorstepAddress]);
+  }, [isAuthorized, citizenName, items.length, status, doorstepAddress, priceInfo]);
 
   // Voice announcement content
   const screenSummaryText = useMemo(() => {
@@ -488,12 +525,15 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
             />
           }
         >
-          {/* 1. Header Card: Reference, Status & Voice Read Aloud */}
+          {/* 1. Header Card: Citizen Requester (PRIMARY) & Category/Items (SECONDARY) */}
           <GlassCard style={styles.headerCard}>
             <View style={styles.headerTopRow}>
               <View style={styles.refColumn}>
-                <Text style={styles.refText}>
-                  PICKUP #{pickup?.id ? String(pickup.id).slice(0, 8).toUpperCase() : 'ECO'}
+                <Text style={styles.citizenTitleText}>
+                  {citizenName}
+                </Text>
+                <Text style={styles.categorySubText}>
+                  {categories}
                 </Text>
                 <View style={styles.dateSubRow}>
                   <AppIcon name="calendar" size={13} color="#94A3B8" />
@@ -521,31 +561,45 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
           </GlassCard>
 
           {/* 1.5. Doorstep Price / Acquisition Offer Card */}
-          {Boolean(acquisitionPrice) && (
+          {Boolean(priceInfo) && (
             <GlassCard style={styles.priceCard}>
               <View style={styles.priceCardRow}>
                 <View style={styles.priceCardLeft}>
                   <View style={styles.priceIconBadge}>
-                    <AppIcon name="award" size={20} color="#10B981" />
+                    <AppIcon name="award" size={20} color={priceInfo?.isAccepted ? '#10B981' : '#38BDF8'} />
                   </View>
                   <View style={{ marginLeft: 10 }}>
-                    <Text style={styles.priceCardLabel}>
-                      {isCompleted ? 'Agreed Acquisition Payout' : 'Agreed Doorstep Offer'}
-                    </Text>
-                    <Text style={styles.priceCardSub}>
-                      Payable to citizen upon physical collection & weighing
-                    </Text>
+                    <Text style={styles.priceCardLabel}>{priceInfo?.label}</Text>
+                    <Text style={styles.priceCardSub}>{priceInfo?.subtitle}</Text>
                   </View>
                 </View>
                 <View style={styles.priceCardRight}>
-                  <Text style={styles.priceValueText}>₹{acquisitionPrice}</Text>
-                  <Text style={styles.priceBadgePill}>
-                    {isCompleted ? 'PAID' : req.agreedPrice ? 'LOCKED OFFER' : 'ESTIMATE'}
+                  <Text style={styles.priceValueText}>₹{priceInfo?.amount}</Text>
+                  <Text style={[styles.priceBadgePill, !priceInfo?.isAccepted && { backgroundColor: 'rgba(56, 189, 248, 0.15)', borderColor: 'rgba(56, 189, 248, 0.35)', color: '#38BDF8' }]}>
+                    {priceInfo?.badge}
                   </Text>
                 </View>
               </View>
             </GlassCard>
           )}
+
+          {/* 1.8. Citizen Requester Details (Part 2) */}
+          <GlassCard style={styles.sectionCard}>
+            <View style={styles.sectionTitleRow}>
+              <AppIcon name="user" size={18} color="#10B981" />
+              <Text style={styles.sectionTitle}>Requested By</Text>
+            </View>
+            <View style={{ marginTop: 8 }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
+                {req.citizen?.name || req.citizenName || 'Citizen User'}
+              </Text>
+              {isAuthorized && Boolean(req.citizen?.phone) && (
+                <Text style={{ fontSize: 13, color: '#38BDF8', marginTop: 4 }}>
+                  📞 {req.citizen.phone}
+                </Text>
+              )}
+            </View>
+          </GlassCard>
 
           {/* 2. Doorstep Address & Map Section */}
           <GlassCard style={styles.sectionCard}>
@@ -668,10 +722,10 @@ export const CollectorPickupDetailScreen: React.FC<Props> = ({ navigation, route
                 <Text style={styles.receiptLabel}>Actual Weight Collected:</Text>
                 <Text style={styles.receiptValue}>{pickup?.totalWeightKg || totalEstWeight} kg</Text>
               </View>
-              {Boolean(acquisitionPrice) && (
+              {Boolean(priceInfo?.amount) && (
                 <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Acquisition Price:</Text>
-                  <Text style={[styles.receiptValue, { color: '#10B981', fontWeight: '800' }]}>₹{acquisitionPrice}</Text>
+                  <Text style={styles.receiptLabel}>{priceInfo?.isAccepted ? 'Acquisition Price:' : 'Est. Reference Price:'}</Text>
+                  <Text style={[styles.receiptValue, { color: '#10B981', fontWeight: '800' }]}>₹{priceInfo?.amount}</Text>
                 </View>
               )}
               {pickup?.completedAt && (
@@ -928,6 +982,18 @@ const styles = StyleSheet.create({
   },
   refColumn: {
     flex: 1,
+  },
+  citizenTitleText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    letterSpacing: 0.3,
+  },
+  categorySubText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#34D399',
+    marginTop: 2,
   },
   refText: {
     fontSize: 17,

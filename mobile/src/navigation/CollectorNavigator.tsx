@@ -44,6 +44,9 @@ import { CashPaymentConfirmationScreen } from '../screens/payment/CashPaymentCon
 import { PaymentResultScreen } from '../screens/payment/PaymentResultScreen';
 import { BillsScreen } from '../screens/billing/BillsScreen';
 import { BillDetailScreen } from '../screens/billing/BillDetailScreen';
+import { NotificationSettingsScreen } from '../screens/common/NotificationSettingsScreen';
+import { OfflineDataScreen } from '../screens/common/OfflineDataScreen';
+import { CollectorDoorToDoorScreen } from '../screens/collector/CollectorDoorToDoorScreen';
 import { CollectorVoiceProvider } from '../context/CollectorVoiceContext';
 import { CollectorVoiceButton } from '../components/voice/CollectorVoiceButton';
 import { CollectorVoiceModal } from '../components/voice/CollectorVoiceModal';
@@ -400,6 +403,22 @@ export const CollectorNavigator: React.FC = () => {
         <Stack.Screen
           name="BhashiniTest"
           component={require('../screens/admin/BhashiniTestScreen').BhashiniTestScreen}
+        />
+        <Stack.Screen
+          name="NotificationSettings"
+          component={NotificationSettingsScreen}
+        />
+        <Stack.Screen
+          name="OfflineData"
+          component={OfflineDataScreen}
+        />
+        <Stack.Screen
+          name="CollectorDoorToDoor"
+          component={CollectorDoorToDoorScreen}
+        />
+        <Stack.Screen
+          name="Settings"
+          component={NotificationSettingsScreen}
         />
       </Stack.Navigator>
 

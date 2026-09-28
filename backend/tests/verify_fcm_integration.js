@@ -298,16 +298,25 @@ async function runFcmIntegrationSuite() {
     // 5. FCM DISPATCH RESILIENCE & STALE TOKEN CLEANUP
     // -------------------------------------------------------------
     await test('FCM Service: sendToUser dispatches across active tokens safely in mock mode', async () => {
-      const dispatchResult = await fcmService.sendToUser(userA, {
-        title: 'Pickup Confirmed',
-        message: 'Collector accepted pickup',
-        type: 'REQUEST_ACCEPTED',
-        referenceType: 'collection_request',
-        referenceId: '33333333-3333-3333-3333-333333333333',
+      const originalSend = fcmService.sendToDevice;
+      fcmService.sendToDevice = async (token, payload) => ({
+        delivered: true,
+        simulated: true,
       });
-      assert.strictEqual(dispatchResult.delivered, true);
-      assert(Array.isArray(dispatchResult.results));
-      assert.strictEqual(dispatchResult.results.length, 1, 'Should dispatch only to active token');
+      try {
+        const dispatchResult = await fcmService.sendToUser(userA, {
+          title: 'Pickup Confirmed',
+          message: 'Collector accepted pickup',
+          type: 'REQUEST_ACCEPTED',
+          referenceType: 'collection_request',
+          referenceId: '33333333-3333-3333-3333-333333333333',
+        });
+        assert.strictEqual(dispatchResult.delivered, true);
+        assert(Array.isArray(dispatchResult.results));
+        assert.strictEqual(dispatchResult.results.length, 1, 'Should dispatch only to active token');
+      } finally {
+        fcmService.sendToDevice = originalSend;
+      }
     });
 
     await test('FCM Service: Automatic deactivation of stale token on registration failure', async () => {

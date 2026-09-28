@@ -84,6 +84,32 @@ class NotificationController {
       next(err);
     }
   }
+
+  /**
+   * Get user notification preferences
+   * GET /api/v1/notifications/preferences
+   */
+  async getPreferences(req, res, next) {
+    try {
+      const data = await notificationService.getPreferences(req.user.id);
+      return sendSuccess(res, { preferences: data }, 200);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Update user notification preferences
+   * PUT /api/v1/notifications/preferences
+   */
+  async updatePreferences(req, res, next) {
+    try {
+      const data = await notificationService.updatePreferences(req.user.id, req.body);
+      return sendSuccess(res, { preferences: data }, 200, 'Preferences updated successfully');
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = new NotificationController();

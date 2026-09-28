@@ -354,6 +354,43 @@ class OfflineQueue {
             }
           }
 
+          // If queued material lot has local offline photo URIs, upload them first
+          if (
+            item.type === QUEUE_ACTION_TYPES.CREATE_MATERIAL_LOT &&
+            item.payload &&
+            Array.isArray(item.payload.photos)
+          ) {
+            for (let idx = 0; idx < item.payload.photos.length; idx++) {
+              const photoObj = item.payload.photos[idx];
+              const uri = typeof photoObj === 'string' ? photoObj : photoObj?.photoUrl;
+              if (uri && (uri.startsWith('file:') || uri.startsWith('content:'))) {
+                try {
+                  const formData = new FormData();
+                  formData.append('image', {
+                    uri,
+                    type: 'image/jpeg',
+                    name: `lot_offline_${Date.now()}_${idx}.jpg`,
+                  });
+                  const uploadRes = await apiClient.request('/ewaste-items/upload', {
+                    method: 'POST',
+                    body: formData,
+                  });
+                  const serverImageUrl = uploadRes?.data?.imageUrl || uploadRes?.imageUrl;
+                  if (serverImageUrl) {
+                    if (typeof photoObj === 'string') {
+                      item.payload.photos[idx] = serverImageUrl;
+                    } else if (photoObj && typeof photoObj === 'object') {
+                      photoObj.photoUrl = serverImageUrl;
+                    }
+                    await this._saveQueue(queue);
+                  }
+                } catch (imgErr) {
+                  console.warn('[OfflineQueue] Material lot photo upload warning:', imgErr?.message);
+                }
+              }
+            }
+          }
+
           // Execute network call via central apiClient
           const response = await apiClient.request(item.endpoint, {
             method: item.method,
@@ -474,6 +511,33 @@ class OfflineQueue {
     } catch (err) {
       console.error('[OfflineQueue] Reconciliation error:', err);
     }
+  }
+
+  /**
+   * Reset failed and conflict items back to PENDING and trigger sync
+   * @returns {Promise<{ syncedCount: number, failedCount: number, conflictCount: number, offline?: boolean }>}
+   */
+  async retryFailed() {
+    const queue = await this.getQueue();
+    const activeUserId = await this._getActiveUserId();
+    let updated = false;
+
+    for (const item of queue) {
+      if (activeUserId && item.userId && item.userId !== activeUserId) continue;
+      if (item.status === QUEUE_STATUS.FAILED || item.status === QUEUE_STATUS.CONFLICT) {
+        item.status = QUEUE_STATUS.PENDING;
+        item.retries = 0;
+        item.error = null;
+        item.updatedAt = new Date().toISOString();
+        updated = true;
+      }
+    }
+
+    if (updated) {
+      await this._saveQueue(queue);
+    }
+
+    return this.syncNow();
   }
 
   /**

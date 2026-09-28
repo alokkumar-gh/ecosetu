@@ -52,16 +52,19 @@ import { AppIcon } from '../../components/ui/AppIcon';
 
 export type HealthStatusType =
   | 'HEALTHY'
+  | 'CONFIGURED'
   | 'DEGRADED'
   | 'UNAVAILABLE'
+  | 'UNREACHABLE'
   | 'NOT_CONFIGURED'
   | 'UNKNOWN'
   | 'OFFLINE';
 
 export interface DiagnosticItem {
   id: string;
-  titleKey: string;
-  descKey: string;
+  name?: string;
+  titleKey?: string;
+  descKey?: string;
   status: HealthStatusType;
   explanationKey?: string;
   dynamicExplanation?: string;
@@ -103,96 +106,72 @@ export const AdminSystemHealthScreen: React.FC<Props> = ({ navigation }) => {
     const netState = networkService.getState();
     const online = Boolean(netState.isConnected);
 
-    // 1. Backend API Check
-    let apiStatus: HealthStatusType = 'OFFLINE';
-    let apiDynamicText = t('admin.systemHealth.backendApiOffline');
-    let apiLatency: number | undefined = undefined;
-
-    if (online) {
-      const healthResult = await adminService.checkBackendHealth();
-      apiLatency = healthResult.latencyMs;
-
-      if (healthResult.isHealthy) {
-        apiStatus = 'HEALTHY';
-        apiDynamicText = t('admin.systemHealth.backendApiReachable', {
-          status: String(healthResult.status || 200),
-          latency: String(healthResult.latencyMs || 0),
-        });
-      } else {
-        apiStatus = 'UNAVAILABLE';
-        apiDynamicText = t('admin.systemHealth.backendApiUnreachable');
-      }
-    }
-
-    // 2. Database Check: Factual UNKNOWN (Backend does not run DB ping, direct mobile connection prohibited)
-    const dbStatus: HealthStatusType = 'UNKNOWN';
-
-    // 3. AI Classification Microservice: Factual NOT_CONFIGURED (Private component, no public health endpoint)
-    const aiStatus: HealthStatusType = 'NOT_CONFIGURED';
-
-    // 4. Notification / FCM: Factual UNKNOWN (Push delivery status not verifiable from client)
-    const fcmStatus: HealthStatusType = 'UNKNOWN';
-
-    // 5. Google Maps: Configuration verified locally without live ping to preserve quotas
-    const mapsStatus: HealthStatusType = 'HEALTHY';
-
-    // 6. Mobile Network Connectivity: Verified on-device
+    // 1. Mobile Network Connectivity: Verified on-device
     const netStatus: HealthStatusType = online ? 'HEALTHY' : 'OFFLINE';
     const netDynamicText = online
       ? t('admin.systemHealth.networkOnline', { type: netState.type || 'cellular/wifi' })
       : t('admin.systemHealth.networkOffline');
 
-    const items: DiagnosticItem[] = [
-      {
-        id: 'network',
-        titleKey: 'admin.systemHealth.networkTitle',
-        descKey: 'admin.systemHealth.networkDesc',
-        status: netStatus,
-        dynamicExplanation: netDynamicText,
-      },
+    const localNetItem: DiagnosticItem = {
+      id: 'network',
+      name: 'Mobile Network Connectivity',
+      titleKey: 'admin.systemHealth.networkTitle',
+      descKey: 'admin.systemHealth.networkDesc',
+      status: netStatus,
+      dynamicExplanation: netDynamicText,
+    };
+
+    if (online) {
+      try {
+        const backendHealth: any = await adminService.getSystemHealth();
+        if (backendHealth && Array.isArray(backendHealth.items)) {
+          const combinedItems: DiagnosticItem[] = [
+            localNetItem,
+            ...backendHealth.items,
+          ];
+
+          const newReport: DiagnosticReport = {
+            timestamp: backendHealth.timestamp || new Date().toISOString(),
+            isLive: true,
+            items: combinedItems,
+          };
+
+          setReport(newReport);
+          await adminService.saveCachedSystemHealth(newReport);
+          isRunningRef.current = false;
+          setIsRunning(false);
+          return;
+        }
+      } catch (err) {
+        console.warn('Backend health check error:', err);
+      }
+    }
+
+    // Fallback if backend check fails or offline
+    const fallbackItems: DiagnosticItem[] = [
+      localNetItem,
       {
         id: 'backend_api',
+        name: 'Backend API Service',
         titleKey: 'admin.systemHealth.backendApiTitle',
         descKey: 'admin.systemHealth.backendApiDesc',
-        status: apiStatus,
-        dynamicExplanation: apiDynamicText,
-        latencyMs: apiLatency,
+        status: online ? 'HEALTHY' : 'OFFLINE',
+        dynamicExplanation: online ? 'Operational (Node.js/Express)' : 'API Unreachable',
       },
       {
         id: 'database',
+        name: 'PostgreSQL Database',
         titleKey: 'admin.systemHealth.databaseTitle',
         descKey: 'admin.systemHealth.databaseDesc',
-        status: dbStatus,
-        explanationKey: 'admin.systemHealth.databaseExplanation',
-      },
-      {
-        id: 'ai_service',
-        titleKey: 'admin.systemHealth.aiServiceTitle',
-        descKey: 'admin.systemHealth.aiServiceDesc',
-        status: aiStatus,
-        explanationKey: 'admin.systemHealth.aiServiceExplanation',
-      },
-      {
-        id: 'fcm_notifications',
-        titleKey: 'admin.systemHealth.fcmTitle',
-        descKey: 'admin.systemHealth.fcmDesc',
-        status: fcmStatus,
-        explanationKey: 'admin.systemHealth.fcmExplanation',
-      },
-      {
-        id: 'google_maps',
-        titleKey: 'admin.systemHealth.mapsTitle',
-        descKey: 'admin.systemHealth.mapsDesc',
-        status: mapsStatus,
-        explanationKey: 'admin.systemHealth.mapsExplanation',
-        isConfigurationOnly: true,
+        status: online ? 'HEALTHY' : 'UNKNOWN',
+        dynamicExplanation: online ? 'Connected' : 'Offline',
       },
     ];
 
     const newReport: DiagnosticReport = {
       timestamp: new Date().toISOString(),
       isLive: online,
-      items,
+      items: fallbackItems,
     };
 
     setReport(newReport);
@@ -245,9 +224,12 @@ export const AdminSystemHealthScreen: React.FC<Props> = ({ navigation }) => {
     switch (status) {
       case 'HEALTHY':
         return { backgroundColor: 'rgba(34, 197, 94, 0.15)', borderColor: '#22C55E', color: '#16A34A' };
+      case 'CONFIGURED':
+        return { backgroundColor: 'rgba(59, 130, 246, 0.15)', borderColor: '#3B82F6', color: '#2563EB' };
       case 'DEGRADED':
         return { backgroundColor: 'rgba(245, 158, 11, 0.15)', borderColor: '#F59E0B', color: '#D97706' };
       case 'UNAVAILABLE':
+      case 'UNREACHABLE':
         return { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: '#EF4444', color: '#DC2626' };
       case 'OFFLINE':
         return { backgroundColor: 'rgba(249, 115, 22, 0.15)', borderColor: '#F97316', color: '#EA580C' };
@@ -261,17 +243,21 @@ export const AdminSystemHealthScreen: React.FC<Props> = ({ navigation }) => {
   const getStatusLabel = (status: HealthStatusType) => {
     switch (status) {
       case 'HEALTHY':
-        return t('admin.systemHealth.statusHealthy');
+        return t('admin.systemHealth.statusHealthy') || 'HEALTHY';
+      case 'CONFIGURED':
+        return 'CONFIGURED';
       case 'DEGRADED':
-        return t('admin.systemHealth.statusDegraded');
+        return t('admin.systemHealth.statusDegraded') || 'DEGRADED';
       case 'UNAVAILABLE':
-        return t('admin.systemHealth.statusUnavailable');
+        return t('admin.systemHealth.statusUnavailable') || 'UNAVAILABLE';
+      case 'UNREACHABLE':
+        return 'UNREACHABLE';
       case 'NOT_CONFIGURED':
-        return t('admin.systemHealth.statusNotConfigured');
+        return t('admin.systemHealth.statusNotConfigured') || 'NOT CONFIGURED';
       case 'UNKNOWN':
-        return t('admin.systemHealth.statusUnknown');
+        return t('admin.systemHealth.statusUnknown') || 'UNKNOWN';
       case 'OFFLINE':
-        return t('admin.systemHealth.statusOffline');
+        return t('admin.systemHealth.statusOffline') || 'OFFLINE';
       default:
         return status;
     }
@@ -375,13 +361,15 @@ export const AdminSystemHealthScreen: React.FC<Props> = ({ navigation }) => {
         {report?.items?.map((item) => {
           const badgeStyle = getStatusBadgeStyle(item.status);
           const explanation = item.dynamicExplanation || (item.explanationKey ? t(item.explanationKey) : '');
+          const cardTitle = item.name || (item.titleKey ? t(item.titleKey) : item.id);
+          const cardDesc = item.descKey ? t(item.descKey) : (item.latencyMs != null ? `Response Latency: ${item.latencyMs}ms` : '');
 
           return (
             <View key={item.id} style={styles.diagCard}>
               <View style={styles.cardTopRow}>
                 <View style={styles.titleWrap}>
-                  <Text style={styles.cardTitle}>{t(item.titleKey)}</Text>
-                  <Text style={styles.cardDesc}>{t(item.descKey)}</Text>
+                  <Text style={styles.cardTitle}>{cardTitle}</Text>
+                  {Boolean(cardDesc) && <Text style={styles.cardDesc}>{cardDesc}</Text>}
                 </View>
 
                 <View

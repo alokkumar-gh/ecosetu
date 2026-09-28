@@ -341,9 +341,10 @@ class RequestService {
     let collectorProfileId = null;
 
     const userId = typeof collectorUser === 'string' ? collectorUser : collectorUser?.id;
-    const profile = userId ? await prisma.collectorProfile.findUnique({
+    const isUuid = userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId);
+    const profile = isUuid ? await prisma.collectorProfile.findUnique({
       where: { userId },
-    }) : null;
+    }).catch(() => null) : null;
     if (profile) {
       if (profile.isAvailable === false) {
         return {
@@ -375,6 +376,13 @@ class RequestService {
         status: REQUEST_STATUS.SUBMITTED,
       },
       include: {
+        citizen: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+          },
+        },
         ewasteItems: true,
         pickupOffers: {
           select: {
@@ -436,6 +444,14 @@ class RequestService {
 
         return {
           ...r,
+          citizenName: r.citizen?.name || 'Citizen',
+          citizen: r.citizen
+            ? {
+                id: r.citizen.id,
+                name: r.citizen.name,
+                avatarUrl: r.citizen.avatarUrl,
+              }
+            : null,
           pickupAddress: formattedAddress || r.pickupAddress || 'Address details available',
           houseNumber: r.houseNumber || null,
           street: r.street || null,
@@ -486,6 +502,14 @@ class RequestService {
     const request = await prisma.collectionRequest.findUnique({
       where: { id: requestId },
       include: {
+        citizen: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            avatarUrl: true,
+          },
+        },
         ewasteItems: true,
         collector: {
           select: {
@@ -568,6 +592,7 @@ class RequestService {
 
       return {
         ...request,
+        citizenName: request.citizen?.name || 'Citizen',
         pickupOffers: sanitizedOffers,
         offers: sanitizedOffers,
         offersCount,
@@ -602,6 +627,14 @@ class RequestService {
 
         return {
           ...request,
+          citizenName: request.citizen?.name || 'Citizen',
+          citizen: request.citizen
+            ? {
+                id: request.citizen.id,
+                name: request.citizen.name,
+                avatarUrl: request.citizen.avatarUrl,
+              }
+            : null,
           pickupAddress: formattedAddress || request.pickupAddress || 'Address details available',
           houseNumber: request.houseNumber || null,
           street: request.street || null,
@@ -622,6 +655,7 @@ class RequestService {
 
       return {
         ...request,
+        citizenName: request.citizen?.name || 'Citizen',
         pickupOffers: myOffers,
         offers: myOffers,
         offersCount: myOffers.length,
@@ -1048,7 +1082,25 @@ class RequestService {
       },
     });
 
-    return { offers };
+    const sanitizedOffers = offers.map((o) => {
+      const cr = o.collectionRequest;
+      const isAssigned = cr?.status === 'ACCEPTED' || cr?.status === 'PICKUP_SCHEDULED' || cr?.status === 'IN_PROGRESS' || cr?.status === 'COLLECTED';
+      return {
+        ...o,
+        citizenName: cr?.citizen?.name || 'Citizen',
+        collectionRequest: cr ? {
+          ...cr,
+          citizenName: cr.citizen?.name || 'Citizen',
+          citizen: cr.citizen ? {
+            id: cr.citizen.id,
+            name: cr.citizen.name,
+            phone: isAssigned ? cr.citizen.phone : null,
+          } : null,
+        } : null,
+      };
+    });
+
+    return { offers: sanitizedOffers };
   }
 
   /**

@@ -230,7 +230,7 @@ export const RecyclerNewProfileScreen: React.FC = () => {
               icon="recycle"
               label={t('recycler.traceability', 'Traceability')}
               sub={t('recycler.traceSub', 'Lot-level material chain of custody')}
-              onPress={() => navigation.navigate('RecyclerLotTrace', { lotId: '' })}
+              onPress={() => navigation.navigate('RecyclerMarketplace')}
             />
             <View style={styles.rowDivider} />
             <MenuRow
@@ -270,15 +270,15 @@ export const RecyclerNewProfileScreen: React.FC = () => {
             <MenuRow
               icon="bell"
               label={t('profile.notifications', 'Notifications')}
-              sub={t('recycler.notifSub', 'Offer and pickup alerts')}
-              onPress={() => Alert.alert(t('profile.notifications', 'Notifications'), t('common.comingSoon', 'Coming soon'))}
+              sub={t('recycler.notifSub', 'Offer, bid, and pickup alerts')}
+              onPress={() => navigation.navigate('NotificationSettings')}
             />
             <View style={styles.rowDivider} />
             <MenuRow
               icon="refresh"
               label={t('profile.offlineData', 'Offline Data')}
-              sub={t('profile.offlineSub', 'Manage cached data')}
-              onPress={() => Alert.alert(t('profile.offlineData', 'Offline Data'), t('common.comingSoon', 'Coming soon'))}
+              sub={t('profile.offlineSub', 'Manage local sync cache')}
+              onPress={() => navigation.navigate('OfflineData')}
             />
           </MenuGroup>
 

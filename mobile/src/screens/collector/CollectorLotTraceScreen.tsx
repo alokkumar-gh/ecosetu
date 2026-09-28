@@ -30,6 +30,7 @@ import { lotTraceService, LotTraceData } from '../../services/lotTraceService';
 import { voiceService } from '../../services/voiceService';
 import { useI18n } from '../../i18n';
 import { AppIcon, AppIconName } from '../../components/ui/AppIcon';
+import { AuthorizedImage } from '../../components/common/AuthorizedImage';
 
 const getTimelineIcon = (stage: string, status: string): AppIconName => {
   const upper = (stage || '').toUpperCase();
@@ -50,7 +51,7 @@ export const CollectorLotTraceScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { t, language } = useI18n();
 
-  const lotId = route.params?.lotId || route.params?.id;
+  const lotId = route.params?.lotId || route.params?.id || route.params?.materialLotId || route.params?.lot?.id;
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -259,7 +260,7 @@ export const CollectorLotTraceScreen: React.FC = () => {
             {trace.photos.length > 0 ? (
               <View style={styles.photoGrid}>
                 {trace.photos.map((p, idx) => (
-                  <Image key={p.id || idx} source={{ uri: p.photoUrl }} style={styles.thumbnail} />
+                  <AuthorizedImage key={p.id || idx} uri={p.photoUrl} style={styles.thumbnail} allowFullscreen={true} />
                 ))}
               </View>
             ) : (

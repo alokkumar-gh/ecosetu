@@ -29,6 +29,9 @@ export type CitizenStackParamList = {
   RequestDetail: { requestId: string };
   ItemTraceability: { itemId?: string } | undefined;
   CitizenNotifications: undefined;
+  NotificationSettings: undefined;
+  OfflineData: undefined;
+  Settings: undefined;
   CitizenBills: undefined;
   CitizenBillDetail: { billId?: string; transactionId?: string; bill?: any };
   PaymentMethod: { transactionId: string; transaction?: any };
@@ -101,6 +104,10 @@ export type CollectorStackParamList = {
   CollectorBills: undefined;
   CollectorBillDetail: { billId?: string; transactionId?: string; bill?: any };
   BhashiniTest: undefined;
+  NotificationSettings: undefined;
+  OfflineData: undefined;
+  CollectorDoorToDoor: undefined;
+  Settings: undefined;
 };
 
 export type RecyclerTabParamList = {
@@ -138,6 +145,9 @@ export type RecyclerStackParamList = {
   RecyclerBills: undefined;
   RecyclerBillDetail: { billId?: string; transactionId?: string; bill?: any };
   RecyclerRates: undefined;
+  NotificationSettings: undefined;
+  OfflineData: undefined;
+  Settings: undefined;
 };
 
 export type AdminTabParamList = {

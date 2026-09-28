@@ -85,14 +85,22 @@ class AnalyticsService {
       : {};
 
     const [
-      // 1. Executive Users
+      // 1. Executive Users & Verifications
       totalUsers,
       citizenUsers,
       collectorUsers,
       recyclerUsers,
       adminUsers,
       pendingVerifications,
+      approvedVerifications,
+      rejectedVerifications,
       activeUsers,
+      activeCollectors,
+      pendingCollectors,
+      activeRecyclers,
+      pendingRecyclers,
+      authorizedRecyclers,
+      pendingAuthorizationRecyclers,
       suspendedUsers,
       deactivatedUsers,
       newUsersInPeriod,
@@ -142,14 +150,28 @@ class AnalyticsService {
       // 8. Recent Audit Activity
       recentLogs,
     ] = await Promise.all([
-      // Users
+      // Users & Verifications
       prisma.user.count(),
       prisma.user.count({ where: { role: ROLES.CITIZEN } }),
       prisma.user.count({ where: { role: ROLES.INFORMAL_COLLECTOR } }),
       prisma.user.count({ where: { role: ROLES.RECYCLER } }),
       prisma.user.count({ where: { role: ROLES.ADMIN } }),
-      prisma.verification.count({ where: { status: VERIFICATION_STATUS.PENDING } }),
+      prisma.verification.count({
+        where: {
+          status: {
+            in: [VERIFICATION_STATUS.PENDING, VERIFICATION_STATUS.SUBMITTED, VERIFICATION_STATUS.UNDER_REVIEW],
+          },
+        },
+      }),
+      prisma.verification.count({ where: { status: VERIFICATION_STATUS.APPROVED } }),
+      prisma.verification.count({ where: { status: VERIFICATION_STATUS.REJECTED } }),
       prisma.user.count({ where: { status: USER_STATUS.ACTIVE } }),
+      prisma.user.count({ where: { role: ROLES.INFORMAL_COLLECTOR, status: USER_STATUS.ACTIVE } }),
+      prisma.user.count({ where: { role: ROLES.INFORMAL_COLLECTOR, status: USER_STATUS.PENDING_VERIFICATION } }),
+      prisma.user.count({ where: { role: ROLES.RECYCLER, status: USER_STATUS.ACTIVE } }),
+      prisma.user.count({ where: { role: ROLES.RECYCLER, status: USER_STATUS.PENDING_VERIFICATION } }),
+      prisma.recyclerProfile.count({ where: { authorizationStatus: 'AUTHORIZED' } }),
+      prisma.recyclerProfile.count({ where: { authorizationStatus: 'PENDING' } }),
       prisma.user.count({ where: { status: USER_STATUS.SUSPENDED } }),
       prisma.user.count({ where: { status: USER_STATUS.DEACTIVATED } }),
       periodStart ? prisma.user.count({ where: periodFilter }) : prisma.user.count(),
@@ -515,6 +537,10 @@ class AnalyticsService {
         formalRecyclers: recyclerUsers,
         adminUsers,
         pendingVerifications,
+        approvedVerifications,
+        rejectedVerifications,
+        activeCollectors,
+        activeRecyclers,
         activeUsers,
         suspendedUsers,
         deactivatedUsers,
@@ -603,9 +629,11 @@ class AnalyticsService {
 
       // Collector Analytics
       collectorAnalytics: {
-        verifiedCollectors: collectorUsers,
+        totalCollectors: collectorUsers,
+        verifiedCollectors: activeCollectors,
+        pendingVerification: pendingCollectors,
         availableCollectors,
-        activeCollectors: topActiveCollectors.length,
+        activeCollectors: activeCollectors,
         pickupsCompleted: completedPickups,
         pickupsFailed: failedPickups,
         currentAssignedPickups: scheduledPickups + inProgressPickups,
@@ -614,7 +642,10 @@ class AnalyticsService {
 
       // Recycler Analytics
       recyclerAnalytics: {
-        verifiedRecyclers: recyclerUsers,
+        totalRecyclers: recyclerUsers,
+        verifiedRecyclers: activeRecyclers,
+        authorizedRecyclers: authorizedRecyclers,
+        pendingAuthorization: pendingAuthorizationRecyclers,
         activeFacilities: totalRecyclerProfiles,
         incomingConsignments: inTransitConsignments,
         deliveredConsignments,

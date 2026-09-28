@@ -33,6 +33,7 @@ import apiClient from '../../services/apiClient';
 import networkService from '../../services/networkService';
 import { ReportProblemModal } from '../../components/dispute/ReportProblemModal';
 import { AppIcon } from '../../components/ui/AppIcon';
+import { AuthorizedImage } from '../../components/common/AuthorizedImage';
 
 const space = {
   xs: spacing.spaceXs,
@@ -157,11 +158,12 @@ export const RecyclerLotDetailScreen: React.FC = () => {
                 }}
               >
                 {photos.map((photo: any, index: number) => (
-                  <Image
+                  <AuthorizedImage
                     key={photo.id || index}
-                    source={{ uri: photo.photoUrl }}
+                    uri={photo.photoUrl}
                     style={[styles.galleryImage, { width: screenWidth - 32 }]}
                     resizeMode="cover"
+                    allowFullscreen={true}
                   />
                 ))}
               </ScrollView>
@@ -276,7 +278,7 @@ export const RecyclerLotDetailScreen: React.FC = () => {
               <Text style={styles.sectionHeading}>Seller Profile</Text>
             </View>
             <View style={styles.activityRow}>
-              <Text style={styles.activityLabel}>Seller ID:</Text>
+              <Text style={styles.activityLabel}>Collector Name:</Text>
               <Text style={styles.activityValue}>
                 {lot?.collector?.user?.name || 'Verified Collector'}
               </Text>

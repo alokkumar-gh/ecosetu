@@ -53,6 +53,12 @@ const INTENT_DEFINITIONS = {
       /\b(\d+\s*(rupees|rs|rupaye|me\s*dega|kar do|kar sakta))/i,
     ],
   },
+  PICKUP_LOCATION: {
+    patterns: [
+      /\b(where is the pickup|pickup address|where do i (need to )?go|what is the (pickup )?(location|address)|where is the (pickup )?(location|address)|pickup location|tell me the (pickup )?address|address of pickup|kaha(n)? jana hai|pickup address kya hai|pickup location (kya hai|batao)|address (batao|kya hai)|kahan hai pickup|address text)\b/i,
+      /\b(ପିକଅପ୍ ସ୍ଥାନ|ଠିକଣା କଣ|କେଉଁଠିକି ଯିବାକୁ ହେବ)\b/i,
+    ],
+  },
   PICKUP_STATUS: {
     patterns: [
       /\b(where is my pickup|pickup status|pickup kab (aayega|hoga)|kab tak aayega|status kya hai|gadi kab aayegi)\b/i,

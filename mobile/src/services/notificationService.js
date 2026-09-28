@@ -243,6 +243,64 @@ class NotificationService {
       return null;
     }
   }
+
+  /**
+   * Get notification preferences for the authenticated user
+   * GET /api/v1/notifications/preferences
+   * @returns {Promise<object>} Preferences object
+   */
+  async getPreferences() {
+    try {
+      const response = await apiClient.get('/notifications/preferences');
+      const data = response.data?.preferences || response.data || {};
+      const userId = await this._getUserId();
+      if (userId) {
+        await AsyncStorage.setItem(`@ecosetu_notif_prefs_${userId}`, JSON.stringify(data));
+      }
+      return data;
+    } catch (err) {
+      const userId = await this._getUserId();
+      if (userId) {
+        const cached = await AsyncStorage.getItem(`@ecosetu_notif_prefs_${userId}`);
+        if (cached) {
+          return JSON.parse(cached);
+        }
+      }
+      return {
+        pickups: true,
+        offersAndBids: true,
+        sourcingAndBids: true,
+        negotiations: true,
+        verifications: true,
+        handovers: true,
+        traceability: true,
+        consignments: true,
+        transactions: true,
+        systemAlerts: true,
+      };
+    }
+  }
+
+  /**
+   * Update notification preferences for the authenticated user
+   * PUT /api/v1/notifications/preferences
+   * @param {object} payload
+   * @returns {Promise<object>} Updated preferences object
+   */
+  async updatePreferences(payload) {
+    if (!networkService.isConnected()) {
+      throw Object.assign(new Error('Network unavailable. Please connect to the internet to update notification settings.'), {
+        isOfflineError: true,
+      });
+    }
+    const response = await apiClient.put('/notifications/preferences', payload);
+    const data = response.data?.preferences || response.data || {};
+    const userId = await this._getUserId();
+    if (userId) {
+      await AsyncStorage.setItem(`@ecosetu_notif_prefs_${userId}`, JSON.stringify(data));
+    }
+    return data;
+  }
 }
 
 export const notificationService = new NotificationService();

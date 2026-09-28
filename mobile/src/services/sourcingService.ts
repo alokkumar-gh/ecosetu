@@ -158,6 +158,7 @@ class SourcingService {
     pickupRequired?: boolean;
     page?: number;
     limit?: number;
+    myRequests?: boolean;
   }): Promise<{
     requests: SourcingRequest[];
     pagination: {

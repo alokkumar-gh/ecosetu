@@ -296,8 +296,11 @@ class SourcingRequestService {
         };
       }
     } else {
-      // Public collector demand feed: only OPEN requests
-      if (user.role !== ROLES.ADMIN) {
+      if (user.role === ROLES.RECYCLER) {
+        const recycler = await this.getRecyclerProfileOrThrow(user.id);
+        where.recyclerId = recycler.id;
+      } else if (user.role !== ROLES.ADMIN) {
+        // Public collector demand feed: only OPEN requests
         where.status = SOURCING_REQUEST_STATUS.OPEN;
         where.OR = [
           { requestedByDate: null },
@@ -806,6 +809,7 @@ class SourcingRequestService {
       notes: request.notes || null,
       status: request.status,
       responseCount,
+      responsesCount: responseCount,
       createdAt: request.createdAt,
       updatedAt: request.updatedAt,
       cancelledAt: request.cancelledAt || null,

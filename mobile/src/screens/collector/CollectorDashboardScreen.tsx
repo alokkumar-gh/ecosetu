@@ -395,9 +395,10 @@ export const CollectorDashboardScreen: React.FC = () => {
             ) : activePickups.length > 0 ? (
               <View style={styles.pickupCardsList}>
                 {activePickups.slice(0, 3).map((pickup: any) => {
-                  const itemsCount = pickup.items?.length || pickup.request?.items?.length || 1;
-                  const citizenName = pickup.request?.citizen?.name || pickup.citizenName || t('common.citizen', 'Citizen');
-                  const address = pickup.pickupAddress || pickup.request?.pickupAddress || t('common.addressOnFile', 'Address on file');
+                  const itemsCount = pickup.items?.length || pickup.collectionRequest?.ewasteItems?.length || pickup.request?.items?.length || pickup.request?.ewasteItems?.length || 1;
+                  const citizenName = pickup.collectionRequest?.citizen?.name || pickup.request?.citizen?.name || pickup.citizenName || pickup.request?.citizenName || t('common.citizen', 'Citizen Requester');
+                  const firstCategory = pickup.category || pickup.collectionRequest?.ewasteItems?.[0]?.category?.replace(/_/g, ' ') || pickup.request?.ewasteItems?.[0]?.category?.replace(/_/g, ' ') || pickup.request?.items?.[0]?.category?.replace(/_/g, ' ') || 'E-Waste';
+                  const address = pickup.pickupAddress || pickup.collectionRequest?.pickupAddress || pickup.request?.pickupAddress || t('common.addressOnFile', 'Address on file');
                   const isScheduled = pickup.status === 'SCHEDULED';
                   const isInProgress = pickup.status === 'IN_PROGRESS';
 
@@ -418,9 +419,14 @@ export const CollectorDashboardScreen: React.FC = () => {
                     >
                       <View style={styles.pickupCardTop}>
                         <View style={styles.pickupCardRefRow}>
-                          <Text style={styles.pickupCardRef}>
-                            #PKP-{pickup.id ? pickup.id.slice(0, 6).toUpperCase() : 'REQ'}
-                          </Text>
+                          <View style={{ flex: 1, marginRight: 8 }}>
+                            <Text style={styles.pickupCitizenNamePrimary} numberOfLines={1}>
+                              {citizenName}
+                            </Text>
+                            <Text style={styles.pickupCategorySubtitle} numberOfLines={1}>
+                              {firstCategory} • {itemsCount} {itemsCount === 1 ? 'item' : 'items'}
+                            </Text>
+                          </View>
                           <View
                             style={[
                               styles.pickupStatusPill,
@@ -445,10 +451,6 @@ export const CollectorDashboardScreen: React.FC = () => {
                             </Text>
                           </View>
                         </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <AppIcon name="user" size={13} color="#94A3B8" style={{ marginRight: 4 }} />
-                          <Text style={styles.pickupCitizenName}>{citizenName}</Text>
-                        </View>
                       </View>
 
                       <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginVertical: 4 }}>
@@ -458,15 +460,44 @@ export const CollectorDashboardScreen: React.FC = () => {
                         </Text>
                       </View>
 
-                      {/* Acquisition Price / Agreed Doorstep Payout */}
-                      {Boolean(pickup.totalAmount || pickup.request?.agreedPrice || pickup.agreedPrice || pickup.pickupOffers?.[0]?.offeredPrice || pickup.request?.standardPrice?.estimatedTotal) && (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 3 }}>
-                          <AppIcon name="award" size={13} color="#10B981" style={{ marginRight: 4 }} />
-                          <Text style={{ fontSize: 12, fontWeight: '700', color: '#10B981' }}>
-                            Agreed Payout: ₹{pickup.totalAmount || pickup.request?.agreedPrice || pickup.agreedPrice || pickup.pickupOffers?.[0]?.offeredPrice || pickup.request?.standardPrice?.estimatedTotal}
-                          </Text>
-                        </View>
-                      )}
+                      {/* Acquisition Price / Agreed Doorstep Payout / Estimated Reference */}
+                      {(() => {
+                        const acceptedPrice = pickup.totalAmount || pickup.request?.agreedPrice || pickup.agreedPrice || (pickup.request?.pickupOffers || []).find((o: any) => o.status === 'ACCEPTED')?.offeredPrice;
+                        const myOfferPrice = (pickup.request?.pickupOffers || []).find((o: any) => o.status === 'PENDING')?.offeredPrice || pickup.request?.myOffer?.offeredPrice;
+                        const estValue = pickup.request?.standardPrice?.estimatedTotal;
+
+                        if (acceptedPrice) {
+                          return (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 3 }}>
+                              <AppIcon name="award" size={13} color="#10B981" style={{ marginRight: 4 }} />
+                              <Text style={{ fontSize: 12, fontWeight: '700', color: '#10B981' }}>
+                                Agreed Payout: ₹{acceptedPrice}
+                              </Text>
+                            </View>
+                          );
+                        }
+                        if (myOfferPrice) {
+                          return (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 3 }}>
+                              <AppIcon name="award" size={13} color="#38BDF8" style={{ marginRight: 4 }} />
+                              <Text style={{ fontSize: 12, fontWeight: '700', color: '#38BDF8' }}>
+                                Your Offer: ₹{myOfferPrice}
+                              </Text>
+                            </View>
+                          );
+                        }
+                        if (estValue) {
+                          return (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 3 }}>
+                              <AppIcon name="award" size={13} color="#94A3B8" style={{ marginRight: 4 }} />
+                              <Text style={{ fontSize: 12, fontWeight: '700', color: '#94A3B8' }}>
+                                Est. Reference Value: ₹{estValue}
+                              </Text>
+                            </View>
+                          );
+                        }
+                        return null;
+                      })()}
 
                       <View style={styles.pickupCardBottom}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -610,10 +641,10 @@ export const CollectorDashboardScreen: React.FC = () => {
           <CollectorSectionHeader title={t('collector.quickAccess', 'Quick Access')} />
           <View style={styles.quickGrid}>
             {[
+              { id: 'doorToDoor', icon: 'package' as const, label: t('collector.doorToDoor', 'Door-to-Door'), route: 'CollectorDoorToDoor' },
               { id: 'prices',  icon: 'chart' as const, label: t('collector.priceBoard', 'Price Board'), route: 'CollectorPriceBoard' },
               { id: 'pickups', icon: 'truck' as const, label: t('collector.pickups', 'Pickups'),     route: 'CollectorPickups'   },
               { id: 'browse',  icon: 'location' as const,  label: t('collector.browse', 'Browse'),      route: 'CollectorBrowse'    },
-              { id: 'safety',  icon: 'shieldCheck' as const,  label: t('collector.safety', 'Safety'),      route: 'CollectorSafetyCenter' },
             ].map((qa) => (
               <TouchableOpacity
                 key={qa.id}
@@ -769,6 +800,18 @@ const styles = StyleSheet.create({
   },
   statusTextProgress: {
     color: '#34D399',
+  },
+  pickupCitizenNamePrimary: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
+  pickupCategorySubtitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#34D399',
+    marginTop: 2,
   },
   pickupCitizenName: {
     fontSize: 14,

@@ -517,15 +517,23 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
   const filteredPickups = useMemo(() => {
     if (activeFilter === 'ALL') return pickups;
     if (activeFilter === 'SCHEDULED') {
-      return pickups.filter((p) => p.status === PICKUP_STATUS.SCHEDULED);
+      return pickups.filter(
+        (p) => p.status === PICKUP_STATUS.SCHEDULED || p.status === 'PENDING_COLLECTOR',
+      );
     }
     if (activeFilter === 'IN_PROGRESS') {
-      return pickups.filter((p) => p.status === PICKUP_STATUS.IN_PROGRESS);
+      return pickups.filter(
+        (p) =>
+          p.status === PICKUP_STATUS.IN_PROGRESS ||
+          p.status === 'COLLECTOR_CONFIRMED' ||
+          p.status === 'RECYCLER_CONFIRMED',
+      );
     }
     if (activeFilter === 'COMPLETED') {
       return pickups.filter(
         (p) =>
           p.status === PICKUP_STATUS.COMPLETED ||
+          p.status === 'CONFIRMED' ||
           p.status === PICKUP_STATUS.CANCELLED ||
           p.status === PICKUP_STATUS.FAILED,
       );
@@ -539,10 +547,17 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
     let inProgress = 0;
     let completed = 0;
     pickups.forEach((p) => {
-      if (p.status === PICKUP_STATUS.SCHEDULED) scheduled++;
-      else if (p.status === PICKUP_STATUS.IN_PROGRESS) inProgress++;
-      else if (
+      if (p.status === PICKUP_STATUS.SCHEDULED || p.status === 'PENDING_COLLECTOR') {
+        scheduled++;
+      } else if (
+        p.status === PICKUP_STATUS.IN_PROGRESS ||
+        p.status === 'COLLECTOR_CONFIRMED' ||
+        p.status === 'RECYCLER_CONFIRMED'
+      ) {
+        inProgress++;
+      } else if (
         p.status === PICKUP_STATUS.COMPLETED ||
+        p.status === 'CONFIRMED' ||
         p.status === PICKUP_STATUS.CANCELLED ||
         p.status === PICKUP_STATUS.FAILED
       ) {
@@ -738,17 +753,22 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
     const isAccepted = item.status === 'ACCEPTED';
     const isRejected = item.status === 'REJECTED';
     const hasCounter = Boolean(item.counterPrice && Number(item.counterPrice) > 0);
+    const citizenDisplayName = req.citizen?.name || req.citizenName || item.citizenName || 'Citizen Requester';
+    const categorySummary = items.length > 0
+      ? Array.from(new Set(items.map((i: any) => (i.category ? String(i.category).replace(/_/g, ' ') : 'E-Waste')))).join(', ')
+      : 'E-Waste';
+    const itemCount = items.length;
 
     return (
       <View style={styles.card} key={item.id}>
         <View style={styles.cardHeader}>
-          <View>
-            <Text style={styles.cardRef}>
-              OFFER #{item.id ? String(item.id).slice(0, 8).toUpperCase() : 'BID'}
+          <View style={{ flex: 1, marginRight: 8 }}>
+            <Text style={styles.cardCitizenTitle}>
+              {citizenDisplayName}
             </Text>
-            {req.id && (
-              <Text style={styles.cardReqRef}>Request: #{String(req.id).slice(0, 8).toUpperCase()}</Text>
-            )}
+            <Text style={styles.cardCategorySub}>
+              {categorySummary} • {itemCount} {itemCount === 1 ? 'item' : 'items'}
+            </Text>
           </View>
           <View
             style={[
@@ -846,6 +866,104 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
   // ── Render Pickup Card ────────────────────────────────────────────────────
 
   const renderPickupCard = ({ item }: { item: any }) => {
+    if (item.type === 'RECYCLER_TRANSFER') {
+      const isConfirmed = item.status === 'CONFIRMED';
+      const recyclerDisplayName = item.primaryName || item.recyclerName || item.recycler?.user?.name || 'Authorized Recycler';
+      const categorySummary = item.secondaryText || `${item.category || 'E-Waste'} • ${item.totalWeightKg || 0} kg`;
+      const scheduledDateStr = fmtDate(item.scheduledDate || item.createdAt);
+
+      return (
+        <View
+          style={styles.card}
+          key={item.id}
+          accessibilityRole="none"
+          accessibilityLabel={`Recycler Transfer ${scheduledDateStr}, status ${item.status}`}
+        >
+          {/* Card Header: Recycler Name (PRIMARY) & Category/Weight (SECONDARY) */}
+          <View style={styles.cardHeader}>
+            <View style={{ flex: 1, marginRight: 8 }}>
+              <Text style={styles.cardCitizenTitle} accessibilityRole="header">
+                {recyclerDisplayName}
+              </Text>
+              <Text style={styles.cardCategorySub}>
+                {categorySummary}
+              </Text>
+            </View>
+            <StatusBadge status={item.status} />
+          </View>
+
+          {/* Location / Facility */}
+          <View style={styles.infoRow}>
+            <AppIcon name="map-pin" size={16} color={colors.primary} />
+            <View style={styles.infoTextContainer}>
+              <Text style={styles.infoLabel}>Facility / Transfer Point</Text>
+              <Text style={styles.infoValue}>
+                {item.pickupAddress || 'Facility Address on File'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Scheduled Date */}
+          <View style={styles.infoRow}>
+            <AppIcon name="calendar" size={16} color={colors.primary} />
+            <View style={styles.infoTextContainer}>
+              <Text style={styles.infoLabel}>Transfer Schedule</Text>
+              <Text style={styles.infoValue}>
+                {scheduledDateStr}
+              </Text>
+            </View>
+          </View>
+
+          {/* Agreed Transfer Value */}
+          {Boolean(item.totalAmount) && (
+            <View style={styles.cardPriceRow}>
+              <View style={styles.cardPriceLeft}>
+                <AppIcon name="award" size={15} color="#10B981" />
+                <Text style={styles.cardPriceLabel}>Agreed Transfer Value:</Text>
+              </View>
+              <Text style={styles.cardPriceValue}>₹{item.totalAmount}</Text>
+            </View>
+          )}
+
+          {/* E-Waste Image Preview using AuthorizedImage */}
+          {Boolean(item.photoUrl || item.imageUrl) && (
+            <View style={{ marginTop: 8, borderRadius: 8, overflow: 'hidden', height: 120, width: '100%' }}>
+              <AuthorizedImage
+                uri={item.photoUrl || item.imageUrl}
+                style={{ width: '100%', height: 120 }}
+                categoryLabel={item.category}
+              />
+            </View>
+          )}
+
+          {/* Action Button */}
+          <View style={styles.actionContainer}>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.startBtn, { flex: 1 }]}
+              onPress={() =>
+                navigation?.navigate?.('CollectorHandover', {
+                  handoverId: item.id || item.handoverId,
+                  lotId: item.materialLotId,
+                  batchId: item.batchId,
+                  quoteId: item.quoteId,
+                  pickupId: item.id,
+                  lot: item.materialLot,
+                })
+              }
+              activeOpacity={0.8}
+            >
+              <View style={styles.btnRow}>
+                <AppIcon name="handshake" size={14} color="#FFFFFF" />
+                <Text style={styles.startBtnText}>
+                  {isConfirmed ? 'View Handover Receipt' : 'Manage Handover Transfer →'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
     const pickupId = item.id;
     const isThisPickupActionLoading = actionPickupId === pickupId;
     const req = item.collectionRequest || {};
@@ -866,21 +984,26 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
     const scheduledDateStr = fmtDate(item.scheduledDate || req.preferredDate);
     const scheduledTimeStr = item.timeSlot || req.timeSlot || fmtTime(req.preferredTimeStart);
 
+    const citizenDisplayName = req.citizen?.name || req.citizenName || item.citizenName || 'Citizen Requester';
+    const firstCategory = items.length > 0
+      ? Array.from(new Set(items.map((i: any) => (i.category ? String(i.category).replace(/_/g, ' ') : 'E-Waste')))).join(', ')
+      : 'E-Waste';
+
     return (
       <View
         style={styles.card}
         accessibilityRole="none"
         accessibilityLabel={`Pickup ${scheduledDateStr}, status ${item.status}`}
       >
-        {/* Card Header */}
+        {/* Card Header: Citizen Name (PRIMARY) & Category/Weight (SECONDARY) */}
         <View style={styles.cardHeader}>
-          <View>
-            <Text style={styles.cardRef} accessibilityRole="header">
-              PICKUP #{item.id ? String(item.id).slice(0, 8).toUpperCase() : 'ECO'}
+          <View style={{ flex: 1, marginRight: 8 }}>
+            <Text style={styles.cardCitizenTitle} accessibilityRole="header">
+              {citizenDisplayName}
             </Text>
-            {req.requestId && (
-              <Text style={styles.cardReqRef}>Request: #{req.requestId}</Text>
-            )}
+            <Text style={styles.cardCategorySub}>
+              {firstCategory} • {items.length} {items.length === 1 ? 'item' : 'items'}{totalEstWeight > 0 ? ` • ~${Math.round(totalEstWeight * 10) / 10} kg` : ''}
+            </Text>
           </View>
           <StatusBadge status={item.status} />
         </View>
@@ -907,29 +1030,58 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
           </View>
         </View>
 
-        {/* Citizen Privacy Safe Label (NO citizen phone or email displayed) */}
+        {/* Citizen Requester Details */}
         <View style={styles.infoRow}>
           <AppIcon name="user" size={16} color={colors.primary} />
           <View style={styles.infoTextContainer}>
-            <Text style={styles.infoLabel}>Citizen Contact</Text>
+            <Text style={styles.infoLabel}>Citizen Requester</Text>
             <Text style={styles.infoValue}>
-              Citizen Doorstep Pickup (Verified by EcoSetu)
+              {citizenDisplayName} (EcoSetu Verified)
             </Text>
           </View>
         </View>
 
-        {/* Agreed Price / Acquisition Payout */}
-        {Boolean(item.totalAmount || req.agreedPrice || req.pickupOffers?.[0]?.offeredPrice || req.standardPrice?.estimatedTotal) && (
-          <View style={styles.cardPriceRow}>
-            <View style={styles.cardPriceLeft}>
-              <AppIcon name="award" size={15} color="#10B981" />
-              <Text style={styles.cardPriceLabel}>Agreed Doorstep Payout:</Text>
-            </View>
-            <Text style={styles.cardPriceValue}>
-              ₹{item.totalAmount || req.agreedPrice || req.pickupOffers?.[0]?.offeredPrice || req.standardPrice?.estimatedTotal}
-            </Text>
-          </View>
-        )}
+        {/* Agreed Price / Acquisition Payout / Estimated Reference */}
+        {(() => {
+          const acceptedPrice = item.totalAmount || req.agreedPrice || (req.pickupOffers || []).find((o: any) => o.status === 'ACCEPTED')?.offeredPrice;
+          const offerPrice = (req.pickupOffers || []).find((o: any) => o.status === 'PENDING')?.offeredPrice;
+          const estValue = req.standardPrice?.estimatedTotal;
+
+          if (acceptedPrice) {
+            return (
+              <View style={styles.cardPriceRow}>
+                <View style={styles.cardPriceLeft}>
+                  <AppIcon name="award" size={15} color="#10B981" />
+                  <Text style={styles.cardPriceLabel}>Agreed Doorstep Payout:</Text>
+                </View>
+                <Text style={styles.cardPriceValue}>₹{acceptedPrice}</Text>
+              </View>
+            );
+          }
+          if (offerPrice) {
+            return (
+              <View style={[styles.cardPriceRow, { backgroundColor: 'rgba(56, 189, 248, 0.12)', borderColor: 'rgba(56, 189, 248, 0.35)' }]}>
+                <View style={styles.cardPriceLeft}>
+                  <AppIcon name="award" size={15} color="#38BDF8" />
+                  <Text style={[styles.cardPriceLabel, { color: '#38BDF8' }]}>Your Offered Payout:</Text>
+                </View>
+                <Text style={[styles.cardPriceValue, { color: '#38BDF8' }]}>₹{offerPrice}</Text>
+              </View>
+            );
+          }
+          if (estValue) {
+            return (
+              <View style={[styles.cardPriceRow, { backgroundColor: 'rgba(148, 163, 184, 0.12)', borderColor: 'rgba(148, 163, 184, 0.35)' }]}>
+                <View style={styles.cardPriceLeft}>
+                  <AppIcon name="award" size={15} color="#94A3B8" />
+                  <Text style={[styles.cardPriceLabel, { color: '#94A3B8' }]}>Estimated Reference Value:</Text>
+                </View>
+                <Text style={[styles.cardPriceValue, { color: '#94A3B8' }]}>₹{estValue}</Text>
+              </View>
+            );
+          }
+          return null;
+        })()}
 
         {/* Associated Items */}
         <View style={styles.itemsSection}>
@@ -1437,6 +1589,18 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.spaceSm,
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
+  },
+  cardCitizenTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  cardCategorySub: {
+    fontSize: 12.5,
+    fontWeight: '500',
+    color: '#34D399',
+    marginTop: 2,
   },
   cardRef: {
     fontSize: typography.Subheading.fontSize,

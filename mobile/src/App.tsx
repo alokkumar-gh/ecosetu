@@ -13,8 +13,13 @@ import { EcoSaathiChatModal } from './components/eco/EcoSaathiChatModal';
 import { OfflineBanner } from './components/common/OfflineBanner';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { colors } from './theme/colors';
+import { fcmClientService } from './services/fcmClientService.js';
 
 const App: React.FC = () => {
+  React.useEffect(() => {
+    fcmClientService.init(navigationRef).catch(() => {});
+  }, []);
+
   return (
     <ErrorBoundary>
       <SafeAreaProvider>

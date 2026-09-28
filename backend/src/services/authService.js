@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 const prisma = require('../config/database');
 const environment = require('../config/environment');
 const AppError = require('../utils/AppError');
-const { ROLES, USER_STATUS, ERROR_CODES } = require('../utils/constants');
+const { ROLES, USER_STATUS, VERIFICATION_STATUS, ERROR_CODES } = require('../utils/constants');
 
 const BCRYPT_SALT_ROUNDS = 10;
 
@@ -104,16 +104,54 @@ class AuthService {
     // 4. Determine initial status: CITIZEN is ACTIVE immediately; others PENDING_VERIFICATION
     const status = role === ROLES.CITIZEN ? USER_STATUS.ACTIVE : USER_STATUS.PENDING_VERIFICATION;
 
-    // 5. Create user in database
-    const user = await prisma.user.create({
-      data: {
-        email: email.toLowerCase(),
-        passwordHash,
-        name: name.trim(),
-        phone: phone ? phone.trim() : null,
-        role,
-        status,
-      },
+    // 5. Create user, role profile, and initial verification in atomic transaction
+    const user = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          email: email.toLowerCase(),
+          passwordHash,
+          name: name.trim(),
+          phone: phone ? phone.trim() : null,
+          role,
+          status,
+        },
+      });
+
+      if (role === ROLES.INFORMAL_COLLECTOR) {
+        await tx.collectorProfile.create({
+          data: {
+            userId: newUser.id,
+            isAvailable: true,
+          },
+        });
+        await tx.verification.create({
+          data: {
+            userId: newUser.id,
+            role: ROLES.INFORMAL_COLLECTOR,
+            status: VERIFICATION_STATUS.PENDING,
+            documentType: 'AADHAAR',
+          },
+        });
+      } else if (role === ROLES.RECYCLER) {
+        await tx.recyclerProfile.create({
+          data: {
+            userId: newUser.id,
+            facilityName: `${newUser.name} Recycling Facility`,
+            facilityAddress: 'Pending Address Update',
+            authorizationStatus: 'PENDING',
+          },
+        });
+        await tx.verification.create({
+          data: {
+            userId: newUser.id,
+            role: ROLES.RECYCLER,
+            status: VERIFICATION_STATUS.PENDING,
+            documentType: 'RECYCLER_LICENSE',
+          },
+        });
+      }
+
+      return newUser;
     });
 
     // 6. Generate tokens
@@ -415,6 +453,34 @@ class AuthService {
       });
 
       if (role === ROLES.INFORMAL_COLLECTOR) {
+        let docUrl = profileData?.idDocumentUrl || null;
+        let storageKey = profileData?.storageKey || null;
+        let mimeType = profileData?.mimeType || null;
+        let fileSize = profileData?.fileSize || null;
+
+        if (profileData?.fileBase64) {
+          const base64Data = profileData.fileBase64.replace(/^data:[^;]+;base64,/, '');
+          const buffer = Buffer.from(base64Data, 'base64');
+          const ext = (profileData.fileExtension || 'jpg').toLowerCase().replace('.', '');
+          const { validateDocumentFile } = require('../middleware/uploadMiddleware');
+          validateDocumentFile({
+            filename: `upload.${ext}`,
+            mimetype: profileData.mimeType || (ext === 'pdf' ? 'application/pdf' : 'image/jpeg'),
+            buffer,
+          });
+          const path = require('path');
+          const fs = require('fs');
+          const SECURE_DOCS_DIR = path.resolve(process.cwd(), environment.uploadDir || './uploads', 'verification_docs');
+          if (!fs.existsSync(SECURE_DOCS_DIR)) fs.mkdirSync(SECURE_DOCS_DIR, { recursive: true });
+          const safeName = `doc_${newUser.id}_${Date.now()}.${ext}`;
+          const filePath = path.join(SECURE_DOCS_DIR, safeName);
+          fs.writeFileSync(filePath, buffer);
+          storageKey = safeName;
+          mimeType = ext === 'pdf' ? 'application/pdf' : 'image/jpeg';
+          fileSize = buffer.length;
+          docUrl = `/api/v1/verifications/document/${safeName}`;
+        }
+
         await tx.collectorProfile.create({
           data: {
             userId: newUser.id,
@@ -422,12 +488,12 @@ class AuthService {
             city: profileData?.city || null,
             state: profileData?.state || null,
             pincode: profileData?.pincode || null,
-            idDocumentUrl: profileData?.idDocumentUrl || null,
+            idDocumentUrl: docUrl || storageKey,
             bio: profileData?.bio || null,
           },
         });
 
-        if (profileData?.idDocumentUrl || profileData?.documentType) {
+        if (docUrl || profileData?.documentType || profileData?.fileBase64) {
           await tx.verification.create({
             data: {
               userId: newUser.id,
@@ -435,12 +501,42 @@ class AuthService {
               status: VERIFICATION_STATUS.SUBMITTED,
               documentType: profileData?.documentType || 'AADHAAR',
               documentNumberMasked: profileData?.documentNumberMasked || null,
-              documentUrl: profileData?.idDocumentUrl || null,
-              storageKey: profileData?.storageKey || null,
+              documentUrl: docUrl,
+              storageKey,
+              mimeType,
+              fileSize,
             },
           });
         }
       } else if (role === ROLES.RECYCLER) {
+        let docUrl = profileData?.licenseDocumentUrl || null;
+        let storageKey = profileData?.storageKey || null;
+        let mimeType = profileData?.mimeType || null;
+        let fileSize = profileData?.fileSize || null;
+
+        if (profileData?.fileBase64) {
+          const base64Data = profileData.fileBase64.replace(/^data:[^;]+;base64,/, '');
+          const buffer = Buffer.from(base64Data, 'base64');
+          const ext = (profileData.fileExtension || 'jpg').toLowerCase().replace('.', '');
+          const { validateDocumentFile } = require('../middleware/uploadMiddleware');
+          validateDocumentFile({
+            filename: `upload.${ext}`,
+            mimetype: profileData.mimeType || (ext === 'pdf' ? 'application/pdf' : 'image/jpeg'),
+            buffer,
+          });
+          const path = require('path');
+          const fs = require('fs');
+          const SECURE_DOCS_DIR = path.resolve(process.cwd(), environment.uploadDir || './uploads', 'verification_docs');
+          if (!fs.existsSync(SECURE_DOCS_DIR)) fs.mkdirSync(SECURE_DOCS_DIR, { recursive: true });
+          const safeName = `doc_${newUser.id}_${Date.now()}.${ext}`;
+          const filePath = path.join(SECURE_DOCS_DIR, safeName);
+          fs.writeFileSync(filePath, buffer);
+          storageKey = safeName;
+          mimeType = ext === 'pdf' ? 'application/pdf' : 'image/jpeg';
+          fileSize = buffer.length;
+          docUrl = `/api/v1/verifications/document/${safeName}`;
+        }
+
         await tx.recyclerProfile.create({
           data: {
             userId: newUser.id,
@@ -450,13 +546,13 @@ class AuthService {
             state: profileData?.state || null,
             pincode: profileData?.pincode || null,
             licenseNumber: profileData?.licenseNumber || null,
-            licenseDocumentUrl: profileData?.licenseDocumentUrl || null,
+            licenseDocumentUrl: docUrl || storageKey,
             acceptedCategories: profileData?.acceptedCategories || [],
             authorizationStatus: 'PENDING',
           },
         });
 
-        if (profileData?.licenseDocumentUrl || profileData?.licenseNumber) {
+        if (docUrl || profileData?.licenseNumber || profileData?.fileBase64) {
           await tx.verification.create({
             data: {
               userId: newUser.id,
@@ -466,8 +562,10 @@ class AuthService {
               documentNumberMasked: profileData?.licenseNumber
                 ? `LIC-XXXX-${profileData.licenseNumber.slice(-4)}`
                 : null,
-              documentUrl: profileData?.licenseDocumentUrl || null,
-              storageKey: profileData?.storageKey || null,
+              documentUrl: docUrl,
+              storageKey,
+              mimeType,
+              fileSize,
             },
           });
         }

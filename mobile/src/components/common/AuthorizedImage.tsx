@@ -23,6 +23,7 @@ import {
   ActivityIndicator,
   ViewStyle,
   ImageStyle,
+  StyleProp,
   SafeAreaView,
   Dimensions,
 } from 'react-native';
@@ -36,7 +37,7 @@ import { AppIcon } from '../ui/AppIcon';
 
 interface Props {
   uri?: string | null;
-  style?: ImageStyle | ViewStyle;
+  style?: StyleProp<ImageStyle | ViewStyle>;
   resizeMode?: 'cover' | 'contain' | 'stretch' | 'center';
   fallbackIcon?: string;
   fallbackText?: string;

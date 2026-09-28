@@ -220,6 +220,8 @@ const OfferModal: React.FC<OfferModalProps> = ({
   const confirmedCat = firstItem?.category ? fmtCategory(firstItem.category) : categories;
   const estWeight = totalEstimatedWeight(request.ewasteItems) || (firstItem?.estimatedWeightKg ? `~${firstItem.estimatedWeightKg} kg` : '');
 
+  const citizenDisplayName = request.citizen?.name || request.citizenName || 'Citizen Requester';
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={modalStyles.overlay} activeOpacity={1} onPress={onClose} />
@@ -228,7 +230,7 @@ const OfferModal: React.FC<OfferModalProps> = ({
 
         <View style={modalStyles.header}>
           <Text style={modalStyles.title}>
-            {hasExistingOffer ? 'Update Your Offer' : 'Place Pickup Offer'}
+            {citizenDisplayName}
           </Text>
           <Text style={modalStyles.subtitle}>
             {confirmedCat} {estWeight ? `· ${estWeight}` : ''} ({itemCount} {itemCount === 1 ? 'item' : 'items'})
@@ -314,7 +316,7 @@ const OfferModal: React.FC<OfferModalProps> = ({
             style={modalStyles.priceInput}
             value={offeredPrice}
             onChangeText={onChangePrice}
-            placeholder="e.g. 2850"
+            placeholder="e.g. 500"
             placeholderTextColor="#64748B"
             keyboardType="numeric"
             autoFocus
@@ -551,6 +553,18 @@ const cardStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  citizenNameText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
+  categorySubText: {
+    fontSize: 12.5,
+    color: '#94A3B8',
+    marginTop: 2,
+    fontWeight: '500',
+  },
   categoryText: {
     fontSize: 15,
     fontWeight: '700',
@@ -779,8 +793,11 @@ const RequestCard = React.memo<RequestCardProps>(
         ? timeStart
         : null;
 
+    const citizenDisplayName = request.citizen?.name || request.citizenName || 'Citizen Requester';
+
     const accessLabel = [
-      `Collection request: ${categories}`,
+      `Pickup request from ${citizenDisplayName}`,
+      `Category: ${confirmedCat}`,
       `${itemCount} ${itemCount === 1 ? (t('collector.browse.item') || 'item') : (t('collector.browse.items') || 'items')}`,
       estWeight ? estWeight : '',
       preferredDateLabel ? `Preferred ${preferredDateLabel}` : '',
@@ -794,17 +811,17 @@ const RequestCard = React.memo<RequestCardProps>(
         accessibilityRole="none"
         accessibilityLabel={accessLabel}
       >
-        {/* ── Header row: icon + categories + item count ── */}
+        {/* ── Header row: icon + citizen name (PRIMARY) + category/items (SECONDARY) ── */}
         <View style={cardStyles.headerRow}>
           <View style={cardStyles.iconCircle} accessibilityElementsHidden>
-            <AppIcon name="package" size={20} color="#10B981" />
+            <AppIcon name="user" size={20} color="#10B981" />
           </View>
           <View style={{ flex: 1, marginLeft: spacing.spaceSm }}>
-            <Text style={cardStyles.categoryText} numberOfLines={1}>
-              {confirmedCat}
+            <Text style={cardStyles.citizenNameText} numberOfLines={1}>
+              {citizenDisplayName}
             </Text>
-            <Text style={cardStyles.subText}>
-              {itemCount} {itemCount === 1 ? (t('collector.browse.item') || 'item') : (t('collector.browse.items') || 'items')}
+            <Text style={cardStyles.categorySubText} numberOfLines={1}>
+              {confirmedCat} · {itemCount} {itemCount === 1 ? (t('collector.browse.item') || 'item') : (t('collector.browse.items') || 'items')}
               {estWeight ? ` · ${estWeight}` : ''}
               {firstItem?.condition ? ` · ${firstItem.condition}` : ''}
             </Text>
@@ -874,6 +891,14 @@ const RequestCard = React.memo<RequestCardProps>(
             </Text>
           </View>
         )}
+
+        {/* ── Citizen Requester Name (Part 2) ── */}
+        <View style={cardStyles.infoRow}>
+          <AppIcon name="user" size={14} color="#10B981" style={{ marginTop: 2 }} />
+          <Text style={cardStyles.infoText}>
+            Requested by: <Text style={{ fontWeight: '700', color: '#FFFFFF' }}>{request.citizenName || request.citizen?.name || 'Citizen'}</Text>
+          </Text>
+        </View>
 
         {/* ── Doorstep pickup address (Privacy-safe) ── */}
         <View style={cardStyles.infoRow}>
@@ -1040,11 +1065,14 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
 
   const handleReadAloudRequest = useCallback(
     (req: any) => {
+      const citizenName = req?.citizenName || req?.citizen?.name || 'Citizen';
       const cats = summarizeCategories(req?.ewasteItems);
       const count = countTotalItems(req?.ewasteItems);
-      const area = t('collector.browse.approximatePickupArea') || 'Approximate pickup area';
+      const area = req?.pickupAddress || t('collector.browse.approximatePickupArea') || 'Approximate pickup area';
       const distText = req?.distanceKm ? ` ${req.distanceKm} km` : '';
-      const spokenText = `${cats}, ${count} ${count === 1 ? (t('collector.browse.item') || 'item') : (t('collector.browse.items') || 'items')}. ${area}.${distText ? ' Distance: ' + distText : ''}`;
+      const standardPriceStr = fmtStandardPrice(req?.standardPrice);
+      const priceText = standardPriceStr ? `. Estimated reference value is ${standardPriceStr}` : '';
+      const spokenText = `New pickup request from ${citizenName} for ${count} ${count === 1 ? (t('collector.browse.item') || 'item') : (t('collector.browse.items') || 'items')} of ${cats} in ${area}.${priceText}${distText ? ' Distance: ' + distText : ''}`;
 
       voiceService.speak(spokenText, {
         priority: AnnouncementPriority.LOW,

@@ -228,6 +228,10 @@ class PickupBatchService {
   async getBatches(actor, query = {}) {
     actor = await this.resolveActor(actor);
 
+    if (actor.role !== ROLES.INFORMAL_COLLECTOR && actor.role !== ROLES.RECYCLER && actor.role !== ROLES.ADMIN) {
+      throw AppError.forbidden('Only authorized collectors, recyclers, or administrators can view pickup batches');
+    }
+
     const where = {};
 
     if (query.status) {
@@ -660,6 +664,21 @@ class PickupBatchService {
         approximateTotalWeightKg: lot.approximateTotalWeightKg ? Number(lot.approximateTotalWeightKg) : null,
         condition: lot.condition,
         status: lot.status,
+        collectorId: lot.collectorId,
+        collector: lot.collector
+          ? {
+              id: lot.collector.id,
+              city: lot.collector.city,
+              state: lot.collector.state,
+              user: lot.collector.user
+                ? {
+                    id: lot.collector.user.id,
+                    name: lot.collector.user.name,
+                    phone: lot.collector.user.phone,
+                  }
+                : null,
+            }
+          : null,
         acceptedQuote: acceptedQuote
           ? {
               id: acceptedQuote.id,
@@ -667,7 +686,7 @@ class PickupBatchService {
               quotedUnitPrice: Number(acceptedQuote.quotedUnitPrice),
               quotedTotal: acceptedQuote.quotedTotal ? Number(acceptedQuote.quotedTotal) : null,
               recyclerId: acceptedQuote.recyclerId,
-              recyclerName: acceptedQuote.recycler.facilityName,
+              recyclerName: acceptedQuote.recycler?.facilityName,
             }
           : null,
       };
@@ -712,6 +731,20 @@ class PickupBatchService {
       categories: Array.from(categories),
       recyclerName: batch.recycler?.facilityName || 'Authorized Recycler',
       collectorName: batch.collector?.user?.name || 'Authorized Collector',
+      collector: batch.collector
+        ? {
+            id: batch.collector.id,
+            city: batch.collector.city,
+            state: batch.collector.state,
+            user: batch.collector.user
+              ? {
+                  id: batch.collector.user.id,
+                  name: batch.collector.user.name,
+                  phone: batch.collector.user.phone,
+                }
+              : null,
+          }
+        : null,
       createdAt: batch.createdAt,
     };
   }

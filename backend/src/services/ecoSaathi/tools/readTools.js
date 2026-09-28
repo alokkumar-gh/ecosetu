@@ -6,6 +6,24 @@ const AppError = require('../../../utils/AppError');
 const { ROLES, REQUEST_STATUS } = require('../../../utils/constants');
 const priceService = require('../../priceService');
 
+function formatPickupAddress(req) {
+  if (!req) return '';
+  const parts = [
+    req.houseNumber ? String(req.houseNumber).trim() : null,
+    req.street ? String(req.street).trim() : null,
+    req.landmark ? `Near ${String(req.landmark).trim()}` : null,
+    req.city ? String(req.city).trim() : null,
+    req.district && req.district !== req.city ? String(req.district).trim() : null,
+    req.state ? String(req.state).trim() : null,
+    req.pincode ? `PIN ${String(req.pincode).trim()}` : null,
+  ].filter(Boolean);
+
+  if (parts.length > 0) {
+    return parts.join(', ');
+  }
+  return req.pickupAddress ? String(req.pickupAddress).trim() : '';
+}
+
 const readTools = {
   /**
    * Get authenticated user profile summary
@@ -193,25 +211,36 @@ const readTools = {
     }
 
     // Role-based privacy & ownership check
+    let isAssigned = false;
+    let isOwner = false;
+
     if (actor.role === ROLES.CITIZEN) {
       if (request.citizenId !== actor.id) {
         throw AppError.forbidden('Access denied: You can only view your own pickup requests');
       }
+      isOwner = true;
     } else if (actor.role === ROLES.INFORMAL_COLLECTOR) {
       const profile = await prisma.collectorProfile.findUnique({ where: { userId: actor.id } });
-      const isAssigned = profile && request.collectorId === profile.id;
+      isAssigned = Boolean(profile && request.collectorId === profile.id);
       const isOpen = request.status === REQUEST_STATUS.SUBMITTED;
       if (!isAssigned && !isOpen) {
         throw AppError.forbidden('Access denied: Request is not available to your account');
       }
-    } else if (actor.role !== ROLES.ADMIN) {
+    } else if (actor.role === ROLES.ADMIN) {
+      isAuthorized = true;
+    } else {
       throw AppError.forbidden('Access denied');
     }
+
+    const isAuthorized = isOwner || isAssigned || actor.role === ROLES.ADMIN;
+    const fullAddr = formatPickupAddress(request);
+    const maskedAddr = [request.city, request.state].filter(Boolean).join(', ') || 'Approximate Area';
 
     return {
       requestId: request.id,
       status: request.status,
-      pickupAddress: actor.role === ROLES.CITIZEN || request.collectorId ? request.pickupAddress : 'Approximate Area',
+      pickupAddress: isAuthorized ? fullAddr : maskedAddr,
+      isAuthorizedForExactAddress: isAuthorized,
       items: request.ewasteItems.map((i) => ({
         id: i.id,
         category: i.category,
@@ -484,40 +513,36 @@ const readTools = {
   },
 
   /**
-   * Get active pickups assigned to collector
+   * Get active pickups assigned to collector (Citizen pickups + Recycler transfers)
    */
   async getCollectorActivePickups(actor) {
     if (!actor || actor.role !== ROLES.INFORMAL_COLLECTOR) {
       throw AppError.forbidden('Only collectors can access active pickups');
     }
-    const profile = await prisma.collectorProfile.findUnique({
-      where: { userId: actor.id },
-    });
-    if (!profile) throw AppError.notFound('Collector profile not found');
-
-    const activeRequests = await prisma.collectionRequest.findMany({
-      where: {
-        collectorId: profile.id,
-        status: { in: [REQUEST_STATUS.ACCEPTED, REQUEST_STATUS.PICKUP_SCHEDULED] },
-      },
-      include: {
-        ewasteItems: {
-          select: { category: true, condition: true, estimatedWeightKg: true, imageUrl: true },
-        },
-      },
-      orderBy: { preferredDate: 'asc' },
-    });
+    const pickupService = require('../../pickupService');
+    const result = await pickupService.listPickups(actor.id, {});
+    const activeList = (result.pickups || []).filter(
+      (p) =>
+        p.status === 'SCHEDULED' ||
+        p.status === 'IN_PROGRESS' ||
+        p.status === 'PENDING_COLLECTOR' ||
+        p.status === 'COLLECTOR_CONFIRMED' ||
+        p.status === 'RECYCLER_CONFIRMED'
+    );
 
     return {
-      count: activeRequests.length,
-      pickups: activeRequests.map((r) => ({
-        requestId: r.id,
-        shortId: r.id.substring(0, 8),
-        status: r.status,
-        address: [r.landmark ? `Near ${r.landmark}` : null, r.city, r.state].filter(Boolean).join(', '),
-        preferredDate: r.preferredDate,
-        itemsCount: r.ewasteItems.length,
-        items: r.ewasteItems,
+      count: activeList.length,
+      pickups: activeList.map((p) => ({
+        requestId: p.id,
+        shortId: p.id.substring(0, 8),
+        status: p.status,
+        type: p.type,
+        primaryName: p.primaryName || p.citizenName || p.recyclerName,
+        address: p.pickupAddress || 'Address on file',
+        pickupAddress: p.pickupAddress || 'Address on file',
+        preferredDate: p.scheduledDate || p.createdAt,
+        itemsCount: (p.items || []).length,
+        items: p.items || [],
       })),
     };
   },

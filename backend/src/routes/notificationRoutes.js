@@ -18,6 +18,23 @@ router.get(
   (req, res, next) => notificationController.getUnreadCount(req, res, next)
 );
 
+// Get notification preferences
+router.get(
+  '/preferences',
+  (req, res, next) => notificationController.getPreferences(req, res, next)
+);
+
+// Update notification preferences (PUT or PATCH)
+router.put(
+  '/preferences',
+  (req, res, next) => notificationController.updatePreferences(req, res, next)
+);
+
+router.patch(
+  '/preferences',
+  (req, res, next) => notificationController.updatePreferences(req, res, next)
+);
+
 // List current user's notifications (paginated, unread filter)
 router.get(
   '/',

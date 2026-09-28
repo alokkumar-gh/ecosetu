@@ -21,6 +21,7 @@ import handoverService, { HandoverReceipt } from '../../services/handoverService
 import voiceService from '../../services/voiceService';
 import { ReportProblemModal } from '../../components/dispute/ReportProblemModal';
 import { AppIcon } from '../../components/ui/AppIcon';
+import { AuthorizedImage } from '../../components/common/AuthorizedImage';
 
 export const CollectorHandoverReceiptScreen: React.FC = () => {
   const { t, language } = useI18n();
@@ -272,7 +273,7 @@ export const CollectorHandoverReceiptScreen: React.FC = () => {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
             {receipt.photos.map((p) => (
               <View key={p.id} style={styles.photoContainer}>
-                <Image source={{ uri: p.photoUrl }} style={styles.evidenceImage} />
+                <AuthorizedImage uri={p.photoUrl} style={styles.evidenceImage} allowFullscreen={true} />
                 {p.caption && <Text style={styles.photoCaption}>{p.caption}</Text>}
               </View>
             ))}

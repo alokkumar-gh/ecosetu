@@ -800,11 +800,12 @@ export const ConsignmentDetailScreen: React.FC<Props> = ({ navigation, route }) 
           {items.length > 0 ? (
             items.map((item: any, index: number) => {
               const itemWeight = item.actualWeightKg || item.estimatedWeightKg;
+              const imgUrl = item.imageUrl || item.photoUrl || (item.photos && item.photos[0]?.photoUrl);
               return (
                 <View key={item.id || index} style={styles.itemRow}>
-                  {item.imageUrl ? (
+                  {imgUrl ? (
                     <AuthorizedImage
-                      uri={item.imageUrl}
+                      uri={imgUrl}
                       style={{ width: 44, height: 44, borderRadius: 6, marginRight: spacing.spaceSm }}
                       allowFullscreen
                     />

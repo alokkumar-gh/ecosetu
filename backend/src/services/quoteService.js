@@ -142,13 +142,31 @@ class QuoteService {
    * @param {string} userId - User UUID
    * @returns {Promise<object>}
    */
-  async getRecyclerProfileOrThrow(userId) {
-    const profile = await prisma.recyclerProfile.findUnique({
+  async getRecyclerProfileOrThrow(userOrId) {
+    const userId = typeof userOrId === 'string' ? userOrId : (userOrId?.id || userOrId?.userId);
+    if (!userId) {
+      throw AppError.forbidden('Invalid user context');
+    }
+    let profile = await prisma.recyclerProfile.findUnique({
       where: { userId },
       include: { user: true },
     });
     if (!profile) {
-      throw AppError.forbidden('Recycler profile not found for this account');
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (user && user.role === ROLES.RECYCLER) {
+        profile = await prisma.recyclerProfile.create({
+          data: {
+            userId: user.id,
+            facilityName: `${user.name} Recycling Facility`,
+            facilityAddress: 'Pending Address Update',
+            authorizationStatus: user.status === 'ACTIVE' ? 'AUTHORIZED' : 'PENDING',
+          },
+          include: { user: true },
+        });
+      }
+    }
+    if (!profile) {
+      throw AppError.forbidden('Recycler profile not found for this account. Please complete your profile.');
     }
     return profile;
   }
@@ -235,8 +253,13 @@ class QuoteService {
         throw AppError.badRequest('You already have an active purchase offer for this item');
       }
     } else if (user.role === ROLES.RECYCLER) {
-      // Material category compatibility check for recyclers
-      if (!recyclerProfile.acceptedCategories || !recyclerProfile.acceptedCategories.includes(lot.category)) {
+      // Material category compatibility check for recyclers (empty list or 'ALL' accepts any category)
+      const acceptsCategory = !recyclerProfile.acceptedCategories ||
+        recyclerProfile.acceptedCategories.length === 0 ||
+        recyclerProfile.acceptedCategories.includes('ALL') ||
+        recyclerProfile.acceptedCategories.includes(lot.category);
+
+      if (!acceptsCategory) {
         throw AppError.badRequest(`Recycler does not accept material category ${lot.category}`);
       }
 
@@ -412,8 +435,7 @@ class QuoteService {
       }
     } else if (user.role === ROLES.RECYCLER) {
       // Recyclers can only see their own quote for this lot
-      const profile = await prisma.recyclerProfile.findUnique({ where: { userId: user.id } });
-      if (!profile) throw AppError.forbidden('Recycler profile not found');
+      const profile = await this.getRecyclerProfileOrThrow(user);
       query.recyclerId = profile.id;
     } else if (user.role !== ROLES.ADMIN) {
       throw AppError.forbidden('Unauthorized to view quotes');
