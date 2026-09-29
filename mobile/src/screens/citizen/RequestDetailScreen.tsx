@@ -677,8 +677,8 @@ export const RequestDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
         </View>
 
-        {/* ── Offers Received Section (Visible for OPEN/SUBMITTED requests) ── */}
-        {status === REQUEST_STATUS.SUBMITTED && (
+        {/* ── Offers Received Section (Visible for SUBMITTED, ACCEPTED, and PICKUP_SCHEDULED) ── */}
+        {(status === REQUEST_STATUS.SUBMITTED || status === REQUEST_STATUS.ACCEPTED || status === REQUEST_STATUS.PICKUP_SCHEDULED || offers.length > 0) && (
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>

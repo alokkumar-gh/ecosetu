@@ -337,7 +337,7 @@ class RequestService {
     // Get collector's profile location
     let searchLat = lat ? parseFloat(lat) : null;
     let searchLng = lng ? parseFloat(lng) : null;
-    let searchRadius = radiusKm ? parseFloat(radiusKm) : 5.0;
+    let searchRadius = radiusKm ? parseFloat(radiusKm) : 50.0;
     let collectorProfileId = null;
 
     const userId = typeof collectorUser === 'string' ? collectorUser : collectorUser?.id;
@@ -405,14 +405,15 @@ class RequestService {
       filtered = allSubmitted.filter((req) => {
         const reqLat = parseFloat(req.pickupLat);
         const reqLng = parseFloat(req.pickupLng);
+        const sameCity = profile?.city && req.city && profile.city.trim().toLowerCase() === req.city.trim().toLowerCase();
         if (
           !isNaN(reqLat) && !isNaN(reqLng) &&
           !(reqLat === 0 && reqLng === 0)
         ) {
           const dist = calculateDistanceKm(searchLat, searchLng, reqLat, reqLng);
-          return dist <= searchRadius;
-        } else if (profile?.city && req.city) {
-          return profile.city.trim().toLowerCase() === req.city.trim().toLowerCase();
+          return dist <= searchRadius || sameCity;
+        } else if (sameCity) {
+          return true;
         }
         return true;
       });
@@ -593,6 +594,13 @@ class RequestService {
       return {
         ...request,
         citizenName: request.citizen?.name || 'Citizen',
+        collector: request.collector
+          ? {
+              ...request.collector,
+              name: request.collector.user?.name || 'Local Collector',
+              phone: request.collector.user?.phone || null,
+            }
+          : null,
         pickupOffers: sanitizedOffers,
         offers: sanitizedOffers,
         offersCount,

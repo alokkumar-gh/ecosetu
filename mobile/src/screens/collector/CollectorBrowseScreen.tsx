@@ -887,7 +887,7 @@ const RequestCard = React.memo<RequestCardProps>(
           <View style={cardStyles.myOfferBanner}>
             <AppIcon name="check" size={13} color="#38BDF8" />
             <Text style={cardStyles.myOfferText}>
-              Offer Submitted: <Text style={{ fontWeight: '700' }}>₹{myOffer.offeredPrice}</Text> ({myOffer.status})
+              OFFER SUBMITTED · ₹{myOffer.offeredPrice}
             </Text>
           </View>
         )}
@@ -986,7 +986,7 @@ const RequestCard = React.memo<RequestCardProps>(
             <View style={styles.btnRow}>
               <AppIcon name="award" size={15} color="#02080D" />
               <Text style={cardStyles.offerButtonText}>
-                {myOffer ? `Edit Offer (₹${myOffer.offeredPrice})` : 'Make Offer'}
+                {myOffer ? 'Edit Offer' : 'Make Offer'}
               </Text>
             </View>
           </TouchableOpacity>
@@ -1322,11 +1322,20 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
           const map = new Map<string, any>();
           // Existing items
           prev.forEach((r) => map.set(String(r.id || r.requestId), r));
-          // Merge newly available items
+          // Merge newly available items while preserving authoritative existing server data
           syncData.availableRequests.forEach((r) => {
             const id = String(r.id || r.requestId);
             const existing = map.get(id);
-            map.set(id, { ...existing, ...r });
+            if (existing) {
+              map.set(id, {
+                ...r,
+                ...existing,
+                myOffer: r.myOffer || existing.myOffer,
+                offersCount: typeof r.offersCount === 'number' ? r.offersCount : existing.offersCount,
+              });
+            } else {
+              map.set(id, r);
+            }
           });
           const merged = Array.from(map.values());
           merged.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
@@ -1796,7 +1805,7 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
                   <View style={styles.btnRow}>
                     <AppIcon name="award" size={15} color="#02080D" />
                     <Text style={styles.selectedAcceptBtnText}>
-                      {selectedMapRequest.myOffer ? `Edit Offer (₹${selectedMapRequest.myOffer.offeredPrice})` : 'Make Offer'}
+                      {selectedMapRequest.myOffer ? 'Edit Offer' : 'Make Offer'}
                     </Text>
                   </View>
                 </TouchableOpacity>

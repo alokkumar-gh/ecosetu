@@ -43,7 +43,7 @@ function run() {
   console.log('ECOSETU PILLAR 2: COLLECTOR PICKUP CONFIRMATION UI VERIFICATION');
   console.log('================================================================\n');
 
-  const screenPath = path.join(__dirname, 'mobile/src/screens/collector/CollectorPickupDetailScreen.tsx');
+  const screenPath = path.resolve(__dirname, '../mobile/src/screens/collector/CollectorPickupDetailScreen.tsx');
   check(fs.existsSync(screenPath), 'PK-01', 'CollectorPickupDetailScreen.tsx exists');
 
   const content = fs.readFileSync(screenPath, 'utf8');

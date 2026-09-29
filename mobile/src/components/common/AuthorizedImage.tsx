@@ -79,11 +79,19 @@ export const AuthorizedImage: React.FC<Props> = ({
       return uri;
     }
 
-    // Relative backend path
+    const base = apiClient.getBaseUrl().replace(/\/+$/, '');
     let full = uri;
+
+    // Relative backend path or raw fileKey
     if (uri.startsWith('/')) {
-      const base = apiClient.getBaseUrl();
-      full = `${base}${uri}`;
+      if (base.endsWith('/api/v1') && uri.startsWith('/api/v1/')) {
+        full = `${base}${uri.substring('/api/v1'.length)}`;
+      } else {
+        full = `${base}${uri}`;
+      }
+    } else if (!uri.startsWith('http')) {
+      // Raw fileKey like ewaste_xxx.jpg
+      full = `${base}/ewaste-items/media/${uri}`;
     }
 
     // If token is available, append query parameter as fallback for native decoders

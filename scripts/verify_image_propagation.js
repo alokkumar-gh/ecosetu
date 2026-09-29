@@ -18,13 +18,14 @@
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
-const { PrismaClient } = require('./backend/node_modules/@prisma/client');
+const backendRoot = path.resolve(__dirname, '../backend');
+const { PrismaClient } = require(path.join(backendRoot, 'node_modules/@prisma/client'));
 const prisma = new PrismaClient();
 
-const mediaService = require('./backend/src/services/mediaService');
-const ewasteService = require('./backend/src/services/ewasteService');
-const requestService = require('./backend/src/services/requestService');
-const { ROLES, REQUEST_STATUS, ITEM_STATUS } = require('./backend/src/utils/constants');
+const mediaService = require(path.join(backendRoot, 'src/services/mediaService'));
+const ewasteService = require(path.join(backendRoot, 'src/services/ewasteService'));
+const requestService = require(path.join(backendRoot, 'src/services/requestService'));
+const { ROLES, REQUEST_STATUS, ITEM_STATUS } = require(path.join(backendRoot, 'src/utils/constants'));
 
 let passed = 0;
 let failed = 0;

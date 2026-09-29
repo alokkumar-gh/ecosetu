@@ -90,10 +90,7 @@ class EWasteService {
       name,
     });
 
-    const response = await apiClient.request('/ewaste-items/upload', {
-      method: 'POST',
-      body: formData,
-    });
+    const response = await apiClient.upload('/ewaste-items/upload', formData);
 
     return response.data || response;
   }
@@ -110,13 +107,16 @@ class EWasteService {
         if (payload.imageUri && (payload.imageUri.startsWith('file:') || payload.imageUri.startsWith('content:'))) {
           try {
             const uploadRes = await this.uploadImage(payload.imageUri);
-            if (uploadRes?.imageUrl) {
-              payload.imageUrl = uploadRes.imageUrl;
+            const resolvedUrl = uploadRes?.imageUrl || uploadRes?.data?.imageUrl;
+            if (resolvedUrl) {
+              payload.imageUrl = resolvedUrl;
             }
           } catch (uploadErr) {
             console.warn('[EWasteService] Image upload warning, proceeding with item creation:', uploadErr?.message);
           }
         }
+        // Remove local-only temporary uri so it never gets sent or persisted to backend
+        delete payload.imageUri;
 
         const response = await apiClient.post('/ewaste-items', payload);
         const createdItem = response.data?.item || response.data;

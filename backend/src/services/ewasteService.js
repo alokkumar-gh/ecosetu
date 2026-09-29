@@ -40,6 +40,9 @@ class EwasteService {
     const itemQuantity = quantity !== undefined ? Math.max(1, parseInt(quantity, 10)) : 1;
 
     let finalImageUrl = imageUrl ? imageUrl.trim() : null;
+    if (finalImageUrl && (finalImageUrl.startsWith('file:') || finalImageUrl.startsWith('content:'))) {
+      finalImageUrl = null;
+    }
 
     // If an image file was uploaded with the request, persist it
     if (file && file.buffer) {

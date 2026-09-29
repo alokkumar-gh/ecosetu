@@ -21,14 +21,14 @@
 
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
-require('./backend/node_modules/dotenv').config({ path: path.join(__dirname, 'backend', '.env') });
+const backendRoot = path.resolve(__dirname, '../backend');
+require(path.join(backendRoot, 'node_modules/dotenv')).config({ path: path.join(backendRoot, '.env') });
 
-const prisma = require('./backend/src/config/database');
-const mediaService = require('./backend/src/services/mediaService');
-const ewasteService = require('./backend/src/services/ewasteService');
-const { validateImageFile } = require('./backend/src/middleware/uploadMiddleware');
-const { ROLES, ITEM_STATUS, EWASTE_CATEGORIES, ITEM_CONDITIONS } = require('./backend/src/utils/constants');
+const prisma = require(path.join(backendRoot, 'src/config/database'));
+const mediaService = require(path.join(backendRoot, 'src/services/mediaService'));
+const ewasteService = require(path.join(backendRoot, 'src/services/ewasteService'));
+const { validateImageFile } = require(path.join(backendRoot, 'src/middleware/uploadMiddleware'));
+const { ROLES, ITEM_STATUS, EWASTE_CATEGORIES, ITEM_CONDITIONS } = require(path.join(backendRoot, 'src/utils/constants'));
 
 let passed = 0;
 let failed = 0;

@@ -283,6 +283,7 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
   // Location State
   const [pickupLat, setPickupLat] = useState<number>(19.076);
   const [pickupLng, setPickupLng] = useState<number>(72.8777);
+  const [hasGpsFix, setHasGpsFix] = useState<boolean>(false);
   const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [isResolvingAddress, setIsResolvingAddress] = useState<boolean>(false);
@@ -342,6 +343,7 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
         const { latitude, longitude, accuracy } = result.coords;
         setPickupLat(latitude);
         setPickupLng(longitude);
+        setHasGpsFix(true);
         if (accuracy !== null) setLocationAccuracy(accuracy);
         handleResolveAddress(latitude, longitude);
       } else if (result.error === 'PERMISSION_DENIED') {
@@ -564,11 +566,12 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
         .filter(Boolean)
         .join(', ');
 
+      const hasValidCoords = hasGpsFix && pickupLat && pickupLng && !(pickupLat === 19.076 && pickupLng === 72.8777);
       const requestPayload: any = {
         itemIds: [itemId],
         pickupAddress: formattedAddr || 'Doorstep Pickup Location',
-        pickupLat: pickupLat || 0,
-        pickupLng: pickupLng || 0,
+        pickupLat: hasValidCoords ? pickupLat : (city.trim() ? null : pickupLat),
+        pickupLng: hasValidCoords ? pickupLng : (city.trim() ? null : pickupLng),
         addressType,
         autoSubmit: true, // Moves directly to OFFERS_OPEN / SUBMITTED
       };
@@ -1059,6 +1062,7 @@ export const SubmitItemScreen: React.FC<Props> = ({ navigation }) => {
                     onLocationChange={(lat, lng) => {
                       setPickupLat(lat);
                       setPickupLng(lng);
+                      setHasGpsFix(true);
                       handleResolveAddress(lat, lng);
                     }}
                     style={styles.mapEmbed}

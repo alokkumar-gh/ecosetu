@@ -6,6 +6,13 @@ __pycache__/
 .venv/
 venv/
 
+# Build Outputs & Bundles
+dist/
+build/
+.next/
+.cache/
+coverage/
+
 # Android Build Outputs
 mobile/android/.gradle/
 mobile/android/app/build/
@@ -15,6 +22,9 @@ mobile/android/app/build/
 # Environment Keys & Secrets
 .env
 .env.*
+.env.local
+.env.production.local
+.env.development.local
 !.env.example
 !.env.*.example
 *service-account*.json
@@ -41,16 +51,21 @@ backups/
 .DS_Store
 Thumbs.db
 .kilo/
+*.local
 
 # Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+firebase-debug.log
 
 # AI Training Artifacts
 ai/training/runs/
 ai/training/dataset/
 
-# Root screenshots & scratch
+# Root screenshots, scratch, and temporary files
 /*.png
 scratch/
-
-
+*.tmp
+*.temp

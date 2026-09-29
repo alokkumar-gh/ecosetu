@@ -148,9 +148,13 @@ class CollectorSyncService {
       let updatedList: CollectorRealtimeRequest[];
       if (existingIndex >= 0) {
         updatedList = [...this._cachedData.availableRequests];
+        const existing = updatedList[existingIndex];
         updatedList[existingIndex] = {
-          ...updatedList[existingIndex],
           ...newItem,
+          ...existing,
+          status: newItem.status || existing.status,
+          imageUrl: newItem.imageUrl || existing.imageUrl,
+          ewasteItems: (existing.ewasteItems && existing.ewasteItems.length > 0) ? existing.ewasteItems : newItem.ewasteItems,
         };
       } else {
         // Prepend new request

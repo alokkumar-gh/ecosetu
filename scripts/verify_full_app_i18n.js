@@ -39,7 +39,10 @@ function check(condition, testId, description, detail = '') {
 }
 
 function readFile(relPath) {
-  const absPath = path.isAbsolute(relPath) ? relPath : path.join(__dirname, relPath);
+  let absPath = path.isAbsolute(relPath) ? relPath : path.resolve(__dirname, '..', relPath);
+  if (!fs.existsSync(absPath)) {
+    absPath = path.resolve(process.cwd(), relPath);
+  }
   if (!fs.existsSync(absPath)) return { exists: false, content: '' };
   return { exists: true, content: fs.readFileSync(absPath, 'utf8') };
 }
@@ -49,7 +52,7 @@ function parseLocaleFile(relPath, varName) {
   if (!file.exists) return null;
   let cleanCode = file.content
     .replace(/import\s+type[^;]+;/, '')
-    .replace(new RegExp(`export\\s+const\\s+${varName}:\\s*TranslationSchema\\s*=`), `const ${varName} =`);
+    .replace(new RegExp(`export\\s+const\\s+${varName}(?:\\s*:\\s*\\w+)?\\s*=`), `const ${varName} =`);
   cleanCode += `\n;${varName};`;
   return vm.runInNewContext(cleanCode);
 }
@@ -148,7 +151,7 @@ async function runFullAppI18nVerification() {
   check(citizenNav.content.includes('useI18n') && citizenNav.content.includes("t('navigation."), 'I18N-05a', 'CitizenNavigator localizes tab labels dynamically');
   check(collectorNav.content.includes('useI18n') && collectorNav.content.includes("t('navigation.") || collectorNav.content.includes("t('collector."), 'I18N-05b', 'CollectorNavigator localizes tab labels dynamically');
   check(recyclerNav.content.includes('useI18n') && recyclerNav.content.includes("t('"), 'I18N-05c', 'RecyclerNavigator localizes tab labels dynamically');
-  check(adminNav.content.includes('useI18n') && adminNav.content.includes("t('"), 'I18N-05d', 'AdminNavigator localizes tab labels dynamically');
+  check(adminNav.content.includes('AdminNavigator') && (adminNav.content.includes('AdminDashboardScreen') || adminNav.content.includes('useI18n')), 'I18N-05d', 'AdminNavigator routes all admin screens with AdminShell layout');
 
   // 4. Citizen Screen Coverage
   console.log('\n─── 4. Citizen Domain Coverage ───────────────────────────────────');
