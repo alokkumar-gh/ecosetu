@@ -24,7 +24,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useI18n } from '../../i18n';
 import { EcoSetuBackground } from '../../components/eco';
 import { colors } from '../../theme/colors';
@@ -80,9 +80,11 @@ export const RecyclerLotDetailScreen: React.FC = () => {
     }
   }, [lotId, initialLot, t]);
 
-  useEffect(() => {
-    fetchLot();
-  }, [fetchLot]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchLot();
+    }, [fetchLot])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -271,6 +273,40 @@ export const RecyclerLotDetailScreen: React.FC = () => {
             </View>
           </View>
 
+          {/* Your Submitted Offer Card */}
+          {lot?.myOffer && (
+            <View style={[styles.card, { borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.08)' }]}>
+              <View style={styles.titleRow}>
+                <AppIcon name="checkCircle" size={16} color="#34D399" />
+                <Text style={[styles.sectionHeading, { color: '#34D399' }]}>Your Submitted Offer</Text>
+              </View>
+              <View style={styles.activityRow}>
+                <Text style={styles.activityLabel}>Status:</Text>
+                <Text style={[styles.activityValue, { color: '#34D399', fontWeight: '700' }]}>
+                  {lot.myOffer.status || 'PENDING'}
+                </Text>
+              </View>
+              <View style={styles.activityRow}>
+                <Text style={styles.activityLabel}>Offered Rate:</Text>
+                <Text style={[styles.activityValue, { color: '#FFFFFF', fontWeight: '700' }]}>
+                  ₹{lot.myOffer.offeredRatePerKg ? `${lot.myOffer.offeredRatePerKg}/kg` : '—'}
+                </Text>
+              </View>
+              <View style={styles.activityRow}>
+                <Text style={styles.activityLabel}>Total Offered Amount:</Text>
+                <Text style={[styles.activityValue, { color: '#10B981', fontWeight: '800', fontSize: 16 }]}>
+                  ₹{Number(lot.myOffer.totalOfferedAmount || (lot.myOffer.offeredRatePerKg * (lot.approximateTotalWeightKg || 1)) || 0).toLocaleString('en-IN')}
+                </Text>
+              </View>
+              {lot.myOffer.notes ? (
+                <View style={{ marginTop: space.xs }}>
+                  <Text style={styles.activityLabel}>Notes:</Text>
+                  <Text style={[styles.guidanceText, { marginTop: 2 }]}>{lot.myOffer.notes}</Text>
+                </View>
+              ) : null}
+            </View>
+          )}
+
           {/* Seller / Contact Privacy Information */}
           <View style={styles.card}>
             <View style={styles.titleRow}>
@@ -316,15 +352,20 @@ export const RecyclerLotDetailScreen: React.FC = () => {
         {/* Primary Bottom Action CTA */}
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={styles.primaryActionButton}
-            onPress={() => navigation.navigate('RecyclerCreateQuote', { lot })}
+            style={[styles.primaryActionButton, lot?.myOffer && { backgroundColor: '#34D399' }]}
+            onPress={() => navigation.navigate('RecyclerCreateQuote', {
+              lot,
+              existingQuote: lot?.myOffer || undefined,
+            })}
             accessibilityRole="button"
-            accessibilityLabel={t('recycler.marketplace.makeOffer') || 'Make Offer'}
+            accessibilityLabel={lot?.myOffer ? 'Edit Offer' : (t('recycler.marketplace.makeOffer') || 'Make Offer')}
           >
             <View style={styles.btnRow}>
-              <AppIcon name="dollarSign" size={16} color="#071E22" strokeWidth={2.5} />
+              <AppIcon name={lot?.myOffer ? 'edit' : 'dollarSign'} size={16} color="#071E22" strokeWidth={2.5} />
               <Text style={styles.primaryActionText}>
-                {t('recycler.marketplace.makeOffer') || 'Make Offer'}
+                {lot?.myOffer
+                  ? `Edit Offer (₹${Number(lot.myOffer.totalOfferedAmount || (lot.myOffer.offeredRatePerKg * (lot.approximateTotalWeightKg || 1)) || 0).toLocaleString('en-IN')})`
+                  : (t('recycler.marketplace.makeOffer') || 'Make Offer')}
               </Text>
             </View>
           </TouchableOpacity>

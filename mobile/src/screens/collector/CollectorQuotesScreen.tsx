@@ -25,7 +25,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { useI18n } from '../../i18n';
+import { useQuotationI18n, QuotationLanguageScope } from '../../i18n';
 import { EcoSetuBackground } from '../../components/eco';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
@@ -46,9 +46,10 @@ const space = {
 type SortOption = 'HIGHEST_RATE' | 'PICKUP' | 'NEWEST' | 'NEAREST';
 
 export const CollectorQuotesScreen: React.FC = () => {
-  const { t, language } = useI18n();
+  const { t, language } = useQuotationI18n();
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
+
 
   const lotId = route.params?.lotId;
   const initialLot = route.params?.lot;
@@ -264,10 +265,11 @@ export const CollectorQuotesScreen: React.FC = () => {
   const isLotAccepted = lotData?.lotStatus === 'ACCEPTED' || lotData?.quotes?.some(q => q.status === 'ACCEPTED');
 
   return (
-    <EcoSetuBackground>
-      <SafeAreaView style={styles.safeArea}>
-        {/* Navigation Header */}
-        <View style={styles.header}>
+    <QuotationLanguageScope>
+      <EcoSetuBackground>
+        <SafeAreaView style={styles.safeArea}>
+          {/* Navigation Header */}
+          <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}
@@ -865,6 +867,7 @@ export const CollectorQuotesScreen: React.FC = () => {
         </Modal>
       </SafeAreaView>
     </EcoSetuBackground>
+  </QuotationLanguageScope>
   );
 };
 

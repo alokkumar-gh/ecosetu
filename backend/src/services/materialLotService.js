@@ -435,8 +435,10 @@ class MaterialLotService {
         where.listingPurpose = { in: [LISTING_PURPOSE.REUSE, LISTING_PURPOSE.REPAIR_REUSE] };
       }
     } else if (userRole === ROLES.RECYCLER) {
-      // Recyclers discover available recycling marketplace lots (OPEN or QUOTED)
-      if (query.status && ['OPEN', 'QUOTED'].includes(query.status)) {
+      // Recyclers discover available recycling marketplace lots (both OPEN and QUOTED remain open for competitive bids until ACCEPTED)
+      if (query.status === 'QUOTED') {
+        where.status = MATERIAL_LOT_STATUS.QUOTED;
+      } else if (query.status && ['ACCEPTED', 'COMPLETED', 'CANCELLED'].includes(query.status)) {
         where.status = query.status;
       } else {
         where.status = { in: [MATERIAL_LOT_STATUS.OPEN, MATERIAL_LOT_STATUS.QUOTED] };
@@ -570,6 +572,57 @@ class MaterialLotService {
       }),
     ]);
 
+    // Attach caller's own offer (myOffer) if authenticated as Recycler or Citizen
+    if (lots.length > 0 && userId) {
+      const lotIds = lots.map((l) => l.id);
+      let myQuotes = [];
+
+      if (userRole === ROLES.RECYCLER) {
+        const recyclerProfile = await prisma.recyclerProfile.findUnique({
+          where: { userId },
+        });
+        if (recyclerProfile) {
+          myQuotes = await prisma.quote.findMany({
+            where: {
+              materialLotId: { in: lotIds },
+              recyclerId: recyclerProfile.id,
+              status: { in: ['SENT', 'VIEWED', 'ACCEPTED'] },
+            },
+            orderBy: { createdAt: 'desc' },
+          });
+        }
+      } else if (userRole === ROLES.CITIZEN) {
+        myQuotes = await prisma.quote.findMany({
+          where: {
+            materialLotId: { in: lotIds },
+            buyerUserId: userId,
+            status: { in: ['SENT', 'VIEWED', 'ACCEPTED'] },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+      }
+
+      const myQuotesByLotId = new Map();
+      for (const q of myQuotes) {
+        if (!myQuotesByLotId.has(q.materialLotId)) {
+          myQuotesByLotId.set(q.materialLotId, {
+            id: q.id,
+            amount: Number(q.quotedTotal),
+            quotedUnitPrice: Number(q.quotedUnitPrice),
+            unit: q.unit,
+            quantity: Number(q.quotedQuantity),
+            status: q.status,
+            submittedAt: q.createdAt,
+            notes: q.notes,
+          });
+        }
+      }
+
+      for (const lot of lots) {
+        lot.myOffer = myQuotesByLotId.get(lot.id) || null;
+      }
+    }
+
     return {
       lots,
       total,
@@ -649,7 +702,61 @@ class MaterialLotService {
       throw AppError.forbidden('Access forbidden: Unauthorized to view material lot');
     }
 
-    return lot;
+    // Attach caller's own offer (myOffer) if authenticated as Recycler or Citizen
+    let myOffer = null;
+    if (userRole === ROLES.RECYCLER && userId) {
+      const recyclerProfile = await prisma.recyclerProfile.findUnique({
+        where: { userId },
+      });
+      if (recyclerProfile) {
+        const myQuote = await prisma.quote.findFirst({
+          where: {
+            materialLotId: lot.id,
+            recyclerId: recyclerProfile.id,
+            status: { in: ['SENT', 'VIEWED', 'ACCEPTED'] },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (myQuote) {
+          myOffer = {
+            id: myQuote.id,
+            amount: Number(myQuote.quotedTotal),
+            quotedUnitPrice: Number(myQuote.quotedUnitPrice),
+            unit: myQuote.unit,
+            quantity: Number(myQuote.quotedQuantity),
+            status: myQuote.status,
+            submittedAt: myQuote.createdAt,
+            notes: myQuote.notes,
+          };
+        }
+      }
+    } else if (userRole === ROLES.CITIZEN && userId) {
+      const myQuote = await prisma.quote.findFirst({
+        where: {
+          materialLotId: lot.id,
+          buyerUserId: userId,
+          status: { in: ['SENT', 'VIEWED', 'ACCEPTED'] },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (myQuote) {
+        myOffer = {
+          id: myQuote.id,
+          amount: Number(myQuote.quotedTotal),
+          quotedUnitPrice: Number(myQuote.quotedUnitPrice),
+          unit: myQuote.unit,
+          quantity: Number(myQuote.quotedQuantity),
+          status: myQuote.status,
+          submittedAt: myQuote.createdAt,
+          notes: myQuote.notes,
+        };
+      }
+    }
+
+    return {
+      ...lot,
+      myOffer,
+    };
   }
 
   /**

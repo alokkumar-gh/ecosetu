@@ -107,11 +107,11 @@ export function resolvePath(obj: any, path: string): string | null {
 }
 
 /**
- * Universal translation function
- * Resolves translation with active language -> fallback to English -> fallback to key.
- * Interpolates parameters in the form `{paramName}`.
+/**
+ * Targeted translation function for a specific locale
  */
-export const t = (
+export const tForLocale = (
+  lang: SupportedLanguage,
   key: string,
   params?: Record<string, string | number> | string,
   defaultValue?: string
@@ -126,11 +126,13 @@ export const t = (
     resolvedParams = params;
   }
 
-  // 1. Try active language
-  let text = resolvePath(LOCALES[activeLanguage], key);
+  const targetLang = LOCALES[lang] ? lang : DEFAULT_LANGUAGE;
 
-  // 2. Fall back to English if missing
-  if (text === null && activeLanguage !== DEFAULT_LANGUAGE) {
+  // 1. Try target language
+  let text = resolvePath(LOCALES[targetLang], key);
+
+  // 2. Fall back to English if missing and target was not English
+  if (text === null && targetLang !== DEFAULT_LANGUAGE) {
     text = resolvePath(LOCALES[DEFAULT_LANGUAGE], key);
   }
 
@@ -139,8 +141,6 @@ export const t = (
     if (resolvedDefault !== undefined) {
       text = resolvedDefault;
     } else if (key && key.includes('.')) {
-      // Namespaced key like 'citizen.submit.registerItem'
-      // Return empty string so `t('...') || 'Fallback'` evaluates right-hand fallback
       text = '';
     } else {
       text = key;
@@ -156,3 +156,29 @@ export const t = (
 
   return text;
 };
+
+/**
+ * Universal translation function
+ * Resolves translation with active language -> fallback to English -> fallback to key.
+ * Interpolates parameters in the form `{paramName}`.
+ */
+export const t = (
+  key: string,
+  params?: Record<string, string | number> | string,
+  defaultValue?: string
+): string => {
+  return tForLocale(activeLanguage, key, params, defaultValue);
+};
+
+/**
+ * English-locked translation function
+ * Always resolves against English dictionary regardless of user's active language.
+ */
+export const tEnglish = (
+  key: string,
+  params?: Record<string, string | number> | string,
+  defaultValue?: string
+): string => {
+  return tForLocale(DEFAULT_LANGUAGE, key, params, defaultValue);
+};
+

@@ -14,6 +14,8 @@ import {
   initI18n,
   subscribeLanguageChange,
   t,
+  tForLocale,
+  tEnglish,
 } from './core';
 
 export * from './core';
@@ -34,11 +36,20 @@ export const I18nContext = createContext<I18nContextType>({
   isReady: true,
 });
 
-export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentLang, setCurrentLang] = useState<SupportedLanguage>(getLanguage());
-  const [isReady, setIsReady] = useState(false);
+export const I18nProvider: React.FC<{ children: React.ReactNode; language?: SupportedLanguage }> = ({
+  children,
+  language: overrideLanguage,
+}) => {
+  const [currentLang, setCurrentLang] = useState<SupportedLanguage>(overrideLanguage || getLanguage());
+  const [isReady, setIsReady] = useState(Boolean(overrideLanguage));
 
   useEffect(() => {
+    if (overrideLanguage) {
+      setCurrentLang(overrideLanguage);
+      setIsReady(true);
+      return;
+    }
+
     let isMounted = true;
     initI18n().then((loadedLang) => {
       if (isMounted) {
@@ -57,23 +68,23 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isMounted = false;
       unsubscribe();
     };
-  }, []);
+  }, [overrideLanguage]);
 
   const handleSetLanguage = useCallback(async (lang: SupportedLanguage) => {
+    if (overrideLanguage) return; // Locked scope
     await setLanguage(lang);
     setCurrentLang(lang);
-  }, []);
+  }, [overrideLanguage]);
 
   const translate = useCallback(
     (key: string, params?: Record<string, string | number> | string, defaultValue?: string) => {
-      return t(key, params, defaultValue);
+      return tForLocale(overrideLanguage || currentLang, key, params, defaultValue);
     },
-    // re-create translate reference whenever currentLang updates so components re-render with new language
-    [currentLang]
+    [overrideLanguage, currentLang]
   );
 
   const contextValue = {
-    language: currentLang,
+    language: overrideLanguage || currentLang,
     setLanguage: handleSetLanguage,
     t: translate,
     supportedLanguages: LANGUAGE_OPTIONS,
@@ -81,6 +92,14 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return <I18nContext.Provider value={contextValue}>{children}</I18nContext.Provider>;
+};
+
+/**
+ * Isolated scope component that locks all child components and quotation screens to English,
+ * strictly complying with SIH quotation English-only requirements without affecting global language.
+ */
+export const QuotationLanguageScope: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return <I18nProvider language="en">{children}</I18nProvider>;
 };
 
 /**
@@ -100,5 +119,21 @@ export const useI18n = (): I18nContextType => {
   return ctx;
 };
 
+/**
+ * Scoped hook for quotation screens to always resolve in English regardless of global language
+ */
+export const useEnglishI18n = (): I18nContextType => {
+  return {
+    language: 'en',
+    setLanguage: async () => {},
+    t: tEnglish,
+    supportedLanguages: LANGUAGE_OPTIONS,
+    isReady: true,
+  };
+};
+
+export const useQuotationI18n = useEnglishI18n;
+
 export const useTranslation = useI18n;
+
 

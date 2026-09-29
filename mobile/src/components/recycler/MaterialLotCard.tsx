@@ -20,6 +20,16 @@ export interface MarketLot {
   status: string;
   askingPrice?: number | string;
   listingPurpose?: string;
+  myOffer?: {
+    id: string;
+    amount?: number;
+    quotedUnitPrice?: number;
+    unit?: string;
+    quantity?: number;
+    status: string;
+    submittedAt?: string;
+    notes?: string;
+  } | null;
 }
 
 interface MaterialLotCardProps {
@@ -44,7 +54,8 @@ export const MaterialLotCard: React.FC<MaterialLotCardProps> = ({
     : lot.condition ? t(`condition.${lot.condition.toLowerCase()}`, lot.condition)
     : '—';
 
-  const hasAsk    = lot.askingPrice && Number(lot.askingPrice) > 0;
+  const hasAsk = lot.askingPrice && Number(lot.askingPrice) > 0;
+  const myOfferAmount = lot.myOffer ? (lot.myOffer.quotedUnitPrice || lot.myOffer.amount) : null;
 
   return (
     <TouchableOpacity
@@ -124,6 +135,19 @@ export const MaterialLotCard: React.FC<MaterialLotCardProps> = ({
         )}
       </View>
 
+      {/* Submitted Offer Status Strip */}
+      {lot.myOffer && (
+        <View style={styles.submittedOfferRow}>
+          <View style={styles.submittedOfferBadge}>
+            <AppIcon name="award" size={14} color="#34D399" />
+            <Text style={styles.submittedOfferText}>
+              OFFER SUBMITTED · ₹{myOfferAmount}{lot.myOffer.unit === 'PER_KG' ? '/kg' : ''}
+            </Text>
+          </View>
+          <Text style={styles.submittedOfferStatus}>{lot.myOffer.status}</Text>
+        </View>
+      )}
+
       {/* Actions */}
       <View style={styles.actions}>
         <TouchableOpacity
@@ -135,11 +159,13 @@ export const MaterialLotCard: React.FC<MaterialLotCardProps> = ({
         </TouchableOpacity>
         {onOffer && (
           <TouchableOpacity
-            style={styles.offerBtn}
+            style={[styles.offerBtn, lot.myOffer && styles.editOfferBtn]}
             onPress={onOffer}
             accessibilityRole="button"
           >
-            <Text style={styles.offerBtnText}>{t('recycler.makeOffer', 'MAKE OFFER')}</Text>
+            <Text style={[styles.offerBtnText, lot.myOffer && styles.editOfferBtnText]}>
+              {lot.myOffer ? 'EDIT OFFER' : t('recycler.makeOffer', 'MAKE OFFER')}
+            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -254,6 +280,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   offerBtnText: { color: '#10B981', fontSize: 13, fontWeight: '800', letterSpacing: 0.3 },
+  submittedOfferRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(52, 211, 153, 0.35)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  submittedOfferBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  submittedOfferText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#34D399',
+    letterSpacing: 0.3,
+  },
+  submittedOfferStatus: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#10B981',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  editOfferBtn: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderColor: 'rgba(56, 189, 248, 0.45)',
+  },
+  editOfferBtnText: {
+    color: '#38BDF8',
+  },
 });
 
 export default MaterialLotCard;

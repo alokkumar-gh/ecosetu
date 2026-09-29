@@ -24,7 +24,7 @@ import {
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useI18n } from '../../i18n';
 import { EcoSetuBackground } from '../../components/eco';
 import { colors } from '../../theme/colors';
@@ -125,9 +125,11 @@ export const RecyclerMarketplaceScreen: React.FC = () => {
     }
   }, [selectedCategory, selectedCondition, selectedSort, searchText, t]);
 
-  useEffect(() => {
-    fetchLots();
-  }, [fetchLots]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchLots();
+    }, [fetchLots])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -457,7 +459,28 @@ export const RecyclerMarketplaceScreen: React.FC = () => {
                   </View>
                 ) : null}
 
-                {/* Primary CTA: "View Lot" | Secondary CTA: "Make Offer" */}
+                {/* Offer submitted banner */}
+                {lot.myOffer ? (
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                    borderColor: 'rgba(16, 185, 129, 0.4)',
+                    borderWidth: 1,
+                    borderRadius: 8,
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    marginHorizontal: space.sm,
+                    marginBottom: space.xs,
+                  }}>
+                    <AppIcon name="checkCircle" size={13} color="#34D399" style={{ marginRight: 6 }} />
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#34D399', letterSpacing: 0.3 }}>
+                      OFFER SUBMITTED · ₹{Number(lot.myOffer.totalOfferedAmount || (lot.myOffer.offeredRatePerKg * (lot.approximateTotalWeightKg || 1)) || 0).toLocaleString('en-IN')}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {/* Primary CTA: "View Lot" | Secondary CTA: "Make Offer" / "Edit Offer" */}
                 <View style={styles.actionRow}>
                   <TouchableOpacity
                     style={styles.viewLotButton}
@@ -472,14 +495,19 @@ export const RecyclerMarketplaceScreen: React.FC = () => {
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={styles.makeOfferButton}
-                    onPress={() => navigation.navigate('RecyclerCreateQuote', { lot })}
+                    style={[styles.makeOfferButton, lot.myOffer && { backgroundColor: '#34D399' }]}
+                    onPress={() => navigation.navigate('RecyclerCreateQuote', {
+                      lot,
+                      existingQuote: lot.myOffer || undefined,
+                    })}
                     accessibilityRole="button"
-                    accessibilityLabel="Make Offer"
+                    accessibilityLabel={lot.myOffer ? 'Edit Offer' : 'Make Offer'}
                   >
                     <View style={styles.btnRow}>
-                      <AppIcon name="dollarSign" size={14} color="#071E22" strokeWidth={2.5} />
-                      <Text style={styles.makeOfferButtonText}>Make Offer</Text>
+                      <AppIcon name={lot.myOffer ? 'edit' : 'dollarSign'} size={14} color="#071E22" strokeWidth={2.5} />
+                      <Text style={styles.makeOfferButtonText}>
+                        {lot.myOffer ? 'Edit Offer' : 'Make Offer'}
+                      </Text>
                     </View>
                   </TouchableOpacity>
                 </View>

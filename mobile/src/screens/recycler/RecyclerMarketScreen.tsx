@@ -35,7 +35,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useI18n } from '../../i18n';
 import { EcoSetuBackground } from '../../components/glass/EcoSetuBackground';
 import {
@@ -66,10 +66,11 @@ function mapLotToMarketLot(lot: any): MarketLot {
     location:              lot.location || lot.city,
     distanceKm:            typeof lot.distanceKm === 'number' ? lot.distanceKm : undefined,
     pickupAvailable:       Boolean(lot.pickupAvailable),
-    offerCount:            lot.quoteCount ?? lot.offerCount ?? 0,
+    offerCount:            lot.quoteCount ?? lot.offerCount ?? (lot._count?.quotes ?? 0),
     status:                lot.status || 'OPEN',
-    askingPrice:           lot.askingPricePerKg || lot.pricePerKg,
+    askingPrice:           lot.askingPricePerKg || lot.pricePerKg || lot.askingPrice,
     listingPurpose:        lot.listingPurpose,
+    myOffer:               lot.myOffer || null,
   };
 }
 
@@ -116,7 +117,6 @@ export const RecyclerMarketScreen: React.FC = () => {
 
     try {
       const params: any = {
-        status:  'OPEN',
         limit:   15,
         page:    pg,
       };
@@ -153,10 +153,12 @@ export const RecyclerMarketScreen: React.FC = () => {
     } catch { /* silent */ }
   }, []);
 
-  useEffect(() => {
-    loadProcurementCounters();
-    loadMarket({ reset: true, cat: 'ALL', pg: 1 });
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadProcurementCounters();
+      loadMarket({ reset: true, cat: category, searchQ: currentSearch.current, pg: 1 });
+    }, [category, loadProcurementCounters, loadMarket])
+  );
 
   const onRefresh = () => {
     setIsRefreshing(true);
@@ -303,6 +305,7 @@ export const RecyclerMarketScreen: React.FC = () => {
                   lot: item,
                   materialCategory: item.category,
                   quantity: item.approximateTotalWeightKg,
+                  existingQuote: item.myOffer || undefined,
                 })}
               />
             )}

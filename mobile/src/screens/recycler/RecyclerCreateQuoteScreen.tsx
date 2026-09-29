@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { useI18n } from '../../i18n';
+import { useQuotationI18n, QuotationLanguageScope } from '../../i18n';
 import { EcoSetuBackground } from '../../components/eco';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
@@ -33,22 +33,27 @@ const space = {
 };
 
 export const RecyclerCreateQuoteScreen: React.FC = () => {
-  const { t } = useI18n();
+  const { t } = useQuotationI18n();
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
 
-
   const lot = route.params?.lot;
   const matchData = route.params?.matchData;
+  const existingQuote = route.params?.existingQuote || lot?.myOffer;
+  const isEditing = Boolean(existingQuote);
 
-  const initialWeight = lot?.approximateTotalWeightKg ? Number(lot.approximateTotalWeightKg) : (lot?.weightKg ? Number(lot.weightKg) : 1);
-  const initialRate = matchData?.offeredRate?.amount ? String(matchData.offeredRate.amount) : '';
+  const initialWeight = existingQuote?.quantity
+    ? Number(existingQuote.quantity)
+    : (lot?.approximateTotalWeightKg ? Number(lot.approximateTotalWeightKg) : (lot?.weightKg ? Number(lot.weightKg) : 1));
+  const initialRate = existingQuote?.quotedUnitPrice
+    ? String(existingQuote.quotedUnitPrice)
+    : (existingQuote?.amount ? String(existingQuote.amount) : (matchData?.offeredRate?.amount ? String(matchData.offeredRate.amount) : ''));
 
   const [unitPrice, setUnitPrice] = useState<string>(initialRate);
   const [quantity, setQuantity] = useState<string>(String(initialWeight));
-  const [unit, setUnit] = useState<string>(matchData?.offeredRate?.unit || 'PER_KG');
+  const [unit, setUnit] = useState<string>(existingQuote?.unit || matchData?.offeredRate?.unit || 'PER_KG');
   const [validityDays, setValidityDays] = useState<number>(7);
-  const [notes, setNotes] = useState<string>('');
+  const [notes, setNotes] = useState<string>(existingQuote?.notes || '');
   const [submitting, setSubmitting] = useState<boolean>(false);
 
   const numericPrice = parseFloat(unitPrice) || 0;
@@ -79,30 +84,50 @@ export const RecyclerCreateQuoteScreen: React.FC = () => {
       return;
     }
 
-    const validUntilDate = new Date();
-    validUntilDate.setDate(validUntilDate.getDate() + validityDays);
-
     setSubmitting(true);
     try {
-      const created = await quoteService.createQuote({
-        materialLotId: lot.id,
-        quotedUnitPrice: numericPrice,
-        unit,
-        quotedQuantity: numericQty,
-        validUntil: validUntilDate.toISOString(),
-        notes: notes.trim() || undefined,
-      });
+      if (isEditing && existingQuote?.id) {
+        // Update existing offer via counter/revision endpoint
+        const updated = await quoteService.counterQuote(
+          existingQuote.id,
+          numericPrice,
+          notes.trim() || undefined
+        );
 
-      Alert.alert(
-        t('common.success') || 'Success',
-        `Quote ${created.referenceNumber} submitted successfully!`,
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
+        Alert.alert(
+          t('common.success') || 'Success',
+          `Offer updated successfully to ₹${numericPrice}!`,
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.goBack(),
+            },
+          ]
+        );
+      } else {
+        const validUntilDate = new Date();
+        validUntilDate.setDate(validUntilDate.getDate() + validityDays);
+
+        const created = await quoteService.createQuote({
+          materialLotId: lot.id,
+          quotedUnitPrice: numericPrice,
+          unit,
+          quotedQuantity: numericQty,
+          validUntil: validUntilDate.toISOString(),
+          notes: notes.trim() || undefined,
+        });
+
+        Alert.alert(
+          t('common.success') || 'Success',
+          `Quote ${created.referenceNumber} submitted successfully!`,
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.goBack(),
+            },
+          ]
+        );
+      }
     } catch (err: any) {
       Alert.alert(t('common.error') || 'Error', err.message || 'Failed to submit quote');
     } finally {
@@ -111,19 +136,22 @@ export const RecyclerCreateQuoteScreen: React.FC = () => {
   };
 
   return (
-    <EcoSetuBackground>
-      <SafeAreaView style={styles.safeArea}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            accessibilityRole="button"
-          >
-            <Text style={styles.backButtonText}>← {t('common.back')}</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>{t('quotation.sendQuoteTitle')}</Text>
-        </View>
+    <QuotationLanguageScope>
+      <EcoSetuBackground>
+        <SafeAreaView style={styles.safeArea}>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+              accessibilityRole="button"
+            >
+              <Text style={styles.backButtonText}>← {t('common.back')}</Text>
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>
+              {isEditing ? (t('quotation.editOffer') || 'Edit Offer') : (t('quotation.sendQuoteTitle') || 'Submit Commercial Quotation')}
+            </Text>
+          </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {/* Material Lot Summary */}
@@ -237,7 +265,9 @@ export const RecyclerCreateQuoteScreen: React.FC = () => {
               ) : (
                 <View style={styles.btnRow}>
                   <AppIcon name="send" size={18} color="#071E22" />
-                  <Text style={styles.submitButtonText}>{t('quotation.sendQuote')}</Text>
+                  <Text style={styles.submitButtonText}>
+                    {isEditing ? (t('quotation.updateOffer') || 'Update Offer') : (t('quotation.sendQuote') || 'Submit Formal Quotation')}
+                  </Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -245,6 +275,7 @@ export const RecyclerCreateQuoteScreen: React.FC = () => {
         </ScrollView>
       </SafeAreaView>
     </EcoSetuBackground>
+  </QuotationLanguageScope>
   );
 };
 
