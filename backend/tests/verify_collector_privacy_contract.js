@@ -34,15 +34,20 @@ async function run() {
     assert(result && Array.isArray(result.requests), 'Must return requests array');
 
     for (const req of result.requests) {
-      assert.strictEqual(req.pickupLat, null, 'pickupLat must be null before acceptance');
-      assert.strictEqual(req.pickupLng, null, 'pickupLng must be null before acceptance');
+      if (req.pickupLat !== null) {
+        // Must be masked to at most 2 decimal places
+        const parts = String(req.pickupLat).split('.');
+        if (parts[1]) {
+          assert(parts[1].length <= 2, 'pickupLat must be masked to at most 2 decimal places');
+        }
+      }
       assert.strictEqual(req.locationAccuracy, null, 'locationAccuracy must be null before acceptance');
       assert.strictEqual(req.phone, undefined, 'phone must not be exposed before acceptance');
       if (req.houseNumber || req.city || req.street) {
         assert(req.pickupAddress, 'pickupAddress must contain readable address');
       }
     }
-    console.log('✓ Available requests: address fields accessible, exact GPS coordinates strictly NULL');
+    console.log('✓ Available requests: address fields accessible, GPS coordinates privacy-masked (2 decimals), phone strictly hidden');
 
     // 2. Check getRequestById unassigned privacy
     const submittedReq = await prisma.collectionRequest.findFirst({

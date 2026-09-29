@@ -49,6 +49,7 @@ import {
   KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../hooks/useAuth';
 import { useNetwork } from '../../hooks/useNetwork';
 import { TopAppBar } from '../../components/layout/TopAppBar';
@@ -57,6 +58,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { OfflineBanner } from '../../components/common/OfflineBanner';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { collectorService } from '../../services/collectorService';
+import { collectorSyncService } from '../../services/collectorSyncService';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -205,8 +207,33 @@ export const CollectorPickupsScreen: React.FC<Props> = ({ navigation, route }) =
     }
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      loadPickups(true);
+    }, [loadPickups])
+  );
+
   useEffect(() => {
     loadPickups(false);
+
+    // Subscribe to dynamic realtime updates (e.g. OFFER_ACCEPTED, PICKUP_SCHEDULED)
+    const unsub = collectorSyncService.subscribe((syncData) => {
+      if (syncData && Array.isArray(syncData.pendingPickups) && syncData.pendingPickups.length > 0) {
+        setPickups((prev) => {
+          const map = new Map<string, any>();
+          prev.forEach((p) => map.set(p.id, p));
+          syncData.pendingPickups.forEach((p) => {
+            const existing = map.get(p.id);
+            map.set(p.id, existing ? { ...existing, ...p } : p);
+          });
+          return Array.from(map.values());
+        });
+      }
+    });
+
+    return () => {
+      unsub();
+    };
   }, [loadPickups]);
 
   // ── Pull-to-refresh ────────────────────────────────────────────────────────

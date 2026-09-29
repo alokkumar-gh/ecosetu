@@ -77,7 +77,7 @@ export type CollectorStackParamList = {
     intent?: string;
   } | undefined;
   CollectorLots: { filterStatus?: string } | undefined;
-  CollectorBrowse: undefined;
+  CollectorBrowse: { initialView?: 'LIST' | 'MAP' } | undefined;
   CollectorPickups: undefined;
   CollectorLotDetail: { lotId: string; lot?: any };
   CollectorPriceBoard: { preselectedCategory?: string; preselectedLocation?: string } | undefined;

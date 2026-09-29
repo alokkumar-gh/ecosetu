@@ -365,8 +365,10 @@ class RequestService {
       if (searchLng === null && profile.serviceAreaLng !== null) {
         searchLng = parseFloat(profile.serviceAreaLng);
       }
-      if (!radiusKm && profile.serviceRadiusKm !== null) {
-        searchRadius = parseFloat(profile.serviceRadiusKm);
+      if (radiusKm) {
+        searchRadius = parseFloat(radiusKm);
+      } else {
+        searchRadius = Math.max(50.0, parseFloat(profile.serviceRadiusKm || 50.0));
       }
     }
 
@@ -399,20 +401,23 @@ class RequestService {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Distance filtering if location is known, with city-level fallback
+    // Distance filtering if location is known, with district/state fallback
     let filtered = allSubmitted;
     if (searchLat !== null && searchLng !== null && !isNaN(searchLat) && !isNaN(searchLng) && !(searchLat === 0 && searchLng === 0)) {
       filtered = allSubmitted.filter((req) => {
         const reqLat = parseFloat(req.pickupLat);
         const reqLng = parseFloat(req.pickupLng);
         const sameCity = profile?.city && req.city && profile.city.trim().toLowerCase() === req.city.trim().toLowerCase();
+        const sameDistrict = profile?.district && req.district && profile.district.trim().toLowerCase() === req.district.trim().toLowerCase();
+        const sameState = profile?.state && req.state && profile.state.trim().toLowerCase() === req.state.trim().toLowerCase();
+
         if (
           !isNaN(reqLat) && !isNaN(reqLng) &&
           !(reqLat === 0 && reqLng === 0)
         ) {
           const dist = calculateDistanceKm(searchLat, searchLng, reqLat, reqLng);
-          return dist <= searchRadius || sameCity;
-        } else if (sameCity) {
+          return dist <= searchRadius || sameCity || sameDistrict || sameState;
+        } else if (sameCity || sameDistrict || sameState) {
           return true;
         }
         return true;
@@ -443,6 +448,18 @@ class RequestService {
           ? (r.pickupOffers || []).find((o) => o.collectorId === collectorProfileId) || null
           : null;
 
+        const distKm =
+          searchLat !== null &&
+          searchLng !== null &&
+          !isNaN(searchLat) &&
+          !isNaN(searchLng) &&
+          r.pickupLat !== null &&
+          r.pickupLng !== null &&
+          !isNaN(parseFloat(r.pickupLat)) &&
+          !isNaN(parseFloat(r.pickupLng))
+            ? Math.round(calculateDistanceKm(searchLat, searchLng, parseFloat(r.pickupLat), parseFloat(r.pickupLng)) * 10) / 10
+            : null;
+
         return {
           ...r,
           citizenName: r.citizen?.name || 'Citizen',
@@ -462,8 +479,9 @@ class RequestService {
           state: r.state || null,
           pincode: r.pincode || null,
           addressType: r.addressType || null,
-          pickupLat: null,
-          pickupLng: null,
+          pickupLat: maskedLat !== null ? String(maskedLat) : null,
+          pickupLng: maskedLng !== null ? String(maskedLng) : null,
+          distanceKm: distKm,
           locationAccuracy: null,
           standardPrice,
           offersCount: activeOffers.length,

@@ -31,7 +31,7 @@ import {
   Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../hooks/useAuth';
 import { useNetwork } from '../../hooks/useNetwork';
 import { useI18n } from '../../i18n';
@@ -148,6 +148,12 @@ export const CollectorDashboardScreen: React.FC = () => {
       setIsRefreshing(false);
     }
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData(true);
+    }, [loadData])
+  );
 
   useEffect(() => {
     loadData();
@@ -377,7 +383,13 @@ export const CollectorDashboardScreen: React.FC = () => {
                 )}
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => navigation.navigate('CollectorPickups')}
+                onPress={() => {
+                  if (activePickups.length > 0) {
+                    navigation.navigate('CollectorPickups');
+                  } else {
+                    navigation.navigate('CollectorBrowse', { initialView: 'MAP' });
+                  }
+                }}
                 style={styles.pendingPickupsSeeAll}
                 activeOpacity={0.7}
                 accessibilityRole="button"
@@ -531,7 +543,11 @@ export const CollectorDashboardScreen: React.FC = () => {
                 </View>
                 <TouchableOpacity
                   style={styles.claimPickupsBtn}
-                  onPress={() => navigation.navigate('CollectorBrowse')}
+                  onPress={() =>
+                    navigation.navigate('CollectorBrowse', {
+                      initialView: availableRequests.length > 0 ? 'LIST' : 'MAP',
+                    })
+                  }
                 >
                   <Text style={styles.claimPickupsBtnText}>
                     {availableRequests.length > 0

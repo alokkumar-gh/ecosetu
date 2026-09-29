@@ -19,6 +19,8 @@ export interface CollectorRealtimeRequest {
   imageUrl?: string | null;
   distanceKm?: number | null;
   pickupAddress?: string;
+  pickupLat?: number | string | null;
+  pickupLng?: number | string | null;
   city?: string;
   status?: string;
   createdAt?: string;
@@ -109,6 +111,19 @@ class CollectorSyncService {
       notifType === 'REQUEST_AVAILABLE' ||
       notifType === 'COLLECTOR_PICKUP_REQUEST_AVAILABLE';
 
+    const isPickupAssigned =
+      notifType === 'OFFER_ACCEPTED' ||
+      notifType === 'REQUEST_ACCEPTED' ||
+      notifType === 'PICKUP_ASSIGNED' ||
+      notifType === 'PICKUP_SCHEDULED';
+
+    if (isPickupAssigned) {
+      // Citizen accepted offer or assigned pickup -> trigger authoritative pickup refresh
+      this.refreshPickups().catch(() => {});
+      this.refreshAvailableRequests().catch(() => {});
+      return;
+    }
+
     if (isRequestAvailable) {
       const payload = notification.data || notification;
       const rawId = payload.requestId || payload.referenceId || payload.id;
@@ -126,6 +141,8 @@ class CollectorSyncService {
         imageUrl: payload.imageUrl || null,
         distanceKm: payload.distanceKm ? parseFloat(payload.distanceKm) : null,
         pickupAddress: payload.pickupAddress || 'Service location verified',
+        pickupLat: payload.pickupLat || payload.latitude || null,
+        pickupLng: payload.pickupLng || payload.longitude || null,
         status: 'SUBMITTED',
         createdAt: payload.createdAt || new Date().toISOString(),
         ewasteItems: [
@@ -269,6 +286,33 @@ class CollectorSyncService {
       return deduped;
     } catch (err) {
       return this._cachedData.availableRequests;
+    }
+  }
+
+  /**
+   * Refresh assigned/pending pickups list authoritatively
+   */
+  public async refreshPickups(): Promise<any[]> {
+    if (!networkService.isConnected()) {
+      return this._cachedData.pendingPickups;
+    }
+
+    try {
+      const res = await (collectorService as any).getMyPickups({ limit: 50 });
+      const rawPickups = res?.pickups || res?.data || [];
+      const pickups = Array.isArray(rawPickups) ? rawPickups : [];
+
+      this._cachedData = {
+        ...this._cachedData,
+        pendingPickups: pickups,
+        lastSyncedAt: Date.now(),
+        fromCache: false,
+      };
+
+      this._notify();
+      return pickups;
+    } catch (err) {
+      return this._cachedData.pendingPickups;
     }
   }
 

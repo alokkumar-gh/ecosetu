@@ -52,6 +52,7 @@ import {
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../hooks/useAuth';
 import { useNetwork } from '../../hooks/useNetwork';
 import { TopAppBar } from '../../components/layout/TopAppBar';
@@ -1047,7 +1048,7 @@ const footerStyles = StyleSheet.create({
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
-export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
+export const CollectorBrowseScreen: React.FC<{ navigation?: any; route?: any }> = ({ navigation, route }) => {
   const { user } = useAuth();
   const { isConnected } = useNetwork();
   const { t, language } = useI18n();
@@ -1094,7 +1095,16 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
   const [isVerificationError, setIsVerificationError] = useState<boolean>(false);
 
   // ── View mode state (List vs Map) ───────────────────────────────────────────
-  const [activeView, setActiveView] = useState<'LIST' | 'MAP'>('LIST');
+  const [activeView, setActiveView] = useState<'LIST' | 'MAP'>(
+    route?.params?.initialView === 'MAP' ? 'MAP' : 'LIST',
+  );
+
+  useEffect(() => {
+    if (route?.params?.initialView) {
+      setActiveView(route.params.initialView);
+    }
+  }, [route?.params?.initialView]);
+
   const [selectedMapRequest, setSelectedMapRequest] = useState<any | null>(null);
   const [collectorLocation, setCollectorLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [isLocating, setIsLocating] = useState<boolean>(false);
@@ -1311,6 +1321,12 @@ export const CollectorBrowseScreen: React.FC<{ navigation?: any }> = ({ navigati
       setIsRefreshing(false);
     }
   }, [isVoiceEnabled, language, t]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadRequests(true);
+    }, [loadRequests])
+  );
 
   useEffect(() => {
     loadRequests(false);
